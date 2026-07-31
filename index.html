@@ -99,6 +99,7 @@
   .layers-accordion-content.open{display:block;}
   .layers-section.layers-section-accordion{border:1.5px solid rgba(226,232,240,.55) !important; border-radius:10px; padding:10px 12px;
     background:rgba(255,255,255,.03);}
+  .gist-sync-block{margin-top:12px; padding-top:12px; border-top:1px solid #1e293b;}
   .layers-option{display:flex; align-items:center; gap:9px; padding:6px 2px; cursor:pointer; font-size:13px; color:#e2e8f0;}
   .layers-option input{accent-color:var(--cyan); width:15px; height:15px; flex-shrink:0; cursor:pointer;}
   .layers-option .swatch{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
@@ -459,6 +460,31 @@
             <button class="home-action-btn" id="importAnchorsBtn">Import names</button>
           </div>
           <input type="file" id="importAnchorsFile" accept="application/json" style="display:none;" />
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">Backup &amp; sync</p>
+          <p class="layers-hint">Download or restore everything — waypoints, photos, notes, and app settings — as one file.</p>
+          <div class="home-actions">
+            <button class="home-action-btn" id="exportBackupBtn">Download backup</button>
+            <button class="home-action-btn" id="importBackupBtn">Restore backup</button>
+          </div>
+          <input type="file" id="importBackupFile" accept="application/json" style="display:none;" />
+
+          <div class="gist-sync-block">
+            <p class="layers-section-title" style="margin-top:14px;">GitHub Gist sync</p>
+            <p class="layers-hint">Sync waypoints between devices via a private GitHub Gist. Needs a personal access token with <span class="mono">gist</span> scope — the token stays on this device and is never included in exports or the synced data itself.</p>
+            <label class="field-label" style="margin-top:8px;">Access token</label>
+            <input type="password" id="gistTokenInput" class="field-input" placeholder="ghp_…" autocomplete="off" />
+            <label class="field-label" style="margin-top:10px;">Gist ID</label>
+            <input type="text" id="gistIdInput" class="field-input" placeholder="Leave blank to create a new one" autocomplete="off" />
+            <p class="layers-hint" id="gistStatusText" style="margin-top:6px;"></p>
+            <div class="home-actions" style="margin-top:8px;">
+              <button class="home-action-btn" id="gistCreateBtn">Create new Gist</button>
+              <button class="home-action-btn" id="gistPushBtn">Push to Gist</button>
+              <button class="home-action-btn" id="gistPullBtn">Pull from Gist</button>
+            </div>
+          </div>
         </div>
         </div>
       </div>
@@ -1061,6 +1087,15 @@
   const exportAnchorsBtn = el("exportAnchorsBtn");
   const importAnchorsBtn = el("importAnchorsBtn");
   const importAnchorsFile = el("importAnchorsFile");
+  const exportBackupBtn = el("exportBackupBtn");
+  const importBackupBtn = el("importBackupBtn");
+  const importBackupFile = el("importBackupFile");
+  const gistTokenInput = el("gistTokenInput");
+  const gistIdInput = el("gistIdInput");
+  const gistStatusText = el("gistStatusText");
+  const gistCreateBtn = el("gistCreateBtn");
+  const gistPushBtn = el("gistPushBtn");
+  const gistPullBtn = el("gistPullBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
   const anchorModalCellId = el("anchorModalCellId");
@@ -1983,6 +2018,184 @@
       importAnchorsFile.value = "";
     };
     reader.readAsText(file);
+  });
+
+  /* ================================================================ */
+  /*  Backup & sync — full JSON export/import, plus optional GitHub    */
+  /*  Gist sync. The access token and Gist ID are stored under their    */
+  /*  own localStorage keys, deliberately kept OUT of both the JSON     */
+  /*  export and the Gist payload itself — a credential should never    */
+  /*  end up inside the data being backed up or shared.                 */
+  /* ================================================================ */
+
+  function buildBackupPayload() {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      waypoints: JSON.parse(JSON.stringify(waypoints)),
+      settings: {
+        home: settings.home || null,
+        anchorOverrides: settings.anchorOverrides || {}
+      }
+    };
+  }
+
+  // Shared by both file-based restore and Gist pull. Deliberately conservative:
+  // waypoints are only ever added (an existing local waypoint is never
+  // overwritten, so a restore/pull can't silently clobber an edit made on this
+  // device), anchor region names are merged in since they're just shared
+  // labels, and Home is only adopted if this device doesn't already have one set.
+  function mergeBackupPayload(payload) {
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
+      throw new Error("Not a recognized MapApp backup file.");
+    }
+    let added = 0, skipped = 0;
+    payload.waypoints.forEach((wp) => {
+      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
+      if (waypoints.some((existing) => existing.id === wp.id)) { skipped++; return; }
+      waypoints.push(wp);
+      addSavedMarker(wp);
+      if (wp.hexColor) addWaypointHexHighlight(wp);
+      added++;
+    });
+    if (added > 0) { saveWaypoints(); renderList(); updateCounters(); }
+
+    let anchorsApplied = 0;
+    if (payload.settings && payload.settings.anchorOverrides) {
+      Object.keys(payload.settings.anchorOverrides).forEach((cell) => {
+        if (!anchorCellToDefaultWord.has(cell)) return;
+        const res = setAnchorOverride(cell, payload.settings.anchorOverrides[cell]);
+        if (res.ok) anchorsApplied++;
+      });
+      if (anchorsApplied > 0) { refreshCuratedCount(); refreshAllHexCells(); }
+    }
+
+    let homeAdopted = false;
+    if (!settings.home && payload.settings && payload.settings.home) {
+      const h = payload.settings.home;
+      setHome(h.lat, h.lng, h.zoom, h);
+      homeAdopted = true;
+    }
+
+    return { added, skipped, anchorsApplied, homeAdopted };
+  }
+
+  exportBackupBtn.addEventListener("click", () => {
+    const data = JSON.stringify(buildBackupPayload(), null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "mapapp-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Backup downloaded");
+  });
+
+  importBackupBtn.addEventListener("click", () => importBackupFile.click());
+  importBackupFile.addEventListener("change", () => {
+    const file = importBackupFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(String(reader.result));
+        const result = mergeBackupPayload(payload);
+        let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
+        if (result.skipped) msg += " (" + result.skipped + " already saved)";
+        showToast(msg);
+      } catch (e) {
+        showToast("Couldn't read that file — expected a MapApp backup JSON.");
+      }
+      importBackupFile.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  /* ---------- GitHub Gist sync ---------- */
+  const GIST_TOKEN_KEY = "mapapp:githubToken";
+  const GIST_ID_KEY = "mapapp:githubGistId";
+  const GIST_FILENAME = "mapapp-waypoints-backup.json";
+
+  gistTokenInput.value = localStorage.getItem(GIST_TOKEN_KEY) || "";
+  gistIdInput.value = localStorage.getItem(GIST_ID_KEY) || "";
+  gistTokenInput.addEventListener("change", () => localStorage.setItem(GIST_TOKEN_KEY, gistTokenInput.value.trim()));
+  gistIdInput.addEventListener("change", () => localStorage.setItem(GIST_ID_KEY, gistIdInput.value.trim()));
+
+  function githubHeaders() {
+    return {
+      "Authorization": "token " + gistTokenInput.value.trim(),
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json"
+    };
+  }
+
+  gistCreateBtn.addEventListener("click", async () => {
+    const token = gistTokenInput.value.trim();
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    gistStatusText.textContent = "Creating gist…";
+    try {
+      const res = await fetch("https://api.github.com/gists", {
+        method: "POST",
+        headers: githubHeaders(),
+        body: JSON.stringify({
+          description: "MapApp waypoint backup (secret — anyone with the link can view it)",
+          public: false,
+          files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } }
+        })
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      gistIdInput.value = data.id;
+      localStorage.setItem(GIST_ID_KEY, data.id);
+      gistStatusText.textContent = "Created and synced just now.";
+      showToast("Gist created and synced.");
+    } catch (e) {
+      gistStatusText.textContent = "Couldn't create the gist — check your token.";
+      showToast("Couldn't create the gist — check your access token.");
+    }
+  });
+
+  gistPushBtn.addEventListener("click", async () => {
+    const token = gistTokenInput.value.trim();
+    const gistId = gistIdInput.value.trim();
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    if (!gistId) { showToast("No Gist ID yet — create one first."); return; }
+    gistStatusText.textContent = "Pushing…";
+    try {
+      const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), {
+        method: "PATCH",
+        headers: githubHeaders(),
+        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } } })
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      gistStatusText.textContent = "Pushed just now.";
+      showToast("Synced to Gist.");
+    } catch (e) {
+      gistStatusText.textContent = "Push failed — check your token and Gist ID.";
+      showToast("Couldn't push to the Gist.");
+    }
+  });
+
+  gistPullBtn.addEventListener("click", async () => {
+    const token = gistTokenInput.value.trim();
+    const gistId = gistIdInput.value.trim();
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    if (!gistId) { showToast("Paste a Gist ID to pull from."); return; }
+    gistStatusText.textContent = "Pulling…";
+    try {
+      const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), { headers: githubHeaders() });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const file = data.files && data.files[GIST_FILENAME];
+      if (!file) throw new Error("Expected file not found in gist");
+      const payload = JSON.parse(file.content);
+      const result = mergeBackupPayload(payload);
+      gistStatusText.textContent = "Pulled just now.";
+      showToast("Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s") + " from Gist.");
+    } catch (e) {
+      gistStatusText.textContent = "Pull failed — check your token and Gist ID.";
+      showToast("Couldn't pull from the Gist.");
+    }
   });
 
   refreshCuratedCount();
