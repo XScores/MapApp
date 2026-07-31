@@ -78,10 +78,10 @@
   .btn-icon.layers-toggle{color:var(--cyan);}
   .btn-icon.layers-toggle:hover{border-color:rgba(34,211,238,.5);}
   .btn-icon.layers-toggle.active{border-color:rgba(34,211,238,.6); background:rgba(34,211,238,.1);}
-  .layers-panel{position:absolute; top:calc(100% + 6px); right:0; width:360px; max-width:calc(100vw - 20px);
+  .layers-panel{position:fixed; top:76px; left:50%; transform:translateX(-50%); width:440px; max-width:calc(100vw - 20px);
     max-height:calc(100vh - 100px); max-height:calc(100dvh - 100px); overflow-y:auto; background:rgba(15,23,42,.98);
     backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:14px; padding:14px;
-    box-shadow:0 12px 28px rgba(0,0,0,.4); display:none;}
+    box-shadow:0 12px 28px rgba(0,0,0,.4); display:none; z-index:26;}
   .layers-panel.show{display:block;}
   .layers-panel-header{position:sticky; top:-14px; margin:-14px -14px 12px; padding:14px 14px 12px;
     background:rgba(15,23,42,.98); z-index:1; display:flex; justify-content:space-between; align-items:center;}
@@ -1868,7 +1868,8 @@
     settings.weatherAccordionOpen = open;
     saveSettings();
   }
-  weatherAccordionToggle.addEventListener("click", () => {
+  weatherAccordionToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
     setWeatherAccordionOpen(!weatherAccordionContent.classList.contains("open"));
   });
 
@@ -1997,7 +1998,8 @@
     closeAnchorEditModal();
   });
 
-  exportAnchorsBtn.addEventListener("click", () => {
+  exportAnchorsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     const data = JSON.stringify(settings.anchorOverrides, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -2006,7 +2008,7 @@
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   });
-  importAnchorsBtn.addEventListener("click", () => importAnchorsFile.click());
+  importAnchorsBtn.addEventListener("click", (e) => { e.stopPropagation(); importAnchorsFile.click(); });
   importAnchorsFile.addEventListener("change", () => {
     const file = importAnchorsFile.files[0];
     if (!file) return;
@@ -2092,7 +2094,8 @@
     return { added, skipped, anchorsApplied, homeAdopted };
   }
 
-  exportBackupBtn.addEventListener("click", () => {
+  exportBackupBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     const data = JSON.stringify(buildBackupPayload(), null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -2103,7 +2106,7 @@
     showToast("Backup downloaded");
   });
 
-  importBackupBtn.addEventListener("click", () => importBackupFile.click());
+  importBackupBtn.addEventListener("click", (e) => { e.stopPropagation(); importBackupFile.click(); });
   importBackupFile.addEventListener("change", () => {
     const file = importBackupFile.files[0];
     if (!file) return;
@@ -2146,7 +2149,8 @@
   gistTokenInput.value = localStorage.getItem(GIST_TOKEN_KEY) || "";
   gistIdInput.value = localStorage.getItem(GIST_ID_KEY) || "";
   gistTokenInput.addEventListener("change", () => localStorage.setItem(GIST_TOKEN_KEY, gistTokenInput.value.trim()));
-  gistTokenVisibilityBtn.addEventListener("click", () => {
+  gistTokenVisibilityBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     const showing = gistTokenInput.type === "text";
     gistTokenInput.type = showing ? "password" : "text";
     gistTokenVisibilityBtn.innerHTML = icon(showing ? "eye" : "eyeOff", 15);
@@ -2179,7 +2183,8 @@
     return "GitHub returned HTTP " + res.status + (detail ? ": " + detail : "") + ".";
   }
 
-  gistCreateBtn.addEventListener("click", async () => {
+  gistCreateBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
     const token = gistTokenInput.value.trim();
     if (!token) { showToast("Paste a GitHub access token first."); return; }
     gistStatusText.textContent = "Creating gist…";
@@ -2212,7 +2217,8 @@
     }
   });
 
-  gistPushBtn.addEventListener("click", async () => {
+  gistPushBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
     const token = gistTokenInput.value.trim();
     const gistId = extractGistId(gistIdInput.value);
     if (!token) { showToast("Paste a GitHub access token first."); return; }
@@ -2240,7 +2246,8 @@
     }
   });
 
-  gistPullBtn.addEventListener("click", async () => {
+  gistPullBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
     const token = gistTokenInput.value.trim();
     const gistId = extractGistId(gistIdInput.value);
     if (!token) { showToast("Paste a GitHub access token first."); return; }
@@ -2264,11 +2271,30 @@
         showToast('That gist doesn\'t contain a "' + GIST_FILENAME + '" file — is this the right Gist ID?');
         return;
       }
+
+      // GitHub's API truncates the inline `content` field for files over ~1MB —
+      // very possible here since photos are stored as base64. When that happens,
+      // fetch the untruncated version from raw_url instead.
+      let contentStr = file.content;
+      if (file.truncated) {
+        console.log("[gist pull] file is truncated (" + file.size + " bytes) — fetching full content from raw_url");
+        try {
+          const rawRes = await fetch(file.raw_url);
+          if (!rawRes.ok) throw new Error("HTTP " + rawRes.status);
+          contentStr = await rawRes.text();
+        } catch (rawErr) {
+          console.error("[gist pull] couldn't fetch full (untruncated) content:", rawErr);
+          gistStatusText.textContent = "That gist's backup is large and the full content couldn't be fetched.";
+          showToast("Couldn't fetch the full backup — it may be too large. Try excluding photos, or check your connection.");
+          return;
+        }
+      }
+
       let payload;
       try {
-        payload = JSON.parse(file.content);
+        payload = JSON.parse(contentStr);
       } catch (parseErr) {
-        console.error("[gist pull] file content wasn't valid JSON:", parseErr, file.content.slice(0, 200));
+        console.error("[gist pull] file content wasn't valid JSON:", parseErr, contentStr.slice(0, 200));
         gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
         showToast("That gist's content isn't valid MapApp backup JSON.");
         return;
