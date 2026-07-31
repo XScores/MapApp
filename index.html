@@ -2016,7 +2016,7 @@
     reader.onload = () => {
       let applied = 0, skipped = 0;
       try {
-        const obj = JSON.parse(String(reader.result));
+        const obj = JSON.parse(stripBom(String(reader.result)));
         if (!obj || typeof obj !== "object") throw new Error("bad shape");
         Object.keys(obj).forEach((cell) => {
           if (!anchorCellToDefaultWord.has(cell)) { skipped++; return; }
@@ -2041,6 +2041,14 @@
   /*  export and the Gist payload itself — a credential should never    */
   /*  end up inside the data being backed up or shared.                 */
   /* ================================================================ */
+
+  // A UTF-8 BOM (byte-order mark) at the start of a file is invisible when
+  // read or copy-pasted, but JSON.parse() rejects it outright — a classic
+  // "looks completely valid, fails to parse" mismatch. Strip it defensively
+  // before every backup JSON parse, regardless of where the file came from.
+  function stripBom(str) {
+    return typeof str === "string" && str.charCodeAt(0) === 0xfeff ? str.slice(1) : str;
+  }
 
   function buildBackupPayload() {
     return {
@@ -2113,7 +2121,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = JSON.parse(String(reader.result));
+        const payload = JSON.parse(stripBom(String(reader.result)));
         const result = mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.skipped) msg += " (" + result.skipped + " already saved)";
@@ -2273,15 +2281,19 @@
       }
 
       // GitHub's API truncates the inline `content` field for files over ~1MB —
-      // very possible here since photos are stored as base64. When that happens,
-      // fetch the untruncated version from raw_url instead.
+      // very possible here since photos are stored as base64. Don't rely solely
+      // on the `truncated` flag; verify the content we actually got matches the
+      // file's real size, and fetch the untruncated version from raw_url
+      // whenever there's a shortfall, flag or no flag.
       let contentStr = file.content;
-      if (file.truncated) {
-        console.log("[gist pull] file is truncated (" + file.size + " bytes) — fetching full content from raw_url");
+      const looksIncomplete = typeof contentStr === "string" && typeof file.size === "number" && contentStr.length < file.size * 0.98;
+      if (file.truncated || looksIncomplete) {
+        console.log("[gist pull] content looks incomplete (got " + (contentStr ? contentStr.length : 0) + " chars, file reports " + file.size + " bytes, truncated flag=" + file.truncated + ") — fetching full content from raw_url");
         try {
           const rawRes = await fetch(file.raw_url);
           if (!rawRes.ok) throw new Error("HTTP " + rawRes.status);
           contentStr = await rawRes.text();
+          console.log("[gist pull] raw_url fetch returned " + contentStr.length + " chars");
         } catch (rawErr) {
           console.error("[gist pull] couldn't fetch full (untruncated) content:", rawErr);
           gistStatusText.textContent = "That gist's backup is large and the full content couldn't be fetched.";
@@ -2292,11 +2304,19 @@
 
       let payload;
       try {
-        payload = JSON.parse(contentStr);
+        payload = JSON.parse(stripBom(contentStr));
       } catch (parseErr) {
-        console.error("[gist pull] file content wasn't valid JSON:", parseErr, contentStr.slice(0, 200));
-        gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
-        showToast("That gist's content isn't valid MapApp backup JSON.");
+        const trimmedEnd = contentStr.trim().slice(-30);
+        const looksCutOff = !/[}\]]\s*$/.test(contentStr.trim());
+        console.error("[gist pull] file content wasn't valid JSON:", parseErr);
+        console.error("[gist pull] content length:", contentStr.length, "reported file size:", file.size, "ends with:", JSON.stringify(trimmedEnd));
+        if (looksCutOff) {
+          gistStatusText.textContent = "The backup looks cut off partway through (likely too large for a single sync).";
+          showToast("That gist's content looks cut off partway through — probably a large photo pushing it past size limits.");
+        } else {
+          gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
+          showToast("That gist's content isn't valid MapApp backup JSON.");
+        }
         return;
       }
       const result = mergeBackupPayload(payload);
