@@ -1,0 +1,3782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Waypoint Saver</title>
+<meta name="description" content="Drop pins, save waypoints, and log coordinates on an interactive map." />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<style>
+  :root{
+    --bg:#020617; --panel-bg:rgba(15,23,42,.95); --surface:#0f172a; --surface-2:#1e293b;
+    --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#94a3b8; --text-mute:#8896ad;
+    --amber:#f59e0b; --amber-light:#fbbf24; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
+  }
+  *{box-sizing:border-box;}
+  html,body,#app{height:100%; margin:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); overflow:hidden;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  button{font:inherit; color:inherit;}
+
+  #map{position:absolute; inset:0; z-index:0; background:var(--surface);}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:absolute; top:0; left:0; right:0; z-index:25; display:flex; gap:10px; padding:14px; align-items:flex-start;}
+  .search-wrap{position:relative; flex:1; max-width:420px; min-width:0;}
+  .search-box{display:flex; align-items:center; gap:8px; background:var(--panel-bg); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-radius:12px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.3);}
+  .search-box input{flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-size:14px;}
+  .search-box input::placeholder{color:var(--text-mute);}
+  .search-box .icon{color:var(--text-mute); flex-shrink:0;}
+  .search-clear{cursor:pointer; color:var(--text-mute); flex-shrink:0; display:flex;}
+  .search-clear:hover{color:var(--text-dim);}
+  .search-results{position:absolute; top:calc(100% + 6px); left:0; right:0; background:rgba(15,23,42,.98);
+    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    max-height:260px; overflow-y:auto; box-shadow:0 12px 28px rgba(0,0,0,.4); display:none;}
+  .search-results.show{display:block;}
+  .search-result-row{display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid #1e293b; cursor:pointer; font-size:13px;}
+  .search-result-row:hover{background:var(--surface-2);}
+  .search-result-row:last-child{border-bottom:none;}
+  .search-result-row span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e2e8f0;}
+  .search-result-row .icon{color:var(--amber); flex-shrink:0; margin-top:2px;}
+
+  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--panel-bg); backdrop-filter:blur(8px);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;
+    position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:border-color .15s;}
+  .btn-icon.locate{color:var(--cyan);}
+  .btn-icon.locate:hover{border-color:rgba(34,211,238,.5);}
+  .btn-icon.locate:disabled{opacity:.5; cursor:default;}
+  .btn-icon.home-btn{color:var(--green);}
+  .btn-icon.camera-btn{color:#38bdf8;}
+  .btn-icon.voice-waypoint-btn{color:#f472b6;}
+  .btn-icon.voice-waypoint-btn.listening{color:#fff; background:var(--red); border-color:var(--red);
+    animation:voice-pulse 1.6s ease-in-out infinite;}
+  @keyframes voice-pulse{
+    0%, 100%{box-shadow:0 0 0 0 rgba(248,113,113,.6);}
+    50%{box-shadow:0 0 0 10px rgba(248,113,113,0);}
+  }
+  .btn-icon.home-btn:hover{border-color:rgba(52,211,153,.5);}
+  .btn-icon.home-btn.picking{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
+  .btn-icon.panel-toggle{color:var(--amber);}
+  .btn-icon.panel-toggle:hover{border-color:rgba(245,158,11,.5);}
+  .count-badge{position:absolute; top:-6px; right:-6px; background:var(--amber); color:#020617; font-size:10px;
+    font-weight:700; border-radius:9px; min-width:18px; height:18px; display:none; align-items:center; justify-content:center; padding:0 4px;}
+  .count-badge.show{display:flex;}
+
+  .counter-pill{flex-shrink:0; display:flex; align-items:center; gap:6px; height:44px; background:var(--panel-bg); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-radius:12px; padding:0 12px; box-shadow:0 8px 24px rgba(0,0,0,.3); box-sizing:border-box;}
+  .counter-pill .icon{color:var(--amber);}
+  .counter-pill b{font-size:14px; font-weight:700;}
+  .counter-pill span{font-size:12px; color:var(--text-mute);}
+  @media (max-width:640px){ .counter-pill{display:none;} }
+
+  /* ---------- layers control ---------- */
+  .layers-wrap{position:relative; flex-shrink:0;}
+  .btn-icon.layers-toggle{color:var(--cyan);}
+  .btn-icon.layers-toggle:hover{border-color:rgba(34,211,238,.5);}
+  .btn-icon.layers-toggle.active{border-color:rgba(34,211,238,.6); background:rgba(34,211,238,.1);}
+  .layers-panel{position:absolute; top:calc(100% + 6px); right:0; width:270px; max-width:calc(100vw - 20px);
+    max-height:calc(100vh - 100px); overflow-y:auto; background:rgba(15,23,42,.98);
+    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:14px; padding:14px;
+    box-shadow:0 12px 28px rgba(0,0,0,.4); display:none;}
+  .layers-panel.show{display:block;}
+  .layers-panel-header{position:sticky; top:-14px; margin:-14px -14px 12px; padding:14px 14px 12px;
+    background:rgba(15,23,42,.98); z-index:1; display:flex; justify-content:space-between; align-items:center;}
+  .layers-panel-header h3{margin:0; font-size:13px; font-weight:600; color:var(--text);}
+  .layers-section + .layers-section{margin-top:14px; padding-top:14px; border-top:1px solid #1e293b;}
+  .layers-section-title{font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-mute);
+    font-weight:700; margin:0 0 8px;}
+  .layers-accordion-toggle{display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:none; border:none; padding:0; margin:0; cursor:pointer;}
+  .layers-accordion-toggle .layers-section-title{margin:0;}
+  .layers-accordion-toggle:hover .layers-section-title{color:var(--text-dim);}
+  .layers-accordion-chevron{color:var(--text-mute); display:flex; flex-shrink:0; transition:transform .2s;}
+  .layers-accordion-toggle.open .layers-accordion-chevron{transform:rotate(180deg);}
+  .layers-accordion-content{display:none; margin-top:10px;}
+  .layers-accordion-content.open{display:block;}
+  .layers-section.layers-section-accordion{border:1.5px solid rgba(226,232,240,.55) !important; border-radius:10px; padding:10px 12px;
+    background:rgba(255,255,255,.03);}
+  .layers-option{display:flex; align-items:center; gap:9px; padding:6px 2px; cursor:pointer; font-size:13px; color:#e2e8f0;}
+  .layers-option input{accent-color:var(--cyan); width:15px; height:15px; flex-shrink:0; cursor:pointer;}
+  .layers-option .swatch{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+  .layers-option .live-dot{width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0;
+    box-shadow:0 0 0 0 rgba(52,211,153,.6); animation:live-pulse 1.8s ease-out infinite;}
+  @keyframes live-pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55);} 70%{box-shadow:0 0 0 6px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
+  .owm-key-row{margin-top:10px; display:flex; gap:6px;}
+  .owm-key-row input{flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:7px 8px; color:var(--text); font-size:12px; outline:none;}
+  .owm-key-row input:focus{border-color:rgba(34,211,238,.6);}
+  .owm-key-row button{flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:0 10px; font-size:11px; color:#cbd5e1; cursor:pointer;}
+  .owm-key-row button:hover{background:var(--surface);}
+  .layers-hint{font-size:11px; color:var(--text-mute); margin:6px 0 0; line-height:1.5;}
+  .layers-hint a{color:var(--cyan);}
+  .owm-key-saved{display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--text-mute);}
+  .owm-key-saved button{background:none; border:none; color:var(--red); cursor:pointer; font-size:11px; padding:0;}
+
+  /* ---------- home section ---------- */
+  .home-status{font-size:12px; color:var(--text-dim); margin:0 0 10px; line-height:1.5;}
+  .home-status .mono{color:#e2e8f0;}
+  .home-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .home-action-btn{flex:1; min-width:100px; display:flex; align-items:center; justify-content:center; gap:5px;
+    font-size:11px; color:#cbd5e1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:7px 8px; cursor:pointer;}
+  .home-action-btn:hover{background:var(--surface);}
+  .home-action-btn.danger{color:var(--red);}
+  .home-action-btn.picking-active{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
+
+  .home-address-results{position:static; margin-top:8px; max-height:180px; display:none;}
+  .home-address-results.show{display:block;}
+  .home-modal-divider{display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--text-mute); font-size:11px; text-transform:uppercase; letter-spacing:1px;}
+  .home-modal-divider::before, .home-modal-divider::after{content:""; flex:1; height:1px; background:#1e293b;}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute; bottom:10px; left:16px; z-index:10; background:rgba(15,23,42,.9); border:1px solid var(--border);
+    border-radius:10px; padding:0 12px; height:34px; box-sizing:border-box; display:flex; align-items:center;
+    user-select:none; pointer-events:none;}
+  .hud-title{display:none;}
+  .hud-coords{font-size:12px; color:#cbd5e1;}
+
+  /* ---------- modal ---------- */
+  .modal-overlay{position:fixed; inset:0; z-index:30; background:rgba(2,6,23,.65); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center; padding:16px;}
+  .modal-overlay.hidden{display:none;}
+  body.modal-open .live-dot,
+  body.modal-open .wp-pulse-ring{animation-play-state:paused;}
+  body.hex-admin .leaflet-interactive{cursor:pointer;}
+  .modal-card{width:100%; max-width:400px; max-height:calc(100vh - 32px); overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:18px;
+    padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .modal-header{display:flex; justify-content:space-between; align-items:center; margin:-20px -20px 4px; padding:20px 20px 4px;
+    position:sticky; top:-20px; background:var(--surface); z-index:2;}
+  .modal-header h2{margin:0; font-size:14px; font-weight:600;}
+  .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;}
+  .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--surface); border-color:var(--border-soft);}
+  .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
+  .code-row{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .code-badge{font-size:11px; letter-spacing:.5px; background:var(--surface-2); border:1px dashed var(--border-soft);
+    border-radius:8px; padding:5px 8px;}
+  .code-badge.amber{color:var(--amber-light); text-transform:uppercase;}
+  .code-badge.cyan{color:var(--cyan);}
+  .field-label{font-size:12px; color:var(--text-dim); display:block; margin-bottom:5px;}
+  .name-row{display:flex; gap:8px; margin-bottom:14px;}
+  .field-input, textarea{width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; color:var(--text); font-size:14px; outline:none; font-family:inherit;}
+  .field-input:focus, textarea:focus{border-color:rgba(245,158,11,.6);}
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration{-webkit-appearance:none; appearance:none;}
+  input[type="search"].field-input{-webkit-appearance:none; appearance:none;}
+  textarea{resize:none;}
+  #notesInput{margin-bottom:16px;}
+  .mic-btn{width:44px; height:44px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
+  .mic-btn:hover{border-color:rgba(245,158,11,.5);}
+  .mic-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
+
+  /* ---------- marker style / color customization ---------- */
+  .field-row{margin-bottom:14px;}
+  .photo-dropzone{position:relative; min-height:36px; border:1.5px dashed var(--border-soft); border-radius:10px;
+    padding:6px; margin-bottom:6px; cursor:pointer; transition:border-color .15s, background .15s;}
+  .photo-dropzone:hover, .photo-dropzone:focus{outline:none; border-color:rgba(245,158,11,.6);}
+  .photo-dropzone.drag-over{border-color:var(--amber); background:rgba(245,158,11,.08);}
+  .photo-dropzone-empty{display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px; text-align:center;
+    color:var(--text-mute); font-size:12px; padding:4px;}
+  .photo-dropzone-empty .icon{color:var(--text-mute); margin-bottom:0; display:flex;}
+  .photo-dropzone-link{color:var(--amber-light); text-decoration:underline dotted;}
+  .photo-thumbs{display:flex; flex-wrap:wrap; gap:8px;}
+  .photo-thumbs:not(:empty){margin-top:2px;}
+  .photo-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden;
+    border:1px solid var(--border); flex-shrink:0;}
+  .photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .photo-thumb-remove{position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
+    background:rgba(2,6,23,.75); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0;}
+  .photo-thumb-remove:hover{background:var(--red);}
+  .photo-view-card{max-width:min(520px, 92vw); padding:16px;}
+  .import-modal-card{max-width:min(480px, 92vw);}
+  .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
+  .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
+  .photo-view-card img{width:100%; max-height:70vh; object-fit:contain; border-radius:10px; display:block;}
+  .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
+  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:pointer;
+    border:1px solid var(--border); flex-shrink:0;}
+  .card-photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .card-photo-add{width:38px; height:38px; border-radius:6px; flex-shrink:0; cursor:pointer;
+    border:1.5px dashed var(--border-soft); background:none; color:var(--text-mute);
+    display:flex; align-items:center; justify-content:center;}
+  .card-photo-add:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
+  .card.drag-over{border-color:var(--amber); background:rgba(245,158,11,.07);}
+  .card-photo-drop-empty{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-mute);
+    margin:8px 0 0 24px; padding:6px 10px; border-radius:8px; border:1.5px dashed var(--border-soft);
+    cursor:pointer; background:none;}
+  .card-photo-drop-empty:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
+  .card-photo-drop-empty.paste-armed, .card-photos.paste-armed{outline:none; border-color:rgba(245,158,11,.7);
+    box-shadow:0 0 0 2px rgba(245,158,11,.35); border-radius:8px;}
+  .style-toggle-row{display:flex; gap:8px; margin-bottom:14px;}
+  .style-toggle-btn{flex:1; padding:9px; border-radius:10px; font-size:13px; text-align:center; cursor:pointer;
+    border:1px solid var(--border); background:var(--surface-2); color:#cbd5e1;}
+  .style-toggle-btn.active{border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.12); color:var(--amber-light);}
+  .color-picker-row{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .color-picker-row input[type="color"]{width:38px; height:38px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface-2); padding:2px; cursor:pointer; flex-shrink:0;}
+  .color-swatches{display:flex; gap:6px; flex-wrap:wrap;}
+  .color-swatch{width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; flex-shrink:0;}
+  .color-swatch.selected{border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.15);}
+  .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:2px;}
+  .emoji-quick-btn{width:46px; height:46px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
+    font-size:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+  .emoji-quick-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5);}
+  .wp-emoji-marker{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:28px; line-height:1; box-shadow:0 3px 8px rgba(0,0,0,.4); border:2px solid rgba(15,23,42,.55);}
+  .wp-div-icon.wp-selected .wp-pin{
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 9px rgba(245,158,11,.9));}
+  .wp-div-icon.wp-selected .wp-emoji-marker{
+    box-shadow:0 0 0 3px #fff, 0 0 0 6px rgba(245,158,11,.85), 0 3px 8px rgba(0,0,0,.4);}
+
+  .btn-row{display:flex; gap:10px;}
+  .modal-card .btn-row{position:sticky; bottom:-20px; margin:16px -20px -20px; padding:12px 20px 20px;
+    background:var(--surface); z-index:2;}
+  .btn{flex:1; padding:11px; border-radius:10px; font-size:14px; text-align:center; cursor:pointer; border:1px solid transparent;}
+  .btn-secondary{border-color:var(--border); color:#cbd5e1; background:transparent;}
+  .btn-secondary:hover{background:var(--surface-2);}
+  .btn-primary{background:var(--amber); color:#020617; font-weight:600; border:none;}
+  .btn-primary:hover{background:var(--amber-light);}
+  .btn-danger{background:var(--red); color:#fff; font-weight:600; border:none;}
+  .btn-danger:hover{background:#ef4444;}
+
+  /* ---------- slide-out panel ---------- */
+  .panel{position:fixed; top:76px; right:0; bottom:56px; width:380px; max-width:90vw; background:rgba(15,23,42,.97);
+    border-left:1px solid #1e293b; border-top-left-radius:14px; border-bottom-left-radius:14px; overflow:hidden; z-index:20; display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .28s ease; box-shadow:-20px 0 60px rgba(0,0,0,.5);}
+  .panel.open{transform:translateX(0);}
+  .panel-header{display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--border);}
+  .panel-header-actions{display:flex; align-items:center; gap:8px;}
+  .panel-title{font-size:14px; font-weight:600; margin:0;}
+  .panel-subtitle{font-size:12px; color:var(--text-mute); margin:2px 0 0;}
+  .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px;}
+  .panel-search-row .icon{color:var(--text-mute); flex-shrink:0; display:flex;}
+  .panel-search-input{flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text); font-size:13px;}
+  .panel-search-input::placeholder{color:var(--text-mute);}
+  .panel-search-clear{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; flex-shrink:0; padding:2px;}
+  .panel-search-clear:hover{color:var(--text-dim);}
+  .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
+  .panel-list{flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .empty-state{text-align:center; margin-top:60px; padding:0 24px; color:var(--text-mute);}
+  .empty-state .icon{color:#334155; margin-bottom:10px;}
+  .empty-state p{font-size:13px; margin:0;}
+
+  .card{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:12px; transition:border-color .15s, box-shadow .15s;}
+  .card.selected{border-color:var(--amber); box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .card:hover{border-color:rgba(245,158,11,.35);}
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .card-main{display:flex; gap:8px; flex:1; min-width:0; cursor:pointer; background:none; border:none; padding:0; text-align:left;}
+  .card-main .icon{margin-top:2px; flex-shrink:0;}
+  .card-name{font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; cursor:text; margin:0;}
+  .card-name:hover{text-decoration:underline dotted;}
+  .card-name-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
+    padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
+  .card-coords{font-size:11px; color:var(--text-mute); margin:2px 0 0;}
+  .card-top-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
+  .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-edit:hover{color:var(--amber-light);}
+  .card-delete{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-delete:hover{color:var(--red);}
+  .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
+  .card-codes .code-badge{font-size:10px; padding:3px 6px;}
+  .card-copy-code{margin-left:auto; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-copy-code:hover{color:var(--text-dim);}
+  .card-notes{margin-left:24px; margin-top:6px;}
+  .card-notes-btn{display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:text;
+    background:none; border:none; padding:0; width:100%; text-align:left;}
+  .card-notes-btn .icon{margin-top:2px; color:var(--text-mute); flex-shrink:0;}
+  .card-notes-btn.placeholder{color:var(--text-mute); font-style:italic;}
+  .card-notes-content{max-height:4.6em; overflow:hidden;}
+  .card-notes-content p{margin:0 0 4px;}
+  .card-notes-content ul, .card-notes-content ol{margin:0 0 4px; padding-left:18px;}
+  .card-notes-input{width:100%; background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:8px;
+    padding:6px 8px; font-size:12px; color:#e2e8f0; outline:none; resize:none; min-height:40px;}
+
+  /* ---------- notes toolbar / journal entry ---------- */
+  .field-label-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .notes-toolbar-group{display:flex; align-items:center; gap:10px;}
+  .notes-toolbar-group .rte-toolbar{margin-bottom:0;}
+  .expand-journal-btn{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex;
+    align-items:center; gap:4px; font-size:11px; padding:2px 4px;}
+  .expand-journal-btn:hover{color:var(--amber-light);}
+  .rte-toolbar{display:flex; justify-content:flex-end; gap:6px; margin-bottom:6px;}
+  .rte-btn{width:32px; height:28px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border);
+    color:#cbd5e1; cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
+  .rte-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5); color:var(--amber-light);}
+  .journal-modal-card{max-width:min(560px, 94vw);}
+  .journal-textarea{width:100%; min-height:48vh; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px;}
+  .card-actions{display:flex; gap:6px; margin-top:8px; margin-left:24px;}
+  .card-action-btn{flex:1; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;
+    color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
+  .card-action-btn:hover{background:var(--surface);}
+
+  /* ---------- toast ---------- */
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40; background:var(--surface);
+    border:1px solid var(--border); color:#e2e8f0; font-size:12px; padding:9px 14px; border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;}
+  .toast.show{opacity:1;}
+
+  .voice-capture-panel{position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:45;
+    background:var(--surface); border:1px solid var(--red); border-radius:14px; padding:14px 18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45); width:min(340px, 90vw); pointer-events:none;}
+  .voice-capture-panel.hidden{display:none;}
+  .voice-capture-header{display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; color:var(--red);
+    margin-bottom:10px; text-transform:uppercase; letter-spacing:.5px;}
+  .voice-capture-field{margin-bottom:4px; padding:6px 8px; border-radius:8px; transition:background .2s;}
+  .voice-capture-field.active{background:rgba(248,113,113,.14);}
+  .voice-capture-label{font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute);
+    display:block; margin-bottom:2px;}
+  .voice-capture-value{font-size:14px; color:var(--text); min-height:1.3em; display:block; word-break:break-word;}
+
+  .spinner{width:16px; height:16px; border:2px solid rgba(255,255,255,.25); border-top-color:currentColor;
+    border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- leaflet marker + control theming ---------- */
+  .wp-div-icon{background:transparent; border:none;}
+  .wp-marker{position:relative; width:30px; height:40px;}
+  .wp-marker-emoji{position:relative; width:48px; height:48px;}
+  .wp-marker-emoji .wp-pulse-ring{left:1px; top:1px; width:46px; height:46px;}
+  .wp-pin{animation:wp-drop .35s ease-out; filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));}
+  .wp-pulse-ring{position:absolute; left:3px; top:3px; width:24px; height:24px; border-radius:9999px; border:2px solid;
+    opacity:.9; animation:wp-pulse 1.6s ease-out infinite;}
+  @keyframes wp-drop{0%{transform:translateY(-14px); opacity:0;} 100%{transform:translateY(0); opacity:1;}}
+  @keyframes wp-pulse{0%{transform:scale(.5); opacity:.9;} 100%{transform:scale(2.4); opacity:0;}}
+  .leaflet-control-zoom a{background-color:rgba(15,23,42,.9) !important; color:#f59e0b !important;
+    border-color:rgba(148,163,184,.25) !important; width:34px !important; height:34px !important; line-height:34px !important;}
+  .leaflet-control-zoom a:hover{background-color:rgba(30,41,59,.95) !important;}
+  .leaflet-control-zoom{display:flex !important; flex-direction:row !important;}
+  .leaflet-control-zoom a{border-bottom:none !important; border-right:1px solid rgba(148,163,184,.25) !important;}
+  .leaflet-control-zoom a:last-child{border-right:none !important;}
+  .leaflet-control-zoom-in{border-radius:8px 0 0 8px !important;}
+  .leaflet-control-zoom-out{border-radius:0 8px 8px 0 !important;}
+  .leaflet-bottom.leaflet-left .leaflet-control-zoom{margin:0 !important;}
+  .zoom-slider-control{position:absolute; left:10px; bottom:10px; z-index:22; background:rgba(15,23,42,.9);
+    border-radius:8px; padding:0 10px; height:34px; box-sizing:border-box; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 5px rgba(0,0,0,.4); border:1px solid rgba(148,163,184,.25);}
+  .zoom-slider-wrap{width:120px; height:20px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+  .zoom-slider-wrap input[type="range"]{width:112px; height:20px; margin:0;
+    cursor:pointer; accent-color:#f59e0b; background:transparent;}
+  .leaflet-control-attribution{background:rgba(15,23,42,.75) !important; color:#94a3b8 !important; font-size:10px !important;}
+  .leaflet-control-attribution a{color:#cbd5e1 !important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div id="zoomSliderControl" class="zoom-slider-control">
+    <div class="zoom-slider-wrap">
+      <input type="range" id="zoomSliderInput" aria-label="Zoom level" />
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="search-wrap">
+      <div class="search-box">
+        <span class="icon" id="searchIcon"></span>
+        <input id="searchInput" type="text" placeholder="Search a place, coordinates, or a 3-word address…" autocomplete="off" />
+        <span id="searchSpinner" class="spinner" style="display:none;"></span>
+        <button id="searchClearBtn" class="search-clear" style="display:none;" title="Clear search"></button>
+      </div>
+      <div id="searchResults" class="search-results"></div>
+    </div>
+
+    <button id="locateBtn" class="btn-icon locate" title="Use current location"></button>
+    <button id="cameraBtn" class="btn-icon camera-btn" title="Add waypoint from photo"></button>
+    <button id="voiceWaypointBtn" class="btn-icon voice-waypoint-btn" title="Hands-free voice waypoints — say &quot;waypoint&quot; to save your location"></button>
+    <input type="file" id="cameraCaptureInput" accept="image/*" capture="environment" style="display:none;" />
+    <button id="homeBtn" class="btn-icon home-btn" title="Go home"></button>
+
+    <div class="layers-wrap">
+      <button id="layersToggleBtn" class="btn-icon layers-toggle" title="Map layers"></button>
+      <div id="layersPanel" class="layers-panel">
+        <div class="layers-panel-header">
+          <h3>Map layers</h3>
+          <button class="icon-btn" id="layersPanelCloseBtn"></button>
+        </div>
+        <div class="layers-panel-body">
+        <div class="layers-section">
+          <p class="layers-section-title">Home base</p>
+          <p class="home-status" id="homeStatus">No home set yet.</p>
+          <div class="home-actions">
+            <button class="home-action-btn" id="homeFlyBtn" style="display:none;">Fly to home</button>
+            <button class="home-action-btn" id="homeUseLocationBtn">Use current location</button>
+            <button class="home-action-btn" id="homePickMapBtn">Tap map to set</button>
+            <button class="home-action-btn danger" id="homeClearBtn" style="display:none;">Remove home</button>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Base map</p>
+          <label class="layers-option"><input type="radio" name="baseLayer" value="street" /><span>Street</span></label>
+          <label class="layers-option"><input type="radio" name="baseLayer" value="satellite" /><span>Satellite</span></label>
+          <label class="layers-option"><input type="radio" name="baseLayer" value="terrain" /><span>Terrain</span></label>
+        </div>
+        <div class="layers-section layers-section-accordion">
+          <button type="button" class="layers-accordion-toggle" id="weatherAccordionToggle">
+            <span class="layers-section-title">Live weather</span>
+            <span class="layers-accordion-chevron" id="weatherAccordionChevron"></span>
+          </button>
+          <div class="layers-accordion-content" id="weatherAccordionContent">
+          <label class="layers-option"><input type="checkbox" id="wxPrecip" /><span class="live-dot"></span><span>Precipitation radar</span></label>
+          <label class="layers-option"><input type="checkbox" id="wxClouds" /><span class="swatch" style="background:#94a3b8"></span><span>Cloud cover</span></label>
+          <label class="layers-option"><input type="checkbox" id="wxTemp" /><span class="swatch" style="background:#f87171"></span><span>Temperature</span></label>
+          <label class="layers-option"><input type="checkbox" id="wxWind" /><span class="swatch" style="background:#22d3ee"></span><span>Wind speed</span></label>
+          <div id="owmKeyPrompt">
+            <p class="layers-hint">Clouds, temperature &amp; wind need a free OpenWeatherMap API key.</p>
+            <div class="owm-key-row">
+              <input id="owmKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
+              <button id="owmKeySaveBtn">Save</button>
+            </div>
+          </div>
+          <div id="owmKeySaved" class="owm-key-saved" style="display:none;">
+            <span>OpenWeatherMap key saved</span>
+            <button id="owmKeyForgetBtn">Remove</button>
+          </div>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Reference grid</p>
+          <label class="layers-option"><input type="checkbox" id="hexGridToggle" /><span class="swatch" style="background:#ef4444"></span><span>Anchor regions (842)</span></label>
+          <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
+          <p class="layers-hint">Anchor regions (red) are the ~418km cells behind the first word of an address. Precision hexes (blue) show the same H3 grid at a finer resolution for your current view — zoom in for more detail.</p>
+          <label class="layers-option"><input type="checkbox" id="adminModeToggle" /><span class="swatch" style="background:#f59e0b"></span><span>Admin: curate region names</span></label>
+          <p class="layers-hint" id="curatedCountHint">0 of 842 regions curated</p>
+          <div class="home-actions" id="anchorAdminActions" style="display:none;">
+            <button class="home-action-btn" id="exportAnchorsBtn">Export names</button>
+            <button class="home-action-btn" id="importAnchorsBtn">Import names</button>
+          </div>
+          <input type="file" id="importAnchorsFile" accept="application/json" style="display:none;" />
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="counter-pill" title="Total waypoints saved">
+      <span class="icon"></span>
+      <b id="counterNumber">0</b>
+      <span>saved</span>
+    </div>
+
+    <button id="panelToggleBtn" class="btn-icon panel-toggle" title="Saved waypoints">
+      <span class="count-badge" id="countBadge">0</span>
+    </button>
+  </div>
+
+  <div class="hud">
+    <div class="hud-title"><span id="hudIcon"></span><span id="hudLabel">WAYPOINT SAVER · 0 SAVED</span></div>
+    <div class="hud-coords mono" id="hudCoords">20.00000, 0.00000</div>
+  </div>
+
+  <!-- naming modal -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle">New waypoint</h2>
+        <button class="icon-btn" id="modalCloseBtn"></button>
+      </div>
+      <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
+
+      <div class="code-row" id="wordCodeSection">
+        <span class="code-badge amber mono" id="modalWordCode"></span>
+      </div>
+
+      <div id="homeLocationSection" style="display:none;">
+        <label class="field-label">Location</label>
+        <div class="name-row">
+          <input id="homeQueryInput" class="field-input" type="search" placeholder="Search a place or address…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" />
+          <button id="homeAddressSearchBtn" class="mic-btn" title="Search"></button>
+        </div>
+        <div id="homeAddressResults" class="search-results home-address-results"></div>
+        <p id="homeAddressStatus" class="layers-hint" style="display:none;"></p>
+        <div class="home-modal-divider"><span>or</span></div>
+        <div class="home-actions" style="margin-bottom:14px;">
+          <button class="home-action-btn" id="homeModalUseLocationBtn">Use current location</button>
+          <button class="home-action-btn" id="homeModalPickMapBtn">Tap map to set</button>
+        </div>
+      </div>
+
+      <div id="nameFieldSection">
+        <label class="field-label">Name</label>
+        <div class="name-row">
+          <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
+          <button id="micBtn" class="mic-btn" title="Name by voice"></button>
+        </div>
+      </div>
+
+      <div class="field-label-row">
+        <label class="field-label">Notes</label>
+        <div class="notes-toolbar-group">
+          <div class="rte-toolbar" id="notesToolbar">
+            <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
+            <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
+            <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
+            <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
+          </div>
+          <button type="button" class="expand-journal-btn" id="expandJournalBtn" title="Expand to full journal entry">
+            <span id="expandJournalIcon"></span><span>Expand</span>
+          </button>
+        </div>
+      </div>
+      <textarea id="notesInput" rows="3" placeholder="Add a travel journal entry, description, directions, or anything worth remembering…"></textarea>
+
+      <label class="field-label">Marker style</label>
+      <div class="style-toggle-row">
+        <button type="button" class="style-toggle-btn active" id="markerStylePinBtn" data-style="pin">Pin</button>
+        <button type="button" class="style-toggle-btn" id="markerStyleEmojiBtn" data-style="emoji">Emoji</button>
+      </div>
+
+      <div class="field-row" id="markerColorField">
+        <label class="field-label">Marker color</label>
+        <div class="color-picker-row">
+          <input type="color" id="markerColorInput" value="#f59e0b" title="Marker color" />
+          <div class="color-swatches" id="markerColorSwatches"></div>
+        </div>
+      </div>
+
+      <div class="field-row" id="markerEmojiField" style="display:none;">
+        <label class="field-label">Emoji</label>
+        <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an emoji…" maxlength="8" />
+        <div class="emoji-quick-pick" id="emojiQuickPick"></div>
+      </div>
+
+      <div id="hexHighlightSection">
+        <label class="layers-option" style="margin-bottom:6px;">
+          <input type="checkbox" id="hexHighlightToggle" />
+          <span>Highlight this region's hex on the map</span>
+        </label>
+        <div class="field-row" id="hexColorField" style="display:none;">
+          <div class="color-picker-row">
+            <input type="color" id="hexColorInput" value="#38bdf8" title="Hex highlight color" />
+            <div class="color-swatches" id="hexColorSwatches"></div>
+          </div>
+          <p class="layers-hint">Fills this location's ~418km anchor region with a translucent color so map details underneath stay visible.</p>
+        </div>
+      </div>
+
+      <label class="field-label">Photos (optional)</label>
+      <div class="photo-dropzone" id="photoDropzone" tabindex="0">
+        <div class="photo-dropzone-empty" id="photoDropzoneEmpty">
+          <span class="icon"></span>
+          <p>Drag &amp; drop, paste, or <span class="photo-dropzone-link">click to add photos</span></p>
+        </div>
+        <div class="photo-thumbs" id="photoThumbs"></div>
+      </div>
+      <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none;" />
+      <p class="layers-hint" id="photoStatus" style="display:none;"></p>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveBtn">Save waypoint</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- anchor region rename modal (admin mode) -->
+  <div class="modal-overlay hidden" id="anchorModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Curate region name</h2>
+        <button class="icon-btn" id="anchorModalCloseBtn"></button>
+      </div>
+      <p class="modal-coords mono" id="anchorModalCellId">cell</p>
+
+      <div class="code-row">
+        <span class="code-badge amber mono" id="anchorModalDefaultWord"></span>
+      </div>
+
+      <label class="field-label">Region name</label>
+      <div class="name-row">
+        <input id="anchorNameInput" class="field-input" type="text" placeholder="e.g. cascade" autocomplete="off" />
+      </div>
+      <p id="anchorNameError" class="layers-hint" style="display:none; color:var(--red);"></p>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="anchorResetBtn">Reset to default</button>
+        <button class="btn btn-primary" id="anchorSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- import waypoints modal -->
+  <div class="modal-overlay hidden" id="importModalOverlay">
+    <div class="modal-card import-modal-card">
+      <div class="modal-header">
+        <h2>Import waypoints</h2>
+        <button class="icon-btn" id="importModalCloseBtn"></button>
+      </div>
+      <p class="layers-hint">
+        Imports one waypoint per record from a plain <code>.txt</code> file, all marked with the ⛺ tent emoji.
+        Each record is <strong>7 lines, in this exact order</strong>, with a line containing just <code>---</code> between records:
+      </p>
+      <ol class="import-format-list">
+        <li>Waypoint name</li>
+        <li>Picture (a full image URL, or leave the line blank)</li>
+        <li>Access type (e.g. Drive in site, Boat Access Only)</li>
+        <li>Description</li>
+        <li>Coordinates (e.g. 45.11824 °N - 76.99567 °W)</li>
+        <li>What3Words location</li>
+        <li>Amenities, comma-separated (e.g. Fire Pit, Privy)</li>
+      </ol>
+      <p class="layers-hint">Any optional line can be left blank, but all 7 lines must be present for each record.</p>
+      <button class="home-action-btn" id="downloadTemplateBtn" style="margin-bottom:14px;">Download example .txt template</button>
+
+      <div class="photo-dropzone" id="importDropzone" tabindex="0">
+        <div class="photo-dropzone-empty" id="importDropzoneEmpty">
+          <span class="icon"></span>
+          <p>Drag &amp; drop a .txt file, or <span class="photo-dropzone-link">click to choose one</span></p>
+        </div>
+      </div>
+      <input type="file" id="importFileInput" accept=".txt,text/plain" style="display:none;" />
+      <p id="importStatus" class="layers-hint" style="display:none;"></p>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-secondary" id="importCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- journal entry (expanded notes) modal -->
+  <div class="modal-overlay hidden" id="journalModalOverlay" style="z-index:35;">
+    <div class="modal-card journal-modal-card">
+      <div class="modal-header">
+        <h2>Journal entry</h2>
+        <button class="icon-btn" id="journalCloseBtn"></button>
+      </div>
+      <div class="rte-toolbar" id="journalToolbar">
+        <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
+        <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
+        <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
+        <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
+      </div>
+      <textarea id="journalTextarea" class="journal-textarea" placeholder="Write your journal entry…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="journalCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="journalDoneBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- photo viewer modal -->
+  <div class="modal-overlay hidden" id="photoViewModalOverlay">
+    <div class="modal-card photo-view-card">
+      <div class="modal-header">
+        <h2 id="photoViewTitle">Photo</h2>
+        <button class="icon-btn" id="photoViewCloseBtn"></button>
+      </div>
+      <img id="photoViewImg" src="" alt="Waypoint photo" />
+    </div>
+  </div>
+
+  <!-- confirmation modal (reusable) -->
+  <div class="modal-overlay hidden" id="confirmModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2 id="confirmModalTitle">Are you sure?</h2>
+        <button class="icon-btn" id="confirmModalCloseBtn"></button>
+      </div>
+      <p class="modal-coords" id="confirmModalMessage" style="margin-bottom:16px;"></p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="confirmModalCancelBtn">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalConfirmBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- slide-out panel -->
+  <div class="panel" id="panel">
+    <div class="panel-header">
+      <div>
+        <p class="panel-title">Saved waypoints</p>
+        <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
+      </div>
+      <div class="panel-header-actions">
+        <button class="panel-close" id="panelImportBtn" title="Import waypoints from a text file"></button>
+        <button class="panel-close" id="panelCloseBtn"></button>
+      </div>
+    </div>
+    <div class="panel-search-row">
+      <span class="icon" id="panelSearchIcon"></span>
+      <input type="text" id="panelSearchInput" class="panel-search-input" placeholder="Search saved waypoints…" autocomplete="off" />
+      <button class="panel-search-clear" id="panelSearchClearBtn" style="display:none;"></button>
+    </div>
+    <div class="panel-list" id="panelList"></div>
+    <p class="panel-no-results" id="panelNoResults" style="display:none;">No waypoints match your search.</p>
+    <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="voice-capture-panel hidden" id="voiceCapturePanel">
+    <div class="voice-capture-header"><span id="voiceCaptureIcon"></span><span id="voiceCaptureStatusText"></span></div>
+    <div class="voice-capture-field" id="voiceCaptureNameField">
+      <span class="voice-capture-label">Name</span>
+      <span class="voice-capture-value" id="voiceCaptureNameValue"></span>
+    </div>
+    <div class="voice-capture-field" id="voiceCaptureNotesField">
+      <span class="voice-capture-label">Notes</span>
+      <span class="voice-capture-value" id="voiceCaptureNotesValue"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>var exports = {};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/h3-js/4.4.0/h3-js.js"></script>
+<script>window.h3 = exports;</script>
+<script>
+(function () {
+  "use strict";
+
+  /* ================================================================ */
+  /*  Minimal in-house icon set (plain geometric SVG, no dependency)   */
+  /* ================================================================ */
+
+  const ICONS = {
+    search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+    x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+    navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
+    menu: '<line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>',
+    mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line>',
+    micOff: '<path d="M12 1a3 3 0 0 0-3 3v6"></path><path d="M15.5 9.5V4a3 3 0 0 0-5.9-.8"></path><path d="M19 10v2a7 7 0 0 1-9.9 6.4"></path><path d="M5 10v2a7 7 0 0 0 1.4 4.2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line><line x1="1" y1="1" x2="23" y2="23"></line>',
+    trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
+    mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
+    check: '<polyline points="20 6 9 17 4 12"></polyline>',
+    crosshair: '<circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line>',
+    share: '<circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>',
+    note: '<path d="M21 3H3v14l6 6h12V3z"></path><path d="M15 17v4l4-4z"></path>',
+    edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>',
+    expand: '<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>',
+    camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>',
+    chevronDown: '<polyline points="6 9 12 15 18 9"></polyline>',
+    layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>',
+    home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>'
+  };
+
+  function icon(name, size) {
+    size = size || 18;
+    return '<svg class="icon" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      (ICONS[name] || "") + "</svg>";
+  }
+
+  function escapeHtml(str) {
+    return String(str || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  /* ================================================================ */
+  /*  Hierarchical spatial address (H3-based, reversible)              */
+  /*                                                                     */
+  /*  Format: anchor.word2.word3                                       */
+  /*   - anchor: one word per H3 resolution-1 cell (~842 cells,        */
+  /*     ~418km across) — same region anywhere within it, giving       */
+  /*     instant "which part of the world" context.                    */
+  /*   - word2 + word3: encode the exact position within that region   */
+  /*     down to H3 resolution 13 (~3m cells) via H3's own child-index  */
+  /*     path (cellToChildPos / childPosToCell), so this is genuinely   */
+  /*     reversible — decode(address) recovers the coordinates without  */
+  /*     any lookup table or server.                                    */
+  /*                                                                     */
+  /*  Anchor words reuse the app's existing adjective+noun vocabulary   */
+  /*  (2,450 combos) rather than a hand-curated geography list, since   */
+  /*  assigning real place names to arbitrary hexagons would be         */
+  /*  actively misleading without manual curation. Fine words are       */
+  /*  algorithmically constructed from syllables (not a stored          */
+  /*  dictionary) because covering ~13.8 billion positions per region   */
+  /*  with only two words needs ~125,000 unique values per word —       */
+  /*  far more than any hand-curated word list could reasonably offer,  */
+  /*  so a formulaic syllable space keeps this tiny (50 syllables) and  */
+  /*  bijective instead of shipping a huge word list.                  */
+  /* ================================================================ */
+
+  const ADJECTIVES = ["AMBER","ANCIENT","ASHEN","BOLD","BRISK","COBALT","CORAL","CRISP","DEEP",
+    "DRIFTING","DUSTY","EASTERN","EMBER","FADED","FAINT","FLINT","FROZEN","GENTLE","GOLDEN",
+    "GRANITE","HAZY","HIDDEN","HOLLOW","INNER","IVORY","JAGGED","LONE","LOWER","LUCKY","MISTY",
+    "MOSSY","NORTHERN","OUTER","PALE","QUIET","RAPID","RIDGED","ROCKY","RUSTY","SANDY","SHADOW",
+    "SILENT","SOUTHERN","STORMY","SUNLIT","TIDAL","UPPER","VELVET","WESTERN","WILD","WINDY"];
+
+  const NOUNS = ["ANCHOR","ARBOR","ATOLL","BASIN","BLUFF","CANYON","CAIRN","CLIFF","COVE","CREST",
+    "DELTA","DUNE","ESTUARY","FEN","FJORD","FOREST","GLACIER","GORGE","GROVE","GULLY","HARBOR",
+    "HEATH","HOLLOW","INLET","ISLAND","JUNCTION","KESTREL","LAGOON","LEDGE","MARSH","MEADOW",
+    "MESA","MOOR","NOTCH","OUTCROP","OUTPOST","PEAK","PLATEAU","QUARRY","REEF","RIDGE","SHOAL",
+    "SPRING","SUMMIT","THICKET","TRAIL","VALLEY","WATCH","WHARF"];
+
+  const ANCHOR_RES = 1;   // ~842 cells, ~418km across
+  const FINE_RES = 13;    // ~3.6m cells
+  const SYLLABLES = (function () {
+    const list = [];
+    "bdfgklmnrs".split("").forEach((c) => "aeiou".split("").forEach((v) => list.push(c + v)));
+    return list; // 50 syllables
+  })();
+  const FINE_WORD_SPACE = Math.pow(SYLLABLES.length, 3); // 125,000 per word
+
+  let h3Ready = false;
+  let anchorCellToWord = new Map();       // cell -> currently active word (default or curated)
+  let anchorWordToCell = new Map();       // word -> cell; append-only (default + any past curated words), so previously shared addresses never stop decoding
+  let anchorCellToDefaultWord = new Map(); // cell -> the auto-generated default word, for reference/reset
+
+  function initSpatialAddressing() {
+    if (!window.h3 || typeof window.h3.getRes0Cells !== "function") return false;
+    try {
+      let anchors = [];
+      window.h3.getRes0Cells().forEach((base) => { anchors = anchors.concat(window.h3.cellToChildren(base, ANCHOR_RES)); });
+      anchors.sort();
+      const overrides = (settings && settings.anchorOverrides) || {};
+      anchors.forEach((cell, i) => {
+        const defaultWord = (ADJECTIVES[i % ADJECTIVES.length] + NOUNS[Math.floor(i / ADJECTIVES.length) % NOUNS.length]).toLowerCase();
+        anchorCellToDefaultWord.set(cell, defaultWord);
+        anchorWordToCell.set(defaultWord, cell);
+        const curated = overrides[cell];
+        if (curated) {
+          anchorCellToWord.set(cell, curated);
+          anchorWordToCell.set(curated, cell);
+        } else {
+          anchorCellToWord.set(cell, defaultWord);
+        }
+      });
+      h3Ready = true;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function normalizeAnchorWord(raw) {
+    return String(raw || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24);
+  }
+
+  // Renames a region's active address word. Never deletes old word->cell
+  // mappings, so any address ever shared under a previous name keeps decoding.
+  function setAnchorOverride(cell, rawWord) {
+    const word = normalizeAnchorWord(rawWord);
+    if (word.length < 2) return { ok: false, error: "Name needs at least 2 letters or numbers." };
+    const existing = anchorWordToCell.get(word);
+    if (existing && existing !== cell) return { ok: false, error: "That name is already used by another region." };
+    settings.anchorOverrides[cell] = word;
+    saveSettings();
+    anchorCellToWord.set(cell, word);
+    anchorWordToCell.set(word, cell);
+    return { ok: true, word };
+  }
+  function resetAnchorOverride(cell) {
+    delete settings.anchorOverrides[cell];
+    saveSettings();
+    anchorCellToWord.set(cell, anchorCellToDefaultWord.get(cell));
+  }
+
+  function syllableWord(index) {
+    const s = SYLLABLES.length;
+    const d0 = Math.floor(index / (s * s)) % s, d1 = Math.floor(index / s) % s, d2 = index % s;
+    return SYLLABLES[d0] + SYLLABLES[d1] + SYLLABLES[d2];
+  }
+  function syllableWordToIndex(word) {
+    if (!word || word.length !== 6) return null;
+    const parts = [word.slice(0, 2), word.slice(2, 4), word.slice(4, 6)];
+    const idxs = parts.map((p) => SYLLABLES.indexOf(p));
+    if (idxs.some((i) => i < 0)) return null;
+    const s = SYLLABLES.length;
+    return idxs[0] * s * s + idxs[1] * s + idxs[2];
+  }
+
+  function generateWordCode(lat, lng) {
+    if (!h3Ready) return fallbackWordCode(lat, lng);
+    try {
+      const fine = window.h3.latLngToCell(lat, lng, FINE_RES);
+      const anchor = window.h3.cellToParent(fine, ANCHOR_RES);
+      const pos = window.h3.cellToChildPos(fine, ANCHOR_RES);
+      const w2i = Math.floor(pos / FINE_WORD_SPACE), w3i = pos % FINE_WORD_SPACE;
+      const anchorWord = anchorCellToWord.get(anchor) || fallbackAnchorWord(anchor);
+      return anchorWord + "." + syllableWord(w2i) + "." + syllableWord(w3i);
+    } catch (e) { return fallbackWordCode(lat, lng); }
+  }
+
+  // decodeWordCode: reverses generateWordCode. Returns {lat,lng} or null if invalid/unrecognized.
+  function decodeWordCode(address) {
+    if (!h3Ready || typeof address !== "string") return null;
+    const parts = address.trim().toLowerCase().split(".");
+    if (parts.length !== 3) return null;
+    const anchor = anchorWordToCell.get(parts[0]);
+    if (!anchor) return null;
+    const w2i = syllableWordToIndex(parts[1]), w3i = syllableWordToIndex(parts[2]);
+    if (w2i === null || w3i === null) return null;
+    const pos = w2i * FINE_WORD_SPACE + w3i;
+    try {
+      const size = window.h3.cellToChildrenSize(anchor, FINE_RES);
+      if (pos < 0 || pos >= size) return null;
+      const fine = window.h3.childPosToCell(pos, anchor, FINE_RES);
+      const [lat, lng] = window.h3.cellToLatLng(fine);
+      return { lat, lng };
+    } catch (e) { return null; }
+  }
+
+  // Fallback (only used if the h3-js library fails to load): degrades to the
+  // old hash-based label. Not reversible, but keeps the app usable offline.
+  function hashCode(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return h >>> 0;
+  }
+  function fallbackAnchorWord(seed) {
+    const h = hashCode(String(seed));
+    return (ADJECTIVES[h % ADJECTIVES.length] + NOUNS[(h >>> 8) % NOUNS.length]).toLowerCase();
+  }
+  function fallbackWordCode(lat, lng) {
+    const key = lat.toFixed(5) + "," + lng.toFixed(5);
+    const h1 = hashCode(key), h2 = hashCode(key + "#2"), h3v = hashCode(key + "#3");
+    return fallbackAnchorWord(h1) + "." + syllableWord(h2 % FINE_WORD_SPACE) + "." + syllableWord(h3v % FINE_WORD_SPACE);
+  }
+
+  /* initSpatialAddressing() is called below, once settings (including any
+     curated anchor names) has been loaded. */
+
+  /* ================================================================ */
+  /*  Persistence — plain browser localStorage (this is a standalone   */
+  /*  static page, so it's available, unlike in a sandboxed preview).  */
+  /* ================================================================ */
+
+  const STORAGE_KEY = "waypoint-saver:waypoints";
+  const SETTINGS_KEY = "waypoint-saver:settings";
+
+  function loadWaypoints() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+  function saveWaypoints() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(waypoints)); }
+    catch (e) {
+      showToast("Couldn't save — this device's storage is full. Try removing some photos from your waypoints.");
+    }
+  }
+
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false };
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return Object.assign({}, DEFAULT_SETTINGS, parsed, { weather: Object.assign({}, DEFAULT_SETTINGS.weather, parsed.weather) });
+    } catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+    catch (e) { /* non-fatal: settings just won't persist */ }
+  }
+
+  /* ================================================================ */
+  /*  State                                                             */
+  /* ================================================================ */
+
+  let waypoints = loadWaypoints();
+  let settings = loadSettings();
+  initSpatialAddressing();
+  let markers = {};
+  let pendingMarker = null;
+  let pendingPhotos = [];
+  let selectedWaypointId = null;
+  function setSelectedWaypointMarker(id) {
+    if (selectedWaypointId && markers[selectedWaypointId]) {
+      const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
+      if (prevEl) prevEl.classList.remove("wp-selected");
+    }
+    if (homeMarker) {
+      const homeEl = homeMarker.getElement && homeMarker.getElement();
+      if (homeEl) homeEl.classList.remove("wp-selected");
+    }
+    selectedWaypointId = id;
+    if (id && markers[id]) {
+      const el = markers[id].getElement && markers[id].getElement();
+      if (el) el.classList.add("wp-selected");
+    }
+
+    panelList.querySelectorAll(".card.selected").forEach((c) => c.classList.remove("selected"));
+    if (id) {
+      const cardEl = panelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
+      if (cardEl) {
+        cardEl.classList.add("selected");
+        if (panel.classList.contains("open")) {
+          cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
+  }
+  let selectedPasteCardId = null; // which card's photo area is "armed" for a document-level paste (see below)
+  let pendingPoint = null;
+  let editingWaypointId = null;
+  let editingHomeMode = false;
+  let listening = false;
+  let recognition = null;
+  let searchDebounce = null;
+
+  /* ================================================================ */
+  /*  DOM refs                                                          */
+  /* ================================================================ */
+
+  const el = (id) => document.getElementById(id);
+  const searchInput = el("searchInput");
+  const searchSpinner = el("searchSpinner");
+  const searchClearBtn = el("searchClearBtn");
+  const searchResultsEl = el("searchResults");
+  const locateBtn = el("locateBtn");
+  const cameraBtn = el("cameraBtn");
+  const voiceWaypointBtn = el("voiceWaypointBtn");
+  const cameraCaptureInput = el("cameraCaptureInput");
+  const homeBtn = el("homeBtn");
+  const homeStatus = el("homeStatus");
+  const homeFlyBtn = el("homeFlyBtn");
+  const homeUseLocationBtn = el("homeUseLocationBtn");
+  const homePickMapBtn = el("homePickMapBtn");
+  const homeClearBtn = el("homeClearBtn");
+  const layersToggleBtn = el("layersToggleBtn");
+  const layersPanel = el("layersPanel");
+  const layersPanelCloseBtn = el("layersPanelCloseBtn");
+  const wxPrecip = el("wxPrecip");
+  const wxClouds = el("wxClouds");
+  const wxTemp = el("wxTemp");
+  const wxWind = el("wxWind");
+  const weatherAccordionToggle = el("weatherAccordionToggle");
+  const weatherAccordionChevron = el("weatherAccordionChevron");
+  const weatherAccordionContent = el("weatherAccordionContent");
+  const hexGridToggle = el("hexGridToggle");
+  const precisionHexToggle = el("precisionHexToggle");
+  const adminModeToggle = el("adminModeToggle");
+  const curatedCountHint = el("curatedCountHint");
+  const anchorAdminActions = el("anchorAdminActions");
+  const exportAnchorsBtn = el("exportAnchorsBtn");
+  const importAnchorsBtn = el("importAnchorsBtn");
+  const importAnchorsFile = el("importAnchorsFile");
+  const anchorModalOverlay = el("anchorModalOverlay");
+  const anchorModalCloseBtn = el("anchorModalCloseBtn");
+  const anchorModalCellId = el("anchorModalCellId");
+  const anchorModalDefaultWord = el("anchorModalDefaultWord");
+  const anchorNameInput = el("anchorNameInput");
+  const anchorNameError = el("anchorNameError");
+  const anchorResetBtn = el("anchorResetBtn");
+  const anchorSaveBtn = el("anchorSaveBtn");
+  const owmKeyPrompt = el("owmKeyPrompt");
+  const owmKeyInput = el("owmKeyInput");
+  const owmKeySaveBtn = el("owmKeySaveBtn");
+  const owmKeySaved = el("owmKeySaved");
+  const owmKeyForgetBtn = el("owmKeyForgetBtn");
+  const panelToggleBtn = el("panelToggleBtn");
+  const countBadge = el("countBadge");
+  const counterNumber = el("counterNumber");
+  const hudLabel = el("hudLabel");
+  const hudCoords = el("hudCoords");
+  const modalOverlay = el("modalOverlay");
+  const modalTitle = el("modalTitle");
+  const modalCoords = el("modalCoords");
+  const modalWordCode = el("modalWordCode");
+  const nameInput = el("nameInput");
+  const notesInput = el("notesInput");
+  const markerStylePinBtn = el("markerStylePinBtn");
+  const markerStyleEmojiBtn = el("markerStyleEmojiBtn");
+  const markerColorField = el("markerColorField");
+  const markerColorInput = el("markerColorInput");
+  const markerColorSwatches = el("markerColorSwatches");
+  const markerEmojiField = el("markerEmojiField");
+  const markerEmojiInput = el("markerEmojiInput");
+  const emojiQuickPick = el("emojiQuickPick");
+  const hexHighlightToggle = el("hexHighlightToggle");
+  const hexColorField = el("hexColorField");
+  const hexColorInput = el("hexColorInput");
+  const hexColorSwatches = el("hexColorSwatches");
+  const photoDropzone = el("photoDropzone");
+  const photoDropzoneEmpty = el("photoDropzoneEmpty");
+  const photoThumbs = el("photoThumbs");
+  const photoFileInput = el("photoFileInput");
+  const photoStatus = el("photoStatus");
+  const cardPhotoFileInput = el("cardPhotoFileInput");
+  const panelImportBtn = el("panelImportBtn");
+  const importModalOverlay = el("importModalOverlay");
+  const importModalCloseBtn = el("importModalCloseBtn");
+  const downloadTemplateBtn = el("downloadTemplateBtn");
+  const importDropzone = el("importDropzone");
+  const importDropzoneEmpty = el("importDropzoneEmpty");
+  const importFileInput = el("importFileInput");
+  const importStatus = el("importStatus");
+  const importCancelBtn = el("importCancelBtn");
+  const expandJournalBtn = el("expandJournalBtn");
+  const expandJournalIcon = el("expandJournalIcon");
+  const notesToolbar = el("notesToolbar");
+  const journalModalOverlay = el("journalModalOverlay");
+  const journalCloseBtn = el("journalCloseBtn");
+  const journalToolbar = el("journalToolbar");
+  const journalTextarea = el("journalTextarea");
+  const journalCancelBtn = el("journalCancelBtn");
+  const journalDoneBtn = el("journalDoneBtn");
+  const photoViewModalOverlay = el("photoViewModalOverlay");
+  const photoViewCloseBtn = el("photoViewCloseBtn");
+  const photoViewTitle = el("photoViewTitle");
+  const photoViewImg = el("photoViewImg");
+  const confirmModalOverlay = el("confirmModalOverlay");
+  const confirmModalCloseBtn = el("confirmModalCloseBtn");
+  const confirmModalTitle = el("confirmModalTitle");
+  const confirmModalMessage = el("confirmModalMessage");
+  const confirmModalCancelBtn = el("confirmModalCancelBtn");
+  const confirmModalConfirmBtn = el("confirmModalConfirmBtn");
+  const micBtn = el("micBtn");
+  const cancelBtn = el("cancelBtn");
+  const saveBtn = el("saveBtn");
+  const modalCloseBtn = el("modalCloseBtn");
+  const homeLocationSection = el("homeLocationSection");
+  const nameFieldSection = el("nameFieldSection");
+  const wordCodeSection = el("wordCodeSection");
+  const hexHighlightSection = el("hexHighlightSection");
+  const homeAddressInput = el("homeQueryInput");
+  const homeAddressSearchBtn = el("homeAddressSearchBtn");
+  const homeAddressResults = el("homeAddressResults");
+  const homeAddressStatus = el("homeAddressStatus");
+  const homeModalUseLocationBtn = el("homeModalUseLocationBtn");
+  const homeModalPickMapBtn = el("homeModalPickMapBtn");
+  const panel = el("panel");
+  const panelCloseBtn = el("panelCloseBtn");
+  const panelSubtitle = el("panelSubtitle");
+  const panelList = el("panelList");
+  const panelSearchIcon = el("panelSearchIcon");
+  const panelSearchInput = el("panelSearchInput");
+  const panelSearchClearBtn = el("panelSearchClearBtn");
+  const panelNoResults = el("panelNoResults");
+  const toastEl = el("toast");
+  const voiceCapturePanel = el("voiceCapturePanel");
+  const voiceCaptureIcon = el("voiceCaptureIcon");
+  const voiceCaptureStatusText = el("voiceCaptureStatusText");
+  const voiceCaptureNameField = el("voiceCaptureNameField");
+  const voiceCaptureNameValue = el("voiceCaptureNameValue");
+  const voiceCaptureNotesField = el("voiceCaptureNotesField");
+  const voiceCaptureNotesValue = el("voiceCaptureNotesValue");
+
+  // static icons
+  el("searchIcon").innerHTML = icon("search", 16);
+  panelSearchIcon.innerHTML = icon("search", 14);
+  panelSearchClearBtn.innerHTML = icon("x", 13);
+  el("hudIcon").innerHTML = icon("crosshair", 11);
+  locateBtn.innerHTML = icon("navigation", 18);
+  cameraBtn.innerHTML = icon("camera", 18);
+  voiceWaypointBtn.innerHTML = icon("mic", 18);
+  voiceCaptureIcon.innerHTML = icon("mic", 13);
+  weatherAccordionChevron.innerHTML = icon("chevronDown", 14);
+  homeBtn.innerHTML = icon("home", 18);
+  layersToggleBtn.innerHTML = icon("layers", 18);
+  panelToggleBtn.innerHTML = icon("menu", 18) + panelToggleBtn.innerHTML;
+  document.querySelector(".counter-pill .icon").innerHTML = icon("mapPin", 14);
+  searchClearBtn.innerHTML = icon("x", 16);
+  modalCloseBtn.innerHTML = icon("x", 18);
+  anchorModalCloseBtn.innerHTML = icon("x", 18);
+  confirmModalCloseBtn.innerHTML = icon("x", 18);
+  photoViewCloseBtn.innerHTML = icon("x", 18);
+  photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
+  panelImportBtn.innerHTML = icon("upload", 16);
+  importModalCloseBtn.innerHTML = icon("x", 18);
+  importDropzoneEmpty.querySelector(".icon").innerHTML = icon("upload", 22);
+  expandJournalIcon.innerHTML = icon("expand", 12);
+  journalCloseBtn.innerHTML = icon("x", 18);
+  layersPanelCloseBtn.innerHTML = icon("x", 16);
+  homeAddressSearchBtn.innerHTML = icon("search", 16);
+  micBtn.innerHTML = icon("mic", 16);
+  panelCloseBtn.innerHTML = icon("x", 18);
+
+  /* ================================================================ */
+  /*  Toast                                                             */
+  /* ================================================================ */
+
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
+  }
+
+  /* ================================================================ */
+  /*  Confirmation modal (reusable)                                     */
+  /* ================================================================ */
+
+  let confirmModalCallback = null;
+  function openConfirmModal(title, message, onConfirm) {
+    confirmModalTitle.textContent = title;
+    confirmModalMessage.textContent = message;
+    confirmModalCallback = onConfirm;
+    confirmModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeConfirmModal() {
+    confirmModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    confirmModalCallback = null;
+  }
+  confirmModalCloseBtn.addEventListener("click", closeConfirmModal);
+  confirmModalCancelBtn.addEventListener("click", closeConfirmModal);
+  confirmModalConfirmBtn.addEventListener("click", () => {
+    const cb = confirmModalCallback;
+    closeConfirmModal();
+    if (cb) cb();
+  });
+
+  function openPhotoViewModal(name, src) {
+    photoViewTitle.textContent = name || "Photo";
+    photoViewImg.src = src;
+    photoViewModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closePhotoViewModal() {
+    photoViewModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    photoViewImg.src = "";
+  }
+  photoViewCloseBtn.addEventListener("click", closePhotoViewModal);
+  photoViewModalOverlay.addEventListener("click", (e) => { if (e.target === photoViewModalOverlay) closePhotoViewModal(); });
+
+  /* ================================================================ */
+  /*  Map setup                                                         */
+  /* ================================================================ */
+
+  const WORLD_BOUNDS = L.latLngBounds([-90, -180], [90, 180]);
+  const map = L.map("map", {
+    zoomControl: false,
+    worldCopyJump: false,
+    maxBounds: WORLD_BOUNDS,
+    maxBoundsViscosity: 1.0
+  }).setView([45.4215, -75.6972], 11);
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
+
+  // Custom horizontal zoom slider — Leaflet has no built-in one.
+  const zoomSliderInput = el("zoomSliderInput");
+  const zoomSliderControlEl = el("zoomSliderControl");
+  zoomSliderInput.min = map.getMinZoom();
+  zoomSliderInput.max = map.getMaxZoom();
+  zoomSliderInput.step = 1;
+  zoomSliderInput.value = map.getZoom();
+  L.DomEvent.disableClickPropagation(zoomSliderControlEl);
+  L.DomEvent.disableScrollPropagation(zoomSliderControlEl);
+  zoomSliderInput.addEventListener("input", () => { map.setZoom(Number(zoomSliderInput.value)); });
+  map.on("zoomend", () => { zoomSliderInput.value = map.getZoom(); });
+  function refreshZoomSlider() {
+    zoomSliderInput.min = map.getMinZoom();
+    zoomSliderInput.max = map.getMaxZoom();
+    zoomSliderInput.value = map.getZoom();
+  }
+
+  // Chained, measured layout for the whole bottom-left cluster: coordinates
+  // HUD -> zoom slider -> +/- buttons, left to right, all vertically aligned
+  // with the HUD. Each piece is positioned off the *actual rendered* position
+  // of the one before it rather than a guessed pixel offset (a guessed offset
+  // has bitten this app before). The Leaflet zoom control's own corner
+  // defaults to z-index 1000 and this slider is explicitly set above the
+  // waypoint panel's z-index (see CSS) — both stay on top and clickable even
+  // if the panel's width happens to reach this far on a narrow screen.
+  function positionBottomLeftControlCluster() {
+    const hudEl = document.querySelector(".hud");
+    const cornerEl = document.querySelector(".leaflet-bottom.leaflet-left");
+    if (!hudEl || !cornerEl) return;
+    const gap = 10;
+    const hudRect = hudEl.getBoundingClientRect();
+    const rowBottom = Math.round(window.innerHeight - hudRect.bottom);
+
+    zoomSliderControlEl.style.bottom = rowBottom + "px";
+    zoomSliderControlEl.style.left = Math.round(hudRect.right + gap) + "px";
+
+    const sliderRect = zoomSliderControlEl.getBoundingClientRect();
+    cornerEl.style.bottom = rowBottom + "px";
+    cornerEl.style.left = Math.round(sliderRect.right + gap) + "px";
+  }
+  positionBottomLeftControlCluster();
+  window.addEventListener("resize", () => positionBottomLeftControlCluster());
+
+  // Keep the map to a single, non-repeating world copy, and never let the user
+  // zoom out further than the point where that single world fills the screen
+  // (otherwise Leaflet either tiles multiple world copies side by side, or
+  // — with wrapping disabled — leaves empty space around a too-small world).
+  function updateMinZoomToFillScreen() {
+    const size = map.getSize();
+    const largestDim = Math.max(size.x, size.y);
+    const fitZoom = Math.ceil(Math.log2(Math.max(largestDim, 256) / 256));
+    map.setMinZoom(Math.max(1, fitZoom));
+    refreshZoomSlider();
+  }
+  updateMinZoomToFillScreen();
+  window.addEventListener("resize", () => updateMinZoomToFillScreen());
+
+  /* ---------- base layers (street / satellite / terrain) ---------- */
+  const baseLayers = {
+    street: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors", noWrap: true
+    }),
+    satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics", noWrap: true
+    }),
+    terrain: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      maxZoom: 17, attribution: "&copy; OpenStreetMap contributors, SRTM &mdash; style: &copy; OpenTopoMap", noWrap: true
+    })
+  };
+  let activeBaseLayer = null;
+  let baseLayerErrorShown = false;
+  function setBaseLayer(name) {
+    if (!baseLayers[name]) name = "street";
+    if (activeBaseLayer) map.removeLayer(activeBaseLayer);
+    activeBaseLayer = baseLayers[name];
+    baseLayerErrorShown = false;
+    activeBaseLayer.addTo(map);
+    settings.baseLayer = name;
+    saveSettings();
+    layersPanel.querySelectorAll('input[name="baseLayer"]').forEach((r) => { r.checked = r.value === name; });
+    refreshZoomSlider();
+  }
+  const BASE_LAYER_NAMES = { street: "Street", satellite: "Satellite", terrain: "Terrain" };
+  Object.keys(baseLayers).forEach((name) => {
+    baseLayers[name].on("tileerror", () => {
+      if (activeBaseLayer !== baseLayers[name] || baseLayerErrorShown) return;
+      baseLayerErrorShown = true;
+      showToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
+    });
+  });
+
+  /* ---------- live weather overlays ---------- */
+  const weatherLayers = { precip: null, clouds: null, temp: null, wind: null };
+  let rainviewerTimer = null;
+
+  async function buildPrecipLayer() {
+    try {
+      const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+      const data = await res.json();
+      const frames = (data.radar && data.radar.past) || [];
+      const latest = frames[frames.length - 1];
+      if (!latest) return null;
+      return L.tileLayer("https://tilecache.rainviewer.com/v2/radar/" + latest.path + "/256/{z}/{x}/{y}/2/1_1.png", {
+        opacity: 0.55, zIndex: 5, attribution: "Live radar &copy; RainViewer"
+      });
+    } catch (e) { return null; }
+  }
+  async function togglePrecip(on) {
+    if (on) {
+      if (weatherLayers.precip) return;
+      const layer = await buildPrecipLayer();
+      if (!layer) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
+      weatherLayers.precip = layer.addTo(map);
+      clearInterval(rainviewerTimer);
+      rainviewerTimer = setInterval(async () => {
+        const fresh = await buildPrecipLayer();
+        if (fresh && weatherLayers.precip) {
+          map.removeLayer(weatherLayers.precip);
+          weatherLayers.precip = fresh.addTo(map);
+        }
+      }, 10 * 60 * 1000);
+    } else {
+      if (weatherLayers.precip) { map.removeLayer(weatherLayers.precip); weatherLayers.precip = null; }
+      clearInterval(rainviewerTimer);
+    }
+  }
+
+  const OWM_LAYER_IDS = { clouds: "clouds_new", temp: "temp_new", wind: "wind_new" };
+  function owmTileLayer(kind) {
+    if (!settings.owmApiKey) return null;
+    return L.tileLayer(
+      "https://tile.openweathermap.org/map/" + OWM_LAYER_IDS[kind] + "/{z}/{x}/{y}.png?appid=" + encodeURIComponent(settings.owmApiKey),
+      { opacity: 0.5, zIndex: 6, attribution: "Weather &copy; OpenWeatherMap" }
+    );
+  }
+  function toggleOwmLayer(kind, on) {
+    if (on) {
+      if (!settings.owmApiKey) { showToast("Add an OpenWeatherMap API key first."); return false; }
+      if (weatherLayers[kind]) return true;
+      const layer = owmTileLayer(kind);
+      if (layer) weatherLayers[kind] = layer.addTo(map);
+      return true;
+    } else {
+      if (weatherLayers[kind]) { map.removeLayer(weatherLayers[kind]); weatherLayers[kind] = null; }
+      return true;
+    }
+  }
+
+  function refreshOwmUi() {
+    const hasKey = !!settings.owmApiKey;
+    owmKeyPrompt.style.display = hasKey ? "none" : "block";
+    owmKeySaved.style.display = hasKey ? "flex" : "none";
+    wxClouds.disabled = !hasKey; wxTemp.disabled = !hasKey; wxWind.disabled = !hasKey;
+  }
+
+  layersToggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    layersPanel.classList.toggle("show");
+    layersToggleBtn.classList.toggle("active", layersPanel.classList.contains("show"));
+  });
+  layersPanelCloseBtn.addEventListener("click", () => {
+    layersPanel.classList.remove("show");
+    layersToggleBtn.classList.remove("active");
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".layers-wrap")) {
+      layersPanel.classList.remove("show");
+      layersToggleBtn.classList.remove("active");
+    }
+  });
+  layersPanel.querySelectorAll('input[name="baseLayer"]').forEach((r) => {
+    r.addEventListener("change", () => { if (r.checked) setBaseLayer(r.value); });
+  });
+  wxPrecip.addEventListener("change", () => { settings.weather.precip = wxPrecip.checked; saveSettings(); togglePrecip(wxPrecip.checked); });
+  wxClouds.addEventListener("change", () => { const ok = toggleOwmLayer("clouds", wxClouds.checked); if (!ok) wxClouds.checked = false; settings.weather.clouds = wxClouds.checked; saveSettings(); });
+  wxTemp.addEventListener("change", () => { const ok = toggleOwmLayer("temp", wxTemp.checked); if (!ok) wxTemp.checked = false; settings.weather.temp = wxTemp.checked; saveSettings(); });
+  wxWind.addEventListener("change", () => { const ok = toggleOwmLayer("wind", wxWind.checked); if (!ok) wxWind.checked = false; settings.weather.wind = wxWind.checked; saveSettings(); });
+
+  owmKeySaveBtn.addEventListener("click", () => {
+    const key = owmKeyInput.value.trim();
+    if (!key) { showToast("Enter a valid API key first."); return; }
+    settings.owmApiKey = key;
+    saveSettings();
+    owmKeyInput.value = "";
+    refreshOwmUi();
+    showToast("OpenWeatherMap key saved");
+  });
+  owmKeyForgetBtn.addEventListener("click", () => {
+    settings.owmApiKey = "";
+    ["clouds", "temp", "wind"].forEach((k) => { toggleOwmLayer(k, false); });
+    wxClouds.checked = false; wxTemp.checked = false; wxWind.checked = false;
+    settings.weather.clouds = false; settings.weather.temp = false; settings.weather.wind = false;
+    saveSettings();
+    refreshOwmUi();
+    showToast("API key removed");
+  });
+
+  /* ---------- home base ---------- */
+  let homeMarker = null;
+  let pickingHome = false;
+
+  function homeIconOpts() {
+    const h = settings.home || {};
+    return { style: h.markerStyle === "emoji" ? "emoji" : "pin", color: h.markerColor || "#34d399", emoji: h.markerEmoji || "🏠" };
+  }
+
+  function selectHomeMarker() {
+    setSelectedWaypointMarker(null); // clears any currently-selected waypoint's highlight and list-card
+    if (homeMarker) {
+      const el = homeMarker.getElement && homeMarker.getElement();
+      if (el) el.classList.add("wp-selected");
+    }
+  }
+
+  function placeHomeMarker(lat, lng) {
+    if (homeMarker) map.removeLayer(homeMarker);
+    homeMarker = L.marker([lat, lng], { icon: makeIcon(Object.assign({ pulsing: false }, homeIconOpts())), zIndexOffset: 500 }).addTo(map);
+    homeMarker.on("click", () => { flyToHome(); selectHomeMarker(); });
+    const tooltipOffset = homeIconOpts().style === "emoji" ? [0, -46] : [0, -38];
+    homeMarker.bindTooltip((settings.home && settings.home.name) || "Home", { direction: "top", offset: tooltipOffset });
+  }
+
+  function setHome(lat, lng, zoom, opts) {
+    const prev = settings.home || {};
+    settings.home = {
+      lat, lng, zoom: zoom || prev.zoom || 15,
+      name: (opts && opts.name) || prev.name || "Home",
+      markerStyle: (opts && opts.markerStyle) || prev.markerStyle || "pin",
+      markerColor: (opts && opts.markerColor) || prev.markerColor || "#34d399",
+      markerEmoji: (opts && opts.markerEmoji) || prev.markerEmoji || "🏠",
+      notes: (opts && opts.notes !== undefined) ? opts.notes : (prev.notes || ""),
+      hexColor: (opts && opts.hexColor !== undefined) ? opts.hexColor : (prev.hexColor || null)
+    };
+    saveSettings();
+    placeHomeMarker(lat, lng);
+    removeWaypointHexHighlight("__home__");
+    if (settings.home.hexColor) addWaypointHexHighlight({ id: "__home__", lat, lng, hexColor: settings.home.hexColor });
+    refreshHomeUi();
+  }
+
+  function clearHome() {
+    settings.home = null;
+    saveSettings();
+    if (homeMarker) { map.removeLayer(homeMarker); homeMarker = null; }
+    removeWaypointHexHighlight("__home__");
+    refreshHomeUi();
+  }
+
+  function flyToHome() {
+    if (!settings.home) { layersPanel.classList.add("show"); showToast("Set your home location first."); return; }
+    map.flyTo([settings.home.lat, settings.home.lng], settings.home.zoom, { duration: 0.9 });
+  }
+
+  function refreshHomeUi() {
+    const h = settings.home;
+    if (h) {
+      homeStatus.innerHTML = escapeHtml(h.name || "Home") + " set at <span class=\"mono\">" + h.lat.toFixed(5) + ", " + h.lng.toFixed(5) + "</span>";
+      homeFlyBtn.style.display = "block";
+      homeClearBtn.style.display = "block";
+      homeBtn.title = "Edit home location";
+    } else {
+      homeStatus.textContent = "No home set yet. The map opens on your last view until you set one.";
+      homeFlyBtn.style.display = "none";
+      homeClearBtn.style.display = "none";
+      homeBtn.title = "Set home";
+    }
+  }
+
+  // "reopenModal" distinguishes the layers-panel quick-pick (tap map -> save
+  // immediately) from the modal's own "tap map to set" (tap map -> come back
+  // to the modal with the new point, so style/notes can still be reviewed
+  // before saving) — same underlying picking-mode, two different endings.
+  let homePickReopenModal = false;
+  function setPickingHome(on, opts) {
+    pickingHome = on;
+    homePickMapBtn.classList.toggle("picking-active", on);
+    homePickMapBtn.textContent = on ? "Tap the map…" : "Tap map to set";
+    homeModalPickMapBtn.classList.toggle("picking-active", on);
+    homeModalPickMapBtn.textContent = on ? "Tap the map…" : "Tap map to set";
+    homeBtn.classList.toggle("picking", on);
+    if (on) {
+      homePickReopenModal = !!(opts && opts.reopenModal);
+      if (!modalOverlay.classList.contains("hidden")) closeModal();
+      showToast("Tap anywhere on the map to set home");
+    }
+  }
+
+  function geolocateForHome(triggerBtn) {
+    if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
+    triggerBtn.disabled = true;
+    const original = triggerBtn.textContent;
+    triggerBtn.textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        triggerBtn.disabled = false; triggerBtn.textContent = original;
+        const { latitude, longitude } = pos.coords;
+        setHome(latitude, longitude, 15);
+        flyToHome();
+        showToast("Home set to your current location");
+      },
+      (err) => {
+        triggerBtn.disabled = false; triggerBtn.textContent = original;
+        const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
+        showToast(messages[err.code] || "Couldn't get your location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  /* ---------- Home editing, unified with the waypoint modal ---------- */
+  let homeAddressDebounce = null;
+
+  function updatePendingHomePoint(lat, lng) {
+    pendingPoint = { lat, lng, isCurrentLocation: false };
+    modalCoords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6);
+    refreshPendingMarkerPreview();
+  }
+
+  function openHomeEditModal(overrideLat, overrideLng) {
+    editingHomeMode = true;
+    editingWaypointId = null;
+    if (homeMarker) map.removeLayer(homeMarker); // avoid a duplicate marker while the live preview is shown
+
+    const h = settings.home;
+    const lat = overrideLat !== undefined ? overrideLat : (h ? h.lat : map.getCenter().lat);
+    const lng = overrideLng !== undefined ? overrideLng : (h ? h.lng : map.getCenter().lng);
+    const style = h && h.markerStyle === "emoji" ? "emoji" : "pin";
+    const color = (h && h.markerColor) || "#34d399";
+    const emoji = (h && h.markerEmoji) || "🏠";
+
+    pendingPoint = { lat, lng, isCurrentLocation: false };
+    placePendingMarker(lat, lng, { style, color, emoji });
+
+    saveBtn.textContent = h ? "Save changes" : "Save home";
+    modalTitle.textContent = h ? "Edit home" : "Set home";
+    modalCoords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6);
+
+    wordCodeSection.style.display = "none";
+    nameFieldSection.style.display = "block";
+    hexHighlightSection.style.display = "block";
+    homeLocationSection.style.display = "block";
+
+    homeAddressInput.value = "";
+    homeAddressResults.innerHTML = "";
+    homeAddressResults.classList.remove("show");
+    homeAddressStatus.style.display = "none";
+
+    nameInput.value = (h && h.name) || "Home";
+    notesInput.value = (h && h.notes) || "";
+    markerColorInput.value = color;
+    markSwatchSelected(markerColorSwatches, color);
+    markerEmojiInput.value = style === "emoji" ? emoji : "";
+    setMarkerStyleUI(style);
+    const homeHexColor = h && h.hexColor;
+    hexHighlightToggle.checked = !!homeHexColor;
+    hexColorField.style.display = homeHexColor ? "block" : "none";
+    hexColorInput.value = homeHexColor || "#38bdf8";
+    markSwatchSelected(hexColorSwatches, homeHexColor || "#38bdf8");
+    pendingPhotos = [];
+    photoStatus.style.display = "none";
+    renderPhotoThumbs();
+
+    layersPanel.classList.remove("show");
+    layersToggleBtn.classList.remove("active");
+
+    modalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+
+  homeAddressInput.addEventListener("input", () => {
+    const q = homeAddressInput.value.trim();
+    clearTimeout(homeAddressDebounce);
+    if (!q) { homeAddressResults.classList.remove("show"); homeAddressResults.innerHTML = ""; return; }
+    homeAddressDebounce = setTimeout(() => runHomeAddressSearch(q), 450);
+  });
+  homeAddressInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { clearTimeout(homeAddressDebounce); runHomeAddressSearch(homeAddressInput.value.trim()); }
+  });
+  homeAddressSearchBtn.addEventListener("click", () => {
+    clearTimeout(homeAddressDebounce);
+    runHomeAddressSearch(homeAddressInput.value.trim());
+  });
+
+  async function geocodeNominatim(q) {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(q);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("bad response");
+    return data.map((r) => ({ lat: parseFloat(r.lat), lng: parseFloat(r.lon), label: r.display_name }));
+  }
+
+  async function geocodeOpenMeteo(q) {
+    const url = "https://geocoding-api.open-meteo.com/v1/search?count=5&language=en&format=json&name=" + encodeURIComponent(q);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+    return results.map((r) => ({
+      lat: r.latitude, lng: r.longitude,
+      label: [r.name, r.admin1, r.country].filter(Boolean).filter((part, i, arr) => arr.indexOf(part) === i).join(", ")
+    }));
+  }
+
+  async function runHomeAddressSearch(q) {
+    if (!q) return;
+    homeAddressStatus.style.display = "none";
+    homeAddressSearchBtn.innerHTML = '<span class="spinner"></span>';
+    try {
+      let results;
+      try {
+        results = await geocodeNominatim(q);
+      } catch (primaryErr) {
+        results = await geocodeOpenMeteo(q);
+      }
+      renderHomeAddressResults(results);
+    } catch (e) {
+      homeAddressStatus.textContent = "Couldn't reach the address search service. Check your connection and try again.";
+      homeAddressStatus.style.display = "block";
+    } finally {
+      homeAddressSearchBtn.innerHTML = icon("search", 16);
+    }
+  }
+
+  function renderHomeAddressResults(results) {
+    if (results.length === 0) {
+      homeAddressResults.classList.remove("show");
+      homeAddressResults.innerHTML = "";
+      homeAddressStatus.textContent = "No matches found — try a more specific address.";
+      homeAddressStatus.style.display = "block";
+      return;
+    }
+    homeAddressStatus.style.display = "none";
+    homeAddressResults.innerHTML = results.map((r, i) =>
+      '<div class="search-result-row" data-idx="' + i + '">' + icon("mapPin", 14) +
+      '<span>' + escapeHtml(r.label) + "</span></div>"
+    ).join("");
+    homeAddressResults.classList.add("show");
+    homeAddressResults.querySelectorAll(".search-result-row").forEach((rowEl) => {
+      rowEl.addEventListener("click", () => {
+        const r = results[Number(rowEl.dataset.idx)];
+        updatePendingHomePoint(r.lat, r.lng);
+        homeAddressInput.value = r.label;
+        homeAddressResults.classList.remove("show");
+        showToast("Location updated to " + r.label.split(",")[0]);
+      });
+    });
+  }
+
+  homeModalUseLocationBtn.addEventListener("click", () => {
+    if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
+    homeModalUseLocationBtn.disabled = true;
+    const original = homeModalUseLocationBtn.textContent;
+    homeModalUseLocationBtn.textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        homeModalUseLocationBtn.disabled = false; homeModalUseLocationBtn.textContent = original;
+        updatePendingHomePoint(pos.coords.latitude, pos.coords.longitude);
+        showToast("Location updated to your current position");
+      },
+      (err) => {
+        homeModalUseLocationBtn.disabled = false; homeModalUseLocationBtn.textContent = original;
+        const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
+        showToast(messages[err.code] || "Couldn't get your location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+  homeModalPickMapBtn.addEventListener("click", () => setPickingHome(!pickingHome, { reopenModal: true }));
+
+  homeBtn.addEventListener("click", () => {
+    if (pickingHome) { setPickingHome(false); return; }
+    openHomeEditModal();
+  });
+
+  homeUseLocationBtn.addEventListener("click", () => geolocateForHome(homeUseLocationBtn));
+
+  homeFlyBtn.addEventListener("click", () => {
+    flyToHome();
+    layersPanel.classList.remove("show");
+    layersToggleBtn.classList.remove("active");
+  });
+
+  homePickMapBtn.addEventListener("click", () => setPickingHome(!pickingHome, { reopenModal: false }));
+
+  homeClearBtn.addEventListener("click", () => {
+    clearHome();
+    showToast("Home removed");
+  });
+
+  /* ---------- H3 region hex grid overlay ---------- */
+  let hexGridLayer = null;
+  let cellToPolygon = new Map();
+  let adminMode = false;
+
+  function hexStyleFor(cell) {
+    const curated = !!settings.anchorOverrides[cell];
+    return curated
+      ? { color: "#ef4444", weight: 2, opacity: 0.85, fillColor: "#ef4444", fillOpacity: 0.1 }
+      : { color: "#ef4444", weight: 1, opacity: 0.5, fillColor: "#ef4444", fillOpacity: 0.03 };
+  }
+  function hexHoverStyleFor(cell) {
+    const curated = !!settings.anchorOverrides[cell];
+    return curated
+      ? { opacity: 1, fillOpacity: 0.22 }
+      : { opacity: 1, fillOpacity: 0.12 };
+  }
+
+  function buildHexGridLayer() {
+    if (!h3Ready) return null;
+    const group = L.layerGroup();
+    anchorCellToWord.forEach((word, cell) => {
+      try {
+        const boundary = window.h3.cellToBoundary(cell); // [[lat,lng], ...]
+        // Skip cells whose boundary wraps the antimeridian to avoid a hex stretching across the whole map.
+        const lngs = boundary.map((p) => p[1]);
+        if (Math.max(...lngs) - Math.min(...lngs) > 180) return;
+        const poly = L.polygon(boundary, Object.assign({ interactive: true }, hexStyleFor(cell)));
+        poly.bindTooltip(anchorCellToWord.get(cell), { sticky: true, direction: "top", className: "mono" });
+        poly.on("mouseover", () => poly.setStyle(hexHoverStyleFor(cell)));
+        poly.on("mouseout", () => poly.setStyle(hexStyleFor(cell)));
+        poly.on("click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          try {
+            const [clat, clng] = window.h3.cellToLatLng(cell);
+            map.panTo([clat, clng]);
+          } catch (err) { /* ignore */ }
+          if (adminMode) openAnchorEditModal(cell);
+        });
+        cellToPolygon.set(cell, poly);
+        group.addLayer(poly);
+      } catch (e) { /* skip malformed cell */ }
+    });
+    return group;
+  }
+  function refreshHexCell(cell) {
+    const poly = cellToPolygon.get(cell);
+    if (!poly) return;
+    poly.setStyle(hexStyleFor(cell));
+    poly.setTooltipContent(anchorCellToWord.get(cell) + (adminMode ? "  (click to rename)" : ""));
+  }
+  function refreshAllHexCells() {
+    cellToPolygon.forEach((poly, cell) => refreshHexCell(cell));
+  }
+  function toggleHexGrid(on) {
+    if (on) {
+      if (!h3Ready) { showToast("Hex grid needs the H3 library, which hasn't finished loading."); hexGridToggle.checked = false; return; }
+      if (!hexGridLayer) hexGridLayer = buildHexGridLayer();
+      if (hexGridLayer) hexGridLayer.addTo(map);
+    } else {
+      if (hexGridLayer) map.removeLayer(hexGridLayer);
+    }
+  }
+  hexGridToggle.addEventListener("change", () => {
+    settings.hexGrid = hexGridToggle.checked;
+    saveSettings();
+    toggleHexGrid(hexGridToggle.checked);
+  });
+
+  function setWeatherAccordionOpen(open) {
+    weatherAccordionToggle.classList.toggle("open", open);
+    weatherAccordionContent.classList.toggle("open", open);
+    settings.weatherAccordionOpen = open;
+    saveSettings();
+  }
+  weatherAccordionToggle.addEventListener("click", () => {
+    setWeatherAccordionOpen(!weatherAccordionContent.classList.contains("open"));
+  });
+
+  /* ---------- Precision hexes: finer H3 grid for the current view ---------- */
+  /* Resolution-13 cells (~3.6m, used for actual addressing) can't be drawn      */
+  /* globally — there are billions. Instead this shows the same H3 hierarchy    */
+  /* at whichever resolution keeps a reasonable cell count on screen, getting    */
+  /* finer as you zoom in, capped so it never tries to render an unreasonable   */
+  /* number of polygons.                                                        */
+  let precisionHexLayer = null;
+  let precisionHexToken = 0;
+  let precisionHexDebounce = null;
+  const PRECISION_HEX_MAX_CELLS = 4000;
+
+  function precisionResolutionForZoom(zoom) {
+    return Math.max(ANCHOR_RES + 1, Math.min(FINE_RES, Math.round(zoom - 5)));
+  }
+
+  function rebuildPrecisionHexes() {
+    if (!h3Ready) return;
+    const myToken = ++precisionHexToken;
+    const res = precisionResolutionForZoom(map.getZoom());
+    const b = map.getBounds();
+    const loop = [
+      [b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()],
+      [b.getSouth(), b.getEast()], [b.getSouth(), b.getWest()]
+    ];
+    let cells;
+    try {
+      cells = window.h3.polygonToCells(loop, res);
+    } catch (e) {
+      showToast("Couldn't compute precision hexes for this view.");
+      return;
+    }
+    if (myToken !== precisionHexToken) return; // a newer rebuild superseded this one
+    if (cells.length > PRECISION_HEX_MAX_CELLS) {
+      if (precisionHexLayer) { map.removeLayer(precisionHexLayer); precisionHexLayer = null; }
+      showToast("Zoom in further to see precision hexes for this area.");
+      return;
+    }
+    const group = L.layerGroup();
+    cells.forEach((cell) => {
+      try {
+        const boundary = window.h3.cellToBoundary(cell);
+        const lngs = boundary.map((p) => p[1]);
+        if (Math.max(...lngs) - Math.min(...lngs) > 180) return;
+        L.polygon(boundary, {
+          color: "#3b82f6", weight: 1, opacity: 0.6, fillColor: "#3b82f6", fillOpacity: 0.04, interactive: false
+        }).addTo(group);
+      } catch (e) { /* skip malformed cell */ }
+    });
+    if (precisionHexLayer) map.removeLayer(precisionHexLayer);
+    precisionHexLayer = group;
+    if (precisionHexToggle.checked) precisionHexLayer.addTo(map);
+  }
+
+  function togglePrecisionHexes(on) {
+    if (on) {
+      if (!h3Ready) { showToast("Precision hexes need the H3 library, which hasn't finished loading."); precisionHexToggle.checked = false; return; }
+      rebuildPrecisionHexes();
+    } else if (precisionHexLayer) {
+      map.removeLayer(precisionHexLayer);
+    }
+  }
+  precisionHexToggle.addEventListener("change", () => {
+    settings.precisionHex = precisionHexToggle.checked;
+    saveSettings();
+    togglePrecisionHexes(precisionHexToggle.checked);
+  });
+  map.on("moveend", () => {
+    if (!precisionHexToggle.checked) return;
+    clearTimeout(precisionHexDebounce);
+    precisionHexDebounce = setTimeout(rebuildPrecisionHexes, 350);
+  });
+
+  /* ---------- Admin mode: curate anchor region names ---------- */
+  function refreshCuratedCount() {
+    const n = Object.keys(settings.anchorOverrides).length;
+    curatedCountHint.textContent = n + " of 842 regions curated";
+  }
+
+  adminModeToggle.addEventListener("change", () => {
+    adminMode = adminModeToggle.checked;
+    document.body.classList.toggle("hex-admin", adminMode);
+    anchorAdminActions.style.display = adminMode ? "flex" : "none";
+    if (adminMode && !hexGridToggle.checked) { hexGridToggle.checked = true; toggleHexGrid(true); }
+    refreshAllHexCells();
+    if (adminMode) showToast("Admin mode on — click any hex to rename its region.");
+  });
+
+  let editingCell = null;
+  function openAnchorEditModal(cell) {
+    editingCell = cell;
+    anchorModalCellId.textContent = cell;
+    anchorModalDefaultWord.textContent = "Default: " + anchorCellToDefaultWord.get(cell);
+    anchorNameInput.value = settings.anchorOverrides[cell] || "";
+    anchorNameInput.placeholder = anchorCellToDefaultWord.get(cell);
+    anchorNameError.style.display = "none";
+    anchorModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => anchorNameInput.focus(), 30);
+  }
+  function closeAnchorEditModal() {
+    anchorModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    editingCell = null;
+  }
+  anchorModalCloseBtn.addEventListener("click", closeAnchorEditModal);
+  anchorNameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") anchorSaveBtn.click(); });
+  anchorSaveBtn.addEventListener("click", () => {
+    if (!editingCell) return;
+    const res = setAnchorOverride(editingCell, anchorNameInput.value);
+    if (!res.ok) { anchorNameError.textContent = res.error; anchorNameError.style.display = "block"; return; }
+    refreshHexCell(editingCell);
+    refreshCuratedCount();
+    showToast('Region renamed to "' + res.word + '"');
+    closeAnchorEditModal();
+  });
+  anchorResetBtn.addEventListener("click", () => {
+    if (!editingCell) return;
+    if (!settings.anchorOverrides[editingCell]) { showToast("Already using the default name."); return; }
+    resetAnchorOverride(editingCell);
+    refreshHexCell(editingCell);
+    refreshCuratedCount();
+    showToast("Reset to default name");
+    closeAnchorEditModal();
+  });
+
+  exportAnchorsBtn.addEventListener("click", () => {
+    const data = JSON.stringify(settings.anchorOverrides, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "anchor-region-names.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+  importAnchorsBtn.addEventListener("click", () => importAnchorsFile.click());
+  importAnchorsFile.addEventListener("change", () => {
+    const file = importAnchorsFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let applied = 0, skipped = 0;
+      try {
+        const obj = JSON.parse(String(reader.result));
+        if (!obj || typeof obj !== "object") throw new Error("bad shape");
+        Object.keys(obj).forEach((cell) => {
+          if (!anchorCellToDefaultWord.has(cell)) { skipped++; return; }
+          const res = setAnchorOverride(cell, obj[cell]);
+          if (res.ok) applied++; else skipped++;
+        });
+        refreshCuratedCount();
+        refreshAllHexCells();
+        showToast("Imported " + applied + " region name" + (applied === 1 ? "" : "s") + (skipped ? (", skipped " + skipped) : ""));
+      } catch (e) {
+        showToast("Couldn't read that file — expected a JSON export from this app.");
+      }
+      importAnchorsFile.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  refreshCuratedCount();
+
+  /* restore persisted map/layer settings */
+  setBaseLayer(settings.baseLayer);
+  owmKeyInput.value = "";
+  refreshOwmUi();
+  refreshHomeUi();
+  if (settings.home) {
+    placeHomeMarker(settings.home.lat, settings.home.lng);
+    if (settings.home.hexColor) {
+      addWaypointHexHighlight({ id: "__home__", lat: settings.home.lat, lng: settings.home.lng, hexColor: settings.home.hexColor });
+    }
+  }
+  if (settings.weather.precip) { wxPrecip.checked = true; togglePrecip(true); }
+  if (settings.owmApiKey) {
+    if (settings.weather.clouds) { wxClouds.checked = true; toggleOwmLayer("clouds", true); }
+    if (settings.weather.temp) { wxTemp.checked = true; toggleOwmLayer("temp", true); }
+    if (settings.weather.wind) { wxWind.checked = true; toggleOwmLayer("wind", true); }
+  }
+  if (settings.hexGrid) { hexGridToggle.checked = true; toggleHexGrid(true); }
+  const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp || settings.weather.wind;
+  setWeatherAccordionOpen(!!settings.weatherAccordionOpen || !!anyWeatherActive);
+  if (settings.precisionHex) { precisionHexToggle.checked = true; togglePrecisionHexes(true); }
+
+  function pinSvg(color) {
+    return '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M15 0C6.7 0 0 6.7 0 15c0 10.5 15 25 15 25s15-14.5 15-25C30 6.7 23.3 0 15 0z" fill="' + color +
+      '" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>' +
+      '<circle cx="15" cy="15" r="6" fill="rgba(15,23,42,0.85)"/></svg>';
+  }
+  function makeIcon(opts) {
+    opts = opts || {};
+    const color = opts.color || "#f59e0b";
+    if (opts.style === "emoji") {
+      const html = '<div class="wp-marker-emoji">' +
+        (opts.pulsing ? '<span class="wp-pulse-ring" style="border-color:' + color + '"></span>' : "") +
+        '<div class="wp-emoji-marker" style="background:' + color + '40; border-color:' + color + ';">' +
+          escapeHtml(opts.emoji || "📍") +
+        "</div></div>";
+      return L.divIcon({ html, className: "wp-div-icon", iconSize: [48, 48], iconAnchor: [24, 48] });
+    }
+    const html = '<div class="wp-marker">' +
+      (opts.pulsing ? '<span class="wp-pulse-ring" style="border-color:' + color + '"></span>' : "") +
+      '<div class="wp-pin">' + pinSvg(color) + "</div></div>";
+    return L.divIcon({ html, className: "wp-div-icon", iconSize: [30, 40], iconAnchor: [15, 40] });
+  }
+  function iconOptsForWaypoint(wp, pulsing) {
+    return {
+      style: wp.markerStyle === "emoji" ? "emoji" : "pin",
+      color: wp.markerColor || (wp.isCurrentLocation ? "#22d3ee" : "#f59e0b"),
+      emoji: wp.markerEmoji,
+      pulsing: !!pulsing
+    };
+  }
+
+  // Per-waypoint anchor-region highlight overlays (opt-in, independent of the
+  // general "Anchor regions" grid toggle — these are deliberate per-point picks).
+  let waypointHexPolygons = new Map(); // wp.id -> L.Polygon
+
+  function addWaypointHexHighlight(wp) {
+    if (!wp.hexColor || !h3Ready) return;
+    try {
+      const fine = window.h3.latLngToCell(wp.lat, wp.lng, FINE_RES);
+      const anchor = window.h3.cellToParent(fine, ANCHOR_RES);
+      const boundary = window.h3.cellToBoundary(anchor);
+      const lngs = boundary.map((p) => p[1]);
+      if (Math.max(...lngs) - Math.min(...lngs) > 180) return; // skip antimeridian-wrapping cells
+      const poly = L.polygon(boundary, {
+        color: wp.hexColor, weight: 2, opacity: 0.8, fillColor: wp.hexColor, fillOpacity: 0.2, interactive: false
+      }).addTo(map);
+      waypointHexPolygons.set(wp.id, poly);
+    } catch (e) { /* ignore */ }
+  }
+  function removeWaypointHexHighlight(id) {
+    const poly = waypointHexPolygons.get(id);
+    if (poly) { map.removeLayer(poly); waypointHexPolygons.delete(id); }
+  }
+
+  function getMaxZoomForCurrentBaseLayer() {
+    return (activeBaseLayer && activeBaseLayer.options && activeBaseLayer.options.maxZoom) || 19;
+  }
+
+  function addSavedMarker(wp) {
+    const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)) }).addTo(map);
+    marker.on("click", () => {
+      flyTo(wp.lat, wp.lng, getMaxZoomForCurrentBaseLayer());
+      openPanel();
+      setSelectedWaypointMarker(wp.id);
+    });
+    const tooltipOffset = wp.markerStyle === "emoji" ? [0, -46] : [0, -38];
+    marker.bindTooltip(escapeHtml(wp.name), { direction: "top", offset: tooltipOffset });
+    markers[wp.id] = marker;
+    if (wp.id === selectedWaypointId) {
+      const el = marker.getElement && marker.getElement();
+      if (el) el.classList.add("wp-selected");
+    }
+    return marker;
+  }
+
+  function placePendingMarker(lat, lng, opts) {
+    if (pendingMarker) map.removeLayer(pendingMarker);
+    pendingMarker = L.marker([lat, lng], { icon: makeIcon(Object.assign({ pulsing: true }, opts)) }).addTo(map);
+  }
+  function clearPendingMarker() {
+    if (pendingMarker) map.removeLayer(pendingMarker);
+    pendingMarker = null;
+  }
+
+  function flyTo(lat, lng, zoom) {
+    map.flyTo([lat, lng], Math.max(zoom || map.getZoom(), 15), { duration: 0.9 });
+  }
+
+  map.on("click", (e) => {
+    if (pickingCameraLocation) {
+      pickingCameraLocation = false;
+      const dataUrl = pendingCameraDataUrl;
+      pendingCameraDataUrl = null;
+      placeCameraPhotoAtLocation(e.latlng.lat, e.latlng.lng, dataUrl);
+      return;
+    }
+    if (pickingHome) {
+      const reopen = homePickReopenModal;
+      setPickingHome(false);
+      if (reopen) {
+        openHomeEditModal(e.latlng.lat, e.latlng.lng);
+        showToast("Location updated");
+      } else {
+        setHome(e.latlng.lat, e.latlng.lng, map.getZoom());
+        showToast("Home set");
+      }
+      return;
+    }
+    handleMapPick(e.latlng.lat, e.latlng.lng, false);
+  });
+  map.on("moveend", updateHud);
+
+  // restore persisted waypoints
+  waypoints.forEach((wp) => { addSavedMarker(wp); addWaypointHexHighlight(wp); });
+  if (settings.home) {
+    map.setView([settings.home.lat, settings.home.lng], settings.home.zoom);
+  } else if (waypoints.length > 0) {
+    const group = L.featureGroup(Object.values(markers));
+    map.fitBounds(group.getBounds().pad(0.35));
+  }
+  // else: keep the Ottawa default view set when the map was created above.
+  updateHud();
+  updateCounters();
+  renderList();
+
+  function updateHud() {
+    const c = map.getCenter();
+    hudCoords.textContent = c.lat.toFixed(5) + ", " + c.lng.toFixed(5) + "  Z" + map.getZoom();
+  }
+
+  function updateCounters() {
+    counterNumber.textContent = waypoints.length;
+    if (waypoints.length > 0) { countBadge.textContent = waypoints.length; countBadge.classList.add("show"); }
+    else { countBadge.classList.remove("show"); }
+    panelSubtitle.textContent = waypoints.length + " logged";
+    hudLabel.textContent = "WAYPOINT SAVER · " + waypoints.length + " SAVED";
+  }
+
+  /* ================================================================ */
+  /*  Picking a point (click / current location / search)              */
+  /* ================================================================ */
+
+  const MARKER_COLOR_PRESETS = ["#f59e0b", "#ef4444", "#22d3ee", "#34d399", "#a78bfa", "#f472b6", "#38bdf8", "#f97316", "#e2e8f0", "#64748b"];
+  const HEX_COLOR_PRESETS = ["#38bdf8", "#34d399", "#f472b6", "#a78bfa", "#fbbf24", "#ef4444", "#22d3ee", "#f97316"];
+  const EMOJI_QUICK_PICKS = [
+    // transportation
+    "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚗", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
+    // boating / water
+    "⛵", "🚤", "🛥️", "🚢", "⛴️", "⚓", "🏖️", "🌊",
+    // camping / outdoors
+    "⛺", "🏕️", "🔥", "🥾", "🧭", "⛰️", "🏔️", "🌲", "🏞️", "🎣",
+    // fuel / services
+    "⛽", "🔌", "🅿️", "🚻", "🚰", "🛒",
+    // buildings
+    "🏠", "🏡", "🏢", "🏨", "🏥", "🏫", "⛪", "🏛️", "🏭", "🏰",
+    // food / drink
+    "☕", "🍽️",
+    // emergency / hazard
+    "🚒", "🚑", "🚨", "⚠️", "🆘",
+    // general markers
+    "📍", "⭐️", "❤️", "🚩", "🎯"
+  ];
+
+  function renderColorSwatches(container, input, presets) {
+    container.innerHTML = presets.map((c) =>
+      '<button type="button" class="color-swatch" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>'
+    ).join("");
+    container.querySelectorAll(".color-swatch").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        input.value = btn.dataset.color;
+        input.dispatchEvent(new Event("input"));
+      });
+    });
+  }
+  function markSwatchSelected(container, color) {
+    const norm = String(color || "").toLowerCase();
+    container.querySelectorAll(".color-swatch").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.color.toLowerCase() === norm);
+    });
+  }
+  renderColorSwatches(markerColorSwatches, markerColorInput, MARKER_COLOR_PRESETS);
+  renderColorSwatches(hexColorSwatches, hexColorInput, HEX_COLOR_PRESETS);
+  emojiQuickPick.innerHTML = EMOJI_QUICK_PICKS.map((e) =>
+    '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>"
+  ).join("");
+  emojiQuickPick.querySelectorAll(".emoji-quick-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      markerEmojiInput.value = btn.dataset.emoji;
+      markerEmojiInput.dispatchEvent(new Event("input"));
+    });
+  });
+
+  /* ---------- photo capture (library, drag/drop, paste) ---------- */
+  const MAX_PHOTOS_PER_WAYPOINT = 6;
+  const PHOTO_MAX_DIMENSION = 1280;
+  const PHOTO_JPEG_QUALITY = 0.75;
+
+  function compressImageFile(file, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+            else { width = Math.round(width * maxDim / height); height = maxDim; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          try { resolve(canvas.toDataURL("image/jpeg", quality)); }
+          catch (e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error("Couldn't decode image"));
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error("Couldn't read file"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ================================================================ */
+  /*  Camera capture -> auto waypoint/photo                             */
+  /*  Reads the GPS tag out of a photo's EXIF data (no library — hand-   */
+  /*  written JPEG/TIFF parser, tested against real EXIF fixtures        */
+  /*  before shipping) and uses it to either attach the photo to an      */
+  /*  existing nearby waypoint or create a new one.                      */
+  /* ================================================================ */
+
+  function extractExifGpsFromArrayBuffer(buffer) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null; // not a JPEG
+
+    let offset = 2;
+    while (offset < view.byteLength - 4) {
+      const marker = view.getUint16(offset);
+      if ((marker & 0xff00) !== 0xff00) break;
+      const size = view.getUint16(offset + 2);
+      if (marker === 0xffe1) {
+        const exifHeaderOffset = offset + 4;
+        if (
+          view.getUint32(exifHeaderOffset) === 0x45786966 && // "Exif"
+          view.getUint16(exifHeaderOffset + 4) === 0x0000
+        ) {
+          return parseTiffForGps(view, exifHeaderOffset + 6);
+        }
+      }
+      if (marker === 0xffda) break; // start of scan — no more metadata segments follow
+      offset += 2 + size;
+    }
+    return null;
+  }
+
+  function parseTiffForGps(view, tiffStart) {
+    const byteOrder = view.getUint16(tiffStart);
+    const little = byteOrder === 0x4949; // "II"
+    if (!little && byteOrder !== 0x4d4d) return null;
+
+    const ifd0Offset = view.getUint32(tiffStart + 4, little);
+    const ifd0 = readExifIfd(view, tiffStart, tiffStart + ifd0Offset, little);
+    const gpsIfdPointer = ifd0.tags[0x8825];
+    if (gpsIfdPointer === undefined) return null;
+
+    const gpsIfd = readExifIfd(view, tiffStart, tiffStart + gpsIfdPointer, little);
+    const lat = gpsIfd.rationalTriplets[0x0002];
+    const latRef = gpsIfd.ascii[0x0001];
+    const lng = gpsIfd.rationalTriplets[0x0004];
+    const lngRef = gpsIfd.ascii[0x0003];
+    if (!lat || !lng || !latRef || !lngRef) return null;
+
+    let latitude = lat[0] + lat[1] / 60 + lat[2] / 3600;
+    let longitude = lng[0] + lng[1] / 60 + lng[2] / 3600;
+    if (latRef.trim().toUpperCase() === "S") latitude = -latitude;
+    if (lngRef.trim().toUpperCase() === "W") longitude = -longitude;
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+    return { lat: latitude, lng: longitude };
+  }
+
+  function readExifIfd(view, tiffStart, ifdOffset, little) {
+    const entryCount = view.getUint16(ifdOffset, little);
+    const tags = {}, ascii = {}, rationalTriplets = {};
+    for (let i = 0; i < entryCount; i++) {
+      const entryOffset = ifdOffset + 2 + i * 12;
+      const tag = view.getUint16(entryOffset, little);
+      const type = view.getUint16(entryOffset + 2, little);
+      const count = view.getUint32(entryOffset + 4, little);
+      const valueOffsetField = entryOffset + 8;
+
+      if (type === 4 && count === 1) {
+        tags[tag] = view.getUint32(valueOffsetField, little);
+      } else if (type === 2) {
+        const dataOffset = count <= 4 ? valueOffsetField : tiffStart + view.getUint32(valueOffsetField, little);
+        let str = "";
+        for (let b = 0; b < count - 1; b++) str += String.fromCharCode(view.getUint8(dataOffset + b));
+        ascii[tag] = str;
+      } else if (type === 5 && count === 3) {
+        const dataOffset = tiffStart + view.getUint32(valueOffsetField, little);
+        const triplet = [];
+        for (let r = 0; r < 3; r++) {
+          const num = view.getUint32(dataOffset + r * 8, little);
+          const den = view.getUint32(dataOffset + r * 8 + 4, little);
+          triplet.push(den === 0 ? 0 : num / den);
+        }
+        rationalTriplets[tag] = triplet;
+      }
+    }
+    return { tags, ascii, rationalTriplets };
+  }
+
+  function haversineMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  const CAMERA_MATCH_RADIUS_METERS = 75;
+  function findNearbyWaypoint(lat, lng) {
+    let best = null, bestDist = Infinity;
+    waypoints.forEach((wp) => {
+      const d = haversineMeters(lat, lng, wp.lat, wp.lng);
+      if (d < bestDist) { bestDist = d; best = wp; }
+    });
+    return best && bestDist <= CAMERA_MATCH_RADIUS_METERS ? best : null;
+  }
+
+  let pendingCameraDataUrl = null;
+  let pickingCameraLocation = false;
+
+  function placeCameraPhotoAtLocation(lat, lng, dataUrl) {
+    const nearby = findNearbyWaypoint(lat, lng);
+    if (nearby) {
+      commitPhotosToWaypoint(nearby, [dataUrl]);
+      flyTo(nearby.lat, nearby.lng, getMaxZoomForCurrentBaseLayer());
+      setSelectedWaypointMarker(nearby.id);
+      return;
+    }
+    const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const name = "Photo " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const wp = {
+      id, lat, lng, name, notes: "",
+      code: generateWordCode(lat, lng), isCurrentLocation: false,
+      markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷",
+      hexColor: null, photos: [dataUrl]
+    };
+    addSavedMarker(wp);
+    waypoints.push(wp);
+    saveWaypoints();
+    renderList();
+    updateCounters();
+    flyTo(lat, lng, getMaxZoomForCurrentBaseLayer());
+    setSelectedWaypointMarker(id);
+    showToast('Created new waypoint "' + name + '" from photo');
+  }
+
+  function armCameraPhotoMapPick(dataUrl) {
+    pendingCameraDataUrl = dataUrl;
+    pickingCameraLocation = true;
+    showToast("Couldn't find a location for that photo — tap the map to place it.");
+  }
+
+  async function handleCameraCapture(file) {
+    let coords = null;
+    try {
+      const buf = await file.arrayBuffer();
+      coords = extractExifGpsFromArrayBuffer(buf);
+    } catch (e) { coords = null; }
+
+    let compressedDataUrl;
+    try {
+      compressedDataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
+    } catch (e) {
+      showToast("Couldn't read that photo.");
+      return;
+    }
+
+    if (coords) {
+      placeCameraPhotoAtLocation(coords.lat, coords.lng, compressedDataUrl);
+      return;
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          showToast("No location tag on that photo — using your current location instead.");
+          placeCameraPhotoAtLocation(pos.coords.latitude, pos.coords.longitude, compressedDataUrl);
+        },
+        () => armCameraPhotoMapPick(compressedDataUrl),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      armCameraPhotoMapPick(compressedDataUrl);
+    }
+  }
+
+  cameraBtn.addEventListener("click", () => cameraCaptureInput.click());
+  cameraCaptureInput.addEventListener("change", () => {
+    if (cameraCaptureInput.files && cameraCaptureInput.files[0]) handleCameraCapture(cameraCaptureInput.files[0]);
+    cameraCaptureInput.value = "";
+  });
+
+  // Fallback for drag sources that don't hand over a real OS File — e.g. dragging
+  // an <img> out of a webview-based app (many note-taking apps, browsers) hands
+  // over an HTML fragment or a URL/data-URI instead of dataTransfer.files.
+  function compressImageFromUrl(url, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL("image/jpeg", quality)); }
+        catch (e) { reject(e); } // "tainted canvas" — source didn't allow cross-origin pixel access
+      };
+      img.onerror = () => reject(new Error("Couldn't load image from that source"));
+      img.src = url;
+    });
+  }
+
+  // Reads whatever a drop event actually offered: real files first, then falls
+  // back to an <img src> found in a dragged HTML fragment, then a plain URL/data-URI.
+  async function collectImageDataUrlsFromDrop(dataTransfer) {
+    const dataUrls = [];
+    let hadUnusableSource = false;
+    try {
+      const availableTypes = dataTransfer.types ? Array.from(dataTransfer.types) : [];
+      console.log("[photo drop] dataTransfer.types:", availableTypes, "files:", dataTransfer.files ? dataTransfer.files.length : 0);
+
+      const files = (dataTransfer.files && dataTransfer.files.length)
+        ? Array.from(dataTransfer.files).filter((f) => f.type && f.type.startsWith("image/"))
+        : [];
+      for (const file of files) {
+        try { dataUrls.push(await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY)); }
+        catch (e) { /* skip unreadable file */ }
+      }
+      if (dataUrls.length > 0) return { dataUrls, hadUnusableSource: false };
+
+      const candidates = [];
+      let html = "";
+      try { html = dataTransfer.getData("text/html") || ""; } catch (e) { /* type not offered */ }
+      if (html) {
+        const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+        if (m) candidates.push(m[1]);
+        console.log("[photo drop] text/html fragment (first 300 chars):", html.slice(0, 300));
+      }
+      let uriList = "";
+      try { uriList = dataTransfer.getData("text/uri-list") || dataTransfer.getData("text/plain") || ""; }
+      catch (e) { /* type not offered */ }
+      if (uriList) console.log("[photo drop] text/uri-list or text/plain:", uriList.slice(0, 300));
+      uriList.split(/\r?\n/).forEach((line) => {
+        const t = line.trim();
+        if (t && !t.startsWith("#")) candidates.push(t);
+      });
+
+      if (candidates.length === 0) {
+        console.log("[photo drop] no files, no <img> in text/html, and no usable URL found — this drag source didn't expose any readable image data.");
+      }
+
+      for (const url of Array.from(new Set(candidates))) {
+        if (/^data:image\//i.test(url) || /^https?:\/\//i.test(url)) {
+          try { dataUrls.push(await compressImageFromUrl(url, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY)); }
+          catch (e) { hadUnusableSource = true; console.log("[photo drop] found a URL but couldn't load it as an image:", url, e); }
+        } else if (url) {
+          hadUnusableSource = true; // e.g. a local file:// path or an app-internal reference we can't read
+          console.log("[photo drop] found a non-http(s)/data reference we can't read:", url);
+        }
+      }
+    } catch (e) {
+      console.error("[photo drop] unexpected error while reading drop data:", e);
+      hadUnusableSource = true;
+    }
+    return { dataUrls, hadUnusableSource };
+  }
+
+  function renderPhotoThumbs() {
+    photoDropzoneEmpty.style.display = pendingPhotos.length ? "none" : "flex";
+    photoThumbs.innerHTML = pendingPhotos.map((src, i) =>
+      '<div class="photo-thumb"><img src="' + src + '" alt="Waypoint photo" />' +
+      '<button type="button" class="photo-thumb-remove" data-idx="' + i + '">' + icon("x", 11) + "</button></div>"
+    ).join("");
+    photoThumbs.querySelectorAll(".photo-thumb-remove").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        pendingPhotos.splice(Number(btn.dataset.idx), 1);
+        renderPhotoThumbs();
+      });
+    });
+  }
+
+  async function addPhotoFiles(fileList) {
+    const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      photoStatus.textContent = "That doesn't look like an image file.";
+      photoStatus.style.display = "block";
+      return;
+    }
+    photoStatus.style.display = "none";
+    for (const file of imageFiles) {
+      if (pendingPhotos.length >= MAX_PHOTOS_PER_WAYPOINT) {
+        photoStatus.textContent = "Up to " + MAX_PHOTOS_PER_WAYPOINT + " photos per waypoint.";
+        photoStatus.style.display = "block";
+        break;
+      }
+      try {
+        const dataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
+        pendingPhotos.push(dataUrl);
+        renderPhotoThumbs();
+      } catch (e) {
+        photoStatus.textContent = "Couldn't load one of those photos.";
+        photoStatus.style.display = "block";
+      }
+    }
+  }
+
+  photoDropzone.addEventListener("click", () => photoFileInput.click());
+  photoDropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); photoFileInput.click(); }
+  });
+  photoFileInput.addEventListener("change", () => {
+    if (photoFileInput.files && photoFileInput.files.length) addPhotoFiles(photoFileInput.files);
+    photoFileInput.value = "";
+  });
+  ["dragenter", "dragover"].forEach((evt) => {
+    photoDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); photoDropzone.classList.add("drag-over"); });
+  });
+  ["dragleave", "drop"].forEach((evt) => {
+    photoDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); photoDropzone.classList.remove("drag-over"); });
+  });
+  photoDropzone.addEventListener("drop", async (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      addPhotoFiles(e.dataTransfer.files);
+    } else if (e.dataTransfer) {
+      const result = await collectImageDataUrlsFromDrop(e.dataTransfer);
+      if (result.dataUrls.length > 0) {
+        result.dataUrls.forEach((d) => { if (pendingPhotos.length < MAX_PHOTOS_PER_WAYPOINT) pendingPhotos.push(d); });
+        renderPhotoThumbs();
+      } else if (result.hadUnusableSource) {
+        photoStatus.textContent = "Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.";
+        photoStatus.style.display = "block";
+      } else {
+        photoStatus.textContent = "That doesn't look like an image — check the browser console (F12) for what was actually dragged.";
+        photoStatus.style.display = "block";
+      }
+    }
+  });
+  document.addEventListener("paste", (e) => {
+    if (modalOverlay.classList.contains("hidden")) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type && item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addPhotoFiles(files); }
+  });
+
+  let pendingMarkerStyle = "pin";
+  function refreshPendingMarkerPreview() {
+    if (!pendingMarker || !pendingPoint) return;
+    placePendingMarker(pendingPoint.lat, pendingPoint.lng, {
+      style: pendingMarkerStyle,
+      color: markerColorInput.value,
+      emoji: markerEmojiInput.value.trim() || "📍"
+    });
+  }
+  function setMarkerStyleUI(style) {
+    pendingMarkerStyle = style;
+    markerStylePinBtn.classList.toggle("active", style === "pin");
+    markerStyleEmojiBtn.classList.toggle("active", style === "emoji");
+    markerColorField.style.display = style === "pin" ? "block" : "none";
+    markerEmojiField.style.display = style === "emoji" ? "block" : "none";
+    refreshPendingMarkerPreview();
+  }
+  markerStylePinBtn.addEventListener("click", () => setMarkerStyleUI("pin"));
+  markerStyleEmojiBtn.addEventListener("click", () => setMarkerStyleUI("emoji"));
+  markerColorInput.addEventListener("input", () => { markSwatchSelected(markerColorSwatches, markerColorInput.value); refreshPendingMarkerPreview(); });
+  markerEmojiInput.addEventListener("input", refreshPendingMarkerPreview);
+  hexHighlightToggle.addEventListener("change", () => {
+    hexColorField.style.display = hexHighlightToggle.checked ? "block" : "none";
+  });
+  hexColorInput.addEventListener("input", () => markSwatchSelected(hexColorSwatches, hexColorInput.value));
+
+  function handleMapPick(lat, lng, isCurrentLocation) {
+    const color = isCurrentLocation ? "#22d3ee" : "#f59e0b";
+    placePendingMarker(lat, lng, { style: "pin", color, emoji: "📍" });
+    pendingPoint = { lat, lng, isCurrentLocation };
+    openModal();
+  }
+
+  /* ================================================================ */
+  /*  Notes formatting: a lightweight, dependency-free "simple rich     */
+  /*  text" system. Stored as plain text with a tiny markdown subset    */
+  /*  (**bold**, _italic_, "- " bullets, "1. " numbers) rather than     */
+  /*  HTML — keeps a plain <textarea> as the editor (which is what      */
+  /*  reliably brings up the iOS keyboard, unlike contenteditable),     */
+  /*  and keeps storage simple/portable. Rendered as real HTML only     */
+  /*  when displayed in the waypoint list.                              */
+  /* ================================================================ */
+
+  function wrapSelection(textarea, marker) {
+    const start = textarea.selectionStart, end = textarea.selectionEnd;
+    const val = textarea.value;
+    const selected = val.slice(start, end) || "text";
+    textarea.value = val.slice(0, start) + marker + selected + marker + val.slice(end);
+    textarea.focus();
+    textarea.setSelectionRange(start + marker.length, start + marker.length + selected.length);
+  }
+
+  function prefixLines(textarea, prefixFn) {
+    const start = textarea.selectionStart, end = textarea.selectionEnd;
+    const val = textarea.value;
+    let lineStart = val.lastIndexOf("\n", start - 1) + 1;
+    let lineEnd = val.indexOf("\n", end);
+    if (lineEnd === -1) lineEnd = val.length;
+    const block = val.slice(lineStart, lineEnd);
+    let n = 0;
+    const newBlock = block.split("\n").map((line) => {
+      const stripped = line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "");
+      if (!line.trim()) return line;
+      n++;
+      return prefixFn(stripped, n);
+    }).join("\n");
+    textarea.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
+    textarea.focus();
+    textarea.setSelectionRange(lineStart, lineStart + newBlock.length);
+  }
+
+  function applyNotesFormat(textarea, cmd) {
+    if (cmd === "bold") wrapSelection(textarea, "**");
+    else if (cmd === "italic") wrapSelection(textarea, "_");
+    else if (cmd === "ul") prefixLines(textarea, (line) => "- " + line);
+    else if (cmd === "ol") prefixLines(textarea, (line, n) => n + ". " + line);
+  }
+
+  function wireNotesToolbar(toolbarEl, textarea) {
+    toolbarEl.querySelectorAll(".rte-btn").forEach((btn) => {
+      btn.addEventListener("click", () => applyNotesFormat(textarea, btn.dataset.cmd));
+    });
+  }
+  wireNotesToolbar(notesToolbar, notesInput);
+  wireNotesToolbar(journalToolbar, journalTextarea);
+
+  function inlineMiniMarkdown(s) {
+    return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/_(.+?)_/g, "<em>$1</em>");
+  }
+  function renderMiniMarkdown(text) {
+    const lines = escapeHtml(text).split("\n");
+    let html = "", inUl = false, inOl = false;
+    lines.forEach((line) => {
+      const ulMatch = line.match(/^- (.*)/);
+      const olMatch = line.match(/^\d+\. (.*)/);
+      if (ulMatch) {
+        if (inOl) { html += "</ol>"; inOl = false; }
+        if (!inUl) { html += "<ul>"; inUl = true; }
+        html += "<li>" + inlineMiniMarkdown(ulMatch[1]) + "</li>";
+      } else if (olMatch) {
+        if (inUl) { html += "</ul>"; inUl = false; }
+        if (!inOl) { html += "<ol>"; inOl = true; }
+        html += "<li>" + inlineMiniMarkdown(olMatch[1]) + "</li>";
+      } else {
+        if (inUl) { html += "</ul>"; inUl = false; }
+        if (inOl) { html += "</ol>"; inOl = false; }
+        html += line.trim() ? "<p>" + inlineMiniMarkdown(line) + "</p>" : "<br>";
+      }
+    });
+    if (inUl) html += "</ul>";
+    if (inOl) html += "</ol>";
+    return html;
+  }
+
+  expandJournalBtn.addEventListener("click", () => {
+    journalTextarea.value = notesInput.value;
+    journalModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => journalTextarea.focus(), 30);
+  });
+  function closeJournalModal() {
+    journalModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  journalCloseBtn.addEventListener("click", closeJournalModal);
+  journalCancelBtn.addEventListener("click", closeJournalModal);
+  journalDoneBtn.addEventListener("click", () => {
+    notesInput.value = journalTextarea.value;
+    closeJournalModal();
+  });
+
+  function openModal() {
+    editingWaypointId = null;
+    editingHomeMode = false;
+    wordCodeSection.style.display = "block";
+    nameFieldSection.style.display = "block";
+    hexHighlightSection.style.display = "block";
+    homeLocationSection.style.display = "none";
+    saveBtn.textContent = "Save waypoint";
+    modalTitle.textContent = pendingPoint.isCurrentLocation ? "Save current location" : "New waypoint";
+    modalCoords.textContent = pendingPoint.lat.toFixed(6) + ", " + pendingPoint.lng.toFixed(6);
+    modalWordCode.textContent = generateWordCode(pendingPoint.lat, pendingPoint.lng);
+    nameInput.value = pendingPoint.isCurrentLocation ? "My Location" : ("Waypoint " + (waypoints.length + 1));
+    notesInput.value = "";
+    const defaultColor = pendingPoint.isCurrentLocation ? "#22d3ee" : "#f59e0b";
+    markerColorInput.value = defaultColor;
+    markSwatchSelected(markerColorSwatches, defaultColor);
+    markerEmojiInput.value = "";
+    hexHighlightToggle.checked = false;
+    hexColorField.style.display = "none";
+    hexColorInput.value = "#38bdf8";
+    markSwatchSelected(hexColorSwatches, "#38bdf8");
+    setMarkerStyleUI("pin");
+    pendingPhotos = [];
+    photoStatus.style.display = "none";
+    renderPhotoThumbs();
+    modalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => nameInput.focus(), 30);
+  }
+
+  function openEditModal(wp) {
+    editingWaypointId = wp.id;
+    editingHomeMode = false;
+    wordCodeSection.style.display = "block";
+    nameFieldSection.style.display = "block";
+    hexHighlightSection.style.display = "block";
+    homeLocationSection.style.display = "none";
+    const existingMarker = markers[wp.id];
+    if (existingMarker) { map.removeLayer(existingMarker); delete markers[wp.id]; }
+
+    const color = wp.markerColor || (wp.isCurrentLocation ? "#22d3ee" : "#f59e0b");
+    const style = wp.markerStyle === "emoji" ? "emoji" : "pin";
+    const emoji = wp.markerEmoji || "📍";
+    placePendingMarker(wp.lat, wp.lng, { style, color, emoji });
+    pendingPoint = { lat: wp.lat, lng: wp.lng, isCurrentLocation: !!wp.isCurrentLocation };
+
+    saveBtn.textContent = "Save changes";
+    modalTitle.textContent = "Edit waypoint";
+    modalCoords.textContent = wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6);
+    modalWordCode.textContent = wp.code;
+    nameInput.value = wp.name;
+    notesInput.value = wp.notes || "";
+    markerColorInput.value = color;
+    markSwatchSelected(markerColorSwatches, color);
+    markerEmojiInput.value = wp.markerStyle === "emoji" ? emoji : "";
+    hexHighlightToggle.checked = !!wp.hexColor;
+    hexColorField.style.display = wp.hexColor ? "block" : "none";
+    hexColorInput.value = wp.hexColor || "#38bdf8";
+    markSwatchSelected(hexColorSwatches, wp.hexColor || "#38bdf8");
+    setMarkerStyleUI(style);
+    pendingPhotos = (wp.photos || []).slice();
+    photoStatus.style.display = "none";
+    renderPhotoThumbs();
+    modalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => nameInput.focus(), 30);
+  }
+
+  function closeModal() {
+    modalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    stopVoice();
+  }
+
+  locateBtn.addEventListener("click", () => {
+    if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
+    locateBtn.disabled = true;
+    locateBtn.innerHTML = '<span class="spinner"></span>';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        locateBtn.disabled = false; locateBtn.innerHTML = icon("navigation", 18);
+        const { latitude, longitude } = pos.coords;
+        flyTo(latitude, longitude, 16);
+        handleMapPick(latitude, longitude, true);
+      },
+      (err) => {
+        locateBtn.disabled = false; locateBtn.innerHTML = icon("navigation", 18);
+        const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
+        showToast(messages[err.code] || "Couldn't get your location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  function cancelPendingModal() {
+    clearPendingMarker();
+    if (editingWaypointId) {
+      const wp = waypoints.find((w) => w.id === editingWaypointId);
+      if (wp) addSavedMarker(wp); // restore the original marker removed when editing began
+      editingWaypointId = null;
+    }
+    if (editingHomeMode) {
+      if (homeMarker) homeMarker.addTo(map); // restore visibility (it was hidden while previewing edits)
+      editingHomeMode = false;
+    }
+    pendingPoint = null;
+    closeModal();
+  }
+  cancelBtn.addEventListener("click", cancelPendingModal);
+  modalCloseBtn.addEventListener("click", cancelPendingModal);
+
+  saveBtn.addEventListener("click", () => {
+    if (!pendingPoint) return;
+    const name = nameInput.value.trim() || ("Waypoint " + (waypoints.length + 1));
+    const notes = notesInput.value.trim();
+    const markerStyle = pendingMarkerStyle;
+    const markerColor = markerColorInput.value;
+    const markerEmoji = markerEmojiInput.value.trim() || "📍";
+    const hexColor = hexHighlightToggle.checked ? hexColorInput.value : null;
+
+    if (editingHomeMode) {
+      const homeName = nameInput.value.trim() || "Home";
+      setHome(pendingPoint.lat, pendingPoint.lng, (settings.home && settings.home.zoom) || 15, {
+        name: homeName, markerStyle, markerColor, markerEmoji: markerEmojiInput.value.trim() || "🏠", notes, hexColor
+      });
+      editingHomeMode = false;
+      clearPendingMarker();
+      pendingPoint = null;
+      closeModal();
+      showToast('"' + homeName + '" saved');
+      return;
+    }
+
+    if (editingWaypointId) {
+      const wp = waypoints.find((w) => w.id === editingWaypointId);
+      if (wp) {
+        wp.name = name;
+        wp.notes = notes;
+        wp.markerStyle = markerStyle;
+        wp.markerColor = markerColor;
+        wp.markerEmoji = markerEmoji;
+        wp.photos = pendingPhotos.slice();
+        removeWaypointHexHighlight(wp.id);
+        wp.hexColor = hexColor;
+        addWaypointHexHighlight(wp);
+        addSavedMarker(wp);
+        saveWaypoints();
+        renderList();
+        updateCounters();
+        showToast('Updated "' + name + '"');
+      }
+      editingWaypointId = null;
+      clearPendingMarker();
+      pendingPoint = null;
+      closeModal();
+      return;
+    }
+
+    const { lat, lng, isCurrentLocation } = pendingPoint;
+    const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const wp = {
+      id, lat, lng, name, notes, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
+      markerStyle, markerColor, markerEmoji, hexColor, photos: pendingPhotos.slice()
+    };
+    addSavedMarker(wp);
+    addWaypointHexHighlight(wp);
+    waypoints.push(wp);
+    saveWaypoints();
+    renderList();
+    updateCounters();
+    clearPendingMarker();
+    pendingPoint = null;
+    closeModal();
+    showToast('Saved "' + name + '"');
+  });
+
+  nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBtn.click(); });
+
+  /* ================================================================ */
+  /*  Voice naming (Web Speech API — Chrome/Edge/Safari support varies) */
+  /* ================================================================ */
+
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  micBtn.addEventListener("click", () => { listening ? stopVoice() : startVoice(); });
+
+  function startVoice() {
+    if (!SpeechRecognitionCtor) { showToast("Voice input isn't supported in this browser."); return; }
+    recognition = new SpeechRecognitionCtor();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      nameInput.value = transcript.replace(/^\w/, (c) => c.toUpperCase());
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognition.start();
+    setListening(true);
+  }
+  function stopVoice() { if (recognition) recognition.stop(); setListening(false); }
+  function setListening(v) {
+    listening = v;
+    micBtn.classList.toggle("listening", v);
+    micBtn.innerHTML = icon(v ? "micOff" : "mic", 16);
+  }
+
+  /* ================================================================ */
+  /*  Hands-free voice waypoints — say "waypoint" to save your current  */
+  /*  location without touching the screen. Built for use while         */
+  /*  driving: no modal, no required interaction to confirm — a saved   */
+  /*  waypoint is confirmed by spoken feedback (speechSynthesis), not    */
+  /*  by anything the driver has to look at.                            */
+  /*                                                                     */
+  /*  Real limitations, stated plainly rather than glossed over:         */
+  /*   - Web Speech API support varies: solid in Chrome, workable in     */
+  /*     Safari on recent iOS/macOS, unsupported in Firefox.             */
+  /*   - This only keeps listening while the browser tab stays active    */
+  /*     and the screen stays on — the OS can suspend a backgrounded or  */
+  /*     screen-locked tab's microphone access, at which point it stops  */
+  /*     until the tab is foregrounded again.                            */
+  /*   - Voice control of a phone while driving may itself be legally    */
+  /*     restricted depending on where you are — that's on the driver    */
+  /*     to know, not something this app can determine.                  */
+  /* ================================================================ */
+
+  let handsFreeRecognition = null;
+  let handsFreeListening = false;
+  let lastVoiceWaypointTime = 0;
+  const VOICE_WAYPOINT_COOLDOWN_MS = 4000;
+
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel(); // don't queue up stale confirmations
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.05;
+      window.speechSynthesis.speak(utter);
+    } catch (e) { /* non-fatal — toast still covers it */ }
+  }
+
+  // --- Voice capture state machine: idle -> creating -> naming -> noting -> idle ---
+  // "waypoint" creates and saves a point immediately (so it's never lost even if
+  // the rest of the dictation is interrupted), then whatever's said next becomes
+  // the name, until "note" switches to notes, until "stop" finalizes. Every step
+  // is written to storage as it's captured, not just at the end.
+  let voiceCaptureState = "idle"; // idle | creating | naming | noting
+  let voiceCaptureWaypointId = null;
+  let voiceCaptureNameBuffer = "";
+  let voiceCaptureNotesBuffer = "";
+  let voiceCaptureIdleTimer = null;
+  const VOICE_CAPTURE_IDLE_TIMEOUT_MS = 15000; // auto-finalize if the driver goes quiet mid-dictation
+
+  function capitalizeFirst(s) {
+    return s.replace(/^\w/, (c) => c.toUpperCase());
+  }
+
+  function showVoiceCapturePanel() {
+    voiceCapturePanel.classList.remove("hidden");
+    updateVoiceCapturePanelMode();
+  }
+  function hideVoiceCapturePanel() {
+    voiceCapturePanel.classList.add("hidden");
+  }
+  function updateVoiceCapturePanelMode() {
+    const naming = voiceCaptureState === "naming";
+    const noting = voiceCaptureState === "noting";
+    voiceCaptureNameField.classList.toggle("active", naming);
+    voiceCaptureNotesField.classList.toggle("active", noting);
+    voiceCaptureStatusText.textContent = naming
+      ? 'Say the waypoint name… then say "note"'
+      : noting
+      ? 'Say your note… then say "stop"'
+      : "";
+  }
+  function updateVoiceCapturePreview(name, notes) {
+    voiceCaptureNameValue.textContent = name.trim() || "…";
+    voiceCaptureNotesValue.textContent = notes.trim() || "…";
+  }
+
+  function resetVoiceCaptureIdleTimer() {
+    clearTimeout(voiceCaptureIdleTimer);
+    if (voiceCaptureState === "naming" || voiceCaptureState === "noting") {
+      voiceCaptureIdleTimer = setTimeout(() => {
+        if (voiceCaptureState === "naming" || voiceCaptureState === "noting") {
+          finishVoiceCapture();
+          showToast("Hands-free waypoint auto-saved after a pause.");
+        }
+      }, VOICE_CAPTURE_IDLE_TIMEOUT_MS);
+    }
+  }
+
+  function commitVoiceCaptureToWaypoint() {
+    const wp = waypoints.find((w) => w.id === voiceCaptureWaypointId);
+    if (!wp) return;
+    const trimmedName = voiceCaptureNameBuffer.trim();
+    if (trimmedName) wp.name = capitalizeFirst(trimmedName);
+    wp.notes = voiceCaptureNotesBuffer.trim();
+    saveWaypoints();
+    renderList();
+    updateCounters();
+  }
+
+  function appendToVoiceName(text) {
+    if (!text) return;
+    voiceCaptureNameBuffer = (voiceCaptureNameBuffer + " " + text).trim();
+    updateVoiceCapturePreview(voiceCaptureNameBuffer, voiceCaptureNotesBuffer);
+    commitVoiceCaptureToWaypoint();
+  }
+  function appendToVoiceNotes(text) {
+    if (!text) return;
+    voiceCaptureNotesBuffer = (voiceCaptureNotesBuffer + " " + text).trim();
+    updateVoiceCapturePreview(voiceCaptureNameBuffer, voiceCaptureNotesBuffer);
+    commitVoiceCaptureToWaypoint();
+  }
+
+  function finishNamingStartNoting() {
+    voiceCaptureState = "noting";
+    updateVoiceCapturePanelMode();
+    speak("Say your note.");
+  }
+
+  function finishVoiceCapture() {
+    clearTimeout(voiceCaptureIdleTimer);
+    commitVoiceCaptureToWaypoint();
+    const wp = waypoints.find((w) => w.id === voiceCaptureWaypointId);
+    const finalName = wp ? wp.name : "Waypoint";
+    voiceCaptureState = "idle";
+    voiceCaptureWaypointId = null;
+    voiceCaptureNameBuffer = "";
+    voiceCaptureNotesBuffer = "";
+    hideVoiceCapturePanel();
+    lastVoiceWaypointTime = Date.now();
+    speak('Saved "' + finalName + '".');
+    showToast('Saved "' + finalName + '" (hands-free)');
+  }
+
+  function startVoiceCapture() {
+    if (!navigator.geolocation) {
+      voiceCaptureState = "idle";
+      speak("Location isn't available.");
+      showToast("Geolocation isn't available in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+        const name = "Waypoint " + (waypoints.length + 1);
+        const wp = {
+          id, lat: latitude, lng: longitude, name, notes: "",
+          code: generateWordCode(latitude, longitude), isCurrentLocation: true,
+          markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍",
+          hexColor: null, photos: []
+        };
+        addSavedMarker(wp);
+        waypoints.push(wp);
+        saveWaypoints();
+        renderList();
+        updateCounters();
+
+        voiceCaptureWaypointId = id;
+        voiceCaptureState = "naming";
+        voiceCaptureNameBuffer = "";
+        voiceCaptureNotesBuffer = "";
+        showVoiceCapturePanel();
+        updateVoiceCapturePreview("", "");
+        resetVoiceCaptureIdleTimer();
+        speak("Waypoint saved. Say the name.");
+      },
+      () => {
+        voiceCaptureState = "idle";
+        speak("Couldn't get your location.");
+        showToast("Couldn't get your current location for the hands-free waypoint.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  function handleVoiceTranscript(transcript, isFinal) {
+    const lower = transcript.toLowerCase();
+
+    if (voiceCaptureState === "idle") {
+      const now = Date.now();
+      if (isFinal && lower.includes("waypoint") && now - lastVoiceWaypointTime >= VOICE_WAYPOINT_COOLDOWN_MS) {
+        voiceCaptureState = "creating"; // block re-triggering while GPS lookup is in flight
+        startVoiceCapture();
+      }
+      return;
+    }
+    if (voiceCaptureState === "creating") return;
+
+    if (voiceCaptureState === "naming") {
+      const noteIdx = lower.indexOf("note");
+      if (noteIdx !== -1) {
+        const namePart = transcript.slice(0, noteIdx).trim();
+        if (isFinal) {
+          if (namePart) appendToVoiceName(namePart);
+          finishNamingStartNoting();
+        } else {
+          updateVoiceCapturePreview((voiceCaptureNameBuffer + " " + namePart).trim(), voiceCaptureNotesBuffer);
+        }
+      } else if (isFinal) {
+        appendToVoiceName(transcript.trim());
+      } else {
+        updateVoiceCapturePreview((voiceCaptureNameBuffer + " " + transcript).trim(), voiceCaptureNotesBuffer);
+      }
+      resetVoiceCaptureIdleTimer();
+      return;
+    }
+
+    if (voiceCaptureState === "noting") {
+      const stopIdx = lower.indexOf("stop");
+      if (stopIdx !== -1) {
+        const notePart = transcript.slice(0, stopIdx).trim();
+        if (isFinal) {
+          if (notePart) appendToVoiceNotes(notePart);
+          finishVoiceCapture();
+        } else {
+          updateVoiceCapturePreview(voiceCaptureNameBuffer, (voiceCaptureNotesBuffer + " " + notePart).trim());
+        }
+      } else if (isFinal) {
+        appendToVoiceNotes(transcript.trim());
+      } else {
+        updateVoiceCapturePreview(voiceCaptureNameBuffer, (voiceCaptureNotesBuffer + " " + transcript).trim());
+      }
+      resetVoiceCaptureIdleTimer();
+      return;
+    }
+  }
+
+  function startHandsFreeListening() {
+    if (!SpeechRecognitionCtor) {
+      showToast("Voice recognition isn't supported in this browser — try Chrome or Safari.");
+      return;
+    }
+    handsFreeListening = true;
+    voiceWaypointBtn.classList.add("listening");
+    voiceWaypointBtn.innerHTML = icon("micOff", 18);
+
+    handsFreeRecognition = new SpeechRecognitionCtor();
+    handsFreeRecognition.lang = "en-US";
+    handsFreeRecognition.continuous = true;
+    handsFreeRecognition.interimResults = true;
+
+    handsFreeRecognition.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        handleVoiceTranscript(result[0].transcript, result.isFinal);
+      }
+    };
+    handsFreeRecognition.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        showToast("Microphone access was denied — hands-free waypoints need it to work.");
+        stopHandsFreeListening();
+      }
+      // other errors (no-speech, network, aborted) are transient; onend below restarts automatically
+    };
+    handsFreeRecognition.onend = () => {
+      if (handsFreeListening) {
+        try { handsFreeRecognition.start(); } catch (e) { /* already running — ignore */ }
+      }
+    };
+
+    try {
+      handsFreeRecognition.start();
+      showToast('Listening — say "waypoint" to save your location, hands-free.');
+      speak("Hands-free waypoints on.");
+    } catch (e) {
+      showToast("Couldn't start voice recognition.");
+      handsFreeListening = false;
+      voiceWaypointBtn.classList.remove("listening");
+      voiceWaypointBtn.innerHTML = icon("mic", 18);
+    }
+  }
+
+  function stopHandsFreeListening() {
+    handsFreeListening = false;
+    voiceWaypointBtn.classList.remove("listening");
+    voiceWaypointBtn.innerHTML = icon("mic", 18);
+    if (voiceCaptureState !== "idle") finishVoiceCapture(); // don't strand an in-progress dictation
+    if (handsFreeRecognition) {
+      handsFreeRecognition.onend = null; // prevent the auto-restart handler from firing on a deliberate stop
+      try { handsFreeRecognition.stop(); } catch (e) { /* ignore */ }
+      handsFreeRecognition = null;
+    }
+  }
+
+  voiceWaypointBtn.addEventListener("click", () => {
+    if (handsFreeListening) { stopHandsFreeListening(); showToast("Hands-free waypoints off."); }
+    else startHandsFreeListening();
+  });
+
+  /* ================================================================ */
+  /*  Search (Nominatim, OSM's free open geocoder)                     */
+  /* ================================================================ */
+
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim();
+    searchClearBtn.style.display = q ? "flex" : "none";
+    clearTimeout(searchDebounce);
+    if (!q) { searchResultsEl.classList.remove("show"); searchResultsEl.innerHTML = ""; return; }
+    searchDebounce = setTimeout(() => runSearch(q), 450);
+  });
+  searchClearBtn.addEventListener("click", () => {
+    searchInput.value = ""; searchClearBtn.style.display = "none";
+    searchResultsEl.classList.remove("show"); searchResultsEl.innerHTML = "";
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrap")) searchResultsEl.classList.remove("show");
+  });
+
+  // Parses "45.0961, -75.6972", "45.0961 °N, 75.6972 °W", "45.0961N 75.6972W", etc.
+  // Direction letters (N/S/E/W) override the sign — e.g. "-76.99 °W" and "76.99 °W"
+  // both resolve to -76.99, since a direction letter always determines the sign.
+  function parseLatLngQuery(q) {
+    const m = String(q).trim().match(
+      /^(-?\d+(?:\.\d+)?)\s*°?\s*([NSns])?(?:\s*,\s*|\s+-\s+|\s+)(-?\d+(?:\.\d+)?)\s*°?\s*([EWew])?$/
+    );
+    if (!m) return null;
+    let lat = parseFloat(m[1]);
+    let lng = parseFloat(m[3]);
+    if (m[2]) { lat = Math.abs(lat); if (/s/i.test(m[2])) lat = -lat; }
+    if (m[4]) { lng = Math.abs(lng); if (/w/i.test(m[4])) lng = -lng; }
+    if (Number.isNaN(lat) || Number.isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    return { lat, lng };
+  }
+
+  async function runSearch(q) {
+    const coords = parseLatLngQuery(q);
+    if (coords) {
+      renderSearchResults([{
+        display_name: "Coordinates · " + coords.lat.toFixed(5) + ", " + coords.lng.toFixed(5),
+        lat: coords.lat, lon: coords.lng
+      }]);
+      return;
+    }
+    const addressMatch = /^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q.trim());
+    if (addressMatch) {
+      const decoded = decodeWordCode(q);
+      if (decoded) {
+        renderSearchResults([{
+          display_name: q.trim().toLowerCase() + " (3-word address) · " + decoded.lat.toFixed(5) + ", " + decoded.lng.toFixed(5),
+          lat: decoded.lat, lon: decoded.lng
+        }]);
+        return;
+      }
+    }
+    searchSpinner.style.display = "block";
+    try {
+      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(q);
+      const res = await fetch(url);
+      const data = await res.json();
+      renderSearchResults(Array.isArray(data) ? data : []);
+    } catch (e) {
+      renderSearchResults([]);
+    } finally {
+      searchSpinner.style.display = "none";
+    }
+  }
+
+  function renderSearchResults(results) {
+    if (results.length === 0) { searchResultsEl.classList.remove("show"); searchResultsEl.innerHTML = ""; return; }
+    searchResultsEl.innerHTML = results.map((r, i) =>
+      '<div class="search-result-row" data-idx="' + i + '">' + icon("mapPin", 14) +
+      '<span>' + escapeHtml(r.display_name) + "</span></div>"
+    ).join("");
+    searchResultsEl.classList.add("show");
+    searchResultsEl.querySelectorAll(".search-result-row").forEach((rowEl) => {
+      rowEl.addEventListener("click", () => {
+        const r = results[Number(rowEl.dataset.idx)];
+        const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+        flyTo(lat, lng, 14);
+        searchResultsEl.classList.remove("show");
+        searchInput.value = r.display_name.split(",")[0];
+        handleMapPick(lat, lng, false);
+        nameInput.value = r.display_name.split(",")[0];
+      });
+    });
+  }
+
+  /* ================================================================ */
+  /*  Slide-out panel                                                   */
+  /* ================================================================ */
+
+  function openPanel() { panel.classList.add("open"); }
+  function closePanel() { panel.classList.remove("open"); }
+  panelToggleBtn.addEventListener("click", () => panel.classList.toggle("open"));
+  panelCloseBtn.addEventListener("click", closePanel);
+
+  /* ================================================================ */
+  /*  Import waypoints from a text file                                */
+  /* ================================================================ */
+
+  const TENT_IMPORT_COLOR = "#4ade80";
+  const IMPORT_TEMPLATE = [
+    "Riverside Camp",
+    "https://example.com/photos/riverside-camp.jpg",
+    "Boat Access Only",
+    "A quiet grassy site right on the water, good for two tents, with a fire ring and treeline for shade.",
+    "45.11824 °N - 76.99567 °W",
+    "index.home.raft",
+    "Fire Pit, Privy, Bear Box",
+    "---",
+    "Sunset Point",
+    "",
+    "Drive in site",
+    "A gravel pull-in site with a view west over the lake, ideal for sunset watching.",
+    "45.20031 °N - 77.05412 °W",
+    "tables.chairs.lamp",
+    "Fire Pit, Picnic Table"
+  ].join("\n");
+
+  // Splits the file into records on any line of 3+ dashes, then reads each
+  // record as exactly 7 lines: name, picture, access type, description,
+  // coordinates, What3Words, amenities.
+  function parseImportText(text) {
+    const allLines = text.replace(/\r\n/g, "\n").split("\n");
+    const blocks = [];
+    let current = [];
+    allLines.forEach((line) => {
+      if (/^-{3,}$/.test(line.trim())) { blocks.push(current); current = []; }
+      else current.push(line);
+    });
+    blocks.push(current);
+
+    const imported = [];
+    let skipped = 0;
+    const notes = [];
+
+    blocks.forEach((blockLines) => {
+      while (blockLines.length && blockLines[0].trim() === "") blockLines.shift();
+      while (blockLines.length && blockLines[blockLines.length - 1].trim() === "") blockLines.pop();
+      if (blockLines.length === 0) return;
+      if (blockLines.length < 7) {
+        skipped++;
+        notes.push("A record had " + blockLines.length + " line(s) instead of 7 — skipped.");
+        return;
+      }
+      const [name, picture, accessType, description, coordsRaw, w3w, amenities] =
+        blockLines.slice(0, 7).map((s) => s.trim());
+      if (!name) { skipped++; notes.push("A record was missing a name — skipped."); return; }
+      const coords = parseLatLngQuery(coordsRaw);
+      if (!coords) { skipped++; notes.push('Couldn\'t read coordinates for "' + name + '" — skipped.'); return; }
+
+      const noteParts = [];
+      if (accessType) noteParts.push("Access: " + accessType);
+      if (description) noteParts.push(description);
+      if (amenities) noteParts.push("Amenities: " + amenities);
+      if (w3w) noteParts.push("What3Words: " + w3w);
+
+      const isPictureUrl = /^https?:\/\//i.test(picture);
+      const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+      imported.push({
+        id, lat: coords.lat, lng: coords.lng, name,
+        notes: noteParts.join("\n\n"),
+        code: generateWordCode(coords.lat, coords.lng),
+        isCurrentLocation: false,
+        markerStyle: "emoji", markerColor: TENT_IMPORT_COLOR, markerEmoji: "⛺",
+        hexColor: null, photos: isPictureUrl ? [picture] : []
+      });
+    });
+    return { imported, skipped, notes };
+  }
+
+  async function handleImportFile(file) {
+    importStatus.style.display = "none";
+    let text;
+    try {
+      text = await file.text();
+    } catch (e) {
+      importStatus.textContent = "Couldn't read that file. Make sure it's a plain .txt file.";
+      importStatus.style.display = "block";
+      return;
+    }
+    const result = parseImportText(text);
+    if (result.imported.length === 0) {
+      importStatus.textContent = "No valid waypoints found — check that each record has all 7 lines and readable coordinates.";
+      importStatus.style.display = "block";
+      return;
+    }
+    result.imported.forEach((wp) => {
+      addSavedMarker(wp);
+      addWaypointHexHighlight(wp);
+      waypoints.push(wp);
+    });
+    saveWaypoints();
+    renderList();
+    updateCounters();
+    let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + ".";
+    if (result.skipped) msg += " Skipped " + result.skipped + ".";
+    showToast(msg);
+    closeImportModal();
+  }
+
+  function openImportModal() {
+    importStatus.style.display = "none";
+    importModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeImportModal() {
+    importModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  panelImportBtn.addEventListener("click", openImportModal);
+  importModalCloseBtn.addEventListener("click", closeImportModal);
+  importCancelBtn.addEventListener("click", closeImportModal);
+
+  downloadTemplateBtn.addEventListener("click", () => {
+    const blob = new Blob([IMPORT_TEMPLATE], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "waypoint-import-template.txt";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  importDropzone.addEventListener("click", () => importFileInput.click());
+  importDropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); importFileInput.click(); }
+  });
+  importFileInput.addEventListener("change", () => {
+    if (importFileInput.files && importFileInput.files[0]) handleImportFile(importFileInput.files[0]);
+    importFileInput.value = "";
+  });
+  ["dragenter", "dragover"].forEach((evt) => {
+    importDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); importDropzone.classList.add("drag-over"); });
+  });
+  ["dragleave", "drop"].forEach((evt) => {
+    importDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); importDropzone.classList.remove("drag-over"); });
+  });
+  importDropzone.addEventListener("drop", (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]);
+  });
+
+  function deleteWaypoint(id) {
+    const m = markers[id];
+    if (m) map.removeLayer(m);
+    delete markers[id];
+    removeWaypointHexHighlight(id);
+    if (selectedWaypointId === id) selectedWaypointId = null;
+    waypoints = waypoints.filter((w) => w.id !== id);
+    saveWaypoints();
+    renderList();
+    updateCounters();
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return Promise.reject(new Error("clipboard unavailable"));
+  }
+
+  function shareWaypoint(wp) {
+    const mapLink = "https://www.openstreetmap.org/?mlat=" + wp.lat + "&mlon=" + wp.lng + "#map=17/" + wp.lat + "/" + wp.lng;
+    const text = [wp.name, wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6), wp.notes || null, mapLink].filter(Boolean).join("\n");
+    if (navigator.share) {
+      navigator.share({ title: wp.name, text }).catch(() => {});
+    } else {
+      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showToast("Couldn't copy to clipboard."));
+    }
+  }
+
+  function renderList() {
+    if (waypoints.length === 0) {
+      panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
+        "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
+      panelNoResults.style.display = "none";
+      return;
+    }
+    panelList.innerHTML = waypoints.map((wp) => cardHtml(wp)).join("");
+    bindCardEvents();
+    applyWaypointSearchFilter();
+  }
+
+  function applyWaypointSearchFilter() {
+    const query = panelSearchInput.value.trim().toLowerCase();
+    const terms = query.split(/\s+/).filter(Boolean);
+    panelSearchClearBtn.style.display = query ? "flex" : "none";
+
+    let visibleCount = 0;
+    panelList.querySelectorAll(".card").forEach((cardEl) => {
+      const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
+      if (!wp) return;
+      const nameLower = wp.name.toLowerCase();
+      const matches = terms.length === 0 || terms.some((t) => nameLower.includes(t));
+      cardEl.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+    panelNoResults.style.display = waypoints.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+  }
+  panelSearchInput.addEventListener("input", applyWaypointSearchFilter);
+  panelSearchClearBtn.addEventListener("click", () => {
+    panelSearchInput.value = "";
+    applyWaypointSearchFilter();
+    panelSearchInput.focus();
+  });
+
+  function cardIconHtml(wp) {
+    if (wp.markerStyle === "emoji") {
+      return '<span class="icon" style="font-size:16px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span>";
+    }
+    const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
+    return '<span class="icon" style="color:' + pinColor + '">' + icon("mapPin", 16) + "</span>";
+  }
+
+  function cardHtml(wp) {
+    return (
+      '<div class="card" data-id="' + wp.id + '">' +
+        '<div class="card-top">' +
+          '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
+            cardIconHtml(wp) +
+            '<div style="min-width:0; flex:1;">' +
+              '<p class="card-name" data-action="edit-name" data-id="' + wp.id + '" title="Click to rename">' + escapeHtml(wp.name) + "</p>" +
+              '<p class="card-coords mono">' + wp.lat.toFixed(5) + ", " + wp.lng.toFixed(5) + "</p>" +
+            "</div>" +
+          "</button>" +
+          '<div class="card-top-actions">' +
+            '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
+            '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("trash", 16) + "</button>" +
+          "</div>" +
+        "</div>" +
+        '<div class="card-codes">' +
+          '<span class="code-badge amber mono">' + escapeHtml(wp.code) + "</span>" +
+          (wp.hexColor ? '<span class="color-swatch" style="width:14px; height:14px; border:1px solid rgba(255,255,255,.35); background:' + wp.hexColor + ';" title="Region highlighted"></span>' : "") +
+          '<button class="card-copy-code" data-action="copy-code" data-id="' + wp.id + '">' + icon("copy", 14) + "</button>" +
+        "</div>" +
+        '<div class="card-notes">' +
+          '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
+            icon("note", 12) + '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
+          "</button>" +
+        "</div>" +
+        (wp.photos && wp.photos.length ?
+          '<div class="card-photos" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
+            wp.photos.map((src, i) =>
+              '<div class="card-photo-thumb" data-action="view-photo" data-id="' + wp.id + '" data-photo-idx="' + i + '">' +
+                '<img src="' + src + '" alt="Waypoint photo" /></div>'
+            ).join("") +
+            '<button class="card-photo-add" data-action="add-photo" data-id="' + wp.id + '" title="Add another photo">' + icon("upload", 14) + "</button>" +
+          "</div>" :
+          '<div class="card-photo-drop-empty" role="button" data-action="add-photo" data-id="' + wp.id + '" data-photo-target="' + wp.id + '" tabindex="0">' +
+            icon("image", 13) + "<span>Drop, paste (Ctrl/Cmd+V), or click to add a photo</span></div>") +
+        '<div class="card-actions">' +
+          '<button class="card-action-btn" data-action="copy-coords" data-id="' + wp.id + '">' + icon("copy", 14) + " Copy coordinates</button>" +
+          '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function bindCardEvents() {
+    panelList.querySelectorAll("[data-action]").forEach((node) => {
+      const action = node.dataset.action;
+      const id = node.dataset.id;
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      node.addEventListener("click", (e) => {
+        switch (action) {
+          case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); break;
+          case "edit": e.stopPropagation(); openEditModal(wp); break;
+          case "delete":
+            e.stopPropagation();
+            openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
+            break;
+          case "edit-name": e.stopPropagation(); startEditName(id); break;
+          case "edit-notes": e.stopPropagation(); startEditNotes(id); break;
+          case "copy-code":
+            copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
+            break;
+          case "copy-coords":
+            copyText(wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6))
+              .then(() => flashCheck(node, "copy", " Copy coordinates"))
+              .catch(() => showToast("Couldn't copy to clipboard."));
+            break;
+          case "share": shareWaypoint(wp); break;
+          case "view-photo": {
+            e.stopPropagation();
+            const idx = Number(node.dataset.photoIdx);
+            const src = wp.photos && wp.photos[idx];
+            if (src) openPhotoViewModal(wp.name, src);
+            break;
+          }
+          case "add-photo":
+            e.stopPropagation();
+            cardPhotoTargetId = id;
+            cardPhotoFileInput.click();
+            break;
+        }
+      });
+    });
+
+    panelList.querySelectorAll(".card").forEach((cardEl) => {
+      const id = cardEl.dataset.id;
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      ["dragenter", "dragover"].forEach((evt) => {
+        cardEl.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); cardEl.classList.add("drag-over"); });
+      });
+      ["dragleave", "drop"].forEach((evt) => {
+        cardEl.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); cardEl.classList.remove("drag-over"); });
+      });
+      cardEl.addEventListener("drop", (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          addPhotosToWaypoint(wp, e.dataTransfer.files);
+        } else if (e.dataTransfer) {
+          addDroppedImagesToWaypoint(wp, e.dataTransfer);
+        }
+      });
+    });
+
+    panelList.querySelectorAll("[data-photo-target]").forEach((zoneEl) => {
+      const id = zoneEl.dataset.photoTarget;
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      zoneEl.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action='view-photo']")) return; // viewing a photo shouldn't (re)arm paste
+        selectCardForPaste(id);
+      });
+      zoneEl.addEventListener("keydown", (e) => {
+        if ((e.key === "Enter" || e.key === " ") && zoneEl.dataset.action === "add-photo") {
+          e.preventDefault();
+          zoneEl.click();
+        }
+      });
+    });
+    if (selectedPasteCardId) {
+      const stillZone = panelList.querySelector('[data-photo-target="' + CSS.escape(selectedPasteCardId) + '"]');
+      if (stillZone) stillZone.classList.add("paste-armed");
+      else selectedPasteCardId = null;
+    }
+    if (selectedWaypointId) {
+      const stillCard = panelList.querySelector('.card[data-id="' + CSS.escape(selectedWaypointId) + '"]');
+      if (stillCard) stillCard.classList.add("selected");
+    }
+  }
+
+  // Mirrors how paste works in the New/Edit Waypoint modal: one document-level
+  // listener, gated on a simple state check, rather than depending on real
+  // browser focus landing on a specific small element (which proved unreliable,
+  // e.g. macOS not moving focus to a clicked button by default).
+  function selectCardForPaste(id) {
+    selectedPasteCardId = id;
+    panelList.querySelectorAll("[data-photo-target]").forEach((z) => {
+      z.classList.toggle("paste-armed", z.dataset.photoTarget === id);
+    });
+  }
+  document.addEventListener("paste", (e) => {
+    if (!modalOverlay.classList.contains("hidden")) return; // modal's own paste handler owns this case
+    if (!panel.classList.contains("open") || !selectedPasteCardId) return;
+    const wp = waypoints.find((w) => w.id === selectedPasteCardId);
+    if (!wp) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type && item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addPhotosToWaypoint(wp, files); }
+  });
+
+  let cardPhotoTargetId = null;
+  cardPhotoFileInput.addEventListener("change", () => {
+    const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
+    if (wp && cardPhotoFileInput.files && cardPhotoFileInput.files.length) {
+      addPhotosToWaypoint(wp, cardPhotoFileInput.files);
+    }
+    cardPhotoFileInput.value = "";
+    cardPhotoTargetId = null;
+  });
+
+  function commitPhotosToWaypoint(wp, dataUrls) {
+    if (!wp.photos) wp.photos = [];
+    let added = 0;
+    for (const dataUrl of dataUrls) {
+      if (wp.photos.length >= MAX_PHOTOS_PER_WAYPOINT) {
+        showToast("Up to " + MAX_PHOTOS_PER_WAYPOINT + " photos per waypoint.");
+        break;
+      }
+      wp.photos.push(dataUrl);
+      added++;
+    }
+    if (added > 0) {
+      saveWaypoints();
+      renderList();
+      showToast("Added " + added + " photo" + (added === 1 ? "" : "s") + ' to "' + wp.name + '"');
+    }
+    return added;
+  }
+
+  async function addPhotosToWaypoint(wp, fileList) {
+    const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
+    if (imageFiles.length === 0) { showToast("That doesn't look like an image file."); return; }
+    const dataUrls = [];
+    for (const file of imageFiles) {
+      try { dataUrls.push(await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY)); }
+      catch (e) { /* skip file that failed to load */ }
+    }
+    commitPhotosToWaypoint(wp, dataUrls);
+  }
+
+  // Used when a card's drop event didn't carry real files (e.g. an image dragged
+  // out of a webview-based app) — falls back to whatever URL/HTML data it offered.
+  async function addDroppedImagesToWaypoint(wp, dataTransfer) {
+    try {
+      const result = await collectImageDataUrlsFromDrop(dataTransfer);
+      if (result.dataUrls.length > 0) {
+        commitPhotosToWaypoint(wp, result.dataUrls);
+      } else if (result.hadUnusableSource) {
+        showToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
+      } else {
+        showToast("That doesn't look like an image — check the browser console (F12) for what was actually dragged.");
+      }
+    } catch (e) {
+      console.error("[photo drop] addDroppedImagesToWaypoint failed:", e);
+      showToast("Something went wrong reading that drop. Check the browser console (F12) for details.");
+    }
+  }
+
+  function flashCheck(node, revertIcon, suffixText) {
+    const original = node.innerHTML;
+    node.innerHTML = icon("check", suffixText ? 14 : 14) + (suffixText || "");
+    node.style.color = "var(--green)";
+    setTimeout(() => { node.innerHTML = original; node.style.color = ""; }, 1500);
+  }
+
+  function startEditName(id) {
+    const nameEl = panelList.querySelector('.card-name[data-id="' + id + '"]');
+    if (!nameEl) return;
+    const wp = waypoints.find((w) => w.id === id);
+    const input = document.createElement("input");
+    input.className = "card-name-input";
+    input.value = wp.name;
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    const commit = () => {
+      wp.name = input.value.trim() || wp.name;
+      saveWaypoints();
+      renderList();
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+  }
+
+  function startEditNotes(id) {
+    const btnEl = panelList.querySelector('.card-notes-btn[data-id="' + id + '"]');
+    if (!btnEl) return;
+    const wp = waypoints.find((w) => w.id === id);
+    const textarea = document.createElement("textarea");
+    textarea.className = "card-notes-input";
+    textarea.value = wp.notes || "";
+    textarea.placeholder = "Add a note…";
+    btnEl.replaceWith(textarea);
+    textarea.focus();
+    const commit = () => {
+      wp.notes = textarea.value.trim();
+      saveWaypoints();
+      renderList();
+    };
+    textarea.addEventListener("blur", commit);
+  }
+
+  /* ================================================================ */
+  /*  Toast wiring for save-failure handled above via showToast()      */
+  /* ================================================================ */
+})();
+</script>
+</body>
+</html>
