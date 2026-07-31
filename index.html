@@ -2129,6 +2129,19 @@
     };
   }
 
+  async function describeGistFetchError(res) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      if (body && body.message) detail = body.message;
+    } catch (e) { /* body wasn't JSON — ignore, detail stays empty */ }
+    if (res.status === 401) return "Bad or expired access token" + (detail ? " (" + detail + ")" : "") + ".";
+    if (res.status === 404) return "Gist not found — check the Gist ID, and make sure the token can access it.";
+    if (res.status === 403) return "Access denied" + (detail ? " (" + detail + ")" : "") + " — check the token has \"gist\" scope.";
+    if (res.status === 422) return "GitHub rejected the request" + (detail ? " (" + detail + ")" : "") + ".";
+    return "GitHub returned HTTP " + res.status + (detail ? ": " + detail : "") + ".";
+  }
+
   gistCreateBtn.addEventListener("click", async () => {
     const token = gistTokenInput.value.trim();
     if (!token) { showToast("Paste a GitHub access token first."); return; }
@@ -2143,15 +2156,22 @@
           files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } }
         })
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.ok) {
+        const reason = await describeGistFetchError(res);
+        console.error("[gist create] " + reason);
+        gistStatusText.textContent = reason;
+        showToast("Couldn't create the gist: " + reason);
+        return;
+      }
       const data = await res.json();
       gistIdInput.value = data.id;
       localStorage.setItem(GIST_ID_KEY, data.id);
       gistStatusText.textContent = "Created and synced just now.";
       showToast("Gist created and synced.");
     } catch (e) {
-      gistStatusText.textContent = "Couldn't create the gist — check your token.";
-      showToast("Couldn't create the gist — check your access token.");
+      console.error("[gist create] network/unexpected error:", e);
+      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
+      showToast("Couldn't reach GitHub — check your connection.");
     }
   });
 
@@ -2167,12 +2187,19 @@
         headers: githubHeaders(),
         body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } } })
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.ok) {
+        const reason = await describeGistFetchError(res);
+        console.error("[gist push] " + reason);
+        gistStatusText.textContent = reason;
+        showToast("Couldn't push: " + reason);
+        return;
+      }
       gistStatusText.textContent = "Pushed just now.";
       showToast("Synced to Gist.");
     } catch (e) {
-      gistStatusText.textContent = "Push failed — check your token and Gist ID.";
-      showToast("Couldn't push to the Gist.");
+      console.error("[gist push] network/unexpected error:", e);
+      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
+      showToast("Couldn't reach GitHub — check your connection.");
     }
   });
 
@@ -2184,17 +2211,38 @@
     gistStatusText.textContent = "Pulling…";
     try {
       const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), { headers: githubHeaders() });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.ok) {
+        const reason = await describeGistFetchError(res);
+        console.error("[gist pull] " + reason);
+        gistStatusText.textContent = reason;
+        showToast("Couldn't pull: " + reason);
+        return;
+      }
       const data = await res.json();
       const file = data.files && data.files[GIST_FILENAME];
-      if (!file) throw new Error("Expected file not found in gist");
-      const payload = JSON.parse(file.content);
+      if (!file) {
+        const availableNames = Object.keys(data.files || {}).join(", ") || "none";
+        console.error("[gist pull] expected file \"" + GIST_FILENAME + "\" not found. Files present: " + availableNames);
+        gistStatusText.textContent = 'No "' + GIST_FILENAME + '" file in that gist.';
+        showToast('That gist doesn\'t contain a "' + GIST_FILENAME + '" file — is this the right Gist ID?');
+        return;
+      }
+      let payload;
+      try {
+        payload = JSON.parse(file.content);
+      } catch (parseErr) {
+        console.error("[gist pull] file content wasn't valid JSON:", parseErr, file.content.slice(0, 200));
+        gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
+        showToast("That gist's content isn't valid MapApp backup JSON.");
+        return;
+      }
       const result = mergeBackupPayload(payload);
       gistStatusText.textContent = "Pulled just now.";
       showToast("Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s") + " from Gist.");
     } catch (e) {
-      gistStatusText.textContent = "Pull failed — check your token and Gist ID.";
-      showToast("Couldn't pull from the Gist.");
+      console.error("[gist pull] network/unexpected error:", e);
+      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
+      showToast("Couldn't reach GitHub — check your connection.");
     }
   });
 
