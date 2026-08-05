@@ -22,6 +22,12 @@
   button{font:inherit; color:inherit;}
 
   #map{position:absolute; inset:0; z-index:0; background:var(--surface);}
+  #map.map-drag-over::after{content:""; position:absolute; inset:8px; border:3px dashed var(--amber); border-radius:14px;
+    pointer-events:none; z-index:15; background:rgba(245,158,11,.06);}
+  .map-drop-hint{position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:16; display:none;
+    background:rgba(15,23,42,.95); border:1px solid var(--amber); border-radius:12px; padding:14px 20px;
+    color:#fbbf24; font-size:14px; font-weight:600; pointer-events:none; text-align:center;}
+  .map-drop-hint.show{display:block;}
 
   /* ---------- top bar ---------- */
   .topbar{position:absolute; top:0; left:0; right:0; z-index:25; display:flex; gap:10px; padding:14px; align-items:flex-start;}
@@ -458,6 +464,7 @@
 <body>
 <div id="app">
   <div id="map"></div>
+  <div class="map-drop-hint" id="mapDropHint">Drop a photo to place a waypoint from its location</div>
 
   <div id="zoomSliderControl" class="zoom-slider-control">
     <button type="button" class="zoom-unified-btn" id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
@@ -1220,6 +1227,8 @@
   const keepScreenAwakeToggle = el("keepScreenAwakeToggle");
   const wakeLockHint = el("wakeLockHint");
   const cameraCaptureInput = el("cameraCaptureInput");
+  const mapEl = el("map");
+  const mapDropHint = el("mapDropHint");
   const homeBtn = el("homeBtn");
   const homeStatus = el("homeStatus");
   const homeFlyBtn = el("homeFlyBtn");
@@ -3281,6 +3290,67 @@
   cameraCaptureInput.addEventListener("change", () => {
     if (cameraCaptureInput.files && cameraCaptureInput.files[0]) handleCameraCapture(cameraCaptureInput.files[0]);
     cameraCaptureInput.value = "";
+  });
+
+  // Dropping a photo anywhere on the map itself runs the same EXIF-first
+  // pipeline as the camera button: read the photo's location tag, fall back
+  // to current location, then to tap-to-place. A drag counter (rather than a
+  // plain boolean) avoids the classic flicker where dragleave fires while the
+  // pointer passes over child elements (markers, tiles) within the map.
+  let mapDragCounter = 0;
+  function dropHasFiles(e) {
+    return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files"));
+  }
+  mapEl.addEventListener("dragenter", (e) => {
+    if (!dropHasFiles(e)) return;
+    e.preventDefault();
+    mapDragCounter++;
+    mapEl.classList.add("map-drag-over");
+    mapDropHint.classList.add("show");
+  });
+  mapEl.addEventListener("dragover", (e) => { if (dropHasFiles(e)) e.preventDefault(); });
+  mapEl.addEventListener("dragleave", () => {
+    mapDragCounter = Math.max(0, mapDragCounter - 1);
+    if (mapDragCounter === 0) {
+      mapEl.classList.remove("map-drag-over");
+      mapDropHint.classList.remove("show");
+    }
+  });
+  mapEl.addEventListener("drop", async (e) => {
+    if (!e.dataTransfer) return;
+    e.preventDefault();
+    mapDragCounter = 0;
+    mapEl.classList.remove("map-drag-over");
+    mapDropHint.classList.remove("show");
+
+    const realFiles = Array.from(e.dataTransfer.files || []).filter((f) => f.type && f.type.startsWith("image/"));
+    if (realFiles.length > 0) {
+      for (const file of realFiles) { await handleCameraCapture(file); } // full EXIF -> location -> tap-to-place chain, one at a time
+      return;
+    }
+
+    // No real OS File offered (e.g. an image dragged out of another web app/tab)
+    // — EXIF isn't recoverable from a source like that, so go straight to the
+    // same geolocation/tap-to-place fallback used when a real photo has no GPS tag.
+    const { dataUrls, hadUnusableSource } = await collectImageDataUrlsFromDrop(e.dataTransfer);
+    if (dataUrls.length === 0) {
+      if (hadUnusableSource) showToast("Couldn't read that as an image.");
+      return;
+    }
+    for (const dataUrl of dataUrls) {
+      await new Promise((resolve) => {
+        if (!navigator.geolocation) { armCameraPhotoMapPick(dataUrl); resolve(); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            showToast("No location tag on that image — using your current location instead.");
+            placeCameraPhotoAtLocation(pos.coords.latitude, pos.coords.longitude, dataUrl);
+            resolve();
+          },
+          () => { armCameraPhotoMapPick(dataUrl); resolve(); },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      });
+    }
   });
 
   // Fallback for drag sources that don't hand over a real OS File — e.g. dragging
