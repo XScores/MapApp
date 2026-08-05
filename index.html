@@ -310,7 +310,15 @@
   .panel-search-clear{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; flex-shrink:0; padding:2px;}
   .panel-search-clear:hover{color:var(--text-dim);}
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
-  .panel-list{flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex;}
+  .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:28px; display:flex; flex-direction:column; gap:8px;}
+  .az-picker{position:absolute; top:0; right:2px; bottom:0; width:18px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:8px 0; z-index:5;}
+  .az-letter-btn{flex:1; width:18px; display:flex; align-items:center; justify-content:center; background:none; border:none;
+    color:var(--text-mute); font-size:9px; font-weight:600; cursor:pointer; padding:0; line-height:1; border-radius:3px;}
+  .az-letter-btn:hover{color:var(--amber-light); background:rgba(245,158,11,.12);}
+  .az-letter-btn.active{color:var(--amber); background:rgba(245,158,11,.22); font-weight:700;}
+  .az-letter-btn.no-match{color:#3a4356;}
   .empty-state{text-align:center; margin-top:60px; padding:0 24px; color:var(--text-mute);}
   .empty-state .icon{color:#334155; margin-bottom:10px;}
   .empty-state p{font-size:13px; margin:0;}
@@ -836,7 +844,10 @@
       <input type="text" id="panelSearchInput" class="panel-search-input" placeholder="Search saved waypoints…" autocomplete="off" />
       <button class="panel-search-clear" id="panelSearchClearBtn" style="display:none;"></button>
     </div>
-    <div class="panel-list" id="panelList"></div>
+    <div class="panel-list-wrap">
+      <div class="panel-list" id="panelList"></div>
+      <div class="az-picker" id="azPicker"></div>
+    </div>
     <p class="panel-no-results" id="panelNoResults" style="display:none;">No waypoints match your search.</p>
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
@@ -1142,6 +1153,7 @@
   /* ================================================================ */
 
   let waypoints = loadWaypoints();
+  let activeLetterFilter = null; // A-Z picker state — declared early since renderList() (which reads this) runs during initial setup
   let rides = loadRides();
   let settings = loadSettings();
   initSpatialAddressing();
@@ -1334,6 +1346,7 @@
   const panelSearchInput = el("panelSearchInput");
   const panelSearchClearBtn = el("panelSearchClearBtn");
   const panelNoResults = el("panelNoResults");
+  const azPicker = el("azPicker");
   const toastEl = el("toast");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
@@ -4363,6 +4376,14 @@
     applyWaypointSearchFilter();
   }
 
+  // For A-Z indexing: skip past any leading digits/punctuation/whitespace to
+  // find the first actual letter — "25 Delong Drive" indexes under D, not
+  // ignored and not bucketed under a number.
+  function getIndexLetter(name) {
+    const m = String(name || "").match(/[A-Za-z]/);
+    return m ? m[0].toUpperCase() : null;
+  }
+
   function applyWaypointSearchFilter() {
     const query = panelSearchInput.value.trim().toLowerCase();
     const terms = query.split(/\s+/).filter(Boolean);
@@ -4373,11 +4394,14 @@
       const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
       if (!wp) return;
       const nameLower = wp.name.toLowerCase();
-      const matches = terms.length === 0 || terms.some((t) => nameLower.includes(t));
+      const matchesText = terms.length === 0 || terms.some((t) => nameLower.includes(t));
+      const matchesLetter = !activeLetterFilter || getIndexLetter(wp.name) === activeLetterFilter;
+      const matches = matchesText && matchesLetter;
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    panelNoResults.style.display = waypoints.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    panelNoResults.style.display = waypoints.length > 0 && (terms.length > 0 || activeLetterFilter) && visibleCount === 0 ? "block" : "none";
+    refreshAzPickerAvailability();
   }
   panelSearchInput.addEventListener("input", applyWaypointSearchFilter);
   panelSearchClearBtn.addEventListener("click", () => {
@@ -4385,6 +4409,32 @@
     applyWaypointSearchFilter();
     panelSearchInput.focus();
   });
+
+  const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  function renderAzPicker() {
+    azPicker.innerHTML = AZ_LETTERS.map((l) =>
+      '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
+    ).join("");
+    azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const letter = btn.dataset.letter;
+        activeLetterFilter = activeLetterFilter === letter ? null : letter; // clicking the active letter again clears it
+        azPicker.querySelectorAll(".az-letter-btn").forEach((b) => b.classList.toggle("active", b.dataset.letter === activeLetterFilter));
+        applyWaypointSearchFilter();
+      });
+    });
+    refreshAzPickerAvailability();
+  }
+  // Dims letters with no current waypoints, so it's clear before tapping
+  // whether anything will show up — recomputed whenever the list changes.
+  function refreshAzPickerAvailability() {
+    const available = new Set(waypoints.map((wp) => getIndexLetter(wp.name)).filter(Boolean));
+    azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+    });
+  }
+  renderAzPicker();
 
   function cardIconHtml(wp) {
     if (wp.markerStyle === "emoji") {
