@@ -311,11 +311,11 @@
   .panel-search-clear:hover{color:var(--text-dim);}
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
   .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex;}
-  .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:28px; display:flex; flex-direction:column; gap:8px;}
-  .az-picker{position:absolute; top:0; right:2px; bottom:0; width:18px; display:flex; flex-direction:column;
+  .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:34px; display:flex; flex-direction:column; gap:8px;}
+  .az-picker{position:absolute; top:0; right:2px; bottom:0; width:24px; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:8px 0; z-index:5;}
-  .az-letter-btn{flex:1; width:18px; display:flex; align-items:center; justify-content:center; background:none; border:none;
-    color:var(--text-mute); font-size:9px; font-weight:600; cursor:pointer; padding:0; line-height:1; border-radius:3px;}
+  .az-letter-btn{flex:1; width:24px; display:flex; align-items:center; justify-content:center; background:none; border:none;
+    color:var(--text-mute); font-size:12px; font-weight:700; cursor:pointer; padding:0; line-height:1; border-radius:4px;}
   .az-letter-btn:hover{color:var(--amber-light); background:rgba(245,158,11,.12);}
   .az-letter-btn.active{color:var(--amber); background:rgba(245,158,11,.22); font-weight:700;}
   .az-letter-btn.no-match{color:#3a4356;}
@@ -1153,7 +1153,6 @@
   /* ================================================================ */
 
   let waypoints = loadWaypoints();
-  let activeLetterFilter = null; // A-Z picker state — declared early since renderList() (which reads this) runs during initial setup
   let rides = loadRides();
   let settings = loadSettings();
   initSpatialAddressing();
@@ -4364,6 +4363,19 @@
     }
   }
 
+  // For A-Z indexing AND sorting: skip past any leading digits/punctuation/
+  // whitespace to find the first actual letter — "25 Delong Drive" indexes
+  // and sorts under D, not ignored and not bucketed under a number. Sorting
+  // uses this same rule so the list and the index agree with each other.
+  function getIndexLetter(name) {
+    const m = String(name || "").match(/[A-Za-z]/);
+    return m ? m[0].toUpperCase() : null;
+  }
+  function getSortKey(name) {
+    const m = String(name || "").match(/[A-Za-z].*/s);
+    return (m ? m[0] : String(name || "")).toLowerCase();
+  }
+
   function renderList() {
     if (waypoints.length === 0) {
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
@@ -4371,17 +4383,11 @@
       panelNoResults.style.display = "none";
       return;
     }
-    panelList.innerHTML = waypoints.map((wp) => cardHtml(wp)).join("");
+    const sorted = waypoints.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    panelList.innerHTML = sorted.map((wp) => cardHtml(wp)).join("");
     bindCardEvents();
     applyWaypointSearchFilter();
-  }
-
-  // For A-Z indexing: skip past any leading digits/punctuation/whitespace to
-  // find the first actual letter — "25 Delong Drive" indexes under D, not
-  // ignored and not bucketed under a number.
-  function getIndexLetter(name) {
-    const m = String(name || "").match(/[A-Za-z]/);
-    return m ? m[0].toUpperCase() : null;
+    refreshAzPickerAvailability();
   }
 
   function applyWaypointSearchFilter() {
@@ -4394,14 +4400,11 @@
       const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
       if (!wp) return;
       const nameLower = wp.name.toLowerCase();
-      const matchesText = terms.length === 0 || terms.some((t) => nameLower.includes(t));
-      const matchesLetter = !activeLetterFilter || getIndexLetter(wp.name) === activeLetterFilter;
-      const matches = matchesText && matchesLetter;
+      const matches = terms.length === 0 || terms.some((t) => nameLower.includes(t));
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    panelNoResults.style.display = waypoints.length > 0 && (terms.length > 0 || activeLetterFilter) && visibleCount === 0 ? "block" : "none";
-    refreshAzPickerAvailability();
+    panelNoResults.style.display = waypoints.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
   }
   panelSearchInput.addEventListener("input", applyWaypointSearchFilter);
   panelSearchClearBtn.addEventListener("click", () => {
@@ -4410,6 +4413,9 @@
     panelSearchInput.focus();
   });
 
+  // Jumps to the first (alphabetically, matching the sort above) waypoint
+  // starting with the tapped letter — same model as the iOS Contacts index:
+  // scrolls the existing list into view rather than hiding everything else.
   const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   function renderAzPicker() {
     azPicker.innerHTML = AZ_LETTERS.map((l) =>
@@ -4419,15 +4425,21 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        activeLetterFilter = activeLetterFilter === letter ? null : letter; // clicking the active letter again clears it
-        azPicker.querySelectorAll(".az-letter-btn").forEach((b) => b.classList.toggle("active", b.dataset.letter === activeLetterFilter));
-        applyWaypointSearchFilter();
+        const cards = Array.from(panelList.querySelectorAll(".card"));
+        const targetCard = cards.find((cardEl) => {
+          const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
+          return wp && getIndexLetter(wp.name) === letter;
+        });
+        if (!targetCard) return; // no waypoint for this letter
+        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        btn.classList.add("active");
+        setTimeout(() => btn.classList.remove("active"), 500);
       });
     });
     refreshAzPickerAvailability();
   }
   // Dims letters with no current waypoints, so it's clear before tapping
-  // whether anything will show up — recomputed whenever the list changes.
+  // whether anything will happen — recomputed whenever the list changes.
   function refreshAzPickerAvailability() {
     const available = new Set(waypoints.map((wp) => getIndexLetter(wp.name)).filter(Boolean));
     azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
