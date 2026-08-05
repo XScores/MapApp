@@ -100,6 +100,7 @@
     background:none; border:none; color:#e2e8f0; font-size:13px; cursor:pointer; text-align:left;}
   .ride-dropdown-option:hover{background:var(--surface-2);}
   .ride-dropdown-option .icon{display:flex; flex-shrink:0;}
+  .ride-dropdown-divider{height:1px; background:#1e293b; margin:4px 2px;}
   .btn-icon.home-btn:hover{border-color:rgba(52,211,153,.5);}
   .btn-icon.home-btn.picking{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
   .btn-icon.panel-toggle{color:var(--amber);}
@@ -405,18 +406,38 @@
   .ride-hud.hidden{display:none;}
   .ride-hud-close-x{position:absolute; top:8px; right:8px;}
   .ride-hud-close-x.hidden{display:none;}
-  .ride-hud-row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
-  .ride-hud-label{font-size:20px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute);}
-  .ride-hud-value{font-size:30px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums;}
+  .ride-hud-stats-row{display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;}
+  .ride-hud-stat{display:flex; flex-direction:column; align-items:flex-start; flex:1; min-width:0;}
+  .ride-hud-label{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute); margin-bottom:2px; white-space:nowrap;}
+  .ride-hud-value{font-size:22px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;}
   .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
   .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
     border:none; border-radius:8px; padding:8px; cursor:pointer;}
   .ride-hud-stop-btn:hover{filter:brightness(1.1);}
   .ride-hud-stop-btn.hidden{display:none;}
-  .ride-hud-wakelock-row{display:flex; align-items:center; gap:8px; margin:2px 0 12px; padding:0; cursor:pointer;
+  .ride-hud-prefs-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 0 12px;}
+  .ride-hud-prefs-row.hidden{display:none;}
+  .ride-hud-wakelock-row{display:flex; align-items:center; gap:8px; padding:0; cursor:pointer;
     font-size:13px; color:#cbd5e1;}
   .ride-hud-wakelock-row input{accent-color:#a78bfa; width:16px; height:16px; flex-shrink:0; cursor:pointer;}
-  .ride-hud-wakelock-row.hidden{display:none;}
+  .unit-toggle{display:flex; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:2px; flex-shrink:0;}
+  .unit-toggle-btn{background:none; border:none; color:var(--text-mute); font-size:11px; font-weight:700;
+    padding:4px 10px; border-radius:6px; cursor:pointer;}
+  .unit-toggle-btn.active{background:#7c3aed; color:#fff;}
+  .ride-hud-save-form{margin-top:10px;}
+  .ride-hud-save-form.hidden{display:none;}
+  .ride-hud-notes-textarea{width:100%; min-height:60px; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-size:13px; padding:8px; font-family:inherit; box-sizing:border-box; margin-top:4px;}
+  .ride-hud-confirm-save-btn{width:100%; margin-top:10px;}
+  .route-endpoint-marker{width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:2px solid #fff; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.45);}
+  .distance-marker{width:22px; height:22px; border-radius:50%; background:rgba(15,23,42,.92); border:2px solid;
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.4);}
+  .current-position-marker{position:relative; width:30px; height:30px;}
+  .current-position-badge{position:relative; width:30px; height:30px; border-radius:50%; display:flex;
+    align-items:center; justify-content:center; border:2px solid #fff; color:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.5); z-index:1;}
 
   .ride-card{display:flex; align-items:center; gap:12px; cursor:pointer;}
   .ride-card:hover{border-color:rgba(167,139,250,.4);}
@@ -425,6 +446,7 @@
   .ride-card-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
   .ride-card-info b{font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ride-card-info span{font-size:12.5px; color:var(--text-mute);}
+  .ride-card-notes{display:block; font-size:12px; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ride-card-delete-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
     display:flex; padding:6px;}
   .ride-card-delete-btn:hover{color:#f87171;}
@@ -503,6 +525,8 @@
         <button class="ride-dropdown-option" data-activity="hike"><span class="icon"></span><span>Hike</span></button>
         <button class="ride-dropdown-option" data-activity="car"><span class="icon"></span><span>Drive</span></button>
         <button class="ride-dropdown-option" data-activity="boat"><span class="icon"></span><span>Cruise</span></button>
+        <div class="ride-dropdown-divider"></div>
+        <button class="ride-dropdown-option" id="rideDropdownViewRoutesBtn"><span class="icon"></span><span>View Routes</span></button>
       </div>
     </div>
     <input type="file" id="cameraCaptureInput" accept="image/*" capture="environment" style="display:none;" />
@@ -594,11 +618,6 @@
               <button class="home-action-btn" id="gistSyncBtn">Sync Waypoints</button>
             </div>
           </div>
-        </div>
-
-        <div class="layers-section">
-          <p class="layers-section-title">Routes</p>
-          <button class="home-action-btn" id="viewRoutesBtn">View Routes</button>
         </div>
         </div>
       </div>
@@ -886,14 +905,29 @@
 
   <div class="ride-hud hidden" id="rideHud">
     <button class="panel-close ride-hud-close-x" id="rideHudCloseXBtn" title="Close"></button>
-    <div class="ride-hud-row"><span class="ride-hud-label" id="rideHudLabel1">Time</span><span class="ride-hud-value" id="rideHudTime">0:00</span></div>
-    <div class="ride-hud-row"><span class="ride-hud-label">Distance</span><span class="ride-hud-value" id="rideHudDistance">0.00 km</span></div>
-    <div class="ride-hud-row"><span class="ride-hud-label" id="rideHudLabel3">Speed</span><span class="ride-hud-value" id="rideHudSpeed">0.0 km/h</span></div>
-    <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
+    <div class="ride-hud-stats-row">
+      <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel1">Time</span><span class="ride-hud-value" id="rideHudTime">0:00</span></div>
+      <div class="ride-hud-stat"><span class="ride-hud-label">Distance</span><span class="ride-hud-value" id="rideHudDistance">0.00 km</span></div>
+      <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel3">Speed</span><span class="ride-hud-value" id="rideHudSpeed">0.0 km/h</span></div>
+    </div>
+    <div class="ride-hud-prefs-row" id="rideHudPrefsRow">
+      <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
+      <div class="unit-toggle" id="unitToggle">
+        <button type="button" class="unit-toggle-btn" data-unit="km">KM</button>
+        <button type="button" class="unit-toggle-btn" data-unit="mi">MI</button>
+      </div>
+    </div>
     <div class="ride-hud-btn-row">
       <button class="ride-hud-stop-btn" id="rideHudStopBtn">Stop Route</button>
       <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save Route</button>
       <button class="ride-hud-stop-btn" id="rideHudViewRoutesBtn">View Routes</button>
+    </div>
+    <div class="ride-hud-save-form hidden" id="rideHudSaveForm">
+      <label class="field-label">Name</label>
+      <input type="text" id="rideHudNameInput" class="field-input" maxlength="80" />
+      <label class="field-label" style="margin-top:8px;">Notes</label>
+      <textarea id="rideHudNotesInput" class="ride-hud-notes-textarea" rows="3" placeholder="Optional notes about this route…"></textarea>
+      <button class="ride-hud-stop-btn ride-hud-confirm-save-btn" id="rideHudConfirmSaveBtn">Save Route</button>
     </div>
   </div>
 
@@ -941,6 +975,7 @@
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>',
     cloudDownload: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><polyline points="8 17 12 21 16 17"></polyline><line x1="12" y1="12" x2="12" y2="21"></line>',
     bike: '<circle cx="5.5" cy="17.5" r="3.5"></circle><circle cx="18.5" cy="17.5" r="3.5"></circle><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 17.5V14l-3-3 4-3 2 3h2"></path>',
+    list: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>',
     hike: '<circle cx="13" cy="4" r="1.5"></circle><path d="M11 22l1.5-6L10 13l1-5 3 2 1 4 3 3-1 5"></path><path d="M8 22l2-7-2-4"></path>',
     car: '<path d="M5 17h14M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM19 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"></path><path d="M3 17V11l2-5h10l3 5h1a2 2 0 0 1 2 2v4"></path><path d="M3 11h16"></path>',
     boat: '<path d="M3 17h18l-2 4H5z"></path><path d="M12 17V3"></path><path d="M12 4l7 9-7 2z"></path>',
@@ -1164,7 +1199,7 @@
     }
   }
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -1246,12 +1281,18 @@
   const rideHudTime = el("rideHudTime");
   const rideHudDistance = el("rideHudDistance");
   const rideHudSpeed = el("rideHudSpeed");
+  const rideHudPrefsRow = el("rideHudPrefsRow");
   const rideHudWakeLockRow = el("rideHudWakeLockRow");
+  const unitToggle = el("unitToggle");
   const rideHudStopBtn = el("rideHudStopBtn");
   const rideHudSaveBtn = el("rideHudSaveBtn");
+  const rideHudSaveForm = el("rideHudSaveForm");
+  const rideHudNameInput = el("rideHudNameInput");
+  const rideHudNotesInput = el("rideHudNotesInput");
+  const rideHudConfirmSaveBtn = el("rideHudConfirmSaveBtn");
   const rideHudCloseXBtn = el("rideHudCloseXBtn");
   const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
-  const viewRoutesBtn = el("viewRoutesBtn");
+  const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
   const routesPanel = el("routesPanel");
   const routesPanelList = el("routesPanelList");
   const routesPanelSubtitle = el("routesPanelSubtitle");
@@ -2234,6 +2275,7 @@
       version: 1,
       exportedAt: new Date().toISOString(),
       waypoints: JSON.parse(JSON.stringify(waypoints)),
+      rides: JSON.parse(JSON.stringify(rides)),
       settings: {
         home: settings.home || null,
         anchorOverrides: settings.anchorOverrides || {}
@@ -2242,7 +2284,7 @@
   }
 
   // Shared by both file-based restore and Gist pull. Deliberately conservative:
-  // waypoints are only ever added (an existing local waypoint is never
+  // waypoints and routes are only ever added (an existing local one is never
   // overwritten, so a restore/pull can't silently clobber an edit made on this
   // device), anchor region names are merged in since they're just shared
   // labels, and Home is only adopted if this device doesn't already have one set.
@@ -2261,6 +2303,19 @@
     });
     if (added > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
+    // Older exports/gists predate route syncing, so payload.rides may not
+    // exist at all — that's fine, just nothing to merge on that front.
+    let routesAdded = 0, routesSkipped = 0;
+    if (Array.isArray(payload.rides)) {
+      payload.rides.forEach((r) => {
+        if (!r || !r.id || !Array.isArray(r.points) || typeof r.distanceMeters !== "number") { routesSkipped++; return; }
+        if (rides.some((existing) => existing.id === r.id)) { routesSkipped++; return; }
+        rides.push(r);
+        routesAdded++;
+      });
+      if (routesAdded > 0) { saveRides(); renderRoutesList(); }
+    }
+
     let anchorsApplied = 0;
     if (payload.settings && payload.settings.anchorOverrides) {
       Object.keys(payload.settings.anchorOverrides).forEach((cell) => {
@@ -2278,7 +2333,7 @@
       homeAdopted = true;
     }
 
-    return { added, skipped, anchorsApplied, homeAdopted };
+    return { added, skipped, routesAdded, routesSkipped, anchorsApplied, homeAdopted };
   }
 
   exportBackupBtn.addEventListener("click", (e) => {
@@ -2303,6 +2358,7 @@
         const payload = JSON.parse(stripBom(String(reader.result)));
         const result = mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
+        if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
         if (result.skipped) msg += " (" + result.skipped + " already saved)";
         showToast(msg);
       } catch (e) {
@@ -2507,7 +2563,9 @@
       }
       const result = mergeBackupPayload(payload);
       gistStatusText.textContent = "Pulled just now.";
-      showToast("Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s") + " from Gist.");
+      let pullMsg = "Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s");
+      if (result.routesAdded) pullMsg += " and " + result.routesAdded + " new route" + (result.routesAdded === 1 ? "" : "s");
+      showToast(pullMsg + " from Gist.");
       return true;
     } catch (e) {
       console.error("[gist pull] network/unexpected error:", e);
@@ -3040,6 +3098,34 @@
     if (document.visibilityState === "visible") updateWakeLock();
   });
 
+  let currentlyViewedRide = null;
+  function refreshUnitDisplay() {
+    if (rideHudCurrentState === "tracking" || rideHudCurrentState === "unsaved") {
+      rideHudDistance.textContent = formatDistance(rideDistanceMeters);
+      rideHudSpeed.textContent = formatSpeed(currentSpeedKmh);
+      refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
+    } else if (rideHudCurrentState === "viewing" && currentlyViewedRide) {
+      rideHudDistance.textContent = formatDistance(currentlyViewedRide.distanceMeters);
+      refreshDistanceMarkers(currentlyViewedRide.points, activityInfo(currentlyViewedRide.activityType).color, viewedRideDistanceMarkers);
+    }
+    renderRoutesList(); // route cards show distance too
+  }
+  function setUnitToggleUI() {
+    unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.unit === settings.distanceUnit);
+    });
+  }
+  setUnitToggleUI();
+  unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      settings.distanceUnit = btn.dataset.unit;
+      saveSettings();
+      setUnitToggleUI();
+      refreshUnitDisplay();
+    });
+  });
+
   /* ================================================================ */
   /*  Ride tracking — live GPS trace, distance/time/speed, and a saved  */
   /*  ride history. Uses watchPosition (continuous), unlike the one-shot */
@@ -3072,9 +3158,10 @@
   let pendingRideEndTime = null;
   const RIDE_JITTER_THRESHOLD_METERS = 2; // ignore GPS noise while stationary
 
-  rideDropdown.querySelectorAll(".ride-dropdown-option").forEach((opt) => {
+  rideDropdown.querySelectorAll(".ride-dropdown-option[data-activity]").forEach((opt) => {
     opt.querySelector(".icon").innerHTML = icon(activityInfo(opt.dataset.activity).icon, 16);
   });
+  viewRoutesBtn.querySelector(".icon").innerHTML = icon("list", 16);
   rideBtn.innerHTML = icon(activityInfo(currentActivityType).icon, 18);
 
   function formatDuration(ms) {
@@ -3086,28 +3173,52 @@
     return (h > 0 ? h + ":" : "") + mStr + ":" + String(s).padStart(2, "0");
   }
   function formatDistance(meters) {
+    if (settings.distanceUnit === "mi") return (meters / 1609.344).toFixed(2) + " mi";
     return (meters / 1000).toFixed(2) + " km";
   }
+  function formatSpeed(kmh) {
+    if (settings.distanceUnit === "mi") return (kmh / 1.609344).toFixed(1) + " mph";
+    return kmh.toFixed(1) + " km/h";
+  }
+
+  let currentSpeedKmh = 0;
+  let lastPositionTimestamp = null;
 
   function updateRideHud() {
     const elapsedMs = Date.now() - rideStartTime;
     rideHudTime.textContent = formatDuration(elapsedMs);
     rideHudDistance.textContent = formatDistance(rideDistanceMeters);
-    const hours = elapsedMs / 3600000;
-    const km = rideDistanceMeters / 1000;
-    rideHudSpeed.textContent = (hours > 0 ? km / hours : 0).toFixed(1) + " km/h";
+    rideHudSpeed.textContent = formatSpeed(currentSpeedKmh);
   }
 
+  // Speed was previously computed as (total distance / total elapsed time) —
+  // the ride's *average* pace since the start, which reads far below actual
+  // current speed after any stop (a red light, a photo, etc). Now prefers the
+  // GPS chip's own reported speed (Doppler-derived, what a real bike computer
+  // uses) when the browser provides one, falling back to a short recent-
+  // segment calculation — never the whole-ride average — if it doesn't.
   function onRidePosition(pos) {
-    const { latitude, longitude } = pos.coords;
+    const { latitude, longitude, speed } = pos.coords;
+    const now = Date.now();
+    let segmentDist = 0;
     if (ridePoints.length > 0) {
       const prev = ridePoints[ridePoints.length - 1];
-      const segmentDist = haversineMeters(prev.lat, prev.lng, latitude, longitude);
+      segmentDist = haversineMeters(prev.lat, prev.lng, latitude, longitude);
       if (segmentDist < RIDE_JITTER_THRESHOLD_METERS) return; // stationary noise — don't record
       rideDistanceMeters += segmentDist;
     }
-    ridePoints.push({ lat: latitude, lng: longitude, t: Date.now() });
+    if (typeof speed === "number" && !isNaN(speed) && speed >= 0) {
+      currentSpeedKmh = speed * 3.6; // m/s -> km/h, straight from the device's own GPS reading — available even on the very first point
+    } else if (lastPositionTimestamp && segmentDist > 0) {
+      const dtSeconds = (now - lastPositionTimestamp) / 1000;
+      if (dtSeconds > 0) currentSpeedKmh = (segmentDist / dtSeconds) * 3.6;
+    }
+    lastPositionTimestamp = now;
+    ridePoints.push({ lat: latitude, lng: longitude, t: now });
     ridePolyline.addLatLng([latitude, longitude]);
+    refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
+    updateRidePositionMarker(latitude, longitude, currentActivityType);
+    panMapClearOfRideHud(latitude, longitude);
     updateRideHud();
   }
   function onRideError(err) {
@@ -3117,11 +3228,139 @@
 
   let rideHudCurrentState = null; // "tracking" | "unsaved" | "viewing" | null
 
+  // Start/end markers use the same activity icon shown everywhere else for
+  // that type, styled as a small circular badge (same visual language as
+  // waypoint markers, without becoming actual entries in the waypoint list).
+  function makeRouteEndpointIcon(activityType) {
+    const info = activityInfo(activityType);
+    const html = '<div class="route-endpoint-marker" style="background:' + info.color + '; border-color:' + info.color + ';">' +
+      icon(info.icon, 15) + "</div>";
+    return L.divIcon({ html, className: "wp-div-icon", iconSize: [28, 28], iconAnchor: [14, 14] });
+  }
+
+  // Live "you are here" marker that follows the current GPS position while a
+  // route is being tracked — same icon/color as the activity, with a pulsing
+  // ring (same visual language as the waypoint pulse) to set it apart from
+  // the fixed start/end markers.
+  function makeCurrentPositionIcon(activityType) {
+    const info = activityInfo(activityType);
+    const html = '<div class="current-position-marker">' +
+      '<span class="wp-pulse-ring" style="border-color:' + info.color + '"></span>' +
+      '<div class="current-position-badge" style="background:' + info.color + '; border-color:' + info.color + ';">' +
+        icon(info.icon, 14) +
+      "</div></div>";
+    return L.divIcon({ html, className: "wp-div-icon", iconSize: [30, 30], iconAnchor: [15, 15] });
+  }
+  let ridePositionMarker = null;
+  function updateRidePositionMarker(lat, lng, activityType) {
+    if (!ridePositionMarker) {
+      ridePositionMarker = L.marker([lat, lng], { icon: makeCurrentPositionIcon(activityType), zIndexOffset: 1000 }).addTo(map);
+    } else {
+      ridePositionMarker.setLatLng([lat, lng]);
+    }
+  }
+  function clearRidePositionMarker() {
+    if (ridePositionMarker) { map.removeLayer(ridePositionMarker); ridePositionMarker = null; }
+  }
+
+  // Keeps the live position visible below the open Route card rather than
+  // letting the opaque panel cover it: converts the target point to on-screen
+  // pixels, checks whether it falls under the card's footprint, and pans just
+  // enough to clear it if so — rather than recentering on every single update
+  // regardless of whether it's actually needed.
+  function panMapClearOfRideHud(lat, lng) {
+    try {
+      if (!rideHud || rideHud.classList.contains("hidden")) { return; }
+      const hudRect = rideHud.getBoundingClientRect();
+      const targetPoint = map.latLngToContainerPoint([lat, lng]);
+      const margin = 20;
+      if (targetPoint.y >= hudRect.bottom - hudRect.top + margin) return; // already clear of the card, nothing to do
+      const desiredY = hudRect.bottom - hudRect.top + margin + 40;
+      const centerPoint = map.latLngToContainerPoint(map.getCenter());
+      const newCenterPoint = L.point(centerPoint.x, centerPoint.y - (desiredY - targetPoint.y));
+      map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: true, duration: 0.4 });
+    } catch (e) { /* if the map API doesn't support this in some edge case, just skip the pan rather than break tracking */ }
+  }
+
+  let rideStartMarker = null, rideEndMarker = null;
+  let viewedRideStartMarker = null, viewedRideEndMarker = null;
+  function clearRideEndpointMarkers() {
+    if (rideStartMarker) { map.removeLayer(rideStartMarker); rideStartMarker = null; }
+    if (rideEndMarker) { map.removeLayer(rideEndMarker); rideEndMarker = null; }
+  }
+  function clearViewedRideEndpointMarkers() {
+    if (viewedRideStartMarker) { map.removeLayer(viewedRideStartMarker); viewedRideStartMarker = null; }
+    if (viewedRideEndMarker) { map.removeLayer(viewedRideEndMarker); viewedRideEndMarker = null; }
+  }
+  function placeEndpointMarkers(points, activityType) {
+    if (!points || points.length === 0) return { start: null, end: null };
+    const ic = makeRouteEndpointIcon(activityType);
+    const start = L.marker([points[0].lat, points[0].lng], { icon: ic }).addTo(map);
+    let end = null;
+    if (points.length > 1) {
+      const last = points[points.length - 1];
+      end = L.marker([last.lat, last.lng], { icon: ic }).addTo(map);
+    }
+    return { start, end };
+  }
+
+  // Numbered circles every km (or mile, matching the current unit setting)
+  // along a route — walks the polyline's segments accumulating distance, and
+  // interpolates the exact lat/lng wherever the running total crosses each
+  // whole-unit threshold, rather than just marking GPS points nearest to it.
+  function computeDistanceMarkerPositions(points) {
+    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+    const positions = [];
+    if (!points || points.length < 2) return positions;
+    let cumulative = 0;
+    let nextThreshold = unitMeters;
+    let num = 1;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1], curr = points[i];
+      const segDist = haversineMeters(prev.lat, prev.lng, curr.lat, curr.lng);
+      if (segDist <= 0) continue;
+      while (cumulative + segDist >= nextThreshold) {
+        const fraction = (nextThreshold - cumulative) / segDist;
+        positions.push({
+          lat: prev.lat + (curr.lat - prev.lat) * fraction,
+          lng: prev.lng + (curr.lng - prev.lng) * fraction,
+          num
+        });
+        num++;
+        nextThreshold += unitMeters;
+      }
+      cumulative += segDist;
+    }
+    return positions;
+  }
+  function makeDistanceMarkerIcon(num, color) {
+    const html = '<div class="distance-marker" style="border-color:' + color + ';">' + num + "</div>";
+    return L.divIcon({ html, className: "wp-div-icon", iconSize: [22, 22], iconAnchor: [11, 11] });
+  }
+  const rideDistanceMarkers = [];
+  const viewedRideDistanceMarkers = [];
+  function clearRideDistanceMarkers() {
+    rideDistanceMarkers.forEach((m) => map.removeLayer(m));
+    rideDistanceMarkers.length = 0;
+  }
+  function clearViewedRideDistanceMarkers() {
+    viewedRideDistanceMarkers.forEach((m) => map.removeLayer(m));
+    viewedRideDistanceMarkers.length = 0;
+  }
+  function refreshDistanceMarkers(points, color, targetArray) {
+    targetArray.forEach((m) => map.removeLayer(m));
+    targetArray.length = 0;
+    computeDistanceMarkerPositions(points).forEach((p) => {
+      targetArray.push(L.marker([p.lat, p.lng], { icon: makeDistanceMarkerIcon(p.num, color) }).addTo(map));
+    });
+  }
+
   function showRideHudState(state) {
     rideHudCurrentState = state;
     rideHudStopBtn.classList.toggle("hidden", state !== "tracking");
     rideHudSaveBtn.classList.toggle("hidden", state !== "unsaved");
-    rideHudWakeLockRow.classList.toggle("hidden", state === "viewing");
+    rideHudSaveForm.classList.add("hidden"); // always start collapsed; Save Route reveals it explicitly
+    rideHudPrefsRow.classList.toggle("hidden", state === "viewing");
     // No close-X while actively tracking — a stray tap shouldn't be able to
     // silently kill an in-progress route. Save/Discard only becomes possible
     // once tracking has actually stopped.
@@ -3137,7 +3376,12 @@
     rideDistanceMeters = 0;
     rideStartTime = Date.now();
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+    clearViewedRideEndpointMarkers();
+    clearViewedRideDistanceMarkers();
     if (ridePolyline) { map.removeLayer(ridePolyline); }
+    clearRideEndpointMarkers();
+    clearRideDistanceMarkers();
+    clearRidePositionMarker();
     ridePolyline = L.polyline([], { color: info.color, weight: 4, opacity: 0.9 }).addTo(map);
     rideBtn.style.setProperty("--ride-color", info.color);
     rideBtn.innerHTML = icon(info.icon, 18);
@@ -3172,6 +3416,7 @@
     if (ridePoints.length < 2) {
       showToast("Too short to save.");
       if (ridePolyline) { map.removeLayer(ridePolyline); ridePolyline = null; }
+      clearRidePositionMarker();
       rideHud.classList.add("hidden");
       rideHudCurrentState = null;
       return;
@@ -3179,16 +3424,36 @@
 
     pendingRideEndTime = Date.now();
     updateRideHud(); // one final update so the frozen values reflect the exact stop moment
+    clearRidePositionMarker();
+    const { start, end } = placeEndpointMarkers(ridePoints, currentActivityType);
+    rideStartMarker = start; rideEndMarker = end;
     showRideHudState("unsaved");
   }
 
-  function saveCurrentRide() {
+  // Save Route no longer commits immediately — it expands the card downward
+  // for a name (pre-filled with the same default as before, editable) and
+  // optional notes, same as naming a waypoint. Confirming inside that form
+  // is what actually persists it.
+  function revealSaveForm() {
+    const info = activityInfo(currentActivityType);
+    rideHudNameInput.value = info.label + " " + new Date(rideStartTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    rideHudNotesInput.value = "";
+    rideHudSaveBtn.classList.add("hidden");
+    rideHudSaveForm.classList.remove("hidden");
+    setTimeout(() => rideHudNameInput.focus(), 50);
+  }
+  rideHudSaveBtn.addEventListener("click", revealSaveForm);
+
+  function confirmSaveRoute() {
     const info = activityInfo(currentActivityType);
     const endTime = pendingRideEndTime || Date.now();
+    const defaultName = info.label + " " + new Date(rideStartTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const name = rideHudNameInput.value.trim() || defaultName;
+    const notes = rideHudNotesInput.value.trim();
     const ride = {
       id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
       activityType: currentActivityType,
-      name: info.label + " " + new Date(rideStartTime).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      name, notes,
       startTime: rideStartTime,
       endTime,
       points: ridePoints,
@@ -3200,12 +3465,17 @@
     renderRoutesList();
     showToast('Saved "' + ride.name + '" — ' + formatDistance(rideDistanceMeters) + " in " + formatDuration(ride.durationMs));
     rideHud.classList.add("hidden");
+    rideHudSaveForm.classList.add("hidden");
+    rideHudSaveBtn.classList.remove("hidden");
     rideHudCurrentState = null;
   }
-  rideHudSaveBtn.addEventListener("click", saveCurrentRide);
+  rideHudConfirmSaveBtn.addEventListener("click", confirmSaveRoute);
 
   function discardCurrentRide() {
     if (ridePolyline) { map.removeLayer(ridePolyline); ridePolyline = null; }
+    clearRideEndpointMarkers();
+    clearRideDistanceMarkers();
+    clearRidePositionMarker();
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
     showToast("Route discarded.");
@@ -3215,6 +3485,8 @@
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+    clearViewedRideEndpointMarkers();
+    clearViewedRideDistanceMarkers();
   }
 
   // The X means different things depending on what's currently showing: an
@@ -3233,7 +3505,7 @@
     if (rideTracking) { stopRide(); return; }
     rideDropdown.classList.toggle("hidden");
   });
-  rideDropdown.querySelectorAll(".ride-dropdown-option").forEach((opt) => {
+  rideDropdown.querySelectorAll(".ride-dropdown-option[data-activity]").forEach((opt) => {
     opt.addEventListener("click", (e) => {
       e.stopPropagation();
       closeRideDropdown();
@@ -3252,10 +3524,16 @@
   function viewRide(ride) {
     if (rideTracking) { showToast("Stop your current route before viewing a saved one."); return; }
     if (viewedRidePolyline) map.removeLayer(viewedRidePolyline);
+    clearViewedRideEndpointMarkers();
+    clearViewedRideDistanceMarkers();
+    currentlyViewedRide = ride;
     const info = activityInfo(ride.activityType);
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
     map.fitBounds(viewedRidePolyline.getBounds().pad(0.15));
+    const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
+    viewedRideStartMarker = start; viewedRideEndMarker = end;
+    refreshDistanceMarkers(ride.points, info.color, viewedRideDistanceMarkers);
 
     rideHudLabel1.textContent = "Date";
     rideHudTime.textContent = new Date(ride.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -3291,9 +3569,10 @@
     routesPanelList.innerHTML = rides.slice().reverse().map((r) => {
       const info = activityInfo(r.activityType);
       const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
       return '<div class="card ride-card" data-id="' + r.id + '">' +
         '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + '</span></div>' +
+        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
         '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
@@ -3325,7 +3604,7 @@
     renderRoutesList();
     routesPanel.classList.add("open");
   }
-  viewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
+  viewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); closeRideDropdown(); openRoutesPanel(); });
   rideHudViewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
   routesPanelCloseBtn.addEventListener("click", () => routesPanel.classList.remove("open"));
 
