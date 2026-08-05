@@ -1038,8 +1038,13 @@
     "MESA","MOOR","NOTCH","OUTCROP","OUTPOST","PEAK","PLATEAU","QUARRY","REEF","RIDGE","SHOAL",
     "SPRING","SUMMIT","THICKET","TRAIL","VALLEY","WATCH","WHARF"];
 
-  const ANCHOR_RES = 1;   // ~842 cells, ~418km across
+  const ANCHOR_RES = 1;   // ~842 cells, ~418km across — used only for the word-address naming system
   const FINE_RES = 13;    // ~3.6m cells
+  const HEX_HIGHLIGHT_RES = 6; // ~3-4km cells — for the per-waypoint/Home hex highlight specifically. Deliberately
+  // NOT the same as ANCHOR_RES: that one is ~418km across, so any two waypoints within a broad region (very
+  // plausible after a Gist import brings in a whole collection at once) would highlight the identical giant cell —
+  // disabling one waypoint's highlight would then look like it did nothing, since another's was still covering
+  // the same spot. This resolution keeps a highlight actually localized to the one waypoint it belongs to.
   const SYLLABLES = (function () {
     const list = [];
     "bdfgklmnrs".split("").forEach((c) => "aeiou".split("").forEach((v) => list.push(c + v)));
@@ -2657,8 +2662,8 @@
     if (!wp.hexColor || !h3Ready) return;
     try {
       const fine = window.h3.latLngToCell(wp.lat, wp.lng, FINE_RES);
-      const anchor = window.h3.cellToParent(fine, ANCHOR_RES);
-      const boundary = window.h3.cellToBoundary(anchor);
+      const highlightCell = window.h3.cellToParent(fine, HEX_HIGHLIGHT_RES);
+      const boundary = window.h3.cellToBoundary(highlightCell);
       const lngs = boundary.map((p) => p[1]);
       if (Math.max(...lngs) - Math.min(...lngs) > 180) return; // skip antimeridian-wrapping cells
       const poly = L.polygon(boundary, {
@@ -3440,7 +3445,7 @@
     rideHudNotesInput.value = "";
     rideHudSaveBtn.classList.add("hidden");
     rideHudSaveForm.classList.remove("hidden");
-    setTimeout(() => rideHudNameInput.focus(), 50);
+    setTimeout(() => { rideHudNameInput.focus(); rideHudNameInput.select(); }, 50);
   }
   rideHudSaveBtn.addEventListener("click", revealSaveForm);
 
@@ -4082,7 +4087,7 @@
     renderPhotoThumbs();
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
-    setTimeout(() => nameInput.focus(), 30);
+    setTimeout(() => { nameInput.focus(); nameInput.select(); }, 30);
   }
 
   function openEditModal(wp) {
