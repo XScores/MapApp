@@ -52,6 +52,7 @@
      full-width field below the icon row on demand instead of fighting for
      inline space. */
   @media (max-width:600px){
+    .topbar{gap:3px;}
     .search-wrap{flex:0 0 44px; max-width:44px; position:relative;}
     .search-box{width:44px; height:44px; padding:0; justify-content:center; overflow:hidden; cursor:pointer;}
     .search-wrap:not(.expanded) .search-box input,
@@ -432,22 +433,15 @@
     opacity:.9; animation:wp-pulse 1.6s ease-out infinite;}
   @keyframes wp-drop{0%{transform:translateY(-14px); opacity:0;} 100%{transform:translateY(0); opacity:1;}}
   @keyframes wp-pulse{0%{transform:scale(.5); opacity:.9;} 100%{transform:scale(2.4); opacity:0;}}
-  .leaflet-control-zoom a{background-color:rgba(15,23,42,.9) !important; color:#f59e0b !important;
-    border-color:rgba(148,163,184,.25) !important; width:34px !important; height:34px !important; line-height:34px !important;
-    box-sizing:border-box !important;}
-  .leaflet-control-zoom a:hover{background-color:rgba(30,41,59,.95) !important;}
-  .leaflet-control-zoom{display:flex !important; flex-direction:row-reverse !important;}
-  .leaflet-control-zoom a{border-bottom:none !important; border-right:1px solid rgba(148,163,184,.25) !important;}
-  .leaflet-control-zoom a:first-child{border-right:none !important;}
-  .leaflet-control-zoom-in{border-radius:0 8px 8px 0 !important;}
-  .leaflet-control-zoom-out{border-radius:8px 0 0 8px !important;}
-  .leaflet-bottom.leaflet-right{bottom:10px !important; right:10px !important;}
-  .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin:0 !important;}
   .zoom-slider-control{position:absolute; right:10px; bottom:10px; z-index:22; background:rgba(15,23,42,.9);
-    border-radius:8px; padding:0 10px; height:34px; box-sizing:border-box; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; padding:0 4px; height:34px; box-sizing:border-box; display:flex; align-items:center; gap:2px;
     box-shadow:0 1px 5px rgba(0,0,0,.4); border:1px solid rgba(148,163,184,.25);}
-  .zoom-slider-wrap{width:120px; height:20px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
-  .zoom-slider-wrap input[type="range"]{width:112px; height:20px; margin:0;
+  .zoom-unified-btn{flex-shrink:0; width:30px; height:30px; border-radius:7px; background:none; border:none;
+    color:#f59e0b; font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
+  .zoom-unified-btn:hover{background:rgba(245,158,11,.15);}
+  .zoom-unified-btn:active{background:rgba(245,158,11,.28);}
+  .zoom-slider-wrap{width:110px; height:20px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+  .zoom-slider-wrap input[type="range"]{width:104px; height:20px; margin:0;
     cursor:pointer; accent-color:#f59e0b; background:transparent;}
   .leaflet-control-attribution{background:rgba(15,23,42,.75) !important; color:#94a3b8 !important; font-size:10px !important;}
   .leaflet-control-attribution a{color:#cbd5e1 !important;}
@@ -458,9 +452,11 @@
   <div id="map"></div>
 
   <div id="zoomSliderControl" class="zoom-slider-control">
+    <button type="button" class="zoom-unified-btn" id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
     <div class="zoom-slider-wrap">
       <input type="range" id="zoomSliderInput" aria-label="Zoom level" />
     </div>
+    <button type="button" class="zoom-unified-btn" id="zoomInBtn" title="Zoom in" aria-label="Zoom in">+</button>
   </div>
 
   <div class="topbar">
@@ -573,10 +569,15 @@
             <p class="layers-hint" id="gistStatusText" style="margin-top:6px;"></p>
             <div class="home-actions" style="margin-top:8px;">
               <button class="home-action-btn" id="gistCreateBtn">Create new Gist</button>
-              <button class="home-action-btn" id="gistPushBtn">Push to Gist</button>
-              <button class="home-action-btn" id="gistPullBtn">Pull from Gist</button>
+              <button class="home-action-btn" id="gistSyncBtn">Sync Waypoints</button>
             </div>
           </div>
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">Screen</p>
+          <label class="layers-option"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
+          <p class="layers-hint" id="wakeLockHint">Also turns on automatically whenever a route is being tracked, and off when you stop it. Needs HTTPS and the tab to stay in the foreground — locking your phone or switching apps still releases it.</p>
         </div>
 
         <div class="layers-section">
@@ -1123,7 +1124,7 @@
     }
   }
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false };
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -1205,6 +1206,8 @@
   const rideHudSpeed = el("rideHudSpeed");
   const rideHudStopBtn = el("rideHudStopBtn");
   const rideHistoryList = el("rideHistoryList");
+  const keepScreenAwakeToggle = el("keepScreenAwakeToggle");
+  const wakeLockHint = el("wakeLockHint");
   const cameraCaptureInput = el("cameraCaptureInput");
   const homeBtn = el("homeBtn");
   const homeStatus = el("homeStatus");
@@ -1238,8 +1241,7 @@
   const gistIdInput = el("gistIdInput");
   const gistStatusText = el("gistStatusText");
   const gistCreateBtn = el("gistCreateBtn");
-  const gistPushBtn = el("gistPushBtn");
-  const gistPullBtn = el("gistPullBtn");
+  const gistSyncBtn = el("gistSyncBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
   const anchorModalCellId = el("anchorModalCellId");
@@ -1441,11 +1443,18 @@
     maxBounds: WORLD_BOUNDS,
     maxBoundsViscosity: 1.0
   }).setView([45.4215, -75.6972], 11);
-  L.control.zoom({ position: "bottomright" }).addTo(map);
-
-  // Custom horizontal zoom slider — Leaflet has no built-in one.
+  // Custom horizontal zoom control — one unified element: [-] [slider] [+].
+  // Previously this wrapped Leaflet's own zoom control, which shares its
+  // corner with Leaflet's attribution bar and stacks unpredictably as a
+  // result (that cost several rounds of chasing a moving target). Building
+  // our own -/+ buttons directly removes Leaflet from this entirely, so the
+  // whole control now has fixed, fully-known dimensions — no more JS
+  // measurement needed to keep the HUD aligned with it, just matching static
+  // CSS offsets on both.
   const zoomSliderInput = el("zoomSliderInput");
   const zoomSliderControlEl = el("zoomSliderControl");
+  const zoomOutBtn = el("zoomOutBtn");
+  const zoomInBtn = el("zoomInBtn");
   zoomSliderInput.min = map.getMinZoom();
   zoomSliderInput.max = map.getMaxZoom();
   zoomSliderInput.step = 1;
@@ -1453,37 +1462,14 @@
   L.DomEvent.disableClickPropagation(zoomSliderControlEl);
   L.DomEvent.disableScrollPropagation(zoomSliderControlEl);
   zoomSliderInput.addEventListener("input", () => { map.setZoom(Number(zoomSliderInput.value)); });
+  zoomOutBtn.addEventListener("click", () => map.zoomOut());
+  zoomInBtn.addEventListener("click", () => map.zoomIn());
   map.on("zoomend", () => { zoomSliderInput.value = map.getZoom(); });
   function refreshZoomSlider() {
     zoomSliderInput.min = map.getMinZoom();
     zoomSliderInput.max = map.getMaxZoom();
     zoomSliderInput.value = map.getZoom();
   }
-
-  // Slider sits immediately to the left of the +/- buttons, measured off their
-  // *actual rendered* position (not a guessed offset). The HUD is aligned to
-  // that same measured position too — Leaflet stacks its attribution bar
-  // beneath the zoom control in the same corner, which naturally pushes the
-  // zoom control's true bottom offset above the CSS-only 10px we'd assumed;
-  // matching the HUD to the real measurement (rather than fighting Leaflet's
-  // own stacking) keeps both row aligned regardless of what ends up in that
-  // corner. Both the slider and the Leaflet zoom control's own corner
-  // (z-index 1000 by default) sit above the waypoint panel's z-index too, so
-  // neither can be visually covered even if the panel reaches this far on a
-  // narrow screen.
-  function positionZoomSliderLeftOfZoomControl() {
-    const zoomControlEl = document.querySelector(".leaflet-control-zoom");
-    const hudEl = document.querySelector(".hud");
-    if (!zoomControlEl) return;
-    const gap = 10;
-    const rect = zoomControlEl.getBoundingClientRect();
-    const trueBottom = Math.round(window.innerHeight - rect.bottom);
-    zoomSliderControlEl.style.right = Math.round(window.innerWidth - rect.left + gap) + "px";
-    zoomSliderControlEl.style.bottom = trueBottom + "px";
-    if (hudEl) hudEl.style.bottom = trueBottom + "px";
-  }
-  positionZoomSliderLeftOfZoomControl();
-  window.addEventListener("resize", () => positionZoomSliderLeftOfZoomControl());
 
   // Keep the map to a single, non-repeating world copy, and never let the user
   // zoom out further than the point where that single world fills the screen
@@ -2278,6 +2264,13 @@
   const GIST_ID_KEY = "mapapp:githubGistId";
   const GIST_FILENAME = "mapapp-waypoints-backup.json";
 
+  function safeLocalStorageGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeLocalStorageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* non-fatal: this one value just won't persist */ }
+  }
+
   // Tolerates pasting the full gist.github.com URL instead of just the ID —
   // an easy, common mistake since that's literally what's in the address bar
   // when you're looking at a gist.
@@ -2293,9 +2286,9 @@
     return trimmed;
   }
 
-  gistTokenInput.value = localStorage.getItem(GIST_TOKEN_KEY) || "";
-  gistIdInput.value = localStorage.getItem(GIST_ID_KEY) || "";
-  gistTokenInput.addEventListener("change", () => localStorage.setItem(GIST_TOKEN_KEY, gistTokenInput.value.trim()));
+  gistTokenInput.value = safeLocalStorageGet(GIST_TOKEN_KEY) || "";
+  gistIdInput.value = safeLocalStorageGet(GIST_ID_KEY) || "";
+  gistTokenInput.addEventListener("change", () => safeLocalStorageSet(GIST_TOKEN_KEY, gistTokenInput.value.trim()));
   gistTokenVisibilityBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     const showing = gistTokenInput.type === "text";
@@ -2306,7 +2299,7 @@
   gistIdInput.addEventListener("change", () => {
     const cleaned = extractGistId(gistIdInput.value);
     gistIdInput.value = cleaned; // reflect the cleaned-up ID back into the field so it's visibly correct
-    localStorage.setItem(GIST_ID_KEY, cleaned);
+    safeLocalStorageSet(GIST_ID_KEY, cleaned);
   });
 
   function githubHeaders() {
@@ -2354,7 +2347,7 @@
       }
       const data = await res.json();
       gistIdInput.value = data.id;
-      localStorage.setItem(GIST_ID_KEY, data.id);
+      safeLocalStorageSet(GIST_ID_KEY, data.id);
       gistStatusText.textContent = "Created and synced just now.";
       showToast("Gist created and synced.");
     } catch (e) {
@@ -2364,12 +2357,11 @@
     }
   });
 
-  gistPushBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
+  async function performGistPush() {
     const token = gistTokenInput.value.trim();
     const gistId = extractGistId(gistIdInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    if (!gistId) { showToast("No Gist ID yet — create one first."); return; }
+    if (!token) { showToast("Paste a GitHub access token first."); return false; }
+    if (!gistId) { showToast("No Gist ID yet — create one first."); return false; }
     gistStatusText.textContent = "Pushing…";
     try {
       const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), {
@@ -2382,22 +2374,24 @@
         console.error("[gist push] " + reason);
         gistStatusText.textContent = reason;
         showToast("Couldn't push: " + reason);
-        return;
+        return false;
       }
       gistStatusText.textContent = "Pushed just now.";
       showToast("Synced to Gist.");
+      return true;
     } catch (e) {
       console.error("[gist push] network/unexpected error:", e);
       gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
       showToast("Couldn't reach GitHub — check your connection.");
+      return false;
     }
-  });
+  }
 
   async function performGistPull() {
     const token = gistTokenInput.value.trim();
     const gistId = extractGistId(gistIdInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    if (!gistId) { showToast("Paste a Gist ID to pull from."); return; }
+    if (!token) { showToast("Paste a GitHub access token first."); return false; }
+    if (!gistId) { showToast("Paste a Gist ID to pull from."); return false; }
     gistStatusText.textContent = "Pulling…";
     try {
       const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), { headers: githubHeaders() });
@@ -2406,7 +2400,7 @@
         console.error("[gist pull] " + reason);
         gistStatusText.textContent = reason;
         showToast("Couldn't pull: " + reason);
-        return;
+        return false;
       }
       const data = await res.json();
       const file = data.files && data.files[GIST_FILENAME];
@@ -2415,7 +2409,7 @@
         console.error("[gist pull] expected file \"" + GIST_FILENAME + "\" not found. Files present: " + availableNames);
         gistStatusText.textContent = 'No "' + GIST_FILENAME + '" file in that gist.';
         showToast('That gist doesn\'t contain a "' + GIST_FILENAME + '" file — is this the right Gist ID?');
-        return;
+        return false;
       }
 
       // GitHub's API truncates the inline `content` field for files over ~1MB —
@@ -2436,7 +2430,7 @@
           console.error("[gist pull] couldn't fetch full (untruncated) content:", rawErr);
           gistStatusText.textContent = "That gist's backup is large and the full content couldn't be fetched.";
           showToast("Couldn't fetch the full backup — it may be too large. Try excluding photos, or check your connection.");
-          return;
+          return false;
         }
       }
 
@@ -2455,18 +2449,38 @@
           gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
           showToast("That gist's content isn't valid MapApp backup JSON.");
         }
-        return;
+        return false;
       }
       const result = mergeBackupPayload(payload);
       gistStatusText.textContent = "Pulled just now.";
       showToast("Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s") + " from Gist.");
+      return true;
     } catch (e) {
       console.error("[gist pull] network/unexpected error:", e);
       gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
       showToast("Couldn't reach GitHub — check your connection.");
+      return false;
     }
   }
-  gistPullBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistPull(); });
+
+  // "Sync" is deliberately pull-then-push, not push-then-pull or push-only:
+  // pulling first absorbs anything another device already added to the Gist
+  // (merge-only, never overwrites a local waypoint), so the push that follows
+  // can't silently erase data that only existed in the Gist. Push alone is a
+  // full overwrite of the Gist's content — doing it without pulling first is
+  // exactly how you'd lose another device's contributions.
+  async function performGistSync() {
+    gistSyncBtn.disabled = true;
+    const pullOk = await performGistPull();
+    if (!pullOk) {
+      gistSyncBtn.disabled = false;
+      showToast("Sync stopped — pull failed, so nothing was pushed (to avoid overwriting the Gist with an incomplete list).");
+      return;
+    }
+    await performGistPush();
+    gistSyncBtn.disabled = false;
+  }
+  gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistSync(); });
 
   refreshCuratedCount();
 
@@ -2919,6 +2933,60 @@
   }
 
   /* ================================================================ */
+  /*  Screen wake lock — two independent demand sources (route tracking */
+  /*  and a manual "always on" toggle) both feed into one shared         */
+  /*  acquire/release function, so turning ride tracking off doesn't     */
+  /*  release the lock if the manual toggle is still on, and vice versa. */
+  /*  Requires HTTPS and only holds while the tab is foreground/visible  */
+  /*  — the OS can and will revoke it (locked screen, backgrounded tab,  */
+  /*  low battery), so this re-requests on visibilitychange rather than  */
+  /*  assuming a single request lasts for the whole session.             */
+  /* ================================================================ */
+  let wakeLockSentinel = null;
+  let wakeLockRideActive = false;
+  const wakeLockSupported = "wakeLock" in navigator;
+
+  function wakeLockShouldBeActive() {
+    return wakeLockRideActive || !!settings.keepScreenAwake;
+  }
+
+  async function updateWakeLock() {
+    if (!wakeLockSupported) return;
+    const shouldBeActive = wakeLockShouldBeActive();
+    if (shouldBeActive && !wakeLockSentinel) {
+      try {
+        wakeLockSentinel = await navigator.wakeLock.request("screen");
+        wakeLockSentinel.addEventListener("release", () => {
+          wakeLockSentinel = null; // OS-revoked (backgrounded, low battery, etc.) — visibilitychange re-acquires if still needed
+        });
+      } catch (e) {
+        console.error("[wake lock] request failed:", e);
+        wakeLockSentinel = null;
+      }
+    } else if (!shouldBeActive && wakeLockSentinel) {
+      const toRelease = wakeLockSentinel;
+      wakeLockSentinel = null;
+      try { await toRelease.release(); } catch (e) { /* already released — ignore */ }
+    }
+  }
+
+  if (wakeLockSupported) {
+    keepScreenAwakeToggle.checked = !!settings.keepScreenAwake;
+    keepScreenAwakeToggle.addEventListener("change", () => {
+      settings.keepScreenAwake = keepScreenAwakeToggle.checked;
+      saveSettings();
+      updateWakeLock();
+    });
+    if (settings.keepScreenAwake) updateWakeLock();
+  } else {
+    keepScreenAwakeToggle.disabled = true;
+    wakeLockHint.textContent = "Not supported in this browser.";
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") updateWakeLock();
+  });
+
+  /* ================================================================ */
   /*  Ride tracking — live GPS trace, distance/time/speed, and a saved  */
   /*  ride history. Uses watchPosition (continuous), unlike the one-shot */
   /*  getCurrentPosition used elsewhere in the app.                      */
@@ -3011,6 +3079,8 @@
     updateRideHud();
     rideTimerInterval = setInterval(updateRideHud, 1000);
     rideWatchId = navigator.geolocation.watchPosition(onRidePosition, onRideError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+    wakeLockRideActive = true;
+    updateWakeLock();
     showToast(info.label + " tracking started.");
   }
 
@@ -3018,6 +3088,8 @@
     rideTracking = false;
     if (rideWatchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(rideWatchId); rideWatchId = null; }
     clearInterval(rideTimerInterval);
+    wakeLockRideActive = false;
+    updateWakeLock();
     const info = activityInfo(currentActivityType);
     rideBtn.classList.remove("tracking");
     rideBtn.innerHTML = icon(info.icon, 18);
@@ -4592,8 +4664,8 @@
   /*  them straight back rather than leaving an unexplained empty list. */
   /* ================================================================ */
   (function checkEmptyStateSyncSuggestion() {
-    const hasToken = !!localStorage.getItem(GIST_TOKEN_KEY);
-    const hasGistId = !!localStorage.getItem(GIST_ID_KEY);
+    const hasToken = !!safeLocalStorageGet(GIST_TOKEN_KEY);
+    const hasGistId = !!safeLocalStorageGet(GIST_ID_KEY);
     if (waypoints.length === 0 && hasToken && hasGistId) {
       syncSuggestionBanner.classList.remove("hidden");
     }
