@@ -401,20 +401,22 @@
   .sync-suggestion-dismiss-btn:hover{color:var(--text-dim);}
 
   .ride-hud{position:fixed; top:80px; left:14px; right:14px; z-index:44; background:rgba(15,23,42,.96); border:1.5px solid #7c3aed;
-    border-radius:12px; padding:16px 18px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
+    border-radius:12px; padding:40px 18px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
   .ride-hud.hidden{display:none;}
+  .ride-hud-close-x{position:absolute; top:8px; right:8px;}
+  .ride-hud-close-x.hidden{display:none;}
   .ride-hud-row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
   .ride-hud-label{font-size:20px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute);}
   .ride-hud-value{font-size:30px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums;}
-  .ride-hud-stop-btn{width:100%; margin-top:6px; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
+  .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
+  .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
     border:none; border-radius:8px; padding:8px; cursor:pointer;}
   .ride-hud-stop-btn:hover{filter:brightness(1.1);}
+  .ride-hud-stop-btn.hidden{display:none;}
   .ride-hud-wakelock-row{display:flex; align-items:center; gap:8px; margin:2px 0 12px; padding:0; cursor:pointer;
     font-size:13px; color:#cbd5e1;}
   .ride-hud-wakelock-row input{accent-color:#a78bfa; width:16px; height:16px; flex-shrink:0; cursor:pointer;}
-  .ride-hud-discard-btn{width:100%; margin-top:6px; background:none; color:var(--text-mute); font-size:12px; font-weight:600;
-    border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
-  .ride-hud-discard-btn:hover{color:#f87171; border-color:rgba(248,113,113,.4);}
+  .ride-hud-wakelock-row.hidden{display:none;}
 
   .ride-card{display:flex; align-items:center; gap:12px; cursor:pointer;}
   .ride-card:hover{border-color:rgba(167,139,250,.4);}
@@ -499,8 +501,8 @@
       <div class="ride-dropdown hidden" id="rideDropdown">
         <button class="ride-dropdown-option" data-activity="bike"><span class="icon"></span><span>Bike</span></button>
         <button class="ride-dropdown-option" data-activity="hike"><span class="icon"></span><span>Hike</span></button>
-        <button class="ride-dropdown-option" data-activity="car"><span class="icon"></span><span>Car</span></button>
-        <button class="ride-dropdown-option" data-activity="boat"><span class="icon"></span><span>Boat</span></button>
+        <button class="ride-dropdown-option" data-activity="car"><span class="icon"></span><span>Drive</span></button>
+        <button class="ride-dropdown-option" data-activity="boat"><span class="icon"></span><span>Cruise</span></button>
       </div>
     </div>
     <input type="file" id="cameraCaptureInput" accept="image/*" capture="environment" style="display:none;" />
@@ -883,14 +885,16 @@
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
+    <button class="panel-close ride-hud-close-x" id="rideHudCloseXBtn" title="Close"></button>
     <div class="ride-hud-row"><span class="ride-hud-label" id="rideHudLabel1">Time</span><span class="ride-hud-value" id="rideHudTime">0:00</span></div>
     <div class="ride-hud-row"><span class="ride-hud-label">Distance</span><span class="ride-hud-value" id="rideHudDistance">0.00 km</span></div>
     <div class="ride-hud-row"><span class="ride-hud-label" id="rideHudLabel3">Speed</span><span class="ride-hud-value" id="rideHudSpeed">0.0 km/h</span></div>
     <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
-    <button class="ride-hud-stop-btn" id="rideHudStopBtn">Stop Route</button>
-    <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save Route</button>
-    <button class="ride-hud-discard-btn hidden" id="rideHudDiscardBtn">Discard</button>
-    <button class="ride-hud-stop-btn hidden" id="rideHudCloseBtn">Close</button>
+    <div class="ride-hud-btn-row">
+      <button class="ride-hud-stop-btn" id="rideHudStopBtn">Stop Route</button>
+      <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save Route</button>
+      <button class="ride-hud-stop-btn" id="rideHudViewRoutesBtn">View Routes</button>
+    </div>
   </div>
 
   <div class="voice-capture-panel hidden" id="voiceCapturePanel">
@@ -1245,8 +1249,8 @@
   const rideHudWakeLockRow = el("rideHudWakeLockRow");
   const rideHudStopBtn = el("rideHudStopBtn");
   const rideHudSaveBtn = el("rideHudSaveBtn");
-  const rideHudDiscardBtn = el("rideHudDiscardBtn");
-  const rideHudCloseBtn = el("rideHudCloseBtn");
+  const rideHudCloseXBtn = el("rideHudCloseXBtn");
+  const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("viewRoutesBtn");
   const routesPanel = el("routesPanel");
   const routesPanelList = el("routesPanelList");
@@ -1428,6 +1432,8 @@
   homeAddressSearchBtn.innerHTML = icon("search", 16);
   micBtn.innerHTML = icon("mic", 16);
   panelCloseBtn.innerHTML = icon("x", 18);
+  routesPanelCloseBtn.innerHTML = icon("x", 18);
+  rideHudCloseXBtn.innerHTML = icon("x", 16);
 
   /* ================================================================ */
   /*  Toast                                                             */
@@ -3049,8 +3055,8 @@
   const ACTIVITY_TYPES = {
     bike: { label: "Bike", icon: "bike", color: "#a78bfa" },
     hike: { label: "Hike", icon: "hike", color: "#4ade80" },
-    car:  { label: "Car",  icon: "car",  color: "#f59e0b" },
-    boat: { label: "Boat", icon: "boat", color: "#38bdf8" }
+    car:  { label: "Drive",  icon: "car",  color: "#f59e0b" },
+    boat: { label: "Cruise", icon: "boat", color: "#38bdf8" }
   };
   function activityInfo(type) { return ACTIVITY_TYPES[type] || ACTIVITY_TYPES.bike; } // old saved rides predate activity types
 
@@ -3109,13 +3115,17 @@
     showToast("Lost GPS signal — tracking may be incomplete.");
   }
 
+  let rideHudCurrentState = null; // "tracking" | "unsaved" | "viewing" | null
+
   function showRideHudState(state) {
-    // state: "tracking" | "unsaved" | "viewing"
+    rideHudCurrentState = state;
     rideHudStopBtn.classList.toggle("hidden", state !== "tracking");
     rideHudSaveBtn.classList.toggle("hidden", state !== "unsaved");
-    rideHudDiscardBtn.classList.toggle("hidden", state !== "unsaved");
-    rideHudCloseBtn.classList.toggle("hidden", state !== "viewing");
     rideHudWakeLockRow.classList.toggle("hidden", state === "viewing");
+    // No close-X while actively tracking — a stray tap shouldn't be able to
+    // silently kill an in-progress route. Save/Discard only becomes possible
+    // once tracking has actually stopped.
+    rideHudCloseXBtn.classList.toggle("hidden", state === "tracking");
   }
 
   function startRide(activityType) {
@@ -3146,7 +3156,8 @@
   }
 
   // Stopping no longer auto-saves — not every route is worth keeping. It
-  // freezes the final stats and offers Save/Discard instead.
+  // freezes the final stats and waits for an explicit Save Route; closing
+  // (the X) without saving discards it automatically.
   function stopRide() {
     rideTracking = false;
     if (rideWatchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(rideWatchId); rideWatchId = null; }
@@ -3162,6 +3173,7 @@
       showToast("Too short to save.");
       if (ridePolyline) { map.removeLayer(ridePolyline); ridePolyline = null; }
       rideHud.classList.add("hidden");
+      rideHudCurrentState = null;
       return;
     }
 
@@ -3188,15 +3200,31 @@
     renderRoutesList();
     showToast('Saved "' + ride.name + '" — ' + formatDistance(rideDistanceMeters) + " in " + formatDuration(ride.durationMs));
     rideHud.classList.add("hidden");
+    rideHudCurrentState = null;
   }
+  rideHudSaveBtn.addEventListener("click", saveCurrentRide);
 
   function discardCurrentRide() {
     if (ridePolyline) { map.removeLayer(ridePolyline); ridePolyline = null; }
     rideHud.classList.add("hidden");
+    rideHudCurrentState = null;
     showToast("Route discarded.");
   }
-  rideHudSaveBtn.addEventListener("click", saveCurrentRide);
-  rideHudDiscardBtn.addEventListener("click", discardCurrentRide);
+
+  function closeViewedRide() {
+    rideHud.classList.add("hidden");
+    rideHudCurrentState = null;
+    if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+  }
+
+  // The X means different things depending on what's currently showing: an
+  // unsaved-but-stopped route gets discarded (per "discard unless saved");
+  // a saved route being looked back at just closes, nothing to lose there.
+  rideHudCloseXBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (rideHudCurrentState === "unsaved") discardCurrentRide();
+    else if (rideHudCurrentState === "viewing") closeViewedRide();
+  });
 
   function closeRideDropdown() { rideDropdown.classList.add("hidden"); }
 
@@ -3241,11 +3269,6 @@
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
   }
-  function closeViewedRide() {
-    rideHud.classList.add("hidden");
-    if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
-  }
-  rideHudCloseBtn.addEventListener("click", closeViewedRide);
 
   function deleteRide(id) {
     const ride = rides.find((r) => r.id === id);
@@ -3290,13 +3313,20 @@
   }
   renderRoutesList();
 
-  viewRoutesBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
+  // Shared by both entry points (the Layers panel button and the one now
+  // inside the HUD itself). Leaving an unsaved-but-stopped route to go look
+  // at the list counts as "closing" it for discard purposes — consistent
+  // with the X doing the same thing.
+  function openRoutesPanel() {
+    if (rideHudCurrentState === "unsaved") discardCurrentRide();
+    else if (rideHudCurrentState === "viewing") closeViewedRide();
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
     renderRoutesList();
     routesPanel.classList.add("open");
-  });
+  }
+  viewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
+  rideHudViewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
   routesPanelCloseBtn.addEventListener("click", () => routesPanel.classList.remove("open"));
 
   const CAMERA_MATCH_RADIUS_METERS = 75;
