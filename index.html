@@ -43,6 +43,25 @@
   .search-result-row span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e2e8f0;}
   .search-result-row .icon{color:var(--amber); flex-shrink:0; margin-top:2px;}
 
+  .search-collapse-btn{display:none; flex-shrink:0; color:var(--text-mute); cursor:pointer; background:none; border:none; padding:0;}
+  .search-collapse-btn:hover{color:var(--text-dim);}
+
+  /* Below ~600px, 7 fixed 44px icon buttons plus gaps leave almost no room for
+     an inline search box (measured: as little as ~8px at 414px/iPhone XS Max
+     width) — collapse it to an icon matching the others, expanding into a
+     full-width field below the icon row on demand instead of fighting for
+     inline space. */
+  @media (max-width:600px){
+    .search-wrap{flex:0 0 44px; max-width:44px; position:relative;}
+    .search-box{width:44px; height:44px; padding:0; justify-content:center; overflow:hidden; cursor:pointer;}
+    .search-wrap:not(.expanded) .search-box input,
+    .search-wrap:not(.expanded) .search-box #searchSpinner,
+    .search-wrap:not(.expanded) .search-box #searchClearBtn{display:none !important;}
+    .search-wrap.expanded{position:fixed; top:76px; left:14px; right:14px; max-width:none; flex:0 0 auto; z-index:27;}
+    .search-wrap.expanded .search-box{width:auto; height:auto; padding:10px 12px; justify-content:flex-start; overflow:visible; cursor:auto;}
+    .search-wrap.expanded .search-collapse-btn{display:flex;}
+  }
+
   .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--panel-bg); backdrop-filter:blur(8px);
     border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;
     position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:border-color .15s;}
@@ -251,8 +270,10 @@
   .color-swatch.selected{border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.15);}
   .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:2px;}
   .emoji-quick-btn{width:46px; height:46px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
-    font-size:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+    font-size:26px; display:flex; align-items:center; justify-content:center; cursor:grab; padding:0; user-select:none;}
   .emoji-quick-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5);}
+  .emoji-quick-btn.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5); position:relative;}
+  .emoji-quick-btn.drop-target{border-color:var(--amber); background:rgba(245,158,11,.18); transform:scale(1.08);}
   .wp-emoji-marker{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:28px; line-height:1; box-shadow:0 3px 8px rgba(0,0,0,.4); border:2px solid rgba(15,23,42,.55);}
   .wp-div-icon.wp-selected .wp-pin{
@@ -412,15 +433,17 @@
   @keyframes wp-drop{0%{transform:translateY(-14px); opacity:0;} 100%{transform:translateY(0); opacity:1;}}
   @keyframes wp-pulse{0%{transform:scale(.5); opacity:.9;} 100%{transform:scale(2.4); opacity:0;}}
   .leaflet-control-zoom a{background-color:rgba(15,23,42,.9) !important; color:#f59e0b !important;
-    border-color:rgba(148,163,184,.25) !important; width:34px !important; height:34px !important; line-height:34px !important;}
+    border-color:rgba(148,163,184,.25) !important; width:34px !important; height:34px !important; line-height:34px !important;
+    box-sizing:border-box !important;}
   .leaflet-control-zoom a:hover{background-color:rgba(30,41,59,.95) !important;}
-  .leaflet-control-zoom{display:flex !important; flex-direction:row !important;}
+  .leaflet-control-zoom{display:flex !important; flex-direction:row-reverse !important;}
   .leaflet-control-zoom a{border-bottom:none !important; border-right:1px solid rgba(148,163,184,.25) !important;}
-  .leaflet-control-zoom a:last-child{border-right:none !important;}
-  .leaflet-control-zoom-in{border-radius:8px 0 0 8px !important;}
-  .leaflet-control-zoom-out{border-radius:0 8px 8px 0 !important;}
-  .leaflet-bottom.leaflet-left .leaflet-control-zoom{margin:0 !important;}
-  .zoom-slider-control{position:absolute; left:10px; bottom:10px; z-index:22; background:rgba(15,23,42,.9);
+  .leaflet-control-zoom a:first-child{border-right:none !important;}
+  .leaflet-control-zoom-in{border-radius:0 8px 8px 0 !important;}
+  .leaflet-control-zoom-out{border-radius:8px 0 0 8px !important;}
+  .leaflet-bottom.leaflet-right{bottom:10px !important; right:10px !important;}
+  .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin:0 !important;}
+  .zoom-slider-control{position:absolute; right:10px; bottom:10px; z-index:22; background:rgba(15,23,42,.9);
     border-radius:8px; padding:0 10px; height:34px; box-sizing:border-box; display:flex; align-items:center; justify-content:center;
     box-shadow:0 1px 5px rgba(0,0,0,.4); border:1px solid rgba(148,163,184,.25);}
   .zoom-slider-wrap{width:120px; height:20px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
@@ -441,12 +464,13 @@
   </div>
 
   <div class="topbar">
-    <div class="search-wrap">
-      <div class="search-box">
+    <div class="search-wrap" id="searchWrap">
+      <div class="search-box" id="searchBox">
         <span class="icon" id="searchIcon"></span>
         <input id="searchInput" type="text" placeholder="Search a place, coordinates, or a 3-word address…" autocomplete="off" />
         <span id="searchSpinner" class="spinner" style="display:none;"></span>
         <button id="searchClearBtn" class="search-clear" style="display:none;" title="Clear search"></button>
+        <button id="searchCollapseBtn" class="search-collapse-btn" title="Close search"></button>
       </div>
       <div id="searchResults" class="search-results"></div>
     </div>
@@ -634,7 +658,7 @@
       <label class="field-label">Marker style</label>
       <div class="style-toggle-row">
         <button type="button" class="style-toggle-btn active" id="markerStylePinBtn" data-style="pin">Pin</button>
-        <button type="button" class="style-toggle-btn" id="markerStyleEmojiBtn" data-style="emoji">Emoji</button>
+        <button type="button" class="style-toggle-btn" id="markerStyleEmojiBtn" data-style="emoji">Icons</button>
       </div>
 
       <div class="field-row" id="markerColorField">
@@ -646,8 +670,8 @@
       </div>
 
       <div class="field-row" id="markerEmojiField" style="display:none;">
-        <label class="field-label">Emoji</label>
-        <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an emoji…" maxlength="8" />
+        <label class="field-label">Icons</label>
+        <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
         <div class="emoji-quick-pick" id="emojiQuickPick"></div>
       </div>
 
@@ -1099,7 +1123,7 @@
     }
   }
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null };
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -1164,8 +1188,11 @@
 
   const el = (id) => document.getElementById(id);
   const searchInput = el("searchInput");
+  const searchWrap = el("searchWrap");
+  const searchBox = el("searchBox");
   const searchSpinner = el("searchSpinner");
   const searchClearBtn = el("searchClearBtn");
+  const searchCollapseBtn = el("searchCollapseBtn");
   const searchResultsEl = el("searchResults");
   const locateBtn = el("locateBtn");
   const cameraBtn = el("cameraBtn");
@@ -1336,6 +1363,7 @@
   panelToggleBtn.innerHTML = icon("menu", 18) + panelToggleBtn.innerHTML;
   document.querySelector(".counter-pill .icon").innerHTML = icon("mapPin", 14);
   searchClearBtn.innerHTML = icon("x", 16);
+  searchCollapseBtn.innerHTML = icon("x", 16);
   modalCloseBtn.innerHTML = icon("x", 18);
   anchorModalCloseBtn.innerHTML = icon("x", 18);
   confirmModalCloseBtn.innerHTML = icon("x", 18);
@@ -1413,7 +1441,7 @@
     maxBounds: WORLD_BOUNDS,
     maxBoundsViscosity: 1.0
   }).setView([45.4215, -75.6972], 11);
-  L.control.zoom({ position: "bottomleft" }).addTo(map);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
 
   // Custom horizontal zoom slider — Leaflet has no built-in one.
   const zoomSliderInput = el("zoomSliderInput");
@@ -1432,31 +1460,30 @@
     zoomSliderInput.value = map.getZoom();
   }
 
-  // Chained, measured layout for the whole bottom-left cluster: coordinates
-  // HUD -> zoom slider -> +/- buttons, left to right, all vertically aligned
-  // with the HUD. Each piece is positioned off the *actual rendered* position
-  // of the one before it rather than a guessed pixel offset (a guessed offset
-  // has bitten this app before). The Leaflet zoom control's own corner
-  // defaults to z-index 1000 and this slider is explicitly set above the
-  // waypoint panel's z-index (see CSS) — both stay on top and clickable even
-  // if the panel's width happens to reach this far on a narrow screen.
-  function positionBottomLeftControlCluster() {
+  // Slider sits immediately to the left of the +/- buttons, measured off their
+  // *actual rendered* position (not a guessed offset). The HUD is aligned to
+  // that same measured position too — Leaflet stacks its attribution bar
+  // beneath the zoom control in the same corner, which naturally pushes the
+  // zoom control's true bottom offset above the CSS-only 10px we'd assumed;
+  // matching the HUD to the real measurement (rather than fighting Leaflet's
+  // own stacking) keeps both row aligned regardless of what ends up in that
+  // corner. Both the slider and the Leaflet zoom control's own corner
+  // (z-index 1000 by default) sit above the waypoint panel's z-index too, so
+  // neither can be visually covered even if the panel reaches this far on a
+  // narrow screen.
+  function positionZoomSliderLeftOfZoomControl() {
+    const zoomControlEl = document.querySelector(".leaflet-control-zoom");
     const hudEl = document.querySelector(".hud");
-    const cornerEl = document.querySelector(".leaflet-bottom.leaflet-left");
-    if (!hudEl || !cornerEl) return;
+    if (!zoomControlEl) return;
     const gap = 10;
-    const hudRect = hudEl.getBoundingClientRect();
-    const rowBottom = Math.round(window.innerHeight - hudRect.bottom);
-
-    zoomSliderControlEl.style.bottom = rowBottom + "px";
-    zoomSliderControlEl.style.left = Math.round(hudRect.right + gap) + "px";
-
-    const sliderRect = zoomSliderControlEl.getBoundingClientRect();
-    cornerEl.style.bottom = rowBottom + "px";
-    cornerEl.style.left = Math.round(sliderRect.right + gap) + "px";
+    const rect = zoomControlEl.getBoundingClientRect();
+    const trueBottom = Math.round(window.innerHeight - rect.bottom);
+    zoomSliderControlEl.style.right = Math.round(window.innerWidth - rect.left + gap) + "px";
+    zoomSliderControlEl.style.bottom = trueBottom + "px";
+    if (hudEl) hudEl.style.bottom = trueBottom + "px";
   }
-  positionBottomLeftControlCluster();
-  window.addEventListener("resize", () => positionBottomLeftControlCluster());
+  positionZoomSliderLeftOfZoomControl();
+  window.addEventListener("resize", () => positionZoomSliderLeftOfZoomControl());
 
   // Keep the map to a single, non-repeating world copy, and never let the user
   // zoom out further than the point where that single world fills the screen
@@ -2633,24 +2660,44 @@
 
   const MARKER_COLOR_PRESETS = ["#f59e0b", "#ef4444", "#22d3ee", "#34d399", "#a78bfa", "#f472b6", "#38bdf8", "#f97316", "#e2e8f0", "#64748b"];
   const HEX_COLOR_PRESETS = ["#38bdf8", "#34d399", "#f472b6", "#a78bfa", "#fbbf24", "#ef4444", "#22d3ee", "#f97316"];
-  const EMOJI_QUICK_PICKS = [
-    // transportation
-    "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚗", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
-    // boating / water
-    "⛵", "🚤", "🛥️", "🚢", "⛴️", "⚓", "🏖️", "🌊",
-    // camping / outdoors
-    "⛺", "🏕️", "🔥", "🥾", "🧭", "⛰️", "🏔️", "🌲", "🏞️", "🎣",
-    // fuel / services
-    "⛽", "🔌", "🅿️", "🚻", "🚰", "🛒",
-    // buildings
-    "🏠", "🏡", "🏢", "🏨", "🏥", "🏫", "⛪", "🏛️", "🏭", "🏰",
-    // food / drink
-    "☕", "🍽️",
-    // emergency / hazard
-    "🚒", "🚑", "🚨", "⚠️", "🆘",
-    // general markers
-    "📍", "⭐️", "❤️", "🚩", "🎯"
+  const DEFAULT_ICON_QUICK_PICKS = [
+    // curated set, in requested order
+    "⛽",  // Gas Pump / Fuel Station
+    "🅿️", // Parking Lot / Parking
+    "🔌",  // EV Charging Station
+    "🚗",  // Car / Home Base
+    "🚻",  // Restroom / Rest Area
+    "🍽️", // Restaurant / Dining
+    "☕",  // Coffee / Cafe
+    "🍺",  // Bar / Nightlife
+    "🛒",  // Grocery / Store
+    "⛺",  // Campsite / Tent
+    "🥾",  // Trailhead / Hike
+    "🏞️", // Scenic Viewpoint / Landmark
+    "🚰",  // Water Source / Hydration
+    "⚓",  // Boat Launch / Marina
+    "🏨",  // Hotel / Lodging
+    "🛖",  // Cabin / Shelter
+    "🏥",  // Hospital / First Aid
+    "⚠️", // Warning / Hazard
+    "⭐️", // Star / Favorite
+    // everything else from the previous full list, restored after the curated set
+    "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
+    "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊",
+    "🏕️", "🔥", "🧭", "⛰️", "🏔️", "🌲", "🎣",
+    "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰",
+    "🚒", "🚑", "🚨", "🆘",
+    "📍", "❤️", "🚩", "🎯"
   ];
+
+  // The quick-pick order is user-customizable (drag to reorder) and persisted
+  // in settings, defaulting to the curated list above the first time.
+  function getIconQuickPicks() {
+    if (!Array.isArray(settings.iconQuickPickOrder) || settings.iconQuickPickOrder.length === 0) {
+      settings.iconQuickPickOrder = DEFAULT_ICON_QUICK_PICKS.slice();
+    }
+    return settings.iconQuickPickOrder;
+  }
 
   function renderColorSwatches(container, input, presets) {
     container.innerHTML = presets.map((c) =>
@@ -2671,15 +2718,77 @@
   }
   renderColorSwatches(markerColorSwatches, markerColorInput, MARKER_COLOR_PRESETS);
   renderColorSwatches(hexColorSwatches, hexColorInput, HEX_COLOR_PRESETS);
-  emojiQuickPick.innerHTML = EMOJI_QUICK_PICKS.map((e) =>
-    '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>"
-  ).join("");
-  emojiQuickPick.querySelectorAll(".emoji-quick-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      markerEmojiInput.value = btn.dataset.emoji;
-      markerEmojiInput.dispatchEvent(new Event("input"));
+
+  /* ---------- draggable icon quick-pick (Pointer Events: works for mouse   */
+  /*  AND touch in one implementation — native HTML5 drag-and-drop does      */
+  /*  NOT work via touch on iOS Safari, which is this app's primary target,  */
+  /*  so it isn't usable here.) ---------- */
+  const ICON_DRAG_THRESHOLD_PX = 6;
+  let iconDragState = null;
+
+  function renderIconQuickPick() {
+    const picks = getIconQuickPicks();
+    emojiQuickPick.innerHTML = picks.map((e) =>
+      '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>"
+    ).join("");
+    emojiQuickPick.querySelectorAll(".emoji-quick-btn").forEach((btn) => {
+      btn.style.touchAction = "none"; // let us own the gesture instead of the browser scrolling
+      btn.addEventListener("pointerdown", (e) => {
+        iconDragState = {
+          pointerId: e.pointerId, tile: btn, startX: e.clientX, startY: e.clientY,
+          startIndex: Array.from(emojiQuickPick.children).indexOf(btn), dragging: false
+        };
+        btn.setPointerCapture(e.pointerId);
+      });
     });
+  }
+
+  emojiQuickPick.addEventListener("pointermove", (e) => {
+    if (!iconDragState || e.pointerId !== iconDragState.pointerId) return;
+    const dx = e.clientX - iconDragState.startX, dy = e.clientY - iconDragState.startY;
+    if (!iconDragState.dragging && Math.hypot(dx, dy) > ICON_DRAG_THRESHOLD_PX) {
+      iconDragState.dragging = true;
+      iconDragState.tile.classList.add("dragging");
+    }
+    if (iconDragState.dragging) {
+      iconDragState.tile.style.transform = "translate(" + dx + "px," + dy + "px)";
+      emojiQuickPick.querySelectorAll(".emoji-quick-btn.drop-target").forEach((t) => t.classList.remove("drop-target"));
+      const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+      const targetTile = elUnder && elUnder.closest(".emoji-quick-btn");
+      if (targetTile && targetTile !== iconDragState.tile && emojiQuickPick.contains(targetTile)) {
+        targetTile.classList.add("drop-target");
+      }
+    }
   });
+
+  function finishIconDrag(e) {
+    if (!iconDragState || e.pointerId !== iconDragState.pointerId) return;
+    const state = iconDragState;
+    iconDragState = null;
+    state.tile.style.transform = "";
+    state.tile.classList.remove("dragging");
+    const dropTarget = emojiQuickPick.querySelector(".emoji-quick-btn.drop-target");
+    if (dropTarget) dropTarget.classList.remove("drop-target");
+
+    if (state.dragging) {
+      if (dropTarget) {
+        const picks = getIconQuickPicks();
+        const targetIndex = Array.from(emojiQuickPick.children).indexOf(dropTarget);
+        const [moved] = picks.splice(state.startIndex, 1);
+        picks.splice(targetIndex, 0, moved);
+        saveSettings();
+      }
+      renderIconQuickPick();
+    } else {
+      // not a drag — treat as a normal tap-to-select
+      markerEmojiInput.value = state.tile.dataset.emoji;
+      markerEmojiInput.dispatchEvent(new Event("input"));
+    }
+  }
+  emojiQuickPick.addEventListener("pointerup", finishIconDrag);
+  emojiQuickPick.addEventListener("pointercancel", finishIconDrag);
+
+  renderIconQuickPick();
 
   /* ---------- photo capture (library, drag/drop, paste) ---------- */
   const MAX_PHOTOS_PER_WAYPOINT = 6;
@@ -3900,8 +4009,23 @@
     searchInput.value = ""; searchClearBtn.style.display = "none";
     searchResultsEl.classList.remove("show"); searchResultsEl.innerHTML = "";
   });
+  searchBox.addEventListener("click", (e) => {
+    if (window.matchMedia("(max-width:600px)").matches && !searchWrap.classList.contains("expanded")) {
+      e.stopPropagation();
+      searchWrap.classList.add("expanded");
+      setTimeout(() => searchInput.focus(), 50);
+    }
+  });
+  searchCollapseBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    searchWrap.classList.remove("expanded");
+    searchResultsEl.classList.remove("show");
+  });
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".search-wrap")) searchResultsEl.classList.remove("show");
+    if (!e.target.closest(".search-wrap")) {
+      searchResultsEl.classList.remove("show");
+      searchWrap.classList.remove("expanded");
+    }
   });
 
   // Parses "45.0961, -75.6972", "45.0961 °N, 75.6972 °W", "45.0961N 75.6972W", etc.
@@ -3966,6 +4090,7 @@
         const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
         flyTo(lat, lng, 14);
         searchResultsEl.classList.remove("show");
+        searchWrap.classList.remove("expanded");
         searchInput.value = r.display_name.split(",")[0];
         handleMapPick(lat, lng, false);
         nameInput.value = r.display_name.split(",")[0];
