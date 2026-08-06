@@ -402,14 +402,20 @@
   .sync-suggestion-dismiss-btn:hover{color:var(--text-dim);}
 
   .ride-hud{position:fixed; top:80px; left:14px; right:14px; z-index:44; background:rgba(15,23,42,.96); border:1.5px solid #7c3aed;
-    border-radius:12px; padding:40px 18px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
+    border-radius:12px; padding:14px 18px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
   .ride-hud.hidden{display:none;}
-  .ride-hud-close-x{position:absolute; top:8px; right:8px;}
-  .ride-hud-close-x.hidden{display:none;}
+  .ride-hud-header{display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; margin-bottom:6px;}
+  .ride-hud-title{font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
+  .ride-hud-header-actions{display:flex; gap:6px; flex-shrink:0;}
+  .ride-hud-edit-btn.hidden{display:none;}
+  .ride-hud-title-input{flex:1; min-width:0; background:var(--surface-2); border:1px solid #7c3aed; border-radius:6px;
+    color:var(--text); font-size:15px; font-weight:700; padding:3px 8px; font-family:inherit;}
   .ride-hud-stats-row{display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;}
+  .ride-hud-stats-row.hidden{display:none;}
   .ride-hud-stat{display:flex; flex-direction:column; align-items:center; flex:1; min-width:0;}
   .ride-hud-label{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute); margin-bottom:2px; white-space:nowrap;}
   .ride-hud-value{font-size:42px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .ride-hud.viewing-mode .ride-hud-value{font-size:21px;}
   .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
   .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
     border:none; border-radius:8px; padding:8px; cursor:pointer;}
@@ -890,11 +896,22 @@
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
-    <button class="panel-close ride-hud-close-x" id="rideHudCloseXBtn" title="Close"></button>
+    <div class="ride-hud-header">
+      <span class="ride-hud-title" id="rideHudTitle"></span>
+      <div class="ride-hud-header-actions">
+        <button class="panel-close ride-hud-edit-btn hidden" id="rideHudEditBtn" title="Edit name"></button>
+        <button class="panel-close" id="rideHudCloseXBtn" title="Close"></button>
+      </div>
+    </div>
     <div class="ride-hud-stats-row">
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel1">Time</span><span class="ride-hud-value" id="rideHudTime">0:00</span></div>
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel2">Distance</span><span class="ride-hud-value" id="rideHudDistance">0.00</span></div>
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel3">Speed</span><span class="ride-hud-value" id="rideHudSpeed">0.0</span></div>
+    </div>
+    <div class="ride-hud-stats-row hidden" id="rideHudStatsRow2">
+      <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel4">Max Speed</span><span class="ride-hud-value" id="rideHudMaxSpeed">0.0</span></div>
+      <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel5">Avg Time/Km</span><span class="ride-hud-value" id="rideHudAvgTimePerKm">0:00</span></div>
+      <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel6">Avg Speed</span><span class="ride-hud-value" id="rideHudAvgSpeed">0.0</span></div>
     </div>
     <div class="ride-hud-prefs-row" id="rideHudPrefsRow">
       <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
@@ -1280,6 +1297,15 @@
   const rideHudNotesInput = el("rideHudNotesInput");
   const rideHudConfirmSaveBtn = el("rideHudConfirmSaveBtn");
   const rideHudCloseXBtn = el("rideHudCloseXBtn");
+  const rideHudTitle = el("rideHudTitle");
+  const rideHudEditBtn = el("rideHudEditBtn");
+  const rideHudStatsRow2 = el("rideHudStatsRow2");
+  const rideHudLabel4 = el("rideHudLabel4");
+  const rideHudLabel5 = el("rideHudLabel5");
+  const rideHudLabel6 = el("rideHudLabel6");
+  const rideHudMaxSpeed = el("rideHudMaxSpeed");
+  const rideHudAvgTimePerKm = el("rideHudAvgTimePerKm");
+  const rideHudAvgSpeed = el("rideHudAvgSpeed");
   const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
   const routesPanel = el("routesPanel");
@@ -1458,6 +1484,7 @@
   panelCloseBtn.innerHTML = icon("x", 18);
   routesPanelCloseBtn.innerHTML = icon("x", 18);
   rideHudCloseXBtn.innerHTML = icon("x", 16);
+  rideHudEditBtn.innerHTML = icon("edit", 16);
 
   /* ================================================================ */
   /*  Toast                                                             */
@@ -3083,6 +3110,13 @@
     } else if (rideHudCurrentState === "viewing" && currentlyViewedRide) {
       rideHudDistance.textContent = formatDistanceValue(currentlyViewedRide.distanceMeters);
       refreshDistanceMarkers(currentlyViewedRide.points, activityInfo(currentlyViewedRide.activityType).color, viewedRideDistanceMarkers);
+      const stats = computeRouteStats(currentlyViewedRide);
+      rideHudLabel4.textContent = "Max Speed (" + speedUnitLabel() + ")";
+      rideHudMaxSpeed.textContent = formatSpeedValue(stats.maxSpeedKmh);
+      rideHudLabel5.textContent = "Avg Time/" + distanceUnitLabel();
+      rideHudAvgTimePerKm.textContent = formatDuration(stats.avgTimePerUnitMs);
+      rideHudLabel6.textContent = "Avg Speed (" + speedUnitLabel() + ")";
+      rideHudAvgSpeed.textContent = formatSpeedValue(stats.avgSpeedKmh);
     }
     renderRoutesList(); // route cards show distance too
   }
@@ -3208,11 +3242,11 @@
       if (dtSeconds > 0) currentSpeedKmh = (segmentDist / dtSeconds) * 3.6;
     }
     lastPositionTimestamp = now;
-    ridePoints.push({ lat: latitude, lng: longitude, t: now });
+    ridePoints.push({ lat: latitude, lng: longitude, t: now, speedKmh: currentSpeedKmh });
     ridePolyline.addLatLng([latitude, longitude]);
     refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
     updateRidePositionMarker(latitude, longitude, currentActivityType);
-    panMapClearOfRideHud(latitude, longitude);
+    followRidePosition(latitude, longitude);
     updateRideHud();
   }
   function onRideError(err) {
@@ -3257,21 +3291,28 @@
     if (ridePositionMarker) { map.removeLayer(ridePositionMarker); ridePositionMarker = null; }
   }
 
-  // Keeps the live position visible below the open Route card rather than
-  // letting the opaque panel cover it: converts the target point to on-screen
-  // pixels, checks whether it falls under the card's footprint, and pans just
-  // enough to clear it if so — rather than recentering on every single update
-  // regardless of whether it's actually needed.
-  function panMapClearOfRideHud(lat, lng) {
+  // Continuously keeps the live position centered in whatever space is
+  // actually visible below the open Route card — not just clear of it, but
+  // centered within it — recalculated on every GPS fix so the map scrolls
+  // to follow as the user moves, the same way turn-by-turn navigation does.
+  function followRidePosition(lat, lng) {
     try {
-      if (!rideHud || rideHud.classList.contains("hidden")) { return; }
+      if (!rideHud || rideHud.classList.contains("hidden")) {
+        map.panTo([lat, lng], { animate: true, duration: 0.4 });
+        return;
+      }
       const hudRect = rideHud.getBoundingClientRect();
+      const mapSize = map.getSize();
+      const availableTop = hudRect.bottom; // #map fills the full viewport (inset:0), so this is directly comparable to container points
+      const availableHeight = mapSize.y - availableTop;
+      const desiredScreenX = mapSize.x / 2;
+      const desiredScreenY = availableTop + availableHeight / 2;
       const targetPoint = map.latLngToContainerPoint([lat, lng]);
-      const margin = 20;
-      if (targetPoint.y >= hudRect.bottom - hudRect.top + margin) return; // already clear of the card, nothing to do
-      const desiredY = hudRect.bottom - hudRect.top + margin + 40;
       const centerPoint = map.latLngToContainerPoint(map.getCenter());
-      const newCenterPoint = L.point(centerPoint.x, centerPoint.y - (desiredY - targetPoint.y));
+      const newCenterPoint = L.point(
+        centerPoint.x + (targetPoint.x - desiredScreenX),
+        centerPoint.y + (targetPoint.y - desiredScreenY)
+      );
       map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: true, duration: 0.4 });
     } catch (e) { /* if the map API doesn't support this in some edge case, just skip the pan rather than break tracking */ }
   }
@@ -3357,6 +3398,10 @@
     rideHudViewRoutesBtn.classList.toggle("hidden", state === "unsaved"); // Resume+Save take this row's other slot instead
     rideHudSaveForm.classList.add("hidden"); // always start collapsed; Save Route reveals it explicitly
     rideHudPrefsRow.classList.toggle("hidden", state === "viewing");
+    rideHudStatsRow2.classList.toggle("hidden", state !== "viewing");
+    rideHud.classList.toggle("viewing-mode", state === "viewing"); // halves the stat value text size while reviewing a saved route
+    rideHudEditBtn.classList.toggle("hidden", state !== "viewing");
+    if (state !== "viewing") rideHudTitle.textContent = "";
     // Close-X is always available now — Pause preserves the route rather than
     // finalizing it, so there's no state where accidentally tapping X could
     // silently destroy in-progress GPS data the way a hard Stop used to.
@@ -3524,6 +3569,8 @@
   }
 
   function closeViewedRide() {
+    const strayInput = rideHud.querySelector(".ride-hud-title-input");
+    if (strayInput) { strayInput.replaceWith(rideHudTitle); rideHudEditBtn.classList.remove("hidden"); }
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
@@ -3584,6 +3631,16 @@
     rideHudDistance.textContent = formatDistanceValue(ride.distanceMeters);
     rideHudLabel3.textContent = "Duration";
     rideHudSpeed.textContent = formatDuration(ride.durationMs);
+
+    rideHudTitle.textContent = ride.name;
+    const stats = computeRouteStats(ride);
+    rideHudLabel4.textContent = "Max Speed (" + speedUnitLabel() + ")";
+    rideHudMaxSpeed.textContent = formatSpeedValue(stats.maxSpeedKmh);
+    rideHudLabel5.textContent = "Avg Time/" + distanceUnitLabel();
+    rideHudAvgTimePerKm.textContent = formatDuration(stats.avgTimePerUnitMs);
+    rideHudLabel6.textContent = "Avg Speed (" + speedUnitLabel() + ")";
+    rideHudAvgSpeed.textContent = formatSpeedValue(stats.avgSpeedKmh);
+
     rideHud.classList.remove("hidden");
     showRideHudState("viewing");
 
@@ -3591,6 +3648,55 @@
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
   }
+
+  // Max speed prefers each point's own recorded speed (the GPS's own reading,
+  // same source used live) — older routes saved before that existed fall back
+  // to deriving speed from consecutive points' distance and time instead.
+  function computeRouteStats(ride) {
+    const points = ride.points || [];
+    let maxSpeedKmh = 0;
+    for (let i = 0; i < points.length; i++) {
+      let spd = points[i].speedKmh;
+      if (typeof spd !== "number") {
+        if (i > 0) {
+          const prev = points[i - 1];
+          const distM = haversineMeters(prev.lat, prev.lng, points[i].lat, points[i].lng);
+          const dtS = (points[i].t - prev.t) / 1000;
+          spd = dtS > 0 ? (distM / dtS) * 3.6 : 0;
+        } else spd = 0;
+      }
+      if (spd > maxSpeedKmh) maxSpeedKmh = spd;
+    }
+    const avgSpeedKmh = ride.durationMs > 0 ? (ride.distanceMeters / (ride.durationMs / 1000)) * 3.6 : 0;
+    const distanceInUnit = settings.distanceUnit === "mi" ? ride.distanceMeters / 1609.344 : ride.distanceMeters / 1000;
+    const avgTimePerUnitMs = distanceInUnit > 0 ? ride.durationMs / distanceInUnit : 0;
+    return { maxSpeedKmh, avgSpeedKmh, avgTimePerUnitMs };
+  }
+
+  function startEditRouteTitle() {
+    if (!currentlyViewedRide) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "ride-hud-title-input";
+    input.maxLength = 80;
+    input.value = currentlyViewedRide.name;
+    rideHudTitle.replaceWith(input);
+    rideHudEditBtn.classList.add("hidden");
+    input.focus();
+    input.select();
+    function commit() {
+      const newName = input.value.trim() || currentlyViewedRide.name;
+      currentlyViewedRide.name = newName;
+      saveRides();
+      renderRoutesList();
+      rideHudTitle.textContent = newName;
+      input.replaceWith(rideHudTitle);
+      rideHudEditBtn.classList.remove("hidden");
+    }
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+    input.addEventListener("blur", commit, { once: true });
+  }
+  rideHudEditBtn.addEventListener("click", (e) => { e.stopPropagation(); startEditRouteTitle(); });
 
   function deleteRide(id) {
     const ride = rides.find((r) => r.id === id);
