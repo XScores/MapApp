@@ -1640,9 +1640,11 @@
       const data = await res.json();
       const frames = (data.radar && data.radar.past) || [];
       const latest = frames[frames.length - 1];
-      if (!latest) return null;
-      return L.tileLayer("https://tilecache.rainviewer.com/v2/radar/" + latest.path + "/256/{z}/{x}/{y}/2/1_1.png", {
-        opacity: 0.55, zIndex: 5, attribution: "Live radar &copy; RainViewer"
+      if (!latest || !data.host) return null;
+      // latest.path already includes its own leading "/v2/radar/..." segment per
+      // RainViewer's documented response format — do not prepend it again here.
+      return L.tileLayer(data.host + latest.path + "/256/{z}/{x}/{y}/2/1_1.png", {
+        opacity: 0.6, zIndex: 9, attribution: "Live radar &copy; RainViewer"
       });
     } catch (e) { return null; }
   }
@@ -1667,12 +1669,17 @@
   }
 
   const OWM_LAYER_IDS = { clouds: "clouds_new", temp: "temp_new", wind: "wind_new" };
+  // Distinct z-index per layer so stacking order is predictable regardless of
+  // which order they're toggled on — previously all three shared the same
+  // z-index (6), so whichever was enabled LAST silently sat on top and could
+  // visually swallow the others (fully hiding one, or blending/dimming another).
+  const OWM_LAYER_ZINDEX = { temp: 6, clouds: 7, wind: 8 };
   let owmKeyErrorShown = false;
   function owmTileLayer(kind) {
     if (!settings.owmApiKey) return null;
     const layer = L.tileLayer(
       "https://tile.openweathermap.org/map/" + OWM_LAYER_IDS[kind] + "/{z}/{x}/{y}.png?appid=" + encodeURIComponent(settings.owmApiKey),
-      { opacity: 0.5, zIndex: 6, attribution: "Weather &copy; OpenWeatherMap" }
+      { opacity: 0.65, zIndex: OWM_LAYER_ZINDEX[kind], attribution: "Weather &copy; OpenWeatherMap" }
     );
     layer.on("tileerror", () => {
       if (owmKeyErrorShown) return;
