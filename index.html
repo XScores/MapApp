@@ -1674,18 +1674,35 @@
   // z-index (6), so whichever was enabled LAST silently sat on top and could
   // visually swallow the others (fully hiding one, or blending/dimming another).
   const OWM_LAYER_ZINDEX = { temp: 6, clouds: 7, wind: 8 };
+  // Wind's own color palette reads much lower-contrast than clouds/temp at
+  // typical wind speeds, so it needs a bigger opacity boost to actually be
+  // visible rather than just technically present.
+  const OWM_LAYER_OPACITY = { temp: 0.8, clouds: 0.8, wind: 0.9 };
   let owmKeyErrorShown = false;
   function owmTileLayer(kind) {
     if (!settings.owmApiKey) return null;
     const layer = L.tileLayer(
       "https://tile.openweathermap.org/map/" + OWM_LAYER_IDS[kind] + "/{z}/{x}/{y}.png?appid=" + encodeURIComponent(settings.owmApiKey),
-      { opacity: 0.65, zIndex: OWM_LAYER_ZINDEX[kind], attribution: "Weather &copy; OpenWeatherMap" }
+      { opacity: OWM_LAYER_OPACITY[kind], zIndex: OWM_LAYER_ZINDEX[kind], attribution: "Weather &copy; OpenWeatherMap" }
     );
+    let tileLoadCount = 0, tileErrorCount = 0;
+    layer.on("tileload", () => { tileLoadCount++; });
     layer.on("tileerror", () => {
+      tileErrorCount++;
       if (owmKeyErrorShown) return;
       owmKeyErrorShown = true;
       showToast("That API key isn't working with OpenWeatherMap — make sure it's from openweathermap.org, not a different weather service.");
     });
+    // Temporary diagnostic for the wind layer specifically, since it's been
+    // reported as not visible even after the tileerror path never fires —
+    // logs actual load vs error counts a few seconds after enabling, to tell
+    // apart "tiles are loading but genuinely nearly blank at this location"
+    // from "requests are failing silently." Safe to remove once resolved.
+    if (kind === "wind") {
+      setTimeout(() => {
+        console.log("[wind layer diagnostic] tiles loaded:", tileLoadCount, "| tiles errored:", tileErrorCount);
+      }, 4000);
+    }
     return layer;
   }
   function toggleOwmLayer(kind, on) {
