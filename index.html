@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <title>Waypoint Saver</title>
 <meta name="description" content="Drop pins, save waypoints, and log coordinates on an interactive map." />
+<!-- These control how the app launches when added to the home screen —
+     without them, "Add to Home Screen" still creates an icon, but it opens
+     inside Safari/Chrome with the normal browser UI rather than full-screen. -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="MapApp" />
+<meta name="theme-color" content="#0f172a" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <style>
   :root{
@@ -22,9 +30,12 @@
   button{font:inherit; color:inherit;}
 
   #map{position:absolute; inset:0; z-index:0; background:var(--surface);}
-  #map::before, #map::after{content:""; position:absolute; top:0; bottom:0; width:80px; pointer-events:none; z-index:750;}
-  #map::before{left:0; background:linear-gradient(to right, rgba(0,0,0,.25), transparent);}
-  #map::after{right:0; background:linear-gradient(to left, rgba(0,0,0,.25), transparent);}
+  #map::before{content:""; position:absolute; inset:0; pointer-events:none; z-index:750;
+    background:
+      linear-gradient(to right, rgba(0,0,0,.25), transparent 80px),
+      linear-gradient(to left, rgba(0,0,0,.25), transparent 80px),
+      linear-gradient(to bottom, rgba(0,0,0,.25), transparent 80px),
+      linear-gradient(to top, rgba(0,0,0,.25), transparent 80px);}
   #map.map-drag-over::after{content:""; position:absolute; inset:8px; border:3px dashed var(--amber); border-radius:14px;
     pointer-events:none; z-index:750; background:rgba(245,158,11,.06);}
   .map-drop-hint{position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:16; display:none;
@@ -79,6 +90,7 @@
   .btn-icon.locate:hover{border-color:rgba(34,211,238,.5);}
   .btn-icon.locate:disabled{opacity:.5; cursor:default;}
   .btn-icon.home-btn{color:var(--green);}
+  .btn-icon.panel-toggle{color:var(--amber);}
   .btn-icon.camera-btn{color:#38bdf8;}
   .btn-icon.voice-waypoint-btn{color:#f472b6;}
   .btn-icon.voice-waypoint-btn.listening{color:#fff; background:var(--red); border-color:var(--red);
@@ -1561,7 +1573,7 @@
   gistTokenVisibilityBtn.innerHTML = icon("eye", 15);
   homeBtn.innerHTML = icon("home", 18);
   layersToggleBtn.innerHTML = icon("layers", 18);
-  panelToggleBtn.innerHTML = icon("menu", 18) + panelToggleBtn.innerHTML;
+  panelToggleBtn.innerHTML = icon("mapPin", 18) + panelToggleBtn.innerHTML;
   document.querySelector(".counter-pill .icon").innerHTML = icon("mapPin", 14);
   searchClearBtn.innerHTML = icon("x", 16);
   searchCollapseBtn.innerHTML = icon("x", 16);
@@ -3382,6 +3394,16 @@
   let wakeLockRideActive = false;
   const wakeLockSupported = "wakeLock" in navigator;
 
+  // Asks the browser to treat this site's local storage as important, rather
+  // than eligible for automatic eviction under storage pressure or
+  // infrequent-visit cleanup policies (a real, documented way Safari can
+  // clear a site's data without the user deleting anything themselves). This
+  // is a request, not a guarantee — the browser can still decline — but it's
+  // the one concrete mitigation available for that category of data loss.
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
+
   function wakeLockShouldBeActive() {
     return wakeLockRideActive || !!settings.keepScreenAwake;
   }
@@ -3883,6 +3905,19 @@
     rideHud.classList.remove("hidden");
     showRideHudState("tracking");
     updateRideHud();
+    // Center on the current position AND show the activity icon marker right
+    // away, rather than waiting for the first watchPosition tick to arrive
+    // (which can take a few seconds) — otherwise the HUD opens over wherever
+    // the map already happened to be pointed, with no marker yet either,
+    // potentially hiding the very spot the user is standing on.
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        followRidePosition(pos.coords.latitude, pos.coords.longitude);
+        updateRidePositionMarker(pos.coords.latitude, pos.coords.longitude, currentActivityType);
+      },
+      () => {}, // if this quick fetch fails, the watchPosition below will still center things shortly
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 5000 }
+    );
     rideTimerInterval = setInterval(updateRideHud, 1000);
     rideWatchId = navigator.geolocation.watchPosition(onRidePosition, onRideError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
     wakeLockRideActive = true;
