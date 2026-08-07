@@ -205,6 +205,11 @@
     width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;}
   .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--surface); border-color:var(--border-soft);}
   .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
+  .modal-coords-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
+  .modal-coords-row .modal-coords{margin:0;}
+  .modal-forecast-btn{flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    font-size:12px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer;}
+  .modal-forecast-btn:hover{border-color:#7c3aed;}
   .code-row{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
   .code-badge{font-size:11px; letter-spacing:.5px; background:var(--surface-2); border:1px dashed var(--border-soft);
     border-radius:8px; padding:5px 8px;}
@@ -247,6 +252,19 @@
     cursor:pointer; padding:0;}
   .photo-thumb-remove:hover{background:var(--red);}
   .photo-view-card{max-width:min(520px, 92vw); padding:16px;}
+  .forecast-card{max-width:min(420px, 92vw);}
+  .forecast-status{color:var(--text-mute); font-size:14px; padding:20px 0; text-align:center;}
+  .forecast-status.hidden{display:none;}
+  .forecast-days{display:flex; flex-direction:column; gap:2px;}
+  .forecast-days.hidden{display:none;}
+  .forecast-day-row{display:flex; align-items:center; gap:12px; padding:10px 4px; border-bottom:1px solid var(--border);}
+  .forecast-day-row:last-child{border-bottom:none;}
+  .forecast-day-name{width:76px; flex-shrink:0; font-size:14px; font-weight:600; color:var(--text);}
+  .forecast-day-icon{flex-shrink:0; display:flex; color:var(--amber-light);}
+  .forecast-day-desc{flex:1; min-width:0; font-size:12.5px; color:var(--text-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .forecast-day-temps{flex-shrink:0; font-size:14px; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+  .forecast-day-temps .hi{color:var(--text); font-weight:700;}
+  .forecast-day-temps .lo{color:var(--text-mute);}
   .import-modal-card{max-width:min(480px, 92vw);}
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
@@ -307,10 +325,15 @@
   .panel.open{transform:translateX(0);}
   .panel-header{display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--border);}
   .panel-header-actions{display:flex; align-items:center; gap:8px;}
+  .panel-tabs{display:flex; gap:4px;}
+  .panel-tab{background:none; border:none; color:var(--text-mute); font-size:14px; font-weight:600;
+    padding:6px 10px; border-radius:8px; cursor:pointer;}
+  .panel-tab.active{background:var(--surface-2); color:var(--text);}
   .panel-title{font-size:14px; font-weight:600; margin:0;}
-  .panel-subtitle{font-size:12px; color:var(--text-mute); margin:2px 0 0;}
+  .panel-subtitle{font-size:12px; color:var(--text-mute); margin:10px 16px 0;}
   .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
     background:var(--surface-2); border:1px solid var(--border); border-radius:10px;}
+  .panel-search-row.hidden{display:none;}
   .panel-search-row .icon{color:var(--text-mute); flex-shrink:0; display:flex;}
   .panel-search-input{flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text); font-size:13px;}
   .panel-search-input::placeholder{color:var(--text-mute);}
@@ -318,6 +341,7 @@
   .panel-search-clear:hover{color:var(--text-dim);}
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
   .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex;}
+  .panel-list-wrap.hidden{display:none;}
   .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:34px; display:flex; flex-direction:column; gap:8px;}
   .az-picker{position:absolute; top:0; right:2px; bottom:0; width:24px; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:8px 0; z-index:5;}
@@ -606,6 +630,9 @@
             <button class="home-action-btn" id="exportBackupBtn">Download backup</button>
             <button class="home-action-btn" id="importBackupBtn">Restore backup</button>
           </div>
+          <div class="home-actions">
+            <button class="home-action-btn" id="layersImportTextBtn">Import waypoints from text</button>
+          </div>
           <input type="file" id="importBackupFile" accept="application/json" style="display:none;" />
 
           <div class="gist-sync-block">
@@ -652,7 +679,10 @@
         <h2 id="modalTitle">New waypoint</h2>
         <button class="icon-btn" id="modalCloseBtn"></button>
       </div>
-      <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
+      <div class="modal-coords-row">
+        <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
+        <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
+      </div>
 
       <div class="code-row" id="wordCodeSection">
         <span class="code-badge amber mono" id="modalWordCode"></span>
@@ -846,42 +876,46 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="forecastModalOverlay">
+    <div class="modal-card forecast-card">
+      <div class="modal-header">
+        <h2 id="forecastModalTitle">Forecast</h2>
+        <button class="icon-btn" id="forecastModalCloseBtn"></button>
+      </div>
+      <p class="modal-coords" id="forecastModalCoords"></p>
+      <div id="forecastLoadingState" class="forecast-status">Loading forecast…</div>
+      <div id="forecastErrorState" class="forecast-status hidden"></div>
+      <div id="forecastDaysContainer" class="forecast-days hidden"></div>
+    </div>
+  </div>
+
   <!-- slide-out panel -->
   <div class="panel" id="panel">
     <div class="panel-header">
-      <div>
-        <p class="panel-title">Saved waypoints</p>
-        <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
+      <div class="panel-tabs" id="panelTabs">
+        <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Saved waypoints</button>
+        <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Saved routes</button>
       </div>
       <div class="panel-header-actions">
-        <button class="panel-close" id="panelImportBtn" title="Import waypoints from a text file"></button>
+        <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with Gist (pull, then push)"></button>
         <button class="panel-close" id="panelCloseBtn"></button>
       </div>
     </div>
-    <div class="panel-search-row">
+    <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
+    <div class="panel-search-row" id="panelSearchRow">
       <span class="icon" id="panelSearchIcon"></span>
       <input type="text" id="panelSearchInput" class="panel-search-input" placeholder="Search saved waypoints…" autocomplete="off" />
       <button class="panel-search-clear" id="panelSearchClearBtn" style="display:none;"></button>
     </div>
-    <div class="panel-list-wrap">
+    <div class="panel-list-wrap" id="panelWaypointsView">
       <div class="panel-list" id="panelList"></div>
       <div class="az-picker" id="azPicker"></div>
     </div>
     <p class="panel-no-results" id="panelNoResults" style="display:none;">No waypoints match your search.</p>
-    <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
-  </div>
-
-  <div class="panel" id="routesPanel">
-    <div class="panel-header">
-      <div>
-        <p class="panel-title">Saved routes</p>
-        <p class="panel-subtitle" id="routesPanelSubtitle">0 routes</p>
-      </div>
-      <div class="panel-header-actions">
-        <button class="panel-close" id="routesPanelCloseBtn"></button>
-      </div>
+    <div class="panel-list-wrap hidden" id="panelRoutesView">
+      <div class="panel-list" id="routesPanelList"></div>
     </div>
-    <div class="panel-list" id="routesPanelList"></div>
+    <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
   <div class="toast" id="toast"></div>
@@ -961,6 +995,14 @@
   /* ================================================================ */
 
   const ICONS = {
+    sun: '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>',
+    cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>',
+    cloudSun: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><path d="M23 22H1"></path><path d="M8 6l1.5 1.5"></path><path d="M16 6l-1.5 1.5"></path>',
+    cloudRain: '<line x1="16" y1="13" x2="16" y2="21"></line><line x1="8" y1="13" x2="8" y2="21"></line><line x1="12" y1="15" x2="12" y2="23"></line><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>',
+    cloudLightning: '<path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"></path><polyline points="13 11 9 17 15 17 11 23"></polyline>',
+    snowflake: '<line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line><path d="M20 16l-4-4 4-4"></path><path d="M4 8l4 4-4 4"></path><path d="M16 4l-4 4-4-4"></path><path d="M8 20l4-4 4 4"></path>',
+    cloudFog: '<path d="M16 6.5A5 5 0 0 0 6.15 5"></path><path d="M17 9.5H8a5 5 0 0 0-1 9.9"></path><line x1="8" y1="19" x2="20" y2="19"></line><line x1="6" y1="23" x2="22" y2="23"></line>',
+    sync: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>',
     search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
     x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
     navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
@@ -1228,6 +1270,7 @@
   let pendingMarker = null;
   let pendingPhotos = [];
   let selectedWaypointId = null;
+  let activePanelTab = "waypoints";
   function setSelectedWaypointMarker(id) {
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
@@ -1308,10 +1351,12 @@
   const rideHudAvgSpeed = el("rideHudAvgSpeed");
   const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
-  const routesPanel = el("routesPanel");
   const routesPanelList = el("routesPanelList");
-  const routesPanelSubtitle = el("routesPanelSubtitle");
-  const routesPanelCloseBtn = el("routesPanelCloseBtn");
+  const panelTabWaypoints = el("panelTabWaypoints");
+  const panelTabRoutes = el("panelTabRoutes");
+  const panelWaypointsView = el("panelWaypointsView");
+  const panelRoutesView = el("panelRoutesView");
+  const panelSearchRow = el("panelSearchRow");
   const keepScreenAwakeToggle = el("keepScreenAwakeToggle");
   const cameraCaptureInput = el("cameraCaptureInput");
   const mapEl = el("map");
@@ -1369,6 +1414,7 @@
   const modalOverlay = el("modalOverlay");
   const modalTitle = el("modalTitle");
   const modalCoords = el("modalCoords");
+  const modalForecastBtn = el("modalForecastBtn");
   const modalWordCode = el("modalWordCode");
   const nameInput = el("nameInput");
   const notesInput = el("notesInput");
@@ -1386,7 +1432,7 @@
   const photoFileInput = el("photoFileInput");
   const photoStatus = el("photoStatus");
   const cardPhotoFileInput = el("cardPhotoFileInput");
-  const panelImportBtn = el("panelImportBtn");
+  const panelSyncBtn = el("panelSyncBtn");
   const importModalOverlay = el("importModalOverlay");
   const importModalCloseBtn = el("importModalCloseBtn");
   const downloadTemplateBtn = el("downloadTemplateBtn");
@@ -1414,6 +1460,13 @@
   const confirmModalMessage = el("confirmModalMessage");
   const confirmModalCancelBtn = el("confirmModalCancelBtn");
   const confirmModalConfirmBtn = el("confirmModalConfirmBtn");
+  const forecastModalOverlay = el("forecastModalOverlay");
+  const forecastModalCloseBtn = el("forecastModalCloseBtn");
+  const forecastModalTitle = el("forecastModalTitle");
+  const forecastModalCoords = el("forecastModalCoords");
+  const forecastLoadingState = el("forecastLoadingState");
+  const forecastErrorState = el("forecastErrorState");
+  const forecastDaysContainer = el("forecastDaysContainer");
   const micBtn = el("micBtn");
   const cancelBtn = el("cancelBtn");
   const saveBtn = el("saveBtn");
@@ -1473,7 +1526,7 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
-  panelImportBtn.innerHTML = icon("upload", 16);
+  panelSyncBtn.innerHTML = icon("sync", 16);
   importModalCloseBtn.innerHTML = icon("x", 18);
   importDropzoneEmpty.querySelector(".icon").innerHTML = icon("upload", 22);
   expandJournalIcon.innerHTML = icon("expand", 12);
@@ -1482,7 +1535,6 @@
   homeAddressSearchBtn.innerHTML = icon("search", 16);
   micBtn.innerHTML = icon("mic", 16);
   panelCloseBtn.innerHTML = icon("x", 18);
-  routesPanelCloseBtn.innerHTML = icon("x", 18);
   rideHudCloseXBtn.innerHTML = icon("x", 16);
   rideHudEditBtn.innerHTML = icon("edit", 16);
 
@@ -1725,6 +1777,110 @@
     owmKeySaved.style.display = hasKey ? "flex" : "none";
     wxClouds.disabled = !hasKey; wxTemp.disabled = !hasKey; wxWind.disabled = !hasKey;
   }
+
+  // Maps OpenWeatherMap's icon codes (e.g. "01d", "10n") to one of our own
+  // weather icons by their 2-digit condition prefix — day/night suffix is
+  // ignored since we're showing a single representative icon per day anyway.
+  function weatherIconNameForOwmCode(code) {
+    const prefix = (code || "").slice(0, 2);
+    const map = { "01": "sun", "02": "cloudSun", "03": "cloud", "04": "cloud", "09": "cloudRain", "10": "cloudRain", "11": "cloudLightning", "13": "snowflake", "50": "cloudFog" };
+    return map[prefix] || "cloud";
+  }
+
+  // The 5-day/3-hour endpoint returns ~40 individual 3-hour readings, not
+  // daily summaries — this groups them into calendar days using the
+  // LOCATION's own UTC offset (not the viewer's device timezone, which could
+  // easily be a different day entirely for a distant waypoint), picks the
+  // high/low across that day's readings, and uses whichever reading falls
+  // closest to local noon as the representative icon/description for the day.
+  function aggregateForecastByDay(data) {
+    const tzOffsetSec = (data.city && data.city.timezone) || 0;
+    const dayBuckets = new Map();
+    (data.list || []).forEach((entry) => {
+      const localMs = (entry.dt + tzOffsetSec) * 1000;
+      const dateKey = new Date(localMs).toISOString().slice(0, 10);
+      if (!dayBuckets.has(dateKey)) dayBuckets.set(dateKey, []);
+      dayBuckets.get(dateKey).push(entry);
+    });
+    const days = Array.from(dayBuckets.entries()).map(([dateKey, entries]) => {
+      const temps = entries.map((e) => e.main.temp);
+      let repEntry = entries[0], bestDiff = Infinity;
+      entries.forEach((e) => {
+        const localHour = new Date((e.dt + tzOffsetSec) * 1000).getUTCHours();
+        const diff = Math.abs(localHour - 12);
+        if (diff < bestDiff) { bestDiff = diff; repEntry = e; }
+      });
+      return {
+        dateKey,
+        high: Math.max(...temps),
+        low: Math.min(...temps),
+        icon: repEntry.weather[0].icon,
+        description: repEntry.weather[0].description,
+        localDate: new Date((repEntry.dt + tzOffsetSec) * 1000)
+      };
+    });
+    days.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    return days.slice(0, 5);
+  }
+
+  function renderForecastDays(days, units) {
+    const tempUnit = units === "imperial" ? "°F" : "°C";
+    forecastDaysContainer.innerHTML = days.map((d) => {
+      // localDate's epoch value was already shifted by the LOCATION's own tz
+      // offset, so reading it back out with timeZone:"UTC" gives the correct
+      // weekday for that location, regardless of the viewer's own timezone.
+      const dayName = d.localDate.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+      return '<div class="forecast-day-row">' +
+        '<span class="forecast-day-name">' + dayName + "</span>" +
+        '<span class="forecast-day-icon">' + icon(weatherIconNameForOwmCode(d.icon), 22) + "</span>" +
+        '<span class="forecast-day-desc">' + escapeHtml(d.description) + "</span>" +
+        '<span class="forecast-day-temps"><span class="hi">' + Math.round(d.high) + tempUnit + '</span> <span class="lo">' + Math.round(d.low) + tempUnit + "</span></span>" +
+      "</div>";
+    }).join("");
+  }
+
+  async function openForecastModal(lat, lng, name) {
+    forecastModalTitle.textContent = name ? (name + " — Forecast") : "5-Day Forecast";
+    forecastModalCoords.textContent = lat.toFixed(5) + ", " + lng.toFixed(5);
+    forecastModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    forecastLoadingState.textContent = "Loading forecast…";
+    forecastLoadingState.classList.remove("hidden");
+    forecastErrorState.classList.add("hidden");
+    forecastDaysContainer.classList.add("hidden");
+    forecastDaysContainer.innerHTML = "";
+
+    if (!settings.owmApiKey) {
+      forecastLoadingState.classList.add("hidden");
+      forecastErrorState.textContent = "Add a free OpenWeatherMap API key in the Layers panel to see forecasts.";
+      forecastErrorState.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      const units = settings.distanceUnit === "mi" ? "imperial" : "metric";
+      const url = "https://api.openweathermap.org/data/2.5/forecast?lat=" + lat + "&lon=" + lng +
+        "&appid=" + encodeURIComponent(settings.owmApiKey) + "&units=" + units;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Forecast request failed (" + res.status + ")");
+      const data = await res.json();
+      if (!data.list || !data.list.length) throw new Error("No forecast data returned");
+      const days = aggregateForecastByDay(data);
+      renderForecastDays(days, units);
+      forecastLoadingState.classList.add("hidden");
+      forecastDaysContainer.classList.remove("hidden");
+    } catch (e) {
+      forecastLoadingState.classList.add("hidden");
+      forecastErrorState.textContent = "Couldn't load the forecast — check your OpenWeatherMap API key and connection, then try again.";
+      forecastErrorState.classList.remove("hidden");
+    }
+  }
+  function closeForecastModal() {
+    forecastModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  forecastModalCloseBtn.addEventListener("click", closeForecastModal);
+  forecastModalOverlay.addEventListener("click", (e) => { if (e.target === forecastModalOverlay) closeForecastModal(); });
 
   layersToggleBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -2801,7 +2957,7 @@
     counterNumber.textContent = waypoints.length;
     if (waypoints.length > 0) { countBadge.textContent = waypoints.length; countBadge.classList.add("show"); }
     else { countBadge.classList.remove("show"); }
-    panelSubtitle.textContent = waypoints.length + " logged";
+    updatePanelSubtitle();
     hudLabel.textContent = "WAYPOINT SAVER · " + waypoints.length + " SAVED";
   }
 
@@ -3249,6 +3405,14 @@
   // GPS chip's own reported speed (Doppler-derived, what a real bike computer
   // uses) when the browser provides one, falling back to a short recent-
   // segment calculation — never the whole-ride average — if it doesn't.
+  // GPS chips are notoriously noisy on their first few fixes (before Doppler-
+  // based velocity estimation settles), and can occasionally report an
+  // implausible instantaneous speed — a real report was a single bad reading
+  // right at ride start producing a 140.9 km/h "max speed" on a bike ride.
+  // These are generous per-activity ceilings meant only to catch genuine GPS
+  // noise, not to second-guess a fast descent or a quick driving stretch.
+  const MAX_PLAUSIBLE_SPEED_KMH = { bike: 90, hike: 20, car: 200, boat: 100 };
+
   function onRidePosition(pos) {
     const { latitude, longitude, speed } = pos.coords;
     const now = Date.now();
@@ -3259,11 +3423,16 @@
       if (segmentDist < RIDE_JITTER_THRESHOLD_METERS) return; // stationary noise — don't record
       rideDistanceMeters += segmentDist;
     }
+    const plausibleMax = MAX_PLAUSIBLE_SPEED_KMH[currentActivityType] || 200;
     if (typeof speed === "number" && !isNaN(speed) && speed >= 0) {
-      currentSpeedKmh = speed * 3.6; // m/s -> km/h, straight from the device's own GPS reading — available even on the very first point
+      const reported = speed * 3.6; // m/s -> km/h, straight from the device's own GPS reading
+      if (reported <= plausibleMax) currentSpeedKmh = reported; // otherwise treat as GPS noise and keep the last known-good value
     } else if (lastPositionTimestamp && segmentDist > 0) {
       const dtSeconds = (now - lastPositionTimestamp) / 1000;
-      if (dtSeconds > 0) currentSpeedKmh = (segmentDist / dtSeconds) * 3.6;
+      if (dtSeconds > 0) {
+        const derived = (segmentDist / dtSeconds) * 3.6;
+        if (derived <= plausibleMax) currentSpeedKmh = derived;
+      }
     }
     lastPositionTimestamp = now;
     ridePoints.push({ lat: latitude, lng: longitude, t: now, speedKmh: currentSpeedKmh });
@@ -3668,7 +3837,7 @@
     rideHud.classList.remove("hidden");
     showRideHudState("viewing");
 
-    routesPanel.classList.remove("open");
+    panel.classList.remove("open");
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
   }
@@ -3678,6 +3847,7 @@
   // to deriving speed from consecutive points' distance and time instead.
   function computeRouteStats(ride) {
     const points = ride.points || [];
+    const plausibleMax = MAX_PLAUSIBLE_SPEED_KMH[ride.activityType] || 200;
     let maxSpeedKmh = 0;
     for (let i = 0; i < points.length; i++) {
       let spd = points[i].speedKmh;
@@ -3689,6 +3859,7 @@
           spd = dtS > 0 ? (distM / dtS) * 3.6 : 0;
         } else spd = 0;
       }
+      if (spd > plausibleMax) continue; // GPS noise (or, for older saved routes, a stored value from before this check existed) — skip rather than let it win Max Speed
       if (spd > maxSpeedKmh) maxSpeedKmh = spd;
     }
     const avgSpeedKmh = ride.durationMs > 0 ? (ride.distanceMeters / (ride.durationMs / 1000)) * 3.6 : 0;
@@ -3733,8 +3904,29 @@
     });
   }
 
+  function updatePanelSubtitle() {
+    if (activePanelTab === "routes") {
+      panelSubtitle.textContent = rides.length + (rides.length === 1 ? " route" : " routes");
+    } else {
+      panelSubtitle.textContent = waypoints.length + " logged";
+    }
+  }
+  function switchPanelTab(tab) {
+    activePanelTab = tab;
+    panelTabWaypoints.classList.toggle("active", tab === "waypoints");
+    panelTabRoutes.classList.toggle("active", tab === "routes");
+    panelWaypointsView.classList.toggle("hidden", tab !== "waypoints");
+    panelRoutesView.classList.toggle("hidden", tab !== "routes");
+    panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
+    if (tab !== "waypoints") panelNoResults.style.display = "none";
+    updatePanelSubtitle();
+    if (tab === "routes") renderRoutesList();
+  }
+  panelTabWaypoints.addEventListener("click", () => switchPanelTab("waypoints"));
+  panelTabRoutes.addEventListener("click", () => switchPanelTab("routes"));
+
   function renderRoutesList() {
-    routesPanelSubtitle.textContent = rides.length + (rides.length === 1 ? " route" : " routes");
+    updatePanelSubtitle();
     if (rides.length === 0) {
       routesPanelList.innerHTML = '<div class="empty-state">' + icon("bike", 28) +
         "<p>No routes saved yet. Track a ride, hike, drive, or paddle, then tap Save Route when you're done.</p></div>";
@@ -3769,18 +3961,18 @@
   // Shared by both entry points (the Layers panel button and the one now
   // inside the HUD itself). Leaving an unsaved-but-stopped route to go look
   // at the list counts as "closing" it for discard purposes — consistent
-  // with the X doing the same thing.
+  // with the X doing the same thing. Opens the merged panel with the Routes
+  // tab pre-selected, rather than a separate panel.
   function openRoutesPanel() {
     if (rideHudCurrentState === "unsaved") discardCurrentRide();
     else if (rideHudCurrentState === "viewing") closeViewedRide();
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
-    renderRoutesList();
-    routesPanel.classList.add("open");
+    switchPanelTab("routes");
+    panel.classList.add("open");
   }
   viewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); closeRideDropdown(); openRoutesPanel(); });
   rideHudViewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
-  routesPanelCloseBtn.addEventListener("click", () => routesPanel.classList.remove("open"));
 
   const CAMERA_MATCH_RADIUS_METERS = 75;
   function findNearbyWaypoint(lat, lng) {
@@ -4323,6 +4515,11 @@
     closeModal();
   }
   cancelBtn.addEventListener("click", cancelPendingModal);
+  modalForecastBtn.addEventListener("click", () => {
+    if (!pendingPoint) return;
+    const label = nameInput.value.trim() || null;
+    openForecastModal(pendingPoint.lat, pendingPoint.lng, label);
+  });
   modalCloseBtn.addEventListener("click", cancelPendingModal);
 
   saveBtn.addEventListener("click", () => {
@@ -4929,7 +5126,8 @@
     importModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
   }
-  panelImportBtn.addEventListener("click", openImportModal);
+  panelSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistSync(); });
+  el("layersImportTextBtn").addEventListener("click", openImportModal);
   importModalCloseBtn.addEventListener("click", closeImportModal);
   importCancelBtn.addEventListener("click", closeImportModal);
 
@@ -5117,6 +5315,7 @@
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="copy-coords" data-id="' + wp.id + '">' + icon("copy", 14) + " Copy coordinates</button>" +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
+          '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>" +
         "</div>" +
       "</div>"
     );
@@ -5137,7 +5336,7 @@
             openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
             break;
           case "edit-name": e.stopPropagation(); startEditName(id); break;
-          case "edit-notes": e.stopPropagation(); startEditNotes(id); break;
+          case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
           case "copy-code":
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
             break;
@@ -5147,6 +5346,7 @@
               .catch(() => showToast("Couldn't copy to clipboard."));
             break;
           case "share": shareWaypoint(wp); break;
+          case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
           case "view-photo": {
             e.stopPropagation();
             const idx = Number(node.dataset.photoIdx);
@@ -5318,22 +5518,9 @@
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
   }
 
-  function startEditNotes(id) {
-    const btnEl = panelList.querySelector('.card-notes-btn[data-id="' + id + '"]');
-    if (!btnEl) return;
-    const wp = waypoints.find((w) => w.id === id);
-    const textarea = document.createElement("textarea");
-    textarea.className = "card-notes-input";
-    textarea.value = wp.notes || "";
-    textarea.placeholder = "Add a note…";
-    btnEl.replaceWith(textarea);
-    textarea.focus();
-    const commit = () => {
-      wp.notes = textarea.value.trim();
-      saveWaypoints();
-      renderList();
-    };
-    textarea.addEventListener("blur", commit);
+  function openEditModalToNotes(wp) {
+    openEditModal(wp);
+    expandJournalBtn.click();
   }
 
   /* ================================================================ */
