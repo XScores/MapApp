@@ -22,8 +22,11 @@
   button{font:inherit; color:inherit;}
 
   #map{position:absolute; inset:0; z-index:0; background:var(--surface);}
+  #map::before, #map::after{content:""; position:absolute; top:0; bottom:0; width:80px; pointer-events:none; z-index:750;}
+  #map::before{left:0; background:linear-gradient(to right, rgba(0,0,0,.25), transparent);}
+  #map::after{right:0; background:linear-gradient(to left, rgba(0,0,0,.25), transparent);}
   #map.map-drag-over::after{content:""; position:absolute; inset:8px; border:3px dashed var(--amber); border-radius:14px;
-    pointer-events:none; z-index:15; background:rgba(245,158,11,.06);}
+    pointer-events:none; z-index:750; background:rgba(245,158,11,.06);}
   .map-drop-hint{position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:16; display:none;
     background:rgba(15,23,42,.95); border:1px solid var(--amber); border-radius:12px; padding:14px 20px;
     color:#fbbf24; font-size:14px; font-weight:600; pointer-events:none; text-align:center;}
@@ -140,6 +143,13 @@
   .layers-accordion-toggle.open .layers-accordion-chevron{transform:rotate(180deg);}
   .layers-accordion-content{display:none; margin-top:10px;}
   .layers-accordion-content.open{display:block;}
+  .weather-snapshot{border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:8px;}
+  .weather-snapshot-toggle{padding:2px 0;}
+  .weather-snapshot-summary{display:flex; align-items:center; gap:8px; color:var(--text);}
+  .weather-snapshot-summary .icon{color:var(--amber-light); display:flex;}
+  .weather-snapshot-summary b{font-size:15px; font-weight:700;}
+  .weather-snapshot-desc{font-size:13px; color:var(--text-dim); margin:0 0 2px;}
+  .weather-snapshot-date{font-size:12px; color:var(--text-mute); margin:0;}
   .layers-section.layers-section-accordion{border:1.5px solid rgba(226,232,240,.55) !important; border-radius:10px; padding:10px 12px;
     background:rgba(255,255,255,.03);}
   .gist-sync-block{margin-top:12px; padding-top:12px; border-top:1px solid #1e293b;}
@@ -321,8 +331,8 @@
   /* ---------- slide-out panel ---------- */
   .panel{position:fixed; top:76px; right:0; bottom:56px; width:380px; max-width:90vw; background:rgba(15,23,42,.97);
     border-left:1px solid #1e293b; border-top-left-radius:14px; border-bottom-left-radius:14px; overflow:hidden; z-index:20; display:flex; flex-direction:column;
-    transform:translateX(100%); transition:transform .28s ease; box-shadow:-20px 0 60px rgba(0,0,0,.5);}
-  .panel.open{transform:translateX(0);}
+    transform:translateX(100%); transition:transform .28s ease;}
+  .panel.open{transform:translateX(0); box-shadow:-20px 0 60px rgba(0,0,0,.5);}
   .panel-header{display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--border);}
   .panel-header-actions{display:flex; align-items:center; gap:8px;}
   .panel-tabs{display:flex; gap:4px;}
@@ -464,6 +474,12 @@
   .distance-marker{width:22px; height:22px; border-radius:50%; background:rgba(15,23,42,.92); border:2px solid;
     display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff;
     box-shadow:0 1px 4px rgba(0,0,0,.4);}
+  .leaflet-popup-content-wrapper{background:rgba(15,23,42,.97); color:var(--text); border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.5);}
+  .leaflet-popup-tip{background:rgba(15,23,42,.97);}
+  .leaflet-popup-close-button{color:var(--text-mute) !important;}
+  .segment-popup{font-size:13px; line-height:1.5;}
+  .segment-popup b{display:block; margin-bottom:2px; font-size:13.5px;}
+  .segment-popup div{color:var(--text-mute);}
   .current-position-marker{position:relative; width:30px; height:30px;}
   .current-position-badge{position:relative; width:30px; height:30px; border-radius:50%; display:flex;
     align-items:center; justify-content:center; border:2px solid #fff; color:#fff;
@@ -612,7 +628,8 @@
         <div class="layers-section">
           <p class="layers-section-title">Reference grid</p>
           <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
-          <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail.</p>
+          <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
+          <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
           <label class="layers-option"><input type="checkbox" id="adminModeToggle" /><span class="swatch" style="background:#f59e0b"></span><span>Admin: curate region names</span></label>
           <p class="layers-hint">Shows the ~418km anchor-region grid (red) only while this is on, so you can click a hex to rename it.</p>
           <p class="layers-hint" id="curatedCountHint">0 of 842 regions curated</p>
@@ -757,6 +774,7 @@
       </div>
       <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none;" />
       <p class="layers-hint" id="photoStatus" style="display:none;"></p>
+      <div id="modalWeatherContainer"></div>
 
       <div class="btn-row">
         <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
@@ -947,6 +965,7 @@
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel5">Avg Time/Km</span><span class="ride-hud-value" id="rideHudAvgTimePerKm">0:00</span></div>
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel6">Avg Speed</span><span class="ride-hud-value" id="rideHudAvgSpeed">0.0</span></div>
     </div>
+    <div id="rideHudWeatherContainer"></div>
     <div class="ride-hud-prefs-row" id="rideHudPrefsRow">
       <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
       <div class="unit-toggle" id="unitToggle">
@@ -1245,7 +1264,7 @@
     }
   }
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -1349,6 +1368,7 @@
   const rideHudMaxSpeed = el("rideHudMaxSpeed");
   const rideHudAvgTimePerKm = el("rideHudAvgTimePerKm");
   const rideHudAvgSpeed = el("rideHudAvgSpeed");
+  const rideHudWeatherContainer = el("rideHudWeatherContainer");
   const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
   const routesPanelList = el("routesPanelList");
@@ -1378,6 +1398,7 @@
   const weatherAccordionChevron = el("weatherAccordionChevron");
   const weatherAccordionContent = el("weatherAccordionContent");
   const precisionHexToggle = el("precisionHexToggle");
+  const precisionHexMaxZoomOnlyToggle = el("precisionHexMaxZoomOnlyToggle");
   const adminModeToggle = el("adminModeToggle");
   const curatedCountHint = el("curatedCountHint");
   const anchorAdminActions = el("anchorAdminActions");
@@ -1431,6 +1452,7 @@
   const photoThumbs = el("photoThumbs");
   const photoFileInput = el("photoFileInput");
   const photoStatus = el("photoStatus");
+  const modalWeatherContainer = el("modalWeatherContainer");
   const cardPhotoFileInput = el("cardPhotoFileInput");
   const panelSyncBtn = el("panelSyncBtn");
   const importModalOverlay = el("importModalOverlay");
@@ -1786,6 +1808,56 @@
     const map = { "01": "sun", "02": "cloudSun", "03": "cloud", "04": "cloud", "09": "cloudRain", "10": "cloudRain", "11": "cloudLightning", "13": "snowflake", "50": "cloudFog" };
     return map[prefix] || "cloud";
   }
+
+  // Snapshot of current conditions at a point in time — distinct from the
+  // 5-day forecast endpoint above. Always fetched/stored in Celsius (the
+  // canonical unit, same pattern as distance/speed elsewhere in the app) and
+  // converted for display based on the current km/mi preference. Returns
+  // null on any failure (no key, network error, malformed response) rather
+  // than throwing, since a missing weather snapshot should never block or
+  // break saving a waypoint or route.
+  async function fetchWeatherSnapshot(lat, lng) {
+    if (!settings.owmApiKey) return null;
+    try {
+      const url = "https://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + lng +
+        "&appid=" + encodeURIComponent(settings.owmApiKey) + "&units=metric";
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.weather || !data.weather[0] || typeof (data.main && data.main.temp) !== "number") return null;
+      return { tempC: data.main.temp, icon: data.weather[0].icon, description: data.weather[0].description };
+    } catch (e) { return null; }
+  }
+  function formatWeatherTemp(tempC) {
+    return settings.distanceUnit === "mi" ? Math.round(tempC * 9 / 5 + 32) + "°F" : Math.round(tempC) + "°C";
+  }
+
+  // Reuses the same accordion chrome already established for the Layers
+  // panel's Live Weather section — header shows the icon and temperature at
+  // a glance, expanding to the full description and the captured date/time.
+  function buildWeatherAccordionHtml(weather, capturedAtMs) {
+    if (!weather) return "";
+    const iconName = weatherIconNameForOwmCode(weather.icon);
+    const tempStr = formatWeatherTemp(weather.tempC);
+    const dateStr = capturedAtMs ? new Date(capturedAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+    const desc = weather.description ? weather.description.charAt(0).toUpperCase() + weather.description.slice(1) : "";
+    return '<div class="weather-snapshot">' +
+      '<button type="button" class="layers-accordion-toggle weather-snapshot-toggle">' +
+        '<span class="weather-snapshot-summary">' + icon(iconName, 18) + "<b>" + tempStr + "</b></span>" +
+        '<span class="layers-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
+      "</button>" +
+      '<div class="layers-accordion-content">' +
+        '<p class="weather-snapshot-desc">' + escapeHtml(desc) + "</p>" +
+        (dateStr ? '<p class="weather-snapshot-date">' + escapeHtml(dateStr) + "</p>" : "") +
+      "</div>" +
+    "</div>";
+  }
+  document.addEventListener("click", (e) => {
+    const toggle = e.target.closest(".weather-snapshot-toggle");
+    if (!toggle) return;
+    toggle.classList.toggle("open");
+    if (toggle.nextElementSibling) toggle.nextElementSibling.classList.toggle("open");
+  });
 
   // The 5-day/3-hour endpoint returns ~40 individual 3-hour readings, not
   // daily summaries — this groups them into calendar days using the
@@ -2319,6 +2391,10 @@
 
   function rebuildPrecisionHexes() {
     if (!h3Ready) return;
+    if (precisionHexMaxZoomOnlyToggle.checked && map.getZoom() < map.getMaxZoom()) {
+      if (precisionHexLayer) { map.removeLayer(precisionHexLayer); precisionHexLayer = null; }
+      return;
+    }
     const myToken = ++precisionHexToken;
     const res = precisionResolutionForZoom(map.getZoom());
     const b = map.getBounds();
@@ -2367,6 +2443,11 @@
     settings.precisionHex = precisionHexToggle.checked;
     saveSettings();
     togglePrecisionHexes(precisionHexToggle.checked);
+  });
+  precisionHexMaxZoomOnlyToggle.addEventListener("change", () => {
+    settings.precisionHexMaxZoomOnly = precisionHexMaxZoomOnlyToggle.checked;
+    saveSettings();
+    if (precisionHexToggle.checked) rebuildPrecisionHexes();
   });
   map.on("moveend", () => {
     if (!precisionHexToggle.checked) return;
@@ -2820,6 +2901,7 @@
   }
   const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp || settings.weather.wind;
   setWeatherAccordionOpen(!!settings.weatherAccordionOpen || !!anyWeatherActive);
+  precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
   if (settings.precisionHex) { precisionHexToggle.checked = true; togglePrecisionHexes(true); }
 
   function pinSvg(color) {
@@ -3561,6 +3643,87 @@
     }
     return positions;
   }
+
+  // Same walk as computeDistanceMarkerPositions, but also carries the
+  // interpolated timestamp at each km/mile crossing (plus the route's actual
+  // start and end as the first/last checkpoints) — this is what lets the
+  // segment-click feature answer "how long did km 2 to km 3 take" precisely,
+  // not just "where" each marker sits.
+  function computeCheckpoints(points, unitMeters) {
+    const checkpoints = [];
+    if (!points || points.length === 0) return checkpoints;
+    checkpoints.push({ distanceM: 0, t: points[0].t, lat: points[0].lat, lng: points[0].lng });
+    let cumulative = 0;
+    let nextThreshold = unitMeters;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1], curr = points[i];
+      const segDist = haversineMeters(prev.lat, prev.lng, curr.lat, curr.lng);
+      if (segDist <= 0) continue;
+      while (cumulative + segDist >= nextThreshold) {
+        const fraction = (nextThreshold - cumulative) / segDist;
+        checkpoints.push({
+          distanceM: nextThreshold,
+          t: prev.t + (curr.t - prev.t) * fraction,
+          lat: prev.lat + (curr.lat - prev.lat) * fraction,
+          lng: prev.lng + (curr.lng - prev.lng) * fraction
+        });
+        nextThreshold += unitMeters;
+      }
+      cumulative += segDist;
+    }
+    const last = points[points.length - 1];
+    if (checkpoints[checkpoints.length - 1].distanceM < cumulative) {
+      checkpoints.push({ distanceM: cumulative, t: last.t, lat: last.lat, lng: last.lng });
+    }
+    return checkpoints;
+  }
+
+  // Maps a clicked map location to the nearest recorded point along the
+  // route, then finds which pair of adjacent checkpoints (km/mile markers,
+  // or the route's start/end if the click falls before the first or after
+  // the last marker) that point's cumulative distance falls between.
+  function findClickedSegment(points, clickLat, clickLng) {
+    if (!points || points.length < 2) return null;
+    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+    let cumulative = 0;
+    const cumulativeAtIndex = [0];
+    for (let i = 1; i < points.length; i++) {
+      cumulative += haversineMeters(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
+      cumulativeAtIndex.push(cumulative);
+    }
+    let nearestIdx = 0, nearestDist = Infinity;
+    points.forEach((p, i) => {
+      const d = haversineMeters(p.lat, p.lng, clickLat, clickLng);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    });
+    const clickDistanceM = cumulativeAtIndex[nearestIdx];
+    const checkpoints = computeCheckpoints(points, unitMeters);
+    if (checkpoints.length < 2) return null;
+    for (let i = 0; i < checkpoints.length - 1; i++) {
+      if (clickDistanceM >= checkpoints[i].distanceM && clickDistanceM <= checkpoints[i + 1].distanceM) {
+        return { start: checkpoints[i], end: checkpoints[i + 1], unitMeters };
+      }
+    }
+    return { start: checkpoints[checkpoints.length - 2], end: checkpoints[checkpoints.length - 1], unitMeters };
+  }
+
+  function showSegmentPopup(latlng, points) {
+    const segment = findClickedSegment(points, latlng.lat, latlng.lng);
+    if (!segment) return;
+    const timeMs = segment.end.t - segment.start.t;
+    const distanceM = segment.end.distanceM - segment.start.distanceM;
+    const avgSpeedKmh = (timeMs > 0 && distanceM > 0) ? (distanceM / 1000) / (timeMs / 3600000) : 0;
+    const fromLabel = (segment.start.distanceM / segment.unitMeters).toFixed(2);
+    const toLabel = (segment.end.distanceM / segment.unitMeters).toFixed(2);
+    const unitName = settings.distanceUnit === "mi" ? "mi" : "km";
+    const content = '<div class="segment-popup">' +
+      '<b>' + fromLabel + '–' + toLabel + ' ' + unitName + '</b>' +
+      '<div>Time: ' + formatDuration(timeMs) + '</div>' +
+      '<div>Avg Speed: ' + formatSpeedValue(avgSpeedKmh) + ' ' + speedUnitLabel() + '</div>' +
+    '</div>';
+    L.popup({ closeButton: true, maxWidth: 220 }).setLatLng(latlng).setContent(content).openOn(map);
+  }
+
   function makeDistanceMarkerIcon(num, color) {
     const html = '<div class="distance-marker" style="border-color:' + color + ';">' + num + "</div>";
     return L.divIcon({ html, className: "wp-div-icon", iconSize: [22, 22], iconAnchor: [11, 11] });
@@ -3594,7 +3757,7 @@
     rideHudStatsRow2.classList.toggle("hidden", state !== "viewing");
     rideHud.classList.toggle("viewing-mode", state === "viewing"); // halves the stat value text size while reviewing a saved route
     rideHudEditBtn.classList.toggle("hidden", state !== "viewing");
-    if (state !== "viewing") rideHudTitle.textContent = "";
+    if (state !== "viewing") { rideHudTitle.textContent = ""; rideHudWeatherContainer.innerHTML = ""; }
     // Close-X is always available now — Pause preserves the route rather than
     // finalizing it, so there's no state where accidentally tapping X could
     // silently destroy in-progress GPS data the way a hard Stop used to.
@@ -3620,6 +3783,7 @@
     clearRideDistanceMarkers();
     clearRidePositionMarker();
     ridePolyline = L.polyline([], { color: info.color, weight: 4, opacity: 0.9 }).addTo(map);
+    ridePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ridePoints); });
     rideBtn.style.setProperty("--ride-color", info.color);
     rideBtn.innerHTML = icon(info.icon, 18);
     rideBtn.classList.add("tracking");
@@ -3727,7 +3891,8 @@
       endTime,
       points: ridePoints,
       distanceMeters: rideDistanceMeters,
-      durationMs: currentElapsedMs() // moving time, excludes any paused segments
+      durationMs: currentElapsedMs(), // moving time, excludes any paused segments
+      weather: null
     };
     rides.push(ride);
     saveRides();
@@ -3739,6 +3904,17 @@
     rideHudSaveBtn.classList.remove("hidden");
     rideHudCurrentState = null;
     ridePaused = false;
+    if (ridePoints.length > 0) {
+      const last = ridePoints[ridePoints.length - 1];
+      fetchWeatherSnapshot(last.lat, last.lng).then((weather) => {
+        if (!weather) return;
+        const stillExists = rides.find((r) => r.id === ride.id);
+        if (!stillExists) return; // deleted before the fetch finished
+        stillExists.weather = weather;
+        saveRides();
+        renderRoutesList();
+      });
+    }
   }
   rideHudConfirmSaveBtn.addEventListener("click", confirmSaveRoute);
 
@@ -3813,6 +3989,7 @@
     const info = activityInfo(ride.activityType);
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
+    viewedRidePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); });
     map.fitBounds(viewedRidePolyline.getBounds().pad(0.15));
     const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
     viewedRideStartMarker = start; viewedRideEndMarker = end;
@@ -3833,6 +4010,7 @@
     rideHudAvgTimePerKm.textContent = formatDuration(stats.avgTimePerUnitMs);
     rideHudLabel6.textContent = "Avg Speed (" + speedUnitLabel() + ")";
     rideHudAvgSpeed.textContent = formatSpeedValue(stats.avgSpeedKmh);
+    rideHudWeatherContainer.innerHTML = buildWeatherAccordionHtml(ride.weather, ride.endTime);
 
     rideHud.classList.remove("hidden");
     showRideHudState("viewing");
@@ -4436,6 +4614,7 @@
     pendingPhotos = [];
     photoStatus.style.display = "none";
     renderPhotoThumbs();
+    modalWeatherContainer.innerHTML = "";
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => { nameInput.focus(); nameInput.select(); }, 30);
@@ -4469,6 +4648,7 @@
     pendingPhotos = (wp.photos || []).slice();
     photoStatus.style.display = "none";
     renderPhotoThumbs();
+    modalWeatherContainer.innerHTML = buildWeatherAccordionHtml(wp.weather, wp.createdAt);
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => nameInput.focus(), 30);
@@ -4569,7 +4749,8 @@
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const wp = {
       id, lat, lng, name, notes, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
-      markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice()
+      markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(),
+      createdAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
     waypoints.push(wp);
@@ -4580,6 +4761,14 @@
     pendingPoint = null;
     closeModal();
     showToast('Saved "' + name + '"');
+    fetchWeatherSnapshot(lat, lng).then((weather) => {
+      if (!weather) return;
+      const stillExists = waypoints.find((w) => w.id === id);
+      if (!stillExists) return; // deleted before the fetch finished
+      stillExists.weather = weather;
+      saveWaypoints();
+      renderList();
+    });
   });
 
   nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBtn.click(); });
