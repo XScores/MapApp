@@ -471,10 +471,11 @@
   .ride-hud-confirm-save-btn{width:100%; margin-top:10px;}
   .route-endpoint-marker{width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     border:2px solid #fff; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.45);}
-  .distance-marker{width:22px; height:22px; border-radius:50%; background:rgba(15,23,42,.92); border:2px solid;
+  .distance-marker{min-width:22px; height:22px; border-radius:11px; background:rgba(15,23,42,.92); border:2px solid;
     display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff;
-    box-shadow:0 1px 4px rgba(0,0,0,.4);}
+    box-shadow:0 1px 4px rgba(0,0,0,.4); padding:0 3px; box-sizing:border-box;}
   .leaflet-popup-content-wrapper{background:rgba(15,23,42,.97); color:var(--text); border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.5);}
+  .owm-temp-tiles{filter:saturate(1.7) contrast(1.15);}
   .leaflet-popup-tip{background:rgba(15,23,42,.97);}
   .leaflet-popup-close-button{color:var(--text-mute) !important;}
   .segment-popup{font-size:13px; line-height:1.5;}
@@ -930,9 +931,16 @@
       <div class="az-picker" id="azPicker"></div>
     </div>
     <p class="panel-no-results" id="panelNoResults" style="display:none;">No waypoints match your search.</p>
+    <div class="panel-search-row hidden" id="routesSearchRow">
+      <span class="icon" id="routesSearchIcon"></span>
+      <input type="text" id="routesSearchInput" class="panel-search-input" placeholder="Search saved routes…" autocomplete="off" />
+      <button class="panel-search-clear" id="routesSearchClearBtn" style="display:none;"></button>
+    </div>
     <div class="panel-list-wrap hidden" id="panelRoutesView">
       <div class="panel-list" id="routesPanelList"></div>
+      <div class="az-picker" id="routesAzPicker"></div>
     </div>
+    <p class="panel-no-results" id="routesNoResults" style="display:none;">No routes match your search.</p>
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
@@ -1290,6 +1298,14 @@
   let pendingPhotos = [];
   let selectedWaypointId = null;
   let activePanelTab = "waypoints";
+  const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  // RainViewer's radar tiles only exist up to zoom 7 (documented on their own
+  // API reference) — requesting tiles beyond that returns a "Zoom Level Not
+  // Supported" watermark image instead of actual radar data, tiled across
+  // the whole view.
+  const RAINVIEWER_MAX_ZOOM = 7;
+  let viewedRideBaseInterval = 1;
+  let viewedRideFitZoom = null;
   function setSelectedWaypointMarker(id) {
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
@@ -1510,7 +1526,13 @@
   const panelSearchInput = el("panelSearchInput");
   const panelSearchClearBtn = el("panelSearchClearBtn");
   const panelNoResults = el("panelNoResults");
+  const routesSearchRow = el("routesSearchRow");
+  const routesSearchIcon = el("routesSearchIcon");
+  const routesSearchInput = el("routesSearchInput");
+  const routesSearchClearBtn = el("routesSearchClearBtn");
+  const routesNoResults = el("routesNoResults");
   const azPicker = el("azPicker");
+  const routesAzPicker = el("routesAzPicker");
   const toastEl = el("toast");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
@@ -1528,6 +1550,8 @@
   el("searchIcon").innerHTML = icon("search", 16);
   panelSearchIcon.innerHTML = icon("search", 14);
   panelSearchClearBtn.innerHTML = icon("x", 13);
+  routesSearchIcon.innerHTML = icon("search", 14);
+  routesSearchClearBtn.innerHTML = icon("x", 13);
   el("hudIcon").innerHTML = icon("crosshair", 11);
   locateBtn.innerHTML = icon("navigation", 18);
   cameraBtn.innerHTML = icon("camera", 18);
@@ -1718,13 +1742,21 @@
       // latest.path already includes its own leading "/v2/radar/..." segment per
       // RainViewer's documented response format — do not prepend it again here.
       return L.tileLayer(data.host + latest.path + "/256/{z}/{x}/{y}/2/1_1.png", {
-        opacity: 0.6, zIndex: 9, attribution: "Live radar &copy; RainViewer"
+        opacity: 0.6, zIndex: 9, maxNativeZoom: RAINVIEWER_MAX_ZOOM, attribution: "Live radar &copy; RainViewer"
       });
     } catch (e) { return null; }
   }
+  // Rather than let a user zoom in past what RainViewer supports while the
+  // layer is already active and hit the watermark again, this tells Leaflet
+  // to stop fetching new tiles past zoom 7 and instead upscale the zoom-7
+  // tiles for closer views.
   async function togglePrecip(on) {
     if (on) {
       if (weatherLayers.precip) return;
+      if (map.getZoom() > RAINVIEWER_MAX_ZOOM) {
+        map.flyTo(map.getCenter(), RAINVIEWER_MAX_ZOOM);
+        showToast("Zoomed out — live radar tiles are only available up to this zoom level.");
+      }
       const layer = await buildPrecipLayer();
       if (!layer) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
       weatherLayers.precip = layer.addTo(map);
@@ -1751,13 +1783,18 @@
   // Wind's own color palette reads much lower-contrast than clouds/temp at
   // typical wind speeds, so it needs a bigger opacity boost to actually be
   // visible rather than just technically present.
-  const OWM_LAYER_OPACITY = { temp: 0.8, clouds: 0.8, wind: 0.9 };
+  const OWM_LAYER_OPACITY = { temp: 0.95, clouds: 0.8, wind: 0.9 };
+  // We can't change the actual colors baked into OpenWeatherMap's tiles, but
+  // a CSS filter on the layer's own tile container can make the existing
+  // gradient read more vividly — targeted via a dedicated class per layer so
+  // this only affects temperature, not clouds/wind.
+  const OWM_LAYER_CLASSNAME = { temp: "owm-temp-tiles", clouds: "", wind: "" };
   let owmKeyErrorShown = false;
   function owmTileLayer(kind) {
     if (!settings.owmApiKey) return null;
     const layer = L.tileLayer(
       "https://tile.openweathermap.org/map/" + OWM_LAYER_IDS[kind] + "/{z}/{x}/{y}.png?appid=" + encodeURIComponent(settings.owmApiKey),
-      { opacity: OWM_LAYER_OPACITY[kind], zIndex: OWM_LAYER_ZINDEX[kind], attribution: "Weather &copy; OpenWeatherMap" }
+      { opacity: OWM_LAYER_OPACITY[kind], zIndex: OWM_LAYER_ZINDEX[kind], className: OWM_LAYER_CLASSNAME[kind] || "", attribution: "Weather &copy; OpenWeatherMap" }
     );
     let tileLoadCount = 0, tileErrorCount = 0;
     layer.on("tileload", () => { tileLoadCount++; });
@@ -3371,7 +3408,8 @@
       refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
     } else if (rideHudCurrentState === "viewing" && currentlyViewedRide) {
       rideHudDistance.textContent = formatDistanceValue(currentlyViewedRide.distanceMeters);
-      refreshDistanceMarkers(currentlyViewedRide.points, activityInfo(currentlyViewedRide.activityType).color, viewedRideDistanceMarkers);
+      const currentInterval = viewedRideFitZoom !== null ? scaleMarkerIntervalForZoom(viewedRideBaseInterval, viewedRideFitZoom, map.getZoom()) : 1;
+      refreshDistanceMarkers(currentlyViewedRide.points, activityInfo(currentlyViewedRide.activityType).color, viewedRideDistanceMarkers, currentInterval);
       const stats = computeRouteStats(currentlyViewedRide);
       rideHudLabel4.textContent = "Max Speed (" + speedUnitLabel() + ")";
       rideHudMaxSpeed.textContent = formatSpeedValue(stats.maxSpeedKmh);
@@ -3618,13 +3656,14 @@
   // along a route — walks the polyline's segments accumulating distance, and
   // interpolates the exact lat/lng wherever the running total crosses each
   // whole-unit threshold, rather than just marking GPS points nearest to it.
-  function computeDistanceMarkerPositions(points) {
-    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+  function computeDistanceMarkerPositions(points, intervalMultiplier) {
+    intervalMultiplier = intervalMultiplier || 1;
+    const unitMeters = (settings.distanceUnit === "mi" ? 1609.344 : 1000) * intervalMultiplier;
     const positions = [];
     if (!points || points.length < 2) return positions;
     let cumulative = 0;
     let nextThreshold = unitMeters;
-    let num = 1;
+    let num = intervalMultiplier;
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1], curr = points[i];
       const segDist = haversineMeters(prev.lat, prev.lng, curr.lat, curr.lng);
@@ -3636,12 +3675,38 @@
           lng: prev.lng + (curr.lng - prev.lng) * fraction,
           num
         });
-        num++;
+        num += intervalMultiplier;
         nextThreshold += unitMeters;
       }
       cumulative += segDist;
     }
     return positions;
+  }
+
+  // Picks a "nice" marker spacing so a long route doesn't cram overlapping
+  // km markers when zoomed out to show the whole thing — e.g. a 200km route
+  // gets markers every 25km instead of 200 stacked 1km markers. Caps at
+  // roughly 20 markers total, snapping up to the next nice interval as
+  // needed. Then, as the user zooms in on a section, the interval scales
+  // back down toward 1 — each +1 zoom level roughly doubles visible detail,
+  // so the interval halves accordingly, never going below the base unit.
+  const MARKER_INTERVALS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  function pickBaseMarkerInterval(totalDistanceMeters) {
+    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+    const totalInUnit = totalDistanceMeters / unitMeters;
+    const maxMarkers = 20;
+    for (const interval of MARKER_INTERVALS) {
+      if (totalInUnit / interval <= maxMarkers) return interval;
+    }
+    return MARKER_INTERVALS[MARKER_INTERVALS.length - 1];
+  }
+  function scaleMarkerIntervalForZoom(baseInterval, fitZoom, currentZoom) {
+    const scaled = baseInterval / Math.pow(2, currentZoom - fitZoom);
+    let chosen = 1;
+    for (const interval of MARKER_INTERVALS) {
+      if (interval <= scaled) chosen = interval; else break;
+    }
+    return chosen;
   }
 
   // Same walk as computeDistanceMarkerPositions, but also carries the
@@ -3738,10 +3803,10 @@
     viewedRideDistanceMarkers.forEach((m) => map.removeLayer(m));
     viewedRideDistanceMarkers.length = 0;
   }
-  function refreshDistanceMarkers(points, color, targetArray) {
+  function refreshDistanceMarkers(points, color, targetArray, intervalMultiplier) {
     targetArray.forEach((m) => map.removeLayer(m));
     targetArray.length = 0;
-    computeDistanceMarkerPositions(points).forEach((p) => {
+    computeDistanceMarkerPositions(points, intervalMultiplier).forEach((p) => {
       targetArray.push(L.marker([p.lat, p.lng], { icon: makeDistanceMarkerIcon(p.num, color) }).addTo(map));
     });
   }
@@ -3945,6 +4010,7 @@
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
     clearViewedRideEndpointMarkers();
     clearViewedRideDistanceMarkers();
+    viewedRideFitZoom = null;
   }
 
   // The X means different things depending on what's currently showing: while
@@ -3990,10 +4056,8 @@
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
     viewedRidePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); });
-    map.fitBounds(viewedRidePolyline.getBounds().pad(0.15));
     const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
     viewedRideStartMarker = start; viewedRideEndMarker = end;
-    refreshDistanceMarkers(ride.points, info.color, viewedRideDistanceMarkers);
 
     rideHudLabel1.textContent = "Date";
     rideHudTime.textContent = new Date(ride.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -4012,13 +4076,46 @@
     rideHudAvgSpeed.textContent = formatSpeedValue(stats.avgSpeedKmh);
     rideHudWeatherContainer.innerHTML = buildWeatherAccordionHtml(ride.weather, ride.endTime);
 
+    // The HUD needs to be visible and in its final "viewing" layout BEFORE
+    // measuring its height below — its size differs from the tracking/paused
+    // states (extra stats row, possibly a weather accordion), so measuring
+    // too early would use the wrong height and let the route hide behind it.
     rideHud.classList.remove("hidden");
     showRideHudState("viewing");
+
+    // Fits the whole route zoomed out, but padded so the HUD card never
+    // covers any of it — same "measure the card, pad the map around it"
+    // approach used for live position following, applied here to the fit
+    // instead of a continuous pan.
+    try {
+      const hudRect = rideHud.getBoundingClientRect();
+      const bounds = viewedRidePolyline.getBounds();
+      map.fitBounds(bounds, { paddingTopLeft: [24, hudRect.bottom + 20], paddingBottomRight: [24, 24] });
+    } catch (e) {
+      map.fitBounds(viewedRidePolyline.getBounds().pad(0.15));
+    }
+
+    // Picks a marker spacing appropriate for seeing the whole route at once,
+    // then keeps it in sync as the user zooms into a specific section.
+    viewedRideBaseInterval = pickBaseMarkerInterval(ride.distanceMeters);
+    viewedRideFitZoom = map.getZoom();
+    refreshDistanceMarkers(ride.points, info.color, viewedRideDistanceMarkers, viewedRideBaseInterval);
 
     panel.classList.remove("open");
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
   }
+
+  // As the user zooms into a specific section of a viewed route, the marker
+  // spacing scales back down toward the base 1km/1mi granularity, so a
+  // stretch that was compressed into one marker at the zoomed-out overview
+  // gets its own finer detail once you're actually looking at it closely.
+  map.on("zoomend", () => {
+    if (rideHudCurrentState !== "viewing" || !currentlyViewedRide || viewedRideFitZoom === null) return;
+    const interval = scaleMarkerIntervalForZoom(viewedRideBaseInterval, viewedRideFitZoom, map.getZoom());
+    const info = activityInfo(currentlyViewedRide.activityType);
+    refreshDistanceMarkers(currentlyViewedRide.points, info.color, viewedRideDistanceMarkers, interval);
+  });
 
   // Max speed prefers each point's own recorded speed (the GPS's own reading,
   // same source used live) — older routes saved before that existed fall back
@@ -4096,7 +4193,9 @@
     panelWaypointsView.classList.toggle("hidden", tab !== "waypoints");
     panelRoutesView.classList.toggle("hidden", tab !== "routes");
     panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
+    routesSearchRow.classList.toggle("hidden", tab !== "routes");
     if (tab !== "waypoints") panelNoResults.style.display = "none";
+    if (tab !== "routes") routesNoResults.style.display = "none";
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
   }
@@ -4108,9 +4207,11 @@
     if (rides.length === 0) {
       routesPanelList.innerHTML = '<div class="empty-state">' + icon("bike", 28) +
         "<p>No routes saved yet. Track a ride, hike, drive, or paddle, then tap Save Route when you're done.</p></div>";
+      refreshRoutesAzPickerAvailability();
       return;
     }
-    routesPanelList.innerHTML = rides.slice().reverse().map((r) => {
+    const sortedRides = rides.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    routesPanelList.innerHTML = sortedRides.map((r) => {
       const info = activityInfo(r.activityType);
       const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
       const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
@@ -4133,8 +4234,42 @@
         deleteRide(btn.dataset.id);
       });
     });
+    refreshRoutesAzPickerAvailability();
+    applyRoutesSearchFilter();
   }
   renderRoutesList();
+
+  // Same vertical A-Z index used for saved waypoints, applied to routes —
+  // jumps to the first route (alphabetically) starting with the tapped
+  // letter, scrolling it into view rather than filtering the list.
+  function renderRoutesAzPicker() {
+    routesAzPicker.innerHTML = AZ_LETTERS.map((l) =>
+      '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
+    ).join("");
+    routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const letter = btn.dataset.letter;
+        const cards = Array.from(routesPanelList.querySelectorAll(".ride-card"));
+        const targetCard = cards.find((cardEl) => {
+          const r = rides.find((ride) => ride.id === cardEl.dataset.id);
+          return r && getIndexLetter(r.name) === letter;
+        });
+        if (!targetCard) return;
+        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        btn.classList.add("active");
+        setTimeout(() => btn.classList.remove("active"), 500);
+      });
+    });
+    refreshRoutesAzPickerAvailability();
+  }
+  function refreshRoutesAzPickerAvailability() {
+    const available = new Set(rides.map((r) => getIndexLetter(r.name)).filter(Boolean));
+    routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+    });
+  }
+  renderRoutesAzPicker();
 
   // Shared by both entry points (the Layers panel button and the one now
   // inside the HUD itself). Leaving an unsaved-but-stopped route to go look
@@ -5423,10 +5558,32 @@
     panelSearchInput.focus();
   });
 
+  function applyRoutesSearchFilter() {
+    const query = routesSearchInput.value.trim().toLowerCase();
+    const terms = query.split(/\s+/).filter(Boolean);
+    routesSearchClearBtn.style.display = query ? "flex" : "none";
+
+    let visibleCount = 0;
+    routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+      const r = rides.find((ride) => ride.id === cardEl.dataset.id);
+      if (!r) return;
+      const haystack = (r.name + " " + (r.notes || "")).toLowerCase();
+      const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      cardEl.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+    routesNoResults.style.display = rides.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+  }
+  routesSearchInput.addEventListener("input", applyRoutesSearchFilter);
+  routesSearchClearBtn.addEventListener("click", () => {
+    routesSearchInput.value = "";
+    applyRoutesSearchFilter();
+    routesSearchInput.focus();
+  });
+
   // Jumps to the first (alphabetically, matching the sort above) waypoint
   // starting with the tapped letter — same model as the iOS Contacts index:
   // scrolls the existing list into view rather than hiding everything else.
-  const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   function renderAzPicker() {
     azPicker.innerHTML = AZ_LETTERS.map((l) =>
       '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
