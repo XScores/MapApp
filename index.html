@@ -612,9 +612,8 @@
           <label class="layers-option"><input type="checkbox" id="wxPrecip" /><span class="live-dot"></span><span>Precipitation radar</span></label>
           <label class="layers-option"><input type="checkbox" id="wxClouds" /><span class="swatch" style="background:#94a3b8"></span><span>Cloud cover</span></label>
           <label class="layers-option"><input type="checkbox" id="wxTemp" /><span class="swatch" style="background:#f87171"></span><span>Temperature</span></label>
-          <label class="layers-option"><input type="checkbox" id="wxWind" /><span class="swatch" style="background:#22d3ee"></span><span>Wind speed</span></label>
           <div id="owmKeyPrompt">
-            <p class="layers-hint">Clouds, temperature &amp; wind need a free API key from <a href="https://home.openweathermap.org/users/sign_up" target="_blank" rel="noopener">openweathermap.org</a> specifically — other weather services' keys (e.g. WeatherAPI.com) won't work here.</p>
+            <p class="layers-hint">Clouds &amp; temperature need a free API key from <a href="https://home.openweathermap.org/users/sign_up" target="_blank" rel="noopener">openweathermap.org</a> specifically — other weather services' keys (e.g. WeatherAPI.com) won't work here.</p>
             <div class="owm-key-row">
               <input id="owmKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
               <button id="owmKeySaveBtn">Save</button>
@@ -1272,7 +1271,7 @@
     }
   }
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false, wind: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
   function loadSettings() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -1409,7 +1408,6 @@
   const wxPrecip = el("wxPrecip");
   const wxClouds = el("wxClouds");
   const wxTemp = el("wxTemp");
-  const wxWind = el("wxWind");
   const weatherAccordionToggle = el("weatherAccordionToggle");
   const weatherAccordionChevron = el("weatherAccordionChevron");
   const weatherAccordionContent = el("weatherAccordionContent");
@@ -1581,6 +1579,7 @@
   homeAddressSearchBtn.innerHTML = icon("search", 16);
   micBtn.innerHTML = icon("mic", 16);
   panelCloseBtn.innerHTML = icon("x", 18);
+  forecastModalCloseBtn.innerHTML = icon("x", 18);
   rideHudCloseXBtn.innerHTML = icon("x", 16);
   rideHudEditBtn.innerHTML = icon("edit", 16);
 
@@ -1729,22 +1728,55 @@
   });
 
   /* ---------- live weather overlays ---------- */
-  const weatherLayers = { precip: null, clouds: null, temp: null, wind: null };
-  let rainviewerTimer = null;
+  const weatherLayers = { precip: null, clouds: null, temp: null };
+  let rainviewerRefreshTimer = null;
+  let precipFrameLayers = [];
+  let precipFrameIndex = 0;
+  let precipAnimTimer = null;
+  let precipCurrentLayer = null;
 
-  async function buildPrecipLayer() {
+  // Fetches every available recent radar frame (not just the latest one) so
+  // they can be cycled through as an animation, the same way RainViewer's own
+  // reference implementation does.
+  async function fetchPrecipFrameLayers() {
     try {
       const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
       const data = await res.json();
       const frames = (data.radar && data.radar.past) || [];
-      const latest = frames[frames.length - 1];
-      if (!latest || !data.host) return null;
-      // latest.path already includes its own leading "/v2/radar/..." segment per
-      // RainViewer's documented response format — do not prepend it again here.
-      return L.tileLayer(data.host + latest.path + "/256/{z}/{x}/{y}/2/1_1.png", {
+      if (!frames.length || !data.host) return [];
+      // Each frame's path already includes its own leading "/v2/radar/..."
+      // segment per RainViewer's documented response format.
+      return frames.map((f) => L.tileLayer(data.host + f.path + "/256/{z}/{x}/{y}/2/1_1.png", {
         opacity: 0.6, zIndex: 9, maxNativeZoom: RAINVIEWER_MAX_ZOOM, attribution: "Live radar &copy; RainViewer"
-      });
-    } catch (e) { return null; }
+      }));
+    } catch (e) { return []; }
+  }
+  function showPrecipFrame(index) {
+    if (precipCurrentLayer) map.removeLayer(precipCurrentLayer);
+    precipCurrentLayer = precipFrameLayers[index] || null;
+    if (precipCurrentLayer) precipCurrentLayer.addTo(map);
+  }
+  // Cycles through the recent frames on a loop, holding noticeably longer on
+  // the most recent ("now") frame before looping back to the start — the
+  // same pause-on-latest pattern real radar loop animations use, so it reads
+  // as "here's what's happening now, and here's how it got here" rather than
+  // endlessly cycling with no anchor point.
+  function schedulePrecipFrame() {
+    clearTimeout(precipAnimTimer);
+    if (precipFrameLayers.length === 0) return;
+    const isLastFrame = precipFrameIndex === precipFrameLayers.length - 1;
+    precipAnimTimer = setTimeout(() => {
+      precipFrameIndex = (precipFrameIndex + 1) % precipFrameLayers.length;
+      showPrecipFrame(precipFrameIndex);
+      schedulePrecipFrame();
+    }, isLastFrame ? 1500 : 600);
+  }
+  function stopPrecipAnimation() {
+    clearTimeout(precipAnimTimer);
+    precipAnimTimer = null;
+    if (precipCurrentLayer) { map.removeLayer(precipCurrentLayer); precipCurrentLayer = null; }
+    precipFrameLayers = [];
+    precipFrameIndex = 0;
   }
   // Rather than let a user zoom in past what RainViewer supports while the
   // layer is already active and hit the watermark again, this tells Leaflet
@@ -1757,38 +1789,42 @@
         map.flyTo(map.getCenter(), RAINVIEWER_MAX_ZOOM);
         showToast("Zoomed out — live radar tiles are only available up to this zoom level.");
       }
-      const layer = await buildPrecipLayer();
-      if (!layer) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
-      weatherLayers.precip = layer.addTo(map);
-      clearInterval(rainviewerTimer);
-      rainviewerTimer = setInterval(async () => {
-        const fresh = await buildPrecipLayer();
-        if (fresh && weatherLayers.precip) {
-          map.removeLayer(weatherLayers.precip);
-          weatherLayers.precip = fresh.addTo(map);
+      const frames = await fetchPrecipFrameLayers();
+      if (!frames.length) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
+      precipFrameLayers = frames;
+      precipFrameIndex = 0;
+      showPrecipFrame(0);
+      schedulePrecipFrame();
+      weatherLayers.precip = true;
+      clearInterval(rainviewerRefreshTimer);
+      rainviewerRefreshTimer = setInterval(async () => {
+        const fresh = await fetchPrecipFrameLayers();
+        if (fresh.length && weatherLayers.precip) {
+          precipFrameLayers = fresh;
+          precipFrameIndex = 0;
+          showPrecipFrame(0);
+          schedulePrecipFrame();
         }
       }, 10 * 60 * 1000);
     } else {
-      if (weatherLayers.precip) { map.removeLayer(weatherLayers.precip); weatherLayers.precip = null; }
-      clearInterval(rainviewerTimer);
+      stopPrecipAnimation();
+      weatherLayers.precip = null;
+      clearInterval(rainviewerRefreshTimer);
     }
   }
 
-  const OWM_LAYER_IDS = { clouds: "clouds_new", temp: "temp_new", wind: "wind_new" };
+  const OWM_LAYER_IDS = { clouds: "clouds_new", temp: "temp_new" };
   // Distinct z-index per layer so stacking order is predictable regardless of
-  // which order they're toggled on — previously all three shared the same
-  // z-index (6), so whichever was enabled LAST silently sat on top and could
-  // visually swallow the others (fully hiding one, or blending/dimming another).
-  const OWM_LAYER_ZINDEX = { temp: 6, clouds: 7, wind: 8 };
-  // Wind's own color palette reads much lower-contrast than clouds/temp at
-  // typical wind speeds, so it needs a bigger opacity boost to actually be
-  // visible rather than just technically present.
-  const OWM_LAYER_OPACITY = { temp: 0.95, clouds: 0.8, wind: 0.9 };
+  // which order they're toggled on — previously all shared the same z-index,
+  // so whichever was enabled LAST silently sat on top and could visually
+  // swallow the others (fully hiding one, or blending/dimming another).
+  const OWM_LAYER_ZINDEX = { temp: 6, clouds: 7 };
+  const OWM_LAYER_OPACITY = { temp: 0.95, clouds: 0.8 };
   // We can't change the actual colors baked into OpenWeatherMap's tiles, but
   // a CSS filter on the layer's own tile container can make the existing
   // gradient read more vividly — targeted via a dedicated class per layer so
-  // this only affects temperature, not clouds/wind.
-  const OWM_LAYER_CLASSNAME = { temp: "owm-temp-tiles", clouds: "", wind: "" };
+  // this only affects temperature, not clouds.
+  const OWM_LAYER_CLASSNAME = { temp: "owm-temp-tiles", clouds: "" };
   let owmKeyErrorShown = false;
   function owmTileLayer(kind) {
     if (!settings.owmApiKey) return null;
@@ -1804,16 +1840,6 @@
       owmKeyErrorShown = true;
       showToast("That API key isn't working with OpenWeatherMap — make sure it's from openweathermap.org, not a different weather service.");
     });
-    // Temporary diagnostic for the wind layer specifically, since it's been
-    // reported as not visible even after the tileerror path never fires —
-    // logs actual load vs error counts a few seconds after enabling, to tell
-    // apart "tiles are loading but genuinely nearly blank at this location"
-    // from "requests are failing silently." Safe to remove once resolved.
-    if (kind === "wind") {
-      setTimeout(() => {
-        console.log("[wind layer diagnostic] tiles loaded:", tileLoadCount, "| tiles errored:", tileErrorCount);
-      }, 4000);
-    }
     return layer;
   }
   function toggleOwmLayer(kind, on) {
@@ -1834,7 +1860,7 @@
     const hasKey = !!settings.owmApiKey;
     owmKeyPrompt.style.display = hasKey ? "none" : "block";
     owmKeySaved.style.display = hasKey ? "flex" : "none";
-    wxClouds.disabled = !hasKey; wxTemp.disabled = !hasKey; wxWind.disabled = !hasKey;
+    wxClouds.disabled = !hasKey; wxTemp.disabled = !hasKey;
   }
 
   // Maps OpenWeatherMap's icon codes (e.g. "01d", "10n") to one of our own
@@ -2012,7 +2038,6 @@
   wxPrecip.addEventListener("change", () => { settings.weather.precip = wxPrecip.checked; saveSettings(); togglePrecip(wxPrecip.checked); });
   wxClouds.addEventListener("change", () => { const ok = toggleOwmLayer("clouds", wxClouds.checked); if (!ok) wxClouds.checked = false; settings.weather.clouds = wxClouds.checked; saveSettings(); });
   wxTemp.addEventListener("change", () => { const ok = toggleOwmLayer("temp", wxTemp.checked); if (!ok) wxTemp.checked = false; settings.weather.temp = wxTemp.checked; saveSettings(); });
-  wxWind.addEventListener("change", () => { const ok = toggleOwmLayer("wind", wxWind.checked); if (!ok) wxWind.checked = false; settings.weather.wind = wxWind.checked; saveSettings(); });
 
   owmKeySaveBtn.addEventListener("click", () => {
     const key = owmKeyInput.value.trim();
@@ -2025,9 +2050,9 @@
   });
   owmKeyForgetBtn.addEventListener("click", () => {
     settings.owmApiKey = "";
-    ["clouds", "temp", "wind"].forEach((k) => { toggleOwmLayer(k, false); });
-    wxClouds.checked = false; wxTemp.checked = false; wxWind.checked = false;
-    settings.weather.clouds = false; settings.weather.temp = false; settings.weather.wind = false;
+    ["clouds", "temp"].forEach((k) => { toggleOwmLayer(k, false); });
+    wxClouds.checked = false; wxTemp.checked = false;
+    settings.weather.clouds = false; settings.weather.temp = false;
     saveSettings();
     refreshOwmUi();
     showToast("API key removed");
@@ -2934,9 +2959,8 @@
   if (settings.owmApiKey) {
     if (settings.weather.clouds) { wxClouds.checked = true; toggleOwmLayer("clouds", true); }
     if (settings.weather.temp) { wxTemp.checked = true; toggleOwmLayer("temp", true); }
-    if (settings.weather.wind) { wxWind.checked = true; toggleOwmLayer("wind", true); }
   }
-  const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp || settings.weather.wind;
+  const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp;
   setWeatherAccordionOpen(!!settings.weatherAccordionOpen || !!anyWeatherActive);
   precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
   if (settings.precisionHex) { precisionHexToggle.checked = true; togglePrecisionHexes(true); }
