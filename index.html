@@ -3875,8 +3875,22 @@
     rideHudCloseXBtn.classList.remove("hidden");
   }
 
+  // Mitigates iOS's "Shake to Undo" popping up mid-ride from bike-mount
+  // vibration — it's triggered by leftover "undoable" text-editing state in
+  // whatever input last had focus, so this clears that the moment tracking
+  // begins. There's no web API to disable the OS-level shake gesture itself
+  // (that control only exists for native apps, not web content); this just
+  // removes one concrete, avoidable trigger for it.
+  function blurActiveTextInput() {
+    const active = document.activeElement;
+    if (active && typeof active.blur === "function" && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
+      active.blur();
+    }
+  }
+
   function startRide(activityType) {
     if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
+    blurActiveTextInput();
     currentActivityType = activityType;
     const info = activityInfo(currentActivityType);
     rideTracking = true;
@@ -3966,6 +3980,7 @@
   // accumulated distance and moving time, just resuming GPS recording.
   function resumeRide() {
     if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
+    blurActiveTextInput();
     rideTracking = true;
     ridePaused = false;
     rideSegmentStartTime = Date.now();
