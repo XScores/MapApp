@@ -631,8 +631,7 @@
         </div>
         <div class="layers-panel-body">
         <div class="layers-section">
-          <p class="layers-section-title">App version</p>
-          <p class="layers-hint">On the full-screen (home screen) version there's no browser reload button — use this to fetch the latest version from GitHub instead of whatever's cached.</p>
+          <p class="layers-section-title" id="appVersionLabel">App version</p>
           <div class="home-actions">
             <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
           </div>
@@ -991,8 +990,8 @@
   <div class="panel" id="panel">
     <div class="panel-header">
       <div class="panel-tabs" id="panelTabs">
-        <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Saved waypoints</button>
-        <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Saved routes</button>
+        <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Waypoints</button>
+        <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Routes</button>
       </div>
       <div class="panel-header-actions">
         <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with Gist (pull, then push)"></button>
@@ -1326,6 +1325,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
+  const APP_VERSION = "168";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1518,6 +1518,8 @@
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
   const refreshAppBtn = el("refreshAppBtn");
+  const appVersionLabel = el("appVersionLabel");
+  appVersionLabel.textContent = "App version " + APP_VERSION;
   const wxPrecip = el("wxPrecip");
   const wxClouds = el("wxClouds");
   const wxTemp = el("wxTemp");
@@ -4715,6 +4717,7 @@
     renderSavedMeasurement(m);
     closeMeasureModal();
     showToast('Saved "' + name + '"');
+    renderRoutesList();
   }
   measureDoneBtn.addEventListener("click", saveMeasurement);
 
@@ -4776,14 +4779,15 @@
     if (newName && newName !== m.name) {
       m.name = newName;
       saveMeasurements();
+      renderRoutesList();
     }
   }
   measureViewCloseBtn.addEventListener("click", () => {
     commitMeasurementRename();
     closeMeasureModal();
   });
-  measureDeleteBtn.addEventListener("click", () => {
-    const id = currentlyViewedMeasurementId;
+  measureDeleteBtn.addEventListener("click", () => deleteMeasurement(currentlyViewedMeasurementId));
+  function deleteMeasurement(id) {
     const m = measurements.find((mm) => mm.id === id);
     if (!m) return;
     closeMeasureModal();
@@ -4796,8 +4800,19 @@
         delete savedMeasurementLayers[id];
       }
       showToast("Measurement deleted");
+      renderRoutesList();
     });
-  });
+  }
+  // Shared by the A-Z picker and search filter, which both need to look up
+  // an item's name regardless of whether it's a route or a measurement,
+  // since the Saved Routes tab now shows both combined.
+  function findRouteOrMeasurementById(id) {
+    const ride = rides.find((r) => r.id === id);
+    if (ride) return { name: ride.name, notes: ride.notes || "" };
+    const m = measurements.find((mm) => mm.id === id);
+    if (m) return { name: m.name, notes: "" };
+    return null;
+  }
 
   /* ---- Edit points (drag to adjust) ---- */
   function makeMeasureVertexIcon() {
@@ -4871,6 +4886,7 @@
       m.points = editLivePoints.slice();
       saveMeasurements();
       showToast("Measurement updated");
+      renderRoutesList();
     }
     if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
     clearEditVertexMarkers();
@@ -4923,7 +4939,14 @@
 
   function updatePanelSubtitle() {
     if (activePanelTab === "routes") {
-      panelSubtitle.textContent = rides.length + (rides.length === 1 ? " route" : " routes");
+      const routeCount = rides.length + (rides.length === 1 ? " route" : " routes");
+      if (measurements.length === 0) {
+        panelSubtitle.textContent = routeCount;
+      } else if (rides.length === 0) {
+        panelSubtitle.textContent = measurements.length + (measurements.length === 1 ? " measurement" : " measurements");
+      } else {
+        panelSubtitle.textContent = routeCount + " · " + measurements.length + (measurements.length === 1 ? " measurement" : " measurements");
+      }
     } else {
       panelSubtitle.textContent = waypoints.length + " logged";
     }
@@ -4946,35 +4969,68 @@
 
   function renderRoutesList() {
     updatePanelSubtitle();
-    if (rides.length === 0) {
+    if (rides.length === 0 && measurements.length === 0) {
       routesPanelList.innerHTML = '<div class="empty-state">' + icon("bike", 28) +
-        "<p>No routes saved yet. Track a ride, hike, drive, or paddle, then tap Save Route when you're done.</p></div>";
+        "<p>No routes or measurements saved yet. Track a ride, hike, drive, or paddle, or measure a distance, then save it.</p></div>";
       refreshRoutesAzPickerAvailability();
       return;
     }
-    const sortedRides = rides.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
-    routesPanelList.innerHTML = sortedRides.map((r) => {
-      const info = activityInfo(r.activityType);
-      const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
-      return '<div class="card ride-card" data-id="' + r.id + '">' +
-        '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
-        '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
-        '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
+    const combined = [
+      ...rides.map((r) => ({ type: "route", sortKey: getSortKey(r.name), data: r })),
+      ...measurements.map((m) => ({ type: "measurement", sortKey: getSortKey(m.name), data: m }))
+    ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    routesPanelList.innerHTML = combined.map((item) => {
+      if (item.type === "route") {
+        const r = item.data;
+        const info = activityInfo(r.activityType);
+        const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
+        return '<div class="card ride-card" data-id="' + r.id + '" data-type="route">' +
+          '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
+          '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
+          '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+          '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
+        "</div>";
+      }
+      const m = item.data;
+      const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      let totalM = 0;
+      for (let i = 0; i < m.points.length - 1; i++) {
+        totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
+      }
+      const summary = isClosedLoop(m.points)
+        ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
+        : formatDistance(totalM) + " · " + dateStr;
+      return '<div class="card ride-card" data-id="' + m.id + '" data-type="measurement">' +
+        '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
+        '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
+        '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
-    routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+    routesPanelList.querySelectorAll(".ride-card[data-type='route']").forEach((cardEl) => {
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
         const ride = rides.find((r) => r.id === cardEl.dataset.id);
         if (ride) viewRide(ride);
       });
     });
+    routesPanelList.querySelectorAll(".ride-card[data-type='measurement']").forEach((cardEl) => {
+      cardEl.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action]")) return;
+        panel.classList.remove("open");
+        openMeasurementViewModal(cardEl.dataset.id);
+      });
+    });
     routesPanelList.querySelectorAll("[data-action='delete-route']").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteRide(btn.dataset.id);
+      });
+    });
+    routesPanelList.querySelectorAll("[data-action='delete-measurement']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteMeasurement(btn.dataset.id);
       });
     });
     routesPanelList.querySelectorAll("[data-action='toggle-favorite-route']").forEach((btn) => {
@@ -5006,8 +5062,8 @@
         const letter = btn.dataset.letter;
         const cards = Array.from(routesPanelList.querySelectorAll(".ride-card"));
         const targetCard = cards.find((cardEl) => {
-          const r = rides.find((ride) => ride.id === cardEl.dataset.id);
-          return r && getIndexLetter(r.name) === letter;
+          const item = findRouteOrMeasurementById(cardEl.dataset.id);
+          return item && getIndexLetter(item.name) === letter;
         });
         if (!targetCard) return;
         targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -5018,7 +5074,11 @@
     refreshRoutesAzPickerAvailability();
   }
   function refreshRoutesAzPickerAvailability() {
-    const available = new Set(rides.map((r) => getIndexLetter(r.name)).filter(Boolean));
+    const available = new Set(
+      rides.map((r) => getIndexLetter(r.name))
+        .concat(measurements.map((m) => getIndexLetter(m.name)))
+        .filter(Boolean)
+    );
     routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -6319,14 +6379,14 @@
 
     let visibleCount = 0;
     routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
-      const r = rides.find((ride) => ride.id === cardEl.dataset.id);
-      if (!r) return;
-      const haystack = (r.name + " " + (r.notes || "")).toLowerCase();
+      const item = findRouteOrMeasurementById(cardEl.dataset.id);
+      if (!item) return;
+      const haystack = (item.name + " " + item.notes).toLowerCase();
       const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    routesNoResults.style.display = rides.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    routesNoResults.style.display = (rides.length + measurements.length) > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
   }
   routesSearchInput.addEventListener("input", applyRoutesSearchFilter);
   routesSearchClearBtn.addEventListener("click", () => {
