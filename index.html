@@ -620,6 +620,13 @@
         </div>
         <div class="layers-panel-body">
         <div class="layers-section">
+          <p class="layers-section-title">App version</p>
+          <p class="layers-hint">On the full-screen (home screen) version there's no browser reload button — use this to fetch the latest version from GitHub instead of whatever's cached.</p>
+          <div class="home-actions">
+            <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
+          </div>
+        </div>
+        <div class="layers-section">
           <p class="layers-section-title">Home base</p>
           <p class="home-status" id="homeStatus">No home set yet.</p>
           <div class="home-actions">
@@ -1490,6 +1497,7 @@
   const layersToggleBtn = el("layersToggleBtn");
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
+  const refreshAppBtn = el("refreshAppBtn");
   const wxPrecip = el("wxPrecip");
   const wxClouds = el("wxClouds");
   const wxTemp = el("wxTemp");
@@ -1717,6 +1725,31 @@
     const cb = confirmModalCallback;
     closeConfirmModal();
     if (cb) cb();
+  });
+
+  // A plain location.reload() isn't fully reliable for actually fetching a
+  // new deployment — the browser can still serve a cached copy of the exact
+  // same URL. Appending a unique query param forces it to treat this as a
+  // new URL entirely, bypassing that cache. This matters most for the
+  // full-screen home-screen version specifically, since standalone mode has
+  // no visible browser chrome at all — no reload button, no pull-to-refresh.
+  function forceRefreshApp() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("_refresh", Date.now());
+    window.location.href = url.toString();
+  }
+  refreshAppBtn.addEventListener("click", () => {
+    const hasUnsavedRide = rideHudCurrentState === "tracking" || rideHudCurrentState === "unsaved";
+    const hasUnsavedMeasurement = measuringActive && measurePoints.length > 0;
+    if (hasUnsavedRide || hasUnsavedMeasurement) {
+      openConfirmModal(
+        "Refresh and lose unsaved progress?",
+        "You have an active route or measurement that hasn't been saved yet — refreshing will discard it. Continue?",
+        forceRefreshApp
+      );
+    } else {
+      forceRefreshApp();
+    }
   });
 
   function openPhotoViewModal(name, src) {
