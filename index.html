@@ -3003,7 +3003,6 @@
         return false;
       }
       gistStatusText.textContent = "Pushed just now.";
-      showToast("Synced to Gist.");
       return true;
     } catch (e) {
       console.error("[gist push] network/unexpected error:", e);
@@ -3079,9 +3078,6 @@
       }
       const result = mergeBackupPayload(payload);
       gistStatusText.textContent = "Pulled just now.";
-      let pullMsg = "Pulled " + result.added + " new waypoint" + (result.added === 1 ? "" : "s");
-      if (result.routesAdded) pullMsg += " and " + result.routesAdded + " new route" + (result.routesAdded === 1 ? "" : "s");
-      showToast(pullMsg + " from Gist.");
       return true;
     } catch (e) {
       console.error("[gist pull] network/unexpected error:", e);
@@ -4543,7 +4539,7 @@
     });
     measurePolyline.on("mousemove", (e) => {
       if (!measureHoverTooltip || measurePoints.length < 2) return;
-      const segIdx = findNearestMeasureSegment(e.latlng);
+      const segIdx = findNearestMeasureSegment(e.latlng, measurePoints);
       if (segIdx === null) return;
       const distM = haversineMeters(measurePoints[segIdx].lat, measurePoints[segIdx].lng, measurePoints[segIdx + 1].lat, measurePoints[segIdx + 1].lng);
       measureHoverTooltip.setLatLng(e.latlng).setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM));
@@ -4557,27 +4553,33 @@
     // new point" at that spot, same as the existing route-segment-tap feature.
     measurePolyline.on("click", (e) => {
       L.DomEvent.stopPropagation(e);
-      if (measurePoints.length < 2) return;
-      const segIdx = findNearestMeasureSegment(e.latlng);
-      if (segIdx === null) return;
-      const distM = haversineMeters(measurePoints[segIdx].lat, measurePoints[segIdx].lng, measurePoints[segIdx + 1].lat, measurePoints[segIdx + 1].lng);
-      L.popup({ closeButton: true, maxWidth: 200 }).setLatLng(e.latlng)
-        .setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM)).openOn(map);
+      showMeasureSegmentDistancePopup(e.latlng, measurePoints);
     });
   }
 
   // Nearest segment by distance to each segment's midpoint — a simple,
   // reasonably good heuristic for a hover tooltip (doesn't need pixel-perfect
   // point-to-line-segment projection for this purpose).
-  function findNearestMeasureSegment(latlng) {
+  function findNearestMeasureSegment(latlng, points) {
     let nearestIdx = null, nearestDist = Infinity;
-    for (let i = 0; i < measurePoints.length - 1; i++) {
-      const midLat = (measurePoints[i].lat + measurePoints[i + 1].lat) / 2;
-      const midLng = (measurePoints[i].lng + measurePoints[i + 1].lng) / 2;
+    for (let i = 0; i < points.length - 1; i++) {
+      const midLat = (points[i].lat + points[i + 1].lat) / 2;
+      const midLng = (points[i].lng + points[i + 1].lng) / 2;
       const d = haversineMeters(latlng.lat, latlng.lng, midLat, midLng);
       if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
     }
     return nearestIdx;
+  }
+  // Shared by both the in-progress line and any saved measurement's line —
+  // shows just that segment's distance in a small popup, rather than
+  // pulling up the full measurement modal for a quick distance check.
+  function showMeasureSegmentDistancePopup(latlng, points) {
+    if (!points || points.length < 2) return;
+    const segIdx = findNearestMeasureSegment(latlng, points);
+    if (segIdx === null) return;
+    const distM = haversineMeters(points[segIdx].lat, points[segIdx].lng, points[segIdx + 1].lat, points[segIdx + 1].lng);
+    L.popup({ closeButton: true, maxWidth: 200 }).setLatLng(latlng)
+      .setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM)).openOn(map);
   }
 
   function addMeasurePoint(latlng) {
@@ -4587,7 +4589,7 @@
       wireMeasureLineInteractions();
     }
     measurePolyline.addLatLng(latlng);
-    const vm = L.circleMarker(latlng, { radius: 5, color: "#0f172a", weight: 2, fillColor: "#22d3ee", fillOpacity: 1 }).addTo(map);
+    const vm = L.marker(latlng, { icon: makeDistanceMarkerIcon(measurePoints.length, "#22d3ee") }).addTo(map);
     measureVertexMarkers.push(vm);
   }
 
@@ -4717,19 +4719,35 @@
   measureDoneBtn.addEventListener("click", saveMeasurement);
 
   // Saved measurements render as a solid line (vs. the dashed in-progress
-  // one) and are clickable to reopen this same modal in "viewing" mode. A
-  // closed shape renders as a filled polygon instead, as a visual cue that
-  // it's an area measurement — computed fresh from the points each time
-  // (not a stored flag) so it stays correct even after a drag-edit.
+  // one) and get numbered point markers matching the route km-marker style.
+  // Tapping the LINE shows a quick segment-distance popup; tapping a
+  // numbered POINT opens the full measurement modal (rename/edit/delete) —
+  // previously the line itself opened the modal, leaving no way to just
+  // check one segment's distance without leaving the map. A closed shape
+  // renders as a filled polygon instead, as a visual cue that it's an area
+  // measurement — computed fresh from the points each time (not a stored
+  // flag) so it stays correct even after a drag-edit.
   function renderSavedMeasurement(m) {
-    if (savedMeasurementLayers[m.id]) map.removeLayer(savedMeasurementLayers[m.id].polyline);
+    if (savedMeasurementLayers[m.id]) {
+      map.removeLayer(savedMeasurementLayers[m.id].polyline);
+      savedMeasurementLayers[m.id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+    }
     const latlngs = m.points.map((p) => [p.lat, p.lng]);
     const closed = isClosedLoop(m.points);
     const layer = closed
       ? L.polygon(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85, fillColor: "#22d3ee", fillOpacity: 0.15 }).addTo(map)
       : L.polyline(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85 }).addTo(map);
-    layer.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
-    savedMeasurementLayers[m.id] = { polyline: layer };
+    layer.on("click", (e) => { L.DomEvent.stopPropagation(e); showMeasureSegmentDistancePopup(e.latlng, m.points); });
+    // For a closed loop the final point is snapped exactly onto the first —
+    // skip it here so the two numbered markers don't sit stacked on top of
+    // each other at the same spot.
+    const pointsForMarkers = closed ? m.points.slice(0, -1) : m.points;
+    const vertexMarkers = pointsForMarkers.map((p, i) => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeDistanceMarkerIcon(i + 1, "#22d3ee") }).addTo(map);
+      marker.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
+      return marker;
+    });
+    savedMeasurementLayers[m.id] = { polyline: layer, vertexMarkers };
   }
   function renderAllSavedMeasurements() {
     measurements.forEach(renderSavedMeasurement);
@@ -4772,7 +4790,11 @@
     openConfirmModal("Delete this measurement?", 'Delete "' + m.name + '"? This can\'t be undone.', () => {
       measurements = measurements.filter((mm) => mm.id !== id);
       saveMeasurements();
-      if (savedMeasurementLayers[id]) { map.removeLayer(savedMeasurementLayers[id].polyline); delete savedMeasurementLayers[id]; }
+      if (savedMeasurementLayers[id]) {
+        map.removeLayer(savedMeasurementLayers[id].polyline);
+        savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+        delete savedMeasurementLayers[id];
+      }
       showToast("Measurement deleted");
     });
   });
@@ -4807,7 +4829,10 @@
     if (!m) return;
     closeMeasureModal();
     editingMeasurementId = id;
-    if (savedMeasurementLayers[id]) map.removeLayer(savedMeasurementLayers[id].polyline);
+    if (savedMeasurementLayers[id]) {
+      map.removeLayer(savedMeasurementLayers[id].polyline);
+      savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+    }
     editLivePoints = m.points.map((p) => ({ lat: p.lat, lng: p.lng }));
     editLivePolyline = L.polyline(editLivePoints.map((p) => [p.lat, p.lng]), { color: "#22d3ee", weight: 4, opacity: 0.9, dashArray: "5 5" }).addTo(map);
     editVertexMarkers = editLivePoints.map((p, i) => {
