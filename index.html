@@ -38,6 +38,7 @@
       linear-gradient(to top, rgba(0,0,0,.25), transparent 80px);}
   #map.map-drag-over::after{content:""; position:absolute; inset:8px; border:3px dashed var(--amber); border-radius:14px;
     pointer-events:none; z-index:750; background:rgba(245,158,11,.06);}
+  #map.measuring-active{cursor:crosshair;}
   .map-drop-hint{position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:16; display:none;
     background:rgba(15,23,42,.95); border:1px solid var(--amber); border-radius:12px; padding:14px 20px;
     color:#fbbf24; font-size:14px; font-weight:600; pointer-events:none; text-align:center;}
@@ -287,6 +288,14 @@
   .forecast-day-temps{flex-shrink:0; font-size:14px; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
   .forecast-day-temps .hi{color:var(--text); font-weight:700;}
   .forecast-day-temps .lo{color:var(--text-mute);}
+  .measure-total-row{text-align:center; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:4px;}
+  .measure-total-label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute); margin-bottom:4px;}
+  .measure-total-value{display:block; font-size:32px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums;}
+  .measure-segments-list{max-height:260px; overflow-y:auto; margin-bottom:16px;}
+  .measure-segment-row{display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid var(--border); font-size:13.5px;}
+  .measure-segment-row:last-child{border-bottom:none;}
+  .measure-segment-label{color:var(--text-mute);}
+  .measure-segment-value{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
   .import-modal-card{max-width:min(480px, 92vw);}
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
@@ -586,6 +595,8 @@
         <button class="ride-dropdown-option" data-activity="boat"><span class="icon"></span><span>Cruise</span></button>
         <div class="ride-dropdown-divider"></div>
         <button class="ride-dropdown-option" id="rideDropdownViewRoutesBtn"><span class="icon"></span><span>View Routes</span></button>
+        <div class="ride-dropdown-divider"></div>
+        <button class="ride-dropdown-option" id="rideDropdownMeasureBtn"><span class="icon"></span><span>Measure Distance</span></button>
       </div>
     </div>
     <input type="file" id="cameraCaptureInput" accept="image/*" capture="environment" style="display:none;" />
@@ -919,6 +930,24 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="measureModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Measurement</h2>
+        <button class="icon-btn" id="measureModalCloseBtn"></button>
+      </div>
+      <div class="measure-total-row">
+        <span class="measure-total-label">Total distance</span>
+        <span class="measure-total-value" id="measureTotalValue">0.00 km</span>
+      </div>
+      <div class="measure-segments-list" id="measureSegmentsList"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="measureDiscardBtn">Discard</button>
+        <button class="btn btn-primary" id="measureDoneBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- slide-out panel -->
   <div class="panel" id="panel">
     <div class="panel-header">
@@ -1041,6 +1070,7 @@
     snowflake: '<line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line><path d="M20 16l-4-4 4-4"></path><path d="M4 8l4 4-4 4"></path><path d="M16 4l-4 4-4-4"></path><path d="M8 20l4-4 4 4"></path>',
     cloudFog: '<path d="M16 6.5A5 5 0 0 0 6.15 5"></path><path d="M17 9.5H8a5 5 0 0 0-1 9.9"></path><line x1="8" y1="19" x2="20" y2="19"></line><line x1="6" y1="23" x2="22" y2="23"></line>',
     sync: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>',
+    ruler: '<path d="M21.3 8.7 15.3 2.7a1 1 0 0 0-1.4 0L2.7 13.9a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0L21.3 10.1a1 1 0 0 0 0-1.4z"></path><path d="M7.5 10.5 9 12"></path><path d="M10.5 7.5 12 9"></path><path d="M13.5 4.5 15 6"></path><path d="M4.5 13.5 6 15"></path>',
     search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
     x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
     navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
@@ -1317,6 +1347,11 @@
   const RAINVIEWER_MAX_ZOOM = 7;
   let viewedRideBaseInterval = 1;
   let viewedRideFitZoom = null;
+  let measuringActive = false;
+  let measurePoints = [];
+  let measurePolyline = null;
+  let measureVertexMarkers = [];
+  let measureHoverTooltip = null;
   function setSelectedWaypointMarker(id) {
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
@@ -1515,6 +1550,13 @@
   const forecastLoadingState = el("forecastLoadingState");
   const forecastErrorState = el("forecastErrorState");
   const forecastDaysContainer = el("forecastDaysContainer");
+  const rideDropdownMeasureBtn = el("rideDropdownMeasureBtn");
+  const measureModalOverlay = el("measureModalOverlay");
+  const measureModalCloseBtn = el("measureModalCloseBtn");
+  const measureTotalValue = el("measureTotalValue");
+  const measureSegmentsList = el("measureSegmentsList");
+  const measureDiscardBtn = el("measureDiscardBtn");
+  const measureDoneBtn = el("measureDoneBtn");
   const micBtn = el("micBtn");
   const cancelBtn = el("cancelBtn");
   const saveBtn = el("saveBtn");
@@ -3043,6 +3085,10 @@
   }
 
   map.on("click", (e) => {
+    if (measuringActive) {
+      handleMeasureClick(e.latlng);
+      return;
+    }
     if (pickingCameraLocation) {
       pickingCameraLocation = false;
       const dataUrl = pendingCameraDataUrl;
@@ -3063,6 +3109,12 @@
       return;
     }
     handleMapPick(e.latlng.lat, e.latlng.lng, false);
+  });
+  map.on("dblclick", (e) => {
+    if (!measuringActive) return;
+    L.DomEvent.stop(e); // prevent the default double-click-zoom behavior while measuring
+    if (measurePoints.length > 1) measurePoints.pop(); // the second click of the double-click added a spurious point right at the finish point
+    finishMeasuring();
   });
   map.on("moveend", updateHud);
 
@@ -3525,6 +3577,7 @@
     opt.querySelector(".icon").innerHTML = icon(activityInfo(opt.dataset.activity).icon, 16);
   });
   viewRoutesBtn.querySelector(".icon").innerHTML = icon("list", 16);
+  rideDropdownMeasureBtn.querySelector(".icon").innerHTML = icon("ruler", 16);
   rideBtn.innerHTML = icon(activityInfo(currentActivityType).icon, 18);
 
   function formatDuration(ms) {
@@ -4216,6 +4269,127 @@
     const avgTimePerUnitMs = distanceInUnit > 0 ? ride.durationMs / distanceInUnit : 0;
     return { maxSpeedKmh, avgSpeedKmh, avgTimePerUnitMs };
   }
+
+  /* ============================= Measure tool ============================= */
+  // Click to place points, double-click to finish. Leaflet fires click, click,
+  // then dblclick for a double-click gesture — so the second click of that
+  // gesture would otherwise add a spurious extra point right at the finish
+  // point, which the dblclick handler below removes before finalizing.
+
+  function startMeasuring() {
+    if (rideTracking) { showToast("Stop your current route before measuring."); return; }
+    measuringActive = true;
+    measurePoints = [];
+    if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    clearMeasureVertexMarkers();
+    mapEl.classList.add("measuring-active");
+    showToast("Tap the map to start measuring — double-tap to finish.");
+  }
+
+  function clearMeasureVertexMarkers() {
+    measureVertexMarkers.forEach((m) => map.removeLayer(m));
+    measureVertexMarkers = [];
+  }
+
+  function wireMeasureHover() {
+    if (!measurePolyline) return;
+    measurePolyline.on("mouseover", () => {
+      if (!measureHoverTooltip) measureHoverTooltip = L.tooltip({ sticky: true, direction: "top", offset: [0, -8] }).addTo(map);
+    });
+    measurePolyline.on("mousemove", (e) => {
+      if (!measureHoverTooltip || measurePoints.length < 2) return;
+      const segIdx = findNearestMeasureSegment(e.latlng);
+      if (segIdx === null) return;
+      const distM = haversineMeters(measurePoints[segIdx].lat, measurePoints[segIdx].lng, measurePoints[segIdx + 1].lat, measurePoints[segIdx + 1].lng);
+      measureHoverTooltip.setLatLng(e.latlng).setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM));
+    });
+    measurePolyline.on("mouseout", () => {
+      if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
+    });
+  }
+
+  // Nearest segment by distance to each segment's midpoint — a simple,
+  // reasonably good heuristic for a hover tooltip (doesn't need pixel-perfect
+  // point-to-line-segment projection for this purpose).
+  function findNearestMeasureSegment(latlng) {
+    let nearestIdx = null, nearestDist = Infinity;
+    for (let i = 0; i < measurePoints.length - 1; i++) {
+      const midLat = (measurePoints[i].lat + measurePoints[i + 1].lat) / 2;
+      const midLng = (measurePoints[i].lng + measurePoints[i + 1].lng) / 2;
+      const d = haversineMeters(latlng.lat, latlng.lng, midLat, midLng);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    }
+    return nearestIdx;
+  }
+
+  function addMeasurePoint(latlng) {
+    measurePoints.push({ lat: latlng.lat, lng: latlng.lng });
+    if (!measurePolyline) {
+      measurePolyline = L.polyline([], { color: "#22d3ee", weight: 3, dashArray: "7 6" }).addTo(map);
+      wireMeasureHover();
+    }
+    measurePolyline.addLatLng(latlng);
+    const vm = L.circleMarker(latlng, { radius: 5, color: "#0f172a", weight: 2, fillColor: "#22d3ee", fillOpacity: 1 }).addTo(map);
+    measureVertexMarkers.push(vm);
+  }
+
+  function handleMeasureClick(latlng) {
+    addMeasurePoint(latlng);
+  }
+
+  function cancelMeasuring() {
+    measuringActive = false;
+    mapEl.classList.remove("measuring-active");
+    if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
+    clearMeasureVertexMarkers();
+    measurePoints = [];
+  }
+
+  function finishMeasuring() {
+    measuringActive = false;
+    mapEl.classList.remove("measuring-active");
+    if (measurePoints.length < 2) {
+      showToast("Tap at least 2 points to measure a distance.");
+      cancelMeasuring();
+      return;
+    }
+    showMeasureSummaryModal();
+  }
+
+  function showMeasureSummaryModal() {
+    let totalM = 0;
+    const segments = [];
+    for (let i = 0; i < measurePoints.length - 1; i++) {
+      const distM = haversineMeters(measurePoints[i].lat, measurePoints[i].lng, measurePoints[i + 1].lat, measurePoints[i + 1].lng);
+      totalM += distM;
+      segments.push(distM);
+    }
+    measureTotalValue.textContent = formatDistance(totalM);
+    measureSegmentsList.innerHTML = segments.map((distM, i) =>
+      '<div class="measure-segment-row">' +
+        '<span class="measure-segment-label">Point ' + (i + 1) + ' → Point ' + (i + 2) + '</span>' +
+        '<span class="measure-segment-value">' + formatDistance(distM) + "</span>" +
+      "</div>"
+    ).join("");
+    measureModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeMeasureModal() {
+    measureModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  measureModalCloseBtn.addEventListener("click", closeMeasureModal);
+  measureDoneBtn.addEventListener("click", closeMeasureModal); // keeps the measured line visible on the map
+  measureDiscardBtn.addEventListener("click", () => {
+    closeMeasureModal();
+    cancelMeasuring();
+  });
+  rideDropdownMeasureBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeRideDropdown();
+    startMeasuring();
+  });
 
   function startEditRouteTitle() {
     if (!currentlyViewedRide) return;
