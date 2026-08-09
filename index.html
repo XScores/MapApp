@@ -674,6 +674,7 @@
 
         <div class="layers-section">
           <p class="layers-section-title">Backup &amp; sync</p>
+          <p class="layers-hint" id="storageStatusText">Storage status: checking…</p>
           <p class="layers-hint">Download or restore everything — waypoints, photos, notes, and app settings — as one file.</p>
           <div class="home-actions">
             <button class="home-action-btn" id="exportBackupBtn">Download backup</button>
@@ -2119,6 +2120,7 @@
     e.stopPropagation();
     layersPanel.classList.toggle("show");
     layersToggleBtn.classList.toggle("active", layersPanel.classList.contains("show"));
+    if (layersPanel.classList.contains("show")) refreshStorageStatus();
   });
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
@@ -2827,7 +2829,7 @@
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
   function safeLocalStorageSet(key, value) {
-    try { localStorage.setItem(key, value); } catch (e) { /* non-fatal: this one value just won't persist */ }
+    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
   }
 
   // Tolerates pasting the full gist.github.com URL instead of just the ID —
@@ -2847,7 +2849,11 @@
 
   gistTokenInput.value = safeLocalStorageGet(GIST_TOKEN_KEY) || "";
   gistIdInput.value = safeLocalStorageGet(GIST_ID_KEY) || "";
-  gistTokenInput.addEventListener("change", () => safeLocalStorageSet(GIST_TOKEN_KEY, gistTokenInput.value.trim()));
+  gistTokenInput.addEventListener("change", () => {
+    if (!safeLocalStorageSet(GIST_TOKEN_KEY, gistTokenInput.value.trim())) {
+      showToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
+    }
+  });
   gistTokenVisibilityBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     const showing = gistTokenInput.type === "text";
@@ -2858,7 +2864,9 @@
   gistIdInput.addEventListener("change", () => {
     const cleaned = extractGistId(gistIdInput.value);
     gistIdInput.value = cleaned; // reflect the cleaned-up ID back into the field so it's visibly correct
-    safeLocalStorageSet(GIST_ID_KEY, cleaned);
+    if (!safeLocalStorageSet(GIST_ID_KEY, cleaned)) {
+      showToast("Couldn't save your Gist ID — this device's storage may be full or restricted.");
+    }
   });
 
   function githubHeaders() {
@@ -2906,7 +2914,9 @@
       }
       const data = await res.json();
       gistIdInput.value = data.id;
-      safeLocalStorageSet(GIST_ID_KEY, data.id);
+      if (!safeLocalStorageSet(GIST_ID_KEY, data.id)) {
+        showToast("Gist created, but couldn't save its ID locally — this device's storage may be full or restricted. You may need to re-enter it: " + data.id);
+      }
       gistStatusText.textContent = "Created and synced just now.";
       showToast("Gist created and synced.");
     } catch (e) {
@@ -3150,6 +3160,10 @@
         setHome(e.latlng.lat, e.latlng.lng, map.getZoom());
         showToast("Home set");
       }
+      return;
+    }
+    if (isMapClickNearInterestingPolyline(e.latlng)) {
+      showToast("Tap directly on the line to see its details.");
       return;
     }
     handleMapPick(e.latlng.lat, e.latlng.lng, false);
@@ -3470,6 +3484,48 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  // A polyline's own click hit-area is narrow — a few pixels wide, matching
+  // its visual weight. A touch tap that's visually close to the line but a
+  // little off (very easy with a finger, much harder to avoid than with a
+  // mouse cursor) misses that hit-area entirely and falls through to the map
+  // background, which used to create an unintended waypoint right there.
+  // This checks whether a map click landed near enough to a route or
+  // measurement's actual line (not just its recorded points — a click near
+  // the middle of a long, sparse segment needs to count too) to suppress
+  // that fallthrough instead.
+  const MAP_CLICK_NEAR_POLYLINE_METERS = 35;
+  // Distance from a point to a line segment, via a local planar projection
+  // (fine at these short distances — this is a proximity heuristic, not
+  // precision measurement) clamped to the segment's actual endpoints, then
+  // measured properly with haversine once the nearest point is found.
+  function distanceToSegmentMeters(latlng, p1, p2) {
+    const cosLat = Math.cos((p1.lat * Math.PI) / 180);
+    const ax = p1.lng * cosLat, ay = p1.lat;
+    const bx = p2.lng * cosLat, by = p2.lat;
+    const px = latlng.lng * cosLat, py = latlng.lat;
+    const dx = bx - ax, dy = by - ay;
+    const lengthSq = dx * dx + dy * dy;
+    let t = lengthSq > 0 ? ((px - ax) * dx + (py - ay) * dy) / lengthSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const closestLat = p1.lat + t * (p2.lat - p1.lat);
+    const closestLng = p1.lng + t * (p2.lng - p1.lng);
+    return haversineMeters(latlng.lat, latlng.lng, closestLat, closestLng);
+  }
+  function isLatLngNearPolyline(latlng, points, thresholdMeters) {
+    if (!points || points.length < 2) return false;
+    for (let i = 0; i < points.length - 1; i++) {
+      if (distanceToSegmentMeters(latlng, points[i], points[i + 1]) < thresholdMeters) return true;
+    }
+    return false;
+  }
+  function isMapClickNearInterestingPolyline(latlng) {
+    if (currentlyViewedRide && isLatLngNearPolyline(latlng, currentlyViewedRide.points, MAP_CLICK_NEAR_POLYLINE_METERS)) return true;
+    for (const m of measurements) {
+      if (savedMeasurementLayers[m.id] && isLatLngNearPolyline(latlng, m.points, MAP_CLICK_NEAR_POLYLINE_METERS)) return true;
+    }
+    return false;
+  }
+
   /* ================================================================ */
   /*  Screen wake lock — two independent demand sources (route tracking */
   /*  and a manual "always on" toggle) both feed into one shared         */
@@ -3490,8 +3546,34 @@
   // clear a site's data without the user deleting anything themselves). This
   // is a request, not a guarantee — the browser can still decline — but it's
   // the one concrete mitigation available for that category of data loss.
+  // The result is surfaced visibly (Layers > Backup & sync) rather than kept
+  // silent, so this can actually be diagnosed instead of guessed at.
+  const storageStatusText = el("storageStatusText");
+  async function refreshStorageStatus() {
+    if (!storageStatusText) return;
+    const parts = [];
+    try {
+      if (navigator.storage && navigator.storage.persisted) {
+        const isPersisted = await navigator.storage.persisted();
+        parts.push(isPersisted ? "Persistent storage: granted" : "Persistent storage: NOT granted");
+      } else {
+        parts.push("Persistent storage: not supported by this browser");
+      }
+    } catch (e) { parts.push("Persistent storage: unknown"); }
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        const usedMB = ((est.usage || 0) / 1048576).toFixed(1);
+        const quotaMB = ((est.quota || 0) / 1048576).toFixed(0);
+        parts.push(usedMB + " MB used of ~" + quotaMB + " MB available");
+      }
+    } catch (e) { /* skip — estimate() isn't available everywhere */ }
+    storageStatusText.textContent = "Storage status: " + (parts.join(" · ") || "unavailable");
+  }
   if (navigator.storage && navigator.storage.persist) {
-    navigator.storage.persist().catch(() => {});
+    navigator.storage.persist().catch(() => {}).then(refreshStorageStatus);
+  } else {
+    refreshStorageStatus();
   }
 
   function wakeLockShouldBeActive() {
@@ -4176,6 +4258,7 @@
     clearViewedRideEndpointMarkers();
     clearViewedRideDistanceMarkers();
     viewedRideFitZoom = null;
+    currentlyViewedRide = null;
   }
 
   // The X means different things depending on what's currently showing: while
@@ -4332,7 +4415,7 @@
     measureVertexMarkers = [];
   }
 
-  function wireMeasureHover() {
+  function wireMeasureLineInteractions() {
     if (!measurePolyline) return;
     measurePolyline.on("mouseover", () => {
       if (!measureHoverTooltip) measureHoverTooltip = L.tooltip({ sticky: true, direction: "top", offset: [0, -8] }).addTo(map);
@@ -4346,6 +4429,19 @@
     });
     measurePolyline.on("mouseout", () => {
       if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
+    });
+    // Tap-friendly alternative to hover, since hover has no equivalent on a
+    // touchscreen — tapping a segment shows a small popup with its distance.
+    // stopPropagation keeps this tap from also being interpreted as "add a
+    // new point" at that spot, same as the existing route-segment-tap feature.
+    measurePolyline.on("click", (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (measurePoints.length < 2) return;
+      const segIdx = findNearestMeasureSegment(e.latlng);
+      if (segIdx === null) return;
+      const distM = haversineMeters(measurePoints[segIdx].lat, measurePoints[segIdx].lng, measurePoints[segIdx + 1].lat, measurePoints[segIdx + 1].lng);
+      L.popup({ closeButton: true, maxWidth: 200 }).setLatLng(e.latlng)
+        .setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM)).openOn(map);
     });
   }
 
@@ -4367,7 +4463,7 @@
     measurePoints.push({ lat: latlng.lat, lng: latlng.lng });
     if (!measurePolyline) {
       measurePolyline = L.polyline([], { color: "#22d3ee", weight: 3, dashArray: "7 6" }).addTo(map);
-      wireMeasureHover();
+      wireMeasureLineInteractions();
     }
     measurePolyline.addLatLng(latlng);
     const vm = L.circleMarker(latlng, { radius: 5, color: "#0f172a", weight: 2, fillColor: "#22d3ee", fillOpacity: 1 }).addTo(map);
