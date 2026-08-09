@@ -296,6 +296,15 @@
   .measure-segment-row:last-child{border-bottom:none;}
   .measure-segment-label{color:var(--text-mute);}
   .measure-segment-value{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
+  .measure-vertex{width:14px; height:14px; border-radius:50%; background:#22d3ee; border:2px solid #0f172a;
+    box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:grab;}
+  .measure-edit-banner{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
+    display:flex; align-items:center; gap:14px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:12px;
+    padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; color:var(--text-dim); max-width:min(480px, 94vw);}
+  .measure-edit-banner.hidden{display:none;}
+  .measure-edit-banner .measure-edit-total{color:var(--text); font-variant-numeric:tabular-nums;}
+  .measure-edit-banner-actions{display:flex; gap:8px; flex-shrink:0;}
+  .measure-edit-banner-actions .btn{padding:6px 12px; font-size:13px;}
   .import-modal-card{max-width:min(480px, 92vw);}
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
@@ -933,17 +942,23 @@
   <div class="modal-overlay hidden" id="measureModalOverlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>Measurement</h2>
+        <h2 id="measureModalTitle">Measurement</h2>
         <button class="icon-btn" id="measureModalCloseBtn"></button>
       </div>
+      <input type="text" id="measureNameInput" class="field-input" placeholder="Name this measurement" style="margin-bottom:12px;" />
       <div class="measure-total-row">
         <span class="measure-total-label">Total distance</span>
         <span class="measure-total-value" id="measureTotalValue">0.00 km</span>
       </div>
       <div class="measure-segments-list" id="measureSegmentsList"></div>
-      <div class="btn-row">
+      <div class="btn-row" id="measureCreateBtnRow">
         <button class="btn btn-secondary" id="measureDiscardBtn">Discard</button>
-        <button class="btn btn-primary" id="measureDoneBtn">Done</button>
+        <button class="btn btn-primary" id="measureDoneBtn">Save</button>
+      </div>
+      <div class="btn-row hidden" id="measureViewBtnRow">
+        <button class="btn btn-danger" id="measureDeleteBtn">Delete</button>
+        <button class="btn btn-secondary" id="measureEditPointsBtn">Edit points</button>
+        <button class="btn btn-primary" id="measureViewCloseBtn">Close</button>
       </div>
     </div>
   </div>
@@ -1286,6 +1301,7 @@
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
+  const MEASUREMENTS_KEY = "waypoint-saver:measurements";
 
   function loadRides() {
     try {
@@ -1297,6 +1313,17 @@
   function saveRides() {
     try { localStorage.setItem(RIDES_KEY, JSON.stringify(rides)); }
     catch (e) { showToast("Couldn't save this route — this device's storage may be full."); }
+  }
+  function loadMeasurements() {
+    try {
+      const raw = localStorage.getItem(MEASUREMENTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+  function saveMeasurements() {
+    try { localStorage.setItem(MEASUREMENTS_KEY, JSON.stringify(measurements)); }
+    catch (e) { showToast("Couldn't save this measurement — this device's storage may be full."); }
   }
 
   function loadWaypoints() {
@@ -1332,6 +1359,7 @@
 
   let waypoints = loadWaypoints();
   let rides = loadRides();
+  let measurements = loadMeasurements();
   let settings = loadSettings();
   initSpatialAddressing();
   let markers = {};
@@ -1352,6 +1380,15 @@
   let measurePolyline = null;
   let measureVertexMarkers = [];
   let measureHoverTooltip = null;
+  let lastMeasureClickTime = 0;
+  let lastMeasureClickLatLng = null;
+  const savedMeasurementLayers = {}; // id -> { polyline }
+  let editingMeasurementId = null;
+  let editVertexMarkers = [];
+  let editLivePolyline = null;
+  let currentlyViewedMeasurementId = null;
+  let measureEditBanner = null;
+  let editLivePoints = [];
   function setSelectedWaypointMarker(id) {
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
@@ -1553,10 +1590,17 @@
   const rideDropdownMeasureBtn = el("rideDropdownMeasureBtn");
   const measureModalOverlay = el("measureModalOverlay");
   const measureModalCloseBtn = el("measureModalCloseBtn");
+  const measureModalTitle = el("measureModalTitle");
+  const measureNameInput = el("measureNameInput");
   const measureTotalValue = el("measureTotalValue");
   const measureSegmentsList = el("measureSegmentsList");
   const measureDiscardBtn = el("measureDiscardBtn");
   const measureDoneBtn = el("measureDoneBtn");
+  const measureCreateBtnRow = el("measureCreateBtnRow");
+  const measureViewBtnRow = el("measureViewBtnRow");
+  const measureDeleteBtn = el("measureDeleteBtn");
+  const measureEditPointsBtn = el("measureEditPointsBtn");
+  const measureViewCloseBtn = el("measureViewCloseBtn");
   const micBtn = el("micBtn");
   const cancelBtn = el("cancelBtn");
   const saveBtn = el("saveBtn");
@@ -3110,12 +3154,6 @@
     }
     handleMapPick(e.latlng.lat, e.latlng.lng, false);
   });
-  map.on("dblclick", (e) => {
-    if (!measuringActive) return;
-    L.DomEvent.stop(e); // prevent the default double-click-zoom behavior while measuring
-    if (measurePoints.length > 1) measurePoints.pop(); // the second click of the double-click added a spurious point right at the finish point
-    finishMeasuring();
-  });
   map.on("moveend", updateHud);
 
   // restore persisted waypoints
@@ -4280,9 +4318,12 @@
     if (rideTracking) { showToast("Stop your current route before measuring."); return; }
     measuringActive = true;
     measurePoints = [];
+    lastMeasureClickTime = 0;
+    lastMeasureClickLatLng = null;
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
     clearMeasureVertexMarkers();
     mapEl.classList.add("measuring-active");
+    if (map.doubleClickZoom) map.doubleClickZoom.disable();
     showToast("Tap the map to start measuring — double-tap to finish.");
   }
 
@@ -4333,13 +4374,35 @@
     measureVertexMarkers.push(vm);
   }
 
+  // Relying only on the browser's native dblclick event turned out to be
+  // unreliable for touch double-tap gestures — on a touchscreen, two quick
+  // taps can register as independent single clicks that never combine into
+  // one dblclick event, which is exactly what produced the reported bug
+  // (each tap just kept adding a new point instead of ever finishing). This
+  // detects a double-tap manually instead, requiring BOTH close timing AND
+  // close location — timing alone would misfire on two genuinely distinct
+  // points tapped in quick succession, which is a normal way to use this tool.
+  const MEASURE_DOUBLE_TAP_MS = 400;
+  const MEASURE_DOUBLE_TAP_MAX_METERS = 30; // generous tolerance for an imprecise touchscreen tap
   function handleMeasureClick(latlng) {
+    const now = Date.now();
+    const closeInTime = (now - lastMeasureClickTime) < MEASURE_DOUBLE_TAP_MS;
+    const closeInSpace = lastMeasureClickLatLng && haversineMeters(lastMeasureClickLatLng.lat, lastMeasureClickLatLng.lng, latlng.lat, latlng.lng) < MEASURE_DOUBLE_TAP_MAX_METERS;
+    if (closeInTime && closeInSpace) {
+      lastMeasureClickTime = 0;
+      lastMeasureClickLatLng = null;
+      finishMeasuring();
+      return;
+    }
+    lastMeasureClickTime = now;
+    lastMeasureClickLatLng = latlng;
     addMeasurePoint(latlng);
   }
 
   function cancelMeasuring() {
     measuringActive = false;
     mapEl.classList.remove("measuring-active");
+    if (map.doubleClickZoom) map.doubleClickZoom.enable();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
     if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
     clearMeasureVertexMarkers();
@@ -4349,6 +4412,7 @@
   function finishMeasuring() {
     measuringActive = false;
     mapEl.classList.remove("measuring-active");
+    if (map.doubleClickZoom) map.doubleClickZoom.enable();
     if (measurePoints.length < 2) {
       showToast("Tap at least 2 points to measure a distance.");
       cancelMeasuring();
@@ -4357,11 +4421,13 @@
     showMeasureSummaryModal();
   }
 
-  function showMeasureSummaryModal() {
+  // Shared by both the in-progress (unsaved) measurement and viewing an
+  // already-saved one — renders the segment list and returns the total.
+  function renderMeasureSegmentsList(points) {
     let totalM = 0;
     const segments = [];
-    for (let i = 0; i < measurePoints.length - 1; i++) {
-      const distM = haversineMeters(measurePoints[i].lat, measurePoints[i].lng, measurePoints[i + 1].lat, measurePoints[i + 1].lng);
+    for (let i = 0; i < points.length - 1; i++) {
+      const distM = haversineMeters(points[i].lat, points[i].lng, points[i + 1].lat, points[i + 1].lng);
       totalM += distM;
       segments.push(distM);
     }
@@ -4372,15 +4438,26 @@
         '<span class="measure-segment-value">' + formatDistance(distM) + "</span>" +
       "</div>"
     ).join("");
+    return totalM;
+  }
+
+  function showMeasureSummaryModal() {
+    measureModalTitle.textContent = "New Measurement";
+    renderMeasureSegmentsList(measurePoints);
+    const defaultName = "Measurement " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    measureNameInput.value = defaultName;
+    measureCreateBtnRow.classList.remove("hidden");
+    measureViewBtnRow.classList.add("hidden");
     measureModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
+    setTimeout(() => { measureNameInput.focus(); measureNameInput.select(); }, 30);
   }
   function closeMeasureModal() {
     measureModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
+    currentlyViewedMeasurementId = null;
   }
   measureModalCloseBtn.addEventListener("click", closeMeasureModal);
-  measureDoneBtn.addEventListener("click", closeMeasureModal); // keeps the measured line visible on the map
   measureDiscardBtn.addEventListener("click", () => {
     closeMeasureModal();
     cancelMeasuring();
@@ -4389,6 +4466,150 @@
     e.stopPropagation();
     closeRideDropdown();
     startMeasuring();
+  });
+
+  function saveMeasurement() {
+    const name = measureNameInput.value.trim() || "Measurement";
+    const m = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, points: measurePoints.slice(), createdAt: Date.now() };
+    measurements.push(m);
+    saveMeasurements();
+    if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
+    clearMeasureVertexMarkers();
+    measurePoints = [];
+    renderSavedMeasurement(m);
+    closeMeasureModal();
+    showToast('Saved "' + name + '"');
+  }
+  measureDoneBtn.addEventListener("click", saveMeasurement);
+
+  // Saved measurements render as a solid line (vs. the dashed in-progress
+  // one) and are clickable to reopen this same modal in "viewing" mode.
+  function renderSavedMeasurement(m) {
+    if (savedMeasurementLayers[m.id]) map.removeLayer(savedMeasurementLayers[m.id].polyline);
+    const latlngs = m.points.map((p) => [p.lat, p.lng]);
+    const polyline = L.polyline(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85 }).addTo(map);
+    polyline.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
+    savedMeasurementLayers[m.id] = { polyline };
+  }
+  function renderAllSavedMeasurements() {
+    measurements.forEach(renderSavedMeasurement);
+  }
+  renderAllSavedMeasurements();
+
+  function openMeasurementViewModal(id) {
+    const m = measurements.find((mm) => mm.id === id);
+    if (!m) return;
+    currentlyViewedMeasurementId = id;
+    measureModalTitle.textContent = m.name;
+    measureNameInput.value = m.name;
+    renderMeasureSegmentsList(m.points);
+    measureCreateBtnRow.classList.add("hidden");
+    measureViewBtnRow.classList.remove("hidden");
+    measureModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  // Commits any name edit made while viewing, so typing a new name and
+  // tapping Close (rather than some dedicated "save name" step) just works.
+  function commitMeasurementRename() {
+    if (!currentlyViewedMeasurementId) return;
+    const m = measurements.find((mm) => mm.id === currentlyViewedMeasurementId);
+    if (!m) return;
+    const newName = measureNameInput.value.trim();
+    if (newName && newName !== m.name) {
+      m.name = newName;
+      saveMeasurements();
+    }
+  }
+  measureViewCloseBtn.addEventListener("click", () => {
+    commitMeasurementRename();
+    closeMeasureModal();
+  });
+  measureDeleteBtn.addEventListener("click", () => {
+    const id = currentlyViewedMeasurementId;
+    const m = measurements.find((mm) => mm.id === id);
+    if (!m) return;
+    closeMeasureModal();
+    openConfirmModal("Delete this measurement?", 'Delete "' + m.name + '"? This can\'t be undone.', () => {
+      measurements = measurements.filter((mm) => mm.id !== id);
+      saveMeasurements();
+      if (savedMeasurementLayers[id]) { map.removeLayer(savedMeasurementLayers[id].polyline); delete savedMeasurementLayers[id]; }
+      showToast("Measurement deleted");
+    });
+  });
+
+  /* ---- Edit points (drag to adjust) ---- */
+  function makeMeasureVertexIcon() {
+    return L.divIcon({ html: '<div class="measure-vertex"></div>', className: "wp-div-icon", iconSize: [16, 16], iconAnchor: [8, 8] });
+  }
+  function updateEditLiveTotal() {
+    if (!measureEditBanner) return;
+    let totalM = 0;
+    for (let i = 0; i < editLivePoints.length - 1; i++) {
+      totalM += haversineMeters(editLivePoints[i].lat, editLivePoints[i].lng, editLivePoints[i + 1].lat, editLivePoints[i + 1].lng);
+    }
+    measureEditBanner.querySelector(".measure-edit-total").textContent = formatDistance(totalM);
+  }
+  function clearEditVertexMarkers() {
+    editVertexMarkers.forEach((mk) => map.removeLayer(mk));
+    editVertexMarkers = [];
+  }
+  function startEditingMeasurementPoints(id) {
+    const m = measurements.find((mm) => mm.id === id);
+    if (!m) return;
+    closeMeasureModal();
+    editingMeasurementId = id;
+    if (savedMeasurementLayers[id]) map.removeLayer(savedMeasurementLayers[id].polyline);
+    editLivePoints = m.points.map((p) => ({ lat: p.lat, lng: p.lng }));
+    editLivePolyline = L.polyline(editLivePoints.map((p) => [p.lat, p.lng]), { color: "#22d3ee", weight: 4, opacity: 0.9, dashArray: "5 5" }).addTo(map);
+    editVertexMarkers = editLivePoints.map((p, i) => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeMeasureVertexIcon(), draggable: true }).addTo(map);
+      marker.on("drag", () => {
+        const ll = marker.getLatLng();
+        editLivePoints[i] = { lat: ll.lat, lng: ll.lng };
+        editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+        updateEditLiveTotal();
+      });
+      return marker;
+    });
+    showMeasureEditBanner();
+  }
+  function showMeasureEditBanner() {
+    if (!measureEditBanner) {
+      measureEditBanner = document.createElement("div");
+      measureEditBanner.className = "measure-edit-banner";
+      measureEditBanner.innerHTML =
+        '<span>Drag the points to adjust — <b class="measure-edit-total">0.00 km</b></span>' +
+        '<div class="measure-edit-banner-actions">' +
+          '<button class="btn btn-secondary" id="measureEditCancelBtn">Cancel</button>' +
+          '<button class="btn btn-primary" id="measureEditSaveBtn">Save</button>' +
+        "</div>";
+      document.body.appendChild(measureEditBanner);
+      measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => finishEditingMeasurementPoints(false));
+      measureEditBanner.querySelector("#measureEditSaveBtn").addEventListener("click", () => finishEditingMeasurementPoints(true));
+    }
+    measureEditBanner.classList.remove("hidden");
+    updateEditLiveTotal();
+  }
+  function finishEditingMeasurementPoints(save) {
+    const id = editingMeasurementId;
+    const m = measurements.find((mm) => mm.id === id);
+    if (save && m) {
+      m.points = editLivePoints.slice();
+      saveMeasurements();
+      showToast("Measurement updated");
+    }
+    if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
+    clearEditVertexMarkers();
+    if (measureEditBanner) measureEditBanner.classList.add("hidden");
+    editingMeasurementId = null;
+    editLivePoints = [];
+    if (m) renderSavedMeasurement(m);
+  }
+  measureEditPointsBtn.addEventListener("click", () => {
+    const id = currentlyViewedMeasurementId;
+    commitMeasurementRename();
+    startEditingMeasurementPoints(id);
   });
 
   function startEditRouteTitle() {
