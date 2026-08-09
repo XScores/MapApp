@@ -289,13 +289,16 @@
   .forecast-day-temps .hi{color:var(--text); font-weight:700;}
   .forecast-day-temps .lo{color:var(--text-mute);}
   .measure-total-row{text-align:center; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:4px;}
+  .measure-total-row.hidden{display:none;}
   .measure-total-label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute); margin-bottom:4px;}
   .measure-total-value{display:block; font-size:32px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums;}
   .measure-segments-list{max-height:260px; overflow-y:auto; margin-bottom:16px;}
+  .measure-segments-list.hidden{display:none;}
   .measure-segment-row{display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid var(--border); font-size:13.5px;}
   .measure-segment-row:last-child{border-bottom:none;}
   .measure-segment-label{color:var(--text-mute);}
   .measure-segment-value{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
+  .measure-edit-area.hidden{display:none;}
   .measure-vertex{width:14px; height:14px; border-radius:50%; background:#22d3ee; border:2px solid #0f172a;
     box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:grab;}
   .measure-edit-banner{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
@@ -348,6 +351,7 @@
     box-shadow:0 0 0 3px #fff, 0 0 0 6px rgba(245,158,11,.85), 0 3px 8px rgba(0,0,0,.4);}
 
   .btn-row{display:flex; gap:10px;}
+  .btn-row.hidden{display:none;}
   .modal-card .btn-row{position:sticky; bottom:-20px; margin:16px -20px -20px; padding:12px 20px 20px;
     background:var(--surface); z-index:2;}
   .btn{flex:1; padding:11px; border-radius:10px; font-size:14px; text-align:center; cursor:pointer; border:1px solid transparent;}
@@ -370,7 +374,10 @@
     padding:6px 10px; border-radius:8px; cursor:pointer;}
   .panel-tab.active{background:var(--surface-2); color:var(--text);}
   .panel-title{font-size:14px; font-weight:600; margin:0;}
-  .panel-subtitle{font-size:12px; color:var(--text-mute); margin:10px 16px 0;}
+  .panel-subtitle{font-size:12px; color:var(--text-mute); margin:0;}
+  .panel-subtitle-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 16px 0;}
+  .panel-sync-status{font-size:12px; color:var(--cyan); margin:0; text-align:right; opacity:0; transition:opacity .2s;}
+  .panel-sync-status.show{opacity:1;}
   .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
     background:var(--surface-2); border:1px solid var(--border); border-radius:10px;}
   .panel-search-row.hidden{display:none;}
@@ -407,6 +414,10 @@
     padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
   .card-coords{font-size:11px; color:var(--text-mute); margin:2px 0 0;}
   .card-top-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
+  .card-favorite{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-favorite:hover{color:var(--red);}
+  .card-favorite.favorited{color:var(--red);}
+  .card-favorite.favorited svg{fill:currentColor;}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
   .card-delete{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
@@ -958,6 +969,11 @@
         <span class="measure-total-label">Total distance</span>
         <span class="measure-total-value" id="measureTotalValue">0.00 km</span>
       </div>
+      <div class="measure-total-row hidden" id="measureAreaRow">
+        <span class="measure-total-label">Area (closed shape)</span>
+        <span class="measure-total-value" id="measureAreaValue">0 m²</span>
+      </div>
+      <div class="measure-segments-list hidden" id="measureAreaUnitsList"></div>
       <div class="measure-segments-list" id="measureSegmentsList"></div>
       <div class="btn-row" id="measureCreateBtnRow">
         <button class="btn btn-secondary" id="measureDiscardBtn">Discard</button>
@@ -983,7 +999,10 @@
         <button class="panel-close" id="panelCloseBtn"></button>
       </div>
     </div>
-    <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
+    <div class="panel-subtitle-row">
+      <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
+      <p class="panel-sync-status" id="panelSyncStatus"></p>
+    </div>
     <div class="panel-search-row" id="panelSearchRow">
       <span class="icon" id="panelSearchIcon"></span>
       <input type="text" id="panelSearchInput" class="panel-search-input" placeholder="Search saved waypoints…" autocomplete="off" />
@@ -1094,6 +1113,7 @@
     cloudFog: '<path d="M16 6.5A5 5 0 0 0 6.15 5"></path><path d="M17 9.5H8a5 5 0 0 0-1 9.9"></path><line x1="8" y1="19" x2="20" y2="19"></line><line x1="6" y1="23" x2="22" y2="23"></line>',
     sync: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>',
     ruler: '<path d="M21.3 8.7 15.3 2.7a1 1 0 0 0-1.4 0L2.7 13.9a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0L21.3 10.1a1 1 0 0 0 0-1.4z"></path><path d="M7.5 10.5 9 12"></path><path d="M10.5 7.5 12 9"></path><path d="M13.5 4.5 15 6"></path><path d="M4.5 13.5 6 15"></path>',
+    heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>',
     search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
     x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
     navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
@@ -1603,6 +1623,9 @@
   const measureNameInput = el("measureNameInput");
   const measureTotalValue = el("measureTotalValue");
   const measureSegmentsList = el("measureSegmentsList");
+  const measureAreaRow = el("measureAreaRow");
+  const measureAreaValue = el("measureAreaValue");
+  const measureAreaUnitsList = el("measureAreaUnitsList");
   const measureDiscardBtn = el("measureDiscardBtn");
   const measureDoneBtn = el("measureDoneBtn");
   const measureCreateBtnRow = el("measureCreateBtnRow");
@@ -1626,6 +1649,7 @@
   const panel = el("panel");
   const panelCloseBtn = el("panelCloseBtn");
   const panelSubtitle = el("panelSubtitle");
+  const panelSyncStatus = el("panelSyncStatus");
   const panelList = el("panelList");
   const panelSearchIcon = el("panelSearchIcon");
   const panelSearchInput = el("panelSearchInput");
@@ -3073,16 +3097,29 @@
   // can't silently erase data that only existed in the Gist. Push alone is a
   // full overwrite of the Gist's content — doing it without pulling first is
   // exactly how you'd lose another device's contributions.
+  let panelSyncStatusTimer = null;
+  function setPanelSyncStatus(msg, autoHideMs) {
+    panelSyncStatus.textContent = msg;
+    panelSyncStatus.classList.toggle("show", !!msg);
+    clearTimeout(panelSyncStatusTimer);
+    if (autoHideMs) panelSyncStatusTimer = setTimeout(() => { panelSyncStatus.classList.remove("show"); }, autoHideMs);
+  }
   async function performGistSync() {
     gistSyncBtn.disabled = true;
+    panelSyncBtn.disabled = true;
+    setPanelSyncStatus("Syncing…");
     const pullOk = await performGistPull();
     if (!pullOk) {
       gistSyncBtn.disabled = false;
+      panelSyncBtn.disabled = false;
+      setPanelSyncStatus("Sync failed", 4000);
       showToast("Sync stopped — pull failed, so nothing was pushed (to avoid overwriting the Gist with an incomplete list).");
       return;
     }
     await performGistPush();
     gistSyncBtn.disabled = false;
+    panelSyncBtn.disabled = false;
+    setPanelSyncStatus("Synced just now", 4000);
   }
   gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistSync(); });
 
@@ -3557,6 +3594,57 @@
       if (savedMeasurementLayers[m.id] && isLatLngNearPolyline(latlng, m.points, MAP_CLICK_NEAR_POLYLINE_METERS)) return true;
     }
     return false;
+  }
+
+  /* ---- Measurement area (closed loop) ---- */
+  // If the last point lands back near the first, treat the shape as a closed
+  // polygon rather than an open line — same generous touch-tap tolerance
+  // used elsewhere for imprecise finger taps.
+  const MEASURE_CLOSE_LOOP_METERS = 30;
+  function isClosedLoop(points) {
+    if (!points || points.length < 3) return false;
+    const first = points[0], last = points[points.length - 1];
+    return haversineMeters(first.lat, first.lng, last.lat, last.lng) < MEASURE_CLOSE_LOOP_METERS;
+  }
+  // Shoelace formula (surveyor's formula) applied to a local planar
+  // projection of the points — accurate enough at the scale this tool is
+  // meant for (property lots, parks, fields), same style of approximation
+  // already used for the segment-proximity checks above.
+  function computePolygonAreaSqMeters(points) {
+    if (!points || points.length < 3) return 0;
+    const avgLat = points.reduce((sum, p) => sum + p.lat, 0) / points.length;
+    const cosLat = Math.cos((avgLat * Math.PI) / 180);
+    const R = 6371000;
+    const toXY = (p) => ({ x: ((p.lng * Math.PI) / 180) * R * cosLat, y: ((p.lat * Math.PI) / 180) * R });
+    const xy = points.map(toXY);
+    let area = 0;
+    for (let i = 0; i < xy.length; i++) {
+      const j = (i + 1) % xy.length;
+      area += xy[i].x * xy[j].y;
+      area -= xy[j].x * xy[i].y;
+    }
+    return Math.abs(area) / 2;
+  }
+  function formatAreaLine(label, value) {
+    return '<div class="measure-segment-row"><span class="measure-segment-label">' + label + '</span><span class="measure-segment-value">' + value + "</span></div>";
+  }
+  // Multiple units shown together rather than one auto-picked unit, since
+  // different people reach for different units depending on context (a
+  // property lot in acres, a garden plot in square feet or meters).
+  function buildAreaSummaryHtml(areaSqMeters) {
+    const sqFt = areaSqMeters * 10.7639;
+    const acres = areaSqMeters / 4046.86;
+    const hectares = areaSqMeters / 10000;
+    const sqKm = areaSqMeters / 1000000;
+    const sqMi = areaSqMeters / 2589988.11;
+    const fmt = (n, maxDecimals) => n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(maxDecimals);
+    let rows = formatAreaLine("Square meters", fmt(areaSqMeters, 1)) +
+      formatAreaLine("Square feet", fmt(sqFt, 1)) +
+      formatAreaLine("Acres", fmt(acres, 3)) +
+      formatAreaLine("Hectares", fmt(hectares, 3));
+    if (sqKm >= 0.01) rows += formatAreaLine("Square kilometers", fmt(sqKm, 3));
+    if (sqMi >= 0.01) rows += formatAreaLine("Square miles", fmt(sqMi, 3));
+    return rows;
   }
 
   /* ================================================================ */
@@ -4547,6 +4635,12 @@
       cancelMeasuring();
       return;
     }
+    if (isClosedLoop(measurePoints)) {
+      // Snap to the exact starting coordinates rather than leave a tiny
+      // gap/overlap from the imprecise tap that closed the loop.
+      measurePoints[measurePoints.length - 1] = { lat: measurePoints[0].lat, lng: measurePoints[0].lng };
+      if (measurePolyline) measurePolyline.setLatLngs(measurePoints.map((p) => [p.lat, p.lng]));
+    }
     showMeasureSummaryModal();
   }
 
@@ -4567,6 +4661,16 @@
         '<span class="measure-segment-value">' + formatDistance(distM) + "</span>" +
       "</div>"
     ).join("");
+    if (isClosedLoop(points)) {
+      const areaSqMeters = computePolygonAreaSqMeters(points);
+      measureAreaValue.textContent = (areaSqMeters * 10.7639 >= 100 ? Math.round(areaSqMeters).toLocaleString() : areaSqMeters.toFixed(1)) + " m²";
+      measureAreaUnitsList.innerHTML = buildAreaSummaryHtml(areaSqMeters);
+      measureAreaRow.classList.remove("hidden");
+      measureAreaUnitsList.classList.remove("hidden");
+    } else {
+      measureAreaRow.classList.add("hidden");
+      measureAreaUnitsList.classList.add("hidden");
+    }
     return totalM;
   }
 
@@ -4613,13 +4717,19 @@
   measureDoneBtn.addEventListener("click", saveMeasurement);
 
   // Saved measurements render as a solid line (vs. the dashed in-progress
-  // one) and are clickable to reopen this same modal in "viewing" mode.
+  // one) and are clickable to reopen this same modal in "viewing" mode. A
+  // closed shape renders as a filled polygon instead, as a visual cue that
+  // it's an area measurement — computed fresh from the points each time
+  // (not a stored flag) so it stays correct even after a drag-edit.
   function renderSavedMeasurement(m) {
     if (savedMeasurementLayers[m.id]) map.removeLayer(savedMeasurementLayers[m.id].polyline);
     const latlngs = m.points.map((p) => [p.lat, p.lng]);
-    const polyline = L.polyline(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85 }).addTo(map);
-    polyline.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
-    savedMeasurementLayers[m.id] = { polyline };
+    const closed = isClosedLoop(m.points);
+    const layer = closed
+      ? L.polygon(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85, fillColor: "#22d3ee", fillOpacity: 0.15 }).addTo(map)
+      : L.polyline(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85 }).addTo(map);
+    layer.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
+    savedMeasurementLayers[m.id] = { polyline: layer };
   }
   function renderAllSavedMeasurements() {
     measurements.forEach(renderSavedMeasurement);
@@ -4678,6 +4788,15 @@
       totalM += haversineMeters(editLivePoints[i].lat, editLivePoints[i].lng, editLivePoints[i + 1].lat, editLivePoints[i + 1].lng);
     }
     measureEditBanner.querySelector(".measure-edit-total").textContent = formatDistance(totalM);
+    const areaSpan = measureEditBanner.querySelector(".measure-edit-area");
+    if (isClosedLoop(editLivePoints)) {
+      const areaSqMeters = computePolygonAreaSqMeters(editLivePoints);
+      measureEditBanner.querySelector(".measure-edit-area-value").textContent =
+        (areaSqMeters >= 100 ? Math.round(areaSqMeters).toLocaleString() : areaSqMeters.toFixed(1)) + " m²";
+      areaSpan.classList.remove("hidden");
+    } else {
+      areaSpan.classList.add("hidden");
+    }
   }
   function clearEditVertexMarkers() {
     editVertexMarkers.forEach((mk) => map.removeLayer(mk));
@@ -4708,7 +4827,7 @@
       measureEditBanner = document.createElement("div");
       measureEditBanner.className = "measure-edit-banner";
       measureEditBanner.innerHTML =
-        '<span>Drag the points to adjust — <b class="measure-edit-total">0.00 km</b></span>' +
+        '<span>Drag the points to adjust — <b class="measure-edit-total">0.00 km</b><span class="measure-edit-area hidden"> · <b class="measure-edit-area-value"></b></span></span>' +
         '<div class="measure-edit-banner-actions">' +
           '<button class="btn btn-secondary" id="measureEditCancelBtn">Cancel</button>' +
           '<button class="btn btn-primary" id="measureEditSaveBtn">Save</button>' +
@@ -4816,6 +4935,7 @@
       return '<div class="card ride-card" data-id="' + r.id + '">' +
         '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
         '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
+        '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
@@ -4830,6 +4950,17 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteRide(btn.dataset.id);
+      });
+    });
+    routesPanelList.querySelectorAll("[data-action='toggle-favorite-route']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const ride = rides.find((r) => r.id === btn.dataset.id);
+        if (!ride) return;
+        ride.favorite = !ride.favorite;
+        saveRides();
+        btn.classList.toggle("favorited", ride.favorite);
+        btn.title = ride.favorite ? "Remove from favorites" : "Add to favorites";
       });
     });
     refreshRoutesAzPickerAvailability();
@@ -6233,6 +6364,7 @@
             "</div>" +
           "</button>" +
           '<div class="card-top-actions">' +
+            '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
             '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("trash", 16) + "</button>" +
           "</div>" +
@@ -6275,6 +6407,13 @@
         switch (action) {
           case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); break;
           case "edit": e.stopPropagation(); openEditModal(wp); break;
+          case "toggle-favorite":
+            e.stopPropagation();
+            wp.favorite = !wp.favorite;
+            saveWaypoints();
+            node.classList.toggle("favorited", wp.favorite);
+            node.title = wp.favorite ? "Remove from favorites" : "Add to favorites";
+            break;
           case "delete":
             e.stopPropagation();
             openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
