@@ -119,21 +119,24 @@
   .ride-dropdown-divider{height:1px; background:#1e293b; margin:4px 2px;}
   .btn-icon.home-btn:hover{border-color:rgba(52,211,153,.5);}
   .btn-icon.home-btn.picking{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
-  .btn-icon.panel-toggle{color:var(--amber);}
+  .btn-icon.panel-toggle{color:var(--amber); order:7;}
   .btn-icon.panel-toggle:hover{border-color:rgba(245,158,11,.5);}
   .count-badge{position:absolute; top:-6px; right:-6px; background:var(--amber); color:#020617; font-size:10px;
     font-weight:700; border-radius:9px; min-width:18px; height:18px; display:none; align-items:center; justify-content:center; padding:0 4px;}
   .count-badge.show{display:flex;}
 
   .counter-pill{flex-shrink:0; display:flex; align-items:center; gap:6px; height:44px; background:var(--panel-bg); backdrop-filter:blur(8px);
-    border:1px solid var(--border); border-radius:12px; padding:0 12px; box-shadow:0 8px 24px rgba(0,0,0,.3); box-sizing:border-box;}
+    border:1px solid var(--border); border-radius:12px; padding:0 12px; box-shadow:0 8px 24px rgba(0,0,0,.3); box-sizing:border-box; order:8;}
   .counter-pill .icon{color:var(--amber);}
   .counter-pill b{font-size:14px; font-weight:700;}
   .counter-pill span{font-size:12px; color:var(--text-mute);}
   @media (max-width:640px){ .counter-pill{display:none;} }
 
   /* ---------- layers control ---------- */
-  .layers-wrap{position:relative; flex-shrink:0;}
+  /* Swapped visually with the waypoints panel toggle below via flex order —
+     the layers panel itself is position:fixed and independent of layout
+     flow, so reordering .layers-wrap only moves the button, not the panel. */
+  .layers-wrap{position:relative; flex-shrink:0; order:9;}
   .btn-icon.layers-toggle{color:var(--cyan);}
   .btn-icon.layers-toggle:hover{border-color:rgba(34,211,238,.5);}
   .btn-icon.layers-toggle.active{border-color:rgba(34,211,238,.6); background:rgba(34,211,238,.1);}
@@ -526,6 +529,8 @@
   .current-position-badge{position:relative; width:30px; height:30px; border-radius:50%; display:flex;
     align-items:center; justify-content:center; border:2px solid #fff; color:#fff;
     box-shadow:0 2px 8px rgba(0,0,0,.5); z-index:1;}
+  .live-position-dot{width:16px; height:16px; border-radius:50%; background:#4285F4; border:3px solid #fff;
+    box-shadow:0 0 0 4px rgba(66,133,244,.3), 0 1px 4px rgba(0,0,0,.4);}
 
   .ride-card{display:flex; align-items:center; gap:12px; cursor:pointer;}
   .ride-card:hover{border-color:rgba(167,139,250,.4);}
@@ -1336,7 +1341,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "168";
+  const APP_VERSION = "172";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1421,6 +1426,7 @@
   let measureHoverTooltip = null;
   let lastMeasureClickTime = 0;
   let lastMeasureClickLatLng = null;
+  let livePositionMarker = null;
   const savedMeasurementLayers = {}; // id -> { polyline }
   let editingMeasurementId = null;
   let editVertexMarkers = [];
@@ -3964,6 +3970,35 @@
     if (ridePositionMarker) { map.removeLayer(ridePositionMarker); ridePositionMarker = null; }
   }
 
+  // A passive "you are here" dot, shown at all times — separate from the
+  // activity-specific marker above, which already shows position during
+  // active route tracking, so this stays out of the way (and out of GPS
+  // contention) while that one is active.
+  function makeLivePositionIcon() {
+    return L.divIcon({ html: '<div class="live-position-dot"></div>', className: "wp-div-icon", iconSize: [22, 22], iconAnchor: [11, 11] });
+  }
+  function updateLivePositionMarker(lat, lng) {
+    if (rideTracking) return;
+    if (!livePositionMarker) {
+      livePositionMarker = L.marker([lat, lng], { icon: makeLivePositionIcon(), zIndexOffset: 400, interactive: false }).addTo(map);
+    } else {
+      livePositionMarker.setLatLng([lat, lng]);
+    }
+  }
+  function clearLivePositionMarker() {
+    if (livePositionMarker) { map.removeLayer(livePositionMarker); livePositionMarker = null; }
+  }
+  // Lower accuracy and a longer allowed cache age than route tracking uses —
+  // this is for passive, general position display, not precise recording,
+  // so it doesn't need to be as battery-hungry.
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(
+      (pos) => updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude),
+      () => { /* silently ignore — permission denied, unavailable, etc. shouldn't interrupt anything */ },
+      { enableHighAccuracy: false, maximumAge: 15000, timeout: 20000 }
+    );
+  }
+
   // Continuously keeps the live position centered in whatever space is
   // actually visible below the open Route card — not just clear of it, but
   // centered within it — recalculated on every GPS fix so the map scrolls
@@ -4209,6 +4244,7 @@
     const info = activityInfo(currentActivityType);
     rideTracking = true;
     ridePaused = false;
+    clearLivePositionMarker();
     ridePoints = [];
     rideDistanceMeters = 0;
     rideStartTime = Date.now();
@@ -4298,6 +4334,7 @@
     rideTracking = true;
     ridePaused = false;
     rideSegmentStartTime = Date.now();
+    clearLivePositionMarker();
     clearRidePositionMarker();
     clearRideEndpointMarkers(); // the frozen "end" marker no longer applies once moving again
     const info = activityInfo(currentActivityType);
