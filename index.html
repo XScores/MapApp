@@ -992,6 +992,7 @@
       <div class="panel-tabs" id="panelTabs">
         <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Waypoints</button>
         <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Routes</button>
+        <button class="panel-tab" id="panelTabMeasurements" data-tab="measurements">Measurements</button>
       </div>
       <div class="panel-header-actions">
         <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with Gist (pull, then push)"></button>
@@ -1022,6 +1023,16 @@
       <div class="az-picker" id="routesAzPicker"></div>
     </div>
     <p class="panel-no-results" id="routesNoResults" style="display:none;">No routes match your search.</p>
+    <div class="panel-search-row hidden" id="measurementsSearchRow">
+      <span class="icon" id="measurementsSearchIcon"></span>
+      <input type="text" id="measurementsSearchInput" class="panel-search-input" placeholder="Search measurements…" autocomplete="off" />
+      <button class="panel-search-clear" id="measurementsSearchClearBtn" style="display:none;"></button>
+    </div>
+    <div class="panel-list-wrap hidden" id="panelMeasurementsView">
+      <div class="panel-list" id="measurementsPanelList"></div>
+      <div class="az-picker" id="measurementsAzPicker"></div>
+    </div>
+    <p class="panel-no-results" id="measurementsNoResults" style="display:none;">No measurements match your search.</p>
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
@@ -1499,10 +1510,13 @@
   const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
   const routesPanelList = el("routesPanelList");
+  const measurementsPanelList = el("measurementsPanelList");
   const panelTabWaypoints = el("panelTabWaypoints");
   const panelTabRoutes = el("panelTabRoutes");
+  const panelTabMeasurements = el("panelTabMeasurements");
   const panelWaypointsView = el("panelWaypointsView");
   const panelRoutesView = el("panelRoutesView");
+  const panelMeasurementsView = el("panelMeasurementsView");
   const panelSearchRow = el("panelSearchRow");
   const keepScreenAwakeToggle = el("keepScreenAwakeToggle");
   const cameraCaptureInput = el("cameraCaptureInput");
@@ -1662,8 +1676,14 @@
   const routesSearchInput = el("routesSearchInput");
   const routesSearchClearBtn = el("routesSearchClearBtn");
   const routesNoResults = el("routesNoResults");
+  const measurementsSearchRow = el("measurementsSearchRow");
+  const measurementsSearchIcon = el("measurementsSearchIcon");
+  const measurementsSearchInput = el("measurementsSearchInput");
+  const measurementsSearchClearBtn = el("measurementsSearchClearBtn");
+  const measurementsNoResults = el("measurementsNoResults");
   const azPicker = el("azPicker");
   const routesAzPicker = el("routesAzPicker");
+  const measurementsAzPicker = el("measurementsAzPicker");
   const toastEl = el("toast");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
@@ -1683,6 +1703,8 @@
   panelSearchClearBtn.innerHTML = icon("x", 13);
   routesSearchIcon.innerHTML = icon("search", 14);
   routesSearchClearBtn.innerHTML = icon("x", 13);
+  measurementsSearchIcon.innerHTML = icon("search", 14);
+  measurementsSearchClearBtn.innerHTML = icon("x", 13);
   el("hudIcon").innerHTML = icon("crosshair", 11);
   locateBtn.innerHTML = icon("navigation", 18);
   cameraBtn.innerHTML = icon("camera", 18);
@@ -4717,7 +4739,7 @@
     renderSavedMeasurement(m);
     closeMeasureModal();
     showToast('Saved "' + name + '"');
-    renderRoutesList();
+    renderMeasurementsList();
   }
   measureDoneBtn.addEventListener("click", saveMeasurement);
 
@@ -4779,7 +4801,7 @@
     if (newName && newName !== m.name) {
       m.name = newName;
       saveMeasurements();
-      renderRoutesList();
+      renderMeasurementsList();
     }
   }
   measureViewCloseBtn.addEventListener("click", () => {
@@ -4800,18 +4822,8 @@
         delete savedMeasurementLayers[id];
       }
       showToast("Measurement deleted");
-      renderRoutesList();
+      renderMeasurementsList();
     });
-  }
-  // Shared by the A-Z picker and search filter, which both need to look up
-  // an item's name regardless of whether it's a route or a measurement,
-  // since the Saved Routes tab now shows both combined.
-  function findRouteOrMeasurementById(id) {
-    const ride = rides.find((r) => r.id === id);
-    if (ride) return { name: ride.name, notes: ride.notes || "" };
-    const m = measurements.find((mm) => mm.id === id);
-    if (m) return { name: m.name, notes: "" };
-    return null;
   }
 
   /* ---- Edit points (drag to adjust) ---- */
@@ -4886,7 +4898,7 @@
       m.points = editLivePoints.slice();
       saveMeasurements();
       showToast("Measurement updated");
-      renderRoutesList();
+      renderMeasurementsList();
     }
     if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
     clearEditVertexMarkers();
@@ -4939,14 +4951,9 @@
 
   function updatePanelSubtitle() {
     if (activePanelTab === "routes") {
-      const routeCount = rides.length + (rides.length === 1 ? " route" : " routes");
-      if (measurements.length === 0) {
-        panelSubtitle.textContent = routeCount;
-      } else if (rides.length === 0) {
-        panelSubtitle.textContent = measurements.length + (measurements.length === 1 ? " measurement" : " measurements");
-      } else {
-        panelSubtitle.textContent = routeCount + " · " + measurements.length + (measurements.length === 1 ? " measurement" : " measurements");
-      }
+      panelSubtitle.textContent = rides.length + (rides.length === 1 ? " route" : " routes");
+    } else if (activePanelTab === "measurements") {
+      panelSubtitle.textContent = measurements.length + (measurements.length === 1 ? " measurement" : " measurements");
     } else {
       panelSubtitle.textContent = waypoints.length + " logged";
     }
@@ -4955,82 +4962,55 @@
     activePanelTab = tab;
     panelTabWaypoints.classList.toggle("active", tab === "waypoints");
     panelTabRoutes.classList.toggle("active", tab === "routes");
+    panelTabMeasurements.classList.toggle("active", tab === "measurements");
     panelWaypointsView.classList.toggle("hidden", tab !== "waypoints");
     panelRoutesView.classList.toggle("hidden", tab !== "routes");
+    panelMeasurementsView.classList.toggle("hidden", tab !== "measurements");
     panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
     routesSearchRow.classList.toggle("hidden", tab !== "routes");
+    measurementsSearchRow.classList.toggle("hidden", tab !== "measurements");
     if (tab !== "waypoints") panelNoResults.style.display = "none";
     if (tab !== "routes") routesNoResults.style.display = "none";
+    if (tab !== "measurements") measurementsNoResults.style.display = "none";
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
+    if (tab === "measurements") renderMeasurementsList();
   }
   panelTabWaypoints.addEventListener("click", () => switchPanelTab("waypoints"));
   panelTabRoutes.addEventListener("click", () => switchPanelTab("routes"));
+  panelTabMeasurements.addEventListener("click", () => switchPanelTab("measurements"));
 
   function renderRoutesList() {
     updatePanelSubtitle();
-    if (rides.length === 0 && measurements.length === 0) {
+    if (rides.length === 0) {
       routesPanelList.innerHTML = '<div class="empty-state">' + icon("bike", 28) +
-        "<p>No routes or measurements saved yet. Track a ride, hike, drive, or paddle, or measure a distance, then save it.</p></div>";
+        "<p>No routes saved yet. Track a ride, hike, drive, or paddle, then tap Save Route when you're done.</p></div>";
       refreshRoutesAzPickerAvailability();
       return;
     }
-    const combined = [
-      ...rides.map((r) => ({ type: "route", sortKey: getSortKey(r.name), data: r })),
-      ...measurements.map((m) => ({ type: "measurement", sortKey: getSortKey(m.name), data: m }))
-    ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-    routesPanelList.innerHTML = combined.map((item) => {
-      if (item.type === "route") {
-        const r = item.data;
-        const info = activityInfo(r.activityType);
-        const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
-        return '<div class="card ride-card" data-id="' + r.id + '" data-type="route">' +
-          '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-          '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
-          '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
-          '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
-        "</div>";
-      }
-      const m = item.data;
-      const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      let totalM = 0;
-      for (let i = 0; i < m.points.length - 1; i++) {
-        totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
-      }
-      const summary = isClosedLoop(m.points)
-        ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
-        : formatDistance(totalM) + " · " + dateStr;
-      return '<div class="card ride-card" data-id="' + m.id + '" data-type="measurement">' +
-        '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
-        '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
+    const sortedRides = rides.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    routesPanelList.innerHTML = sortedRides.map((r) => {
+      const info = activityInfo(r.activityType);
+      const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
+      return '<div class="card ride-card" data-id="' + r.id + '">' +
+        '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
+        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
+        '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+        '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
-    routesPanelList.querySelectorAll(".ride-card[data-type='route']").forEach((cardEl) => {
+    routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
         const ride = rides.find((r) => r.id === cardEl.dataset.id);
         if (ride) viewRide(ride);
       });
     });
-    routesPanelList.querySelectorAll(".ride-card[data-type='measurement']").forEach((cardEl) => {
-      cardEl.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action]")) return;
-        panel.classList.remove("open");
-        openMeasurementViewModal(cardEl.dataset.id);
-      });
-    });
     routesPanelList.querySelectorAll("[data-action='delete-route']").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteRide(btn.dataset.id);
-      });
-    });
-    routesPanelList.querySelectorAll("[data-action='delete-measurement']").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        deleteMeasurement(btn.dataset.id);
       });
     });
     routesPanelList.querySelectorAll("[data-action='toggle-favorite-route']").forEach((btn) => {
@@ -5049,6 +5029,49 @@
   }
   renderRoutesList();
 
+  // Same pattern as renderRoutesList, for the dedicated Measurements tab.
+  function renderMeasurementsList() {
+    updatePanelSubtitle();
+    if (measurements.length === 0) {
+      measurementsPanelList.innerHTML = '<div class="empty-state">' + icon("ruler", 28) +
+        "<p>No measurements saved yet. Tap the ruler icon in the Route menu to measure a distance or area, then save it.</p></div>";
+      refreshMeasurementsAzPickerAvailability();
+      return;
+    }
+    const sortedMeasurements = measurements.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    measurementsPanelList.innerHTML = sortedMeasurements.map((m) => {
+      const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      let totalM = 0;
+      for (let i = 0; i < m.points.length - 1; i++) {
+        totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
+      }
+      const summary = isClosedLoop(m.points)
+        ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
+        : formatDistance(totalM) + " · " + dateStr;
+      return '<div class="card ride-card" data-id="' + m.id + '">' +
+        '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
+        '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
+        '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
+      "</div>";
+    }).join("");
+    measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+      cardEl.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action]")) return;
+        panel.classList.remove("open");
+        openMeasurementViewModal(cardEl.dataset.id);
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='delete-measurement']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteMeasurement(btn.dataset.id);
+      });
+    });
+    refreshMeasurementsAzPickerAvailability();
+    applyMeasurementsSearchFilter();
+  }
+  renderMeasurementsList();
+
   // Same vertical A-Z index used for saved waypoints, applied to routes —
   // jumps to the first route (alphabetically) starting with the tapped
   // letter, scrolling it into view rather than filtering the list.
@@ -5062,8 +5085,8 @@
         const letter = btn.dataset.letter;
         const cards = Array.from(routesPanelList.querySelectorAll(".ride-card"));
         const targetCard = cards.find((cardEl) => {
-          const item = findRouteOrMeasurementById(cardEl.dataset.id);
-          return item && getIndexLetter(item.name) === letter;
+          const r = rides.find((ride) => ride.id === cardEl.dataset.id);
+          return r && getIndexLetter(r.name) === letter;
         });
         if (!targetCard) return;
         targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -5074,16 +5097,42 @@
     refreshRoutesAzPickerAvailability();
   }
   function refreshRoutesAzPickerAvailability() {
-    const available = new Set(
-      rides.map((r) => getIndexLetter(r.name))
-        .concat(measurements.map((m) => getIndexLetter(m.name)))
-        .filter(Boolean)
-    );
+    const available = new Set(rides.map((r) => getIndexLetter(r.name)).filter(Boolean));
     routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
   }
   renderRoutesAzPicker();
+
+  // Same pattern for the Measurements tab.
+  function renderMeasurementsAzPicker() {
+    measurementsAzPicker.innerHTML = AZ_LETTERS.map((l) =>
+      '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
+    ).join("");
+    measurementsAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const letter = btn.dataset.letter;
+        const cards = Array.from(measurementsPanelList.querySelectorAll(".ride-card"));
+        const targetCard = cards.find((cardEl) => {
+          const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
+          return m && getIndexLetter(m.name) === letter;
+        });
+        if (!targetCard) return;
+        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        btn.classList.add("active");
+        setTimeout(() => btn.classList.remove("active"), 500);
+      });
+    });
+    refreshMeasurementsAzPickerAvailability();
+  }
+  function refreshMeasurementsAzPickerAvailability() {
+    const available = new Set(measurements.map((m) => getIndexLetter(m.name)).filter(Boolean));
+    measurementsAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+    });
+  }
+  renderMeasurementsAzPicker();
 
   // Shared by both entry points (the Layers panel button and the one now
   // inside the HUD itself). Leaving an unsaved-but-stopped route to go look
@@ -6379,20 +6428,43 @@
 
     let visibleCount = 0;
     routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
-      const item = findRouteOrMeasurementById(cardEl.dataset.id);
-      if (!item) return;
-      const haystack = (item.name + " " + item.notes).toLowerCase();
+      const r = rides.find((ride) => ride.id === cardEl.dataset.id);
+      if (!r) return;
+      const haystack = (r.name + " " + (r.notes || "")).toLowerCase();
       const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    routesNoResults.style.display = (rides.length + measurements.length) > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    routesNoResults.style.display = rides.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
   }
   routesSearchInput.addEventListener("input", applyRoutesSearchFilter);
   routesSearchClearBtn.addEventListener("click", () => {
     routesSearchInput.value = "";
     applyRoutesSearchFilter();
     routesSearchInput.focus();
+  });
+
+  function applyMeasurementsSearchFilter() {
+    const query = measurementsSearchInput.value.trim().toLowerCase();
+    const terms = query.split(/\s+/).filter(Boolean);
+    measurementsSearchClearBtn.style.display = query ? "flex" : "none";
+
+    let visibleCount = 0;
+    measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+      const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
+      if (!m) return;
+      const haystack = m.name.toLowerCase();
+      const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      cardEl.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+    measurementsNoResults.style.display = measurements.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+  }
+  measurementsSearchInput.addEventListener("input", applyMeasurementsSearchFilter);
+  measurementsSearchClearBtn.addEventListener("click", () => {
+    measurementsSearchInput.value = "";
+    applyMeasurementsSearchFilter();
+    measurementsSearchInput.focus();
   });
 
   // Jumps to the first (alphabetically, matching the sort above) waypoint
