@@ -380,7 +380,6 @@
   .panel-tab{background:none; border:none; color:var(--text-mute); font-size:14px; font-weight:600;
     padding:6px 10px; border-radius:8px; cursor:pointer;}
   .panel-tab.active{background:var(--surface-2); color:var(--text);}
-  .panel-title{font-size:14px; font-weight:600; margin:0;}
   .panel-subtitle{font-size:12px; color:var(--text-mute); margin:0;}
   .panel-subtitle-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 16px 0;}
   .panel-sync-status{font-size:12px; color:var(--cyan); margin:0; text-align:right; opacity:0; transition:opacity .2s;}
@@ -441,8 +440,6 @@
   .card-notes-content{max-height:4.6em; overflow:hidden;}
   .card-notes-content p{margin:0 0 4px;}
   .card-notes-content ul, .card-notes-content ol{margin:0 0 4px; padding-left:18px;}
-  .card-notes-input{width:100%; background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:8px;
-    padding:6px 8px; font-size:12px; color:#e2e8f0; outline:none; resize:none; min-height:40px;}
 
   /* ---------- notes toolbar / journal entry ---------- */
   .field-label-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
@@ -1013,7 +1010,7 @@
         <button class="panel-tab" id="panelTabMeasurements" data-tab="measurements">Measurements</button>
       </div>
       <div class="panel-header-actions">
-        <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with Gist (pull, then push)"></button>
+        <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with GitHub (pull, then push)"></button>
         <button class="panel-close" id="panelCloseBtn"></button>
       </div>
     </div>
@@ -1351,11 +1348,13 @@
      curated anchor names) has been loaded. */
 
   /* ================================================================ */
-  /*  Persistence — plain browser localStorage (this is a standalone   */
+  /*  Persistence — IndexedDB via localForage (this is a standalone    */
   /*  static page, so it's available, unlike in a sandboxed preview).  */
+  /*  localStorage was used originally but was replaced once photos    */
+  /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "189";
+  const APP_VERSION = "190";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2920,10 +2919,11 @@
 
   /* ================================================================ */
   /*  Backup & sync — full JSON export/import, plus optional GitHub    */
-  /*  Gist sync. The access token and Gist ID are stored under their    */
-  /*  own localStorage keys, deliberately kept OUT of both the JSON     */
-  /*  export and the Gist payload itself — a credential should never    */
-  /*  end up inside the data being backed up or shared.                 */
+  /*  repository sync. The access token and repo owner/repo string are */
+  /*  stored under their own IndexedDB keys, deliberately kept OUT of  */
+  /*  both the JSON export and the synced waypoints.json payload itself */
+  /*  — a credential should never end up inside the data being backed   */
+  /*  up or shared.                                                    */
   /* ================================================================ */
 
   // A UTF-8 BOM (byte-order mark) at the start of a file is invisible when
@@ -4271,10 +4271,6 @@
   function formatDistance(meters) {
     if (settings.distanceUnit === "mi") return (meters / 1609.344).toFixed(2) + " mi";
     return (meters / 1000).toFixed(2) + " km";
-  }
-  function formatSpeed(kmh) {
-    if (settings.distanceUnit === "mi") return (kmh / 1.609344).toFixed(1) + " mph";
-    return kmh.toFixed(1) + " km/h";
   }
   function distanceUnitLabel() { return settings.distanceUnit === "mi" ? "mi" : "km"; }
   function speedUnitLabel() { return settings.distanceUnit === "mi" ? "mph" : "km/h"; }
@@ -7245,7 +7241,7 @@
 
   /* ================================================================ */
   /*  Empty-state sync safeguard — iOS Safari can silently clear a      */
-  /*  site's localStorage (7-day inactivity eviction, private browsing, */
+  /*  site's stored data (7-day inactivity eviction, private browsing,  */
   /*  low-storage cleanup), which looks like "waypoints just vanished". */
   /*  If that happens but a repo is still configured, offer to pull     */
   /*  them straight back rather than leaving an unexplained empty list. */
