@@ -1355,7 +1355,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "180";
+  const APP_VERSION = "185";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2934,8 +2934,13 @@
   // incoming photos there carry a repoPath reference instead of full base64,
   // which gets resolved into a directly-usable raw GitHub URL here.
   function mergeBackupPayload(payload, repoContext) {
-    if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
-      throw new Error("Not a recognized MapApp backup file.");
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Not a recognized MapApp backup file (expected a JSON object, got " + (payload === null ? "null" : typeof payload) + ").");
+    }
+    if (!Array.isArray(payload.waypoints)) {
+      const keys = Object.keys(payload).join(", ") || "(no keys)";
+      const preview = JSON.stringify(payload).slice(0, 200);
+      throw new Error("Not a recognized MapApp backup file (no \"waypoints\" list — object has keys: " + keys + " — content starts: " + preview + ").");
     }
     let added = 0, skipped = 0;
     payload.waypoints.forEach((wp) => {
@@ -3139,12 +3144,44 @@
   // GET /repos/{owner}/{repo}/contents/{path} -- returns { content (decoded
   // UTF-8 text), sha } for an existing file, or null if it doesn't exist yet
   // (a brand-new repo/first sync is a normal, expected case, not an error).
+  //
+  // GitHub's standard response format only includes file content up to 1MB;
+  // larger files come back with an empty content field and encoding:"none"
+  // instead of an error, which silently produces garbage (not valid JSON)
+  // if decoded as if it were real data. This app's data file can plausibly
+  // cross that threshold once a few routes with full GPS tracks are saved.
+  //
+  // Two earlier approaches for reading large files each failed differently
+  // in practice: the Accept-header raw-content negotiation
+  // (application/vnd.github.raw+json) returned the metadata object again
+  // instead of raw bytes, and the download_url it also provides returned a
+  // 404. The Git Blobs API is used here instead -- a standard, dedicated
+  // endpoint for reading file content up to 100MB, addressed purely by the
+  // file's content SHA (no branch, no pre-signed URL) and authenticated
+  // exactly the same way as every other request in this app.
   async function fetchRepoFile(owner, repo, path) {
     const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders() });
     if (res.status === 404) return null;
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; throw err; }
     const data = await res.json();
-    return { content: decodeBase64Utf8(data.content), sha: data.sha };
+    if (data.content && data.encoding === "base64") {
+      return { content: decodeBase64Utf8(data.content), sha: data.sha };
+    }
+    if (!data.sha) {
+      const err = new Error("This file is too large to read (no blob sha was provided).");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
+    const blobRes = await fetch(blobUrl, { headers: githubHeaders() });
+    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; throw err; }
+    const blobData = await blobRes.json();
+    if (blobData.encoding !== "base64" || !blobData.content) {
+      const err = new Error("The large file's blob came back in an unexpected format.");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    return { content: decodeBase64Utf8(blobData.content), sha: data.sha };
   }
 
   // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
@@ -3220,6 +3257,20 @@
     return payload;
   }
 
+  // A caught error here could be: a recognized GitHub API error (has
+  // isGitHubApiError), a genuine network-level failure (fetch() itself
+  // couldn't be made — browsers throw a TypeError mentioning "fetch" for
+  // this), or something else entirely (a bug, or data that parsed as JSON
+  // but didn't have the shape mergeBackupPayload expects). Collapsing all
+  // three into one generic "check your connection" message has already
+  // hidden two real, unrelated bugs in this sync flow — so anything that
+  // isn't clearly a network failure shows its actual message instead.
+  function describeSyncError(e) {
+    if (e && e.isGitHubApiError) return e.message;
+    if (e instanceof TypeError && /fetch/i.test(e.message || "")) return "Couldn't reach GitHub — check your connection.";
+    return (e && e.message) ? e.message : "An unexpected error occurred.";
+  }
+
   async function performRepoPull() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
@@ -3246,7 +3297,7 @@
       return { ok: true, reason: null };
     } catch (e) {
       console.error("[repo pull] error:", e);
-      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
       showToast("Couldn't pull: " + reason);
       return { ok: false, reason };
@@ -3277,7 +3328,7 @@
       return true;
     } catch (e) {
       console.error("[repo push] error:", e);
-      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
       showToast("Couldn't push: " + reason);
       return false;
@@ -3350,7 +3401,7 @@
       showToast("Found " + GITHUB_DATA_FILE + " in the repo: " + summary);
     } catch (e) {
       console.error("[repo check] error:", e);
-      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
       showToast("Couldn't check the repo: " + reason);
     }
