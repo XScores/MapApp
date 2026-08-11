@@ -733,6 +733,7 @@
             <div class="home-actions" style="margin-top:8px;">
               <button class="home-action-btn" id="gistSyncBtn">Sync</button>
               <button class="home-action-btn" id="gistCheckRepoBtn">Check repo</button>
+              <button class="home-action-btn danger" id="gistForcePushBtn">Push (overwrite)</button>
             </div>
           </div>
         </div>
@@ -1354,7 +1355,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "179";
+  const APP_VERSION = "180";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1642,6 +1643,7 @@
   const gistStatusText = el("gistStatusText");
   const gistSyncBtn = el("gistSyncBtn");
   const gistCheckRepoBtn = el("gistCheckRepoBtn");
+  const gistForcePushBtn = el("gistForcePushBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
   const anchorModalCellId = el("anchorModalCellId");
@@ -3355,6 +3357,33 @@
     gistCheckRepoBtn.disabled = false;
   }
   gistCheckRepoBtn.addEventListener("click", (e) => { e.stopPropagation(); checkRepoStatus(); });
+
+  // Deliberately skips the pull-first step performRepoSync always does.
+  // Exists specifically as a recovery path: if the remote file is
+  // corrupted, empty-but-not-quite, or otherwise unparseable, the normal
+  // sync can never succeed (pull always fails before push ever runs), even
+  // though there's nothing valid on the remote side worth preserving.
+  // Requires explicit confirmation since it's a deliberate overwrite.
+  async function performForcePush() {
+    const token = gistTokenInput.value.trim();
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    gistForcePushBtn.disabled = true;
+    gistSyncBtn.disabled = true;
+    const ok = await performRepoPush();
+    gistForcePushBtn.disabled = false;
+    gistSyncBtn.disabled = false;
+    if (ok) showToast("Pushed — this device's data now replaces whatever was in the repo.");
+  }
+  gistForcePushBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openConfirmModal(
+      "Overwrite the repo?",
+      "This replaces whatever's currently in " + GITHUB_DATA_FILE + " with this device's data, without pulling first. Use this only if a normal Sync keeps failing — for example, if the repo's file is corrupted. Anything only saved on another device that hasn't synced yet will be lost.",
+      performForcePush
+    );
+  });
 
   // One-time migration notice: a Gist ID from the old sync system can't be
   // mechanically converted into an owner/repo (they're structurally
