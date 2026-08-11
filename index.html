@@ -1355,7 +1355,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "185";
+  const APP_VERSION = "186";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3160,9 +3160,9 @@
   // file's content SHA (no branch, no pre-signed URL) and authenticated
   // exactly the same way as every other request in this app.
   async function fetchRepoFile(owner, repo, path) {
-    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders() });
+    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
     if (res.status === 404) return null;
-    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; throw err; }
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
     if (data.content && data.encoding === "base64") {
       return { content: decodeBase64Utf8(data.content), sha: data.sha };
@@ -3173,8 +3173,8 @@
       throw err;
     }
     const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetch(blobUrl, { headers: githubHeaders() });
-    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; throw err; }
+    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
     const blobData = await blobRes.json();
     if (blobData.encoding !== "base64" || !blobData.content) {
       const err = new Error("The large file's blob came back in an unexpected format.");
@@ -3194,7 +3194,7 @@
     const body = { message: message || ("Update " + path), content: base64Content, branch: GITHUB_BRANCH };
     if (sha) body.sha = sha;
     const res = await fetch(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
-    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; throw err; }
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
     return data.content && data.content.sha;
   }
@@ -3304,7 +3304,8 @@
     }
   }
 
-  async function performRepoPush() {
+  async function performRepoPush(allowConflictRetry) {
+    if (allowConflictRetry === undefined) allowConflictRetry = true;
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
     if (!token) { showToast("Paste a GitHub access token first."); return false; }
@@ -3327,6 +3328,19 @@
       gistStatusText.textContent = "Pushed just now.";
       return true;
     } catch (e) {
+      // A 409 here means another device pushed a newer version between this
+      // device's last pull and this push attempt -- a real, expected
+      // possibility once more than one device is syncing, not necessarily a
+      // bug. Re-pulling (to merge in whatever changed, never overwriting it)
+      // and retrying once resolves this automatically in the common case,
+      // rather than making the person notice the failure and retry by hand.
+      if (allowConflictRetry && e && e.httpStatus === 409) {
+        gistStatusText.textContent = "Repo changed elsewhere — re-syncing…";
+        const rePullResult = await performRepoPull();
+        if (rePullResult.ok) {
+          return performRepoPush(false); // one retry only, to avoid looping forever on a persistent conflict
+        }
+      }
       console.error("[repo push] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
@@ -3422,7 +3436,7 @@
     if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
     gistForcePushBtn.disabled = true;
     gistSyncBtn.disabled = true;
-    const ok = await performRepoPush();
+    const ok = await performRepoPush(false); // no auto-retry-with-pull -- this is a deliberate overwrite, not a normal sync
     gistForcePushBtn.disabled = false;
     gistSyncBtn.disabled = false;
     if (ok) showToast("Pushed — this device's data now replaces whatever was in the repo.");
