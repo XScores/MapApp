@@ -1355,7 +1355,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "188";
+  const APP_VERSION = "189";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1519,6 +1519,7 @@
   let measuringActive = false;
   let measurePoints = [];
   let measurePolyline = null;
+  let measureHitbox = null;
   let measureVertexMarkers = [];
   let measureHoverTooltip = null;
   let lastMeasureClickTime = 0;
@@ -3007,6 +3008,7 @@
       if (!deletedMeasurementSet.has(m.id)) return;
       if (savedMeasurementLayers[m.id]) {
         map.removeLayer(savedMeasurementLayers[m.id].polyline);
+        if (savedMeasurementLayers[m.id].hitbox) map.removeLayer(savedMeasurementLayers[m.id].hitbox);
         savedMeasurementLayers[m.id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
         delete savedMeasurementLayers[m.id];
       }
@@ -4019,6 +4021,19 @@
     return false;
   }
 
+  // A polyline's native click hit-area matches its thin visual stroke
+  // weight, which is genuinely too narrow to tap reliably — worse on
+  // touch, but noticeably fussy with a mouse too. This draws a second,
+  // invisible polyline along the exact same points with a much wider
+  // stroke and zero opacity, purely to widen the tappable area; it doesn't
+  // change how the visible line looks at all. The standard, well-known
+  // Leaflet pattern for this.
+  function addWideClickHitbox(latlngs, handlers) {
+    const hitbox = L.polyline(latlngs, { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
+    Object.keys(handlers).forEach((evt) => hitbox.on(evt, handlers[evt]));
+    return hitbox;
+  }
+
   /* ---- Measurement area (closed loop) ---- */
   // If the last point lands back near the first, treat the shape as a closed
   // polygon rather than an open line — same generous touch-tap tolerance
@@ -4227,6 +4242,7 @@
   let ridePolyline = null;
   let rideTimerInterval = null;
   let viewedRidePolyline = null;
+  let viewedRideHitbox = null;
   let currentActivityType = "bike";
   let pendingRideEndTime = null;
   // Elapsed "moving" time excludes paused segments, same as a real stopwatch —
@@ -4648,6 +4664,7 @@
     rideAccumulatedMs = 0;
     rideSegmentStartTime = rideStartTime;
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+    if (viewedRideHitbox) { map.removeLayer(viewedRideHitbox); viewedRideHitbox = null; }
     clearViewedRideEndpointMarkers();
     clearViewedRideDistanceMarkers();
     if (ridePolyline) { map.removeLayer(ridePolyline); }
@@ -4830,6 +4847,7 @@
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+    if (viewedRideHitbox) { map.removeLayer(viewedRideHitbox); viewedRideHitbox = null; }
     clearViewedRideEndpointMarkers();
     clearViewedRideDistanceMarkers();
     viewedRideFitZoom = null;
@@ -4872,13 +4890,16 @@
   function viewRide(ride) {
     if (rideTracking) { showToast("Stop your current route before viewing a saved one."); return; }
     if (viewedRidePolyline) map.removeLayer(viewedRidePolyline);
+    if (viewedRideHitbox) map.removeLayer(viewedRideHitbox);
     clearViewedRideEndpointMarkers();
     clearViewedRideDistanceMarkers();
     currentlyViewedRide = ride;
     const info = activityInfo(ride.activityType);
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
-    viewedRidePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); });
+    viewedRideHitbox = addWideClickHitbox(latlngs, {
+      click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); }
+    });
     const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
     viewedRideStartMarker = start; viewedRideEndMarker = end;
 
@@ -4979,6 +5000,7 @@
     lastMeasureClickTime = 0;
     lastMeasureClickLatLng = null;
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    if (measureHitbox) { map.removeLayer(measureHitbox); measureHitbox = null; }
     clearMeasureVertexMarkers();
     mapEl.classList.add("measuring-active");
     if (map.doubleClickZoom) map.doubleClickZoom.disable();
@@ -4991,25 +5013,25 @@
   }
 
   function wireMeasureLineInteractions() {
-    if (!measurePolyline) return;
-    measurePolyline.on("mouseover", () => {
+    if (!measureHitbox) return;
+    measureHitbox.on("mouseover", () => {
       if (!measureHoverTooltip) measureHoverTooltip = L.tooltip({ sticky: true, direction: "top", offset: [0, -8] }).addTo(map);
     });
-    measurePolyline.on("mousemove", (e) => {
+    measureHitbox.on("mousemove", (e) => {
       if (!measureHoverTooltip || measurePoints.length < 2) return;
       const segIdx = findNearestMeasureSegment(e.latlng, measurePoints);
       if (segIdx === null) return;
       const distM = haversineMeters(measurePoints[segIdx].lat, measurePoints[segIdx].lng, measurePoints[segIdx + 1].lat, measurePoints[segIdx + 1].lng);
       measureHoverTooltip.setLatLng(e.latlng).setContent("Segment " + (segIdx + 1) + ": " + formatDistance(distM));
     });
-    measurePolyline.on("mouseout", () => {
+    measureHitbox.on("mouseout", () => {
       if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
     });
     // Tap-friendly alternative to hover, since hover has no equivalent on a
     // touchscreen — tapping a segment shows a small popup with its distance.
     // stopPropagation keeps this tap from also being interpreted as "add a
     // new point" at that spot, same as the existing route-segment-tap feature.
-    measurePolyline.on("click", (e) => {
+    measureHitbox.on("click", (e) => {
       L.DomEvent.stopPropagation(e);
       showMeasureSegmentDistancePopup(e.latlng, measurePoints);
     });
@@ -5044,9 +5066,11 @@
     measurePoints.push({ lat: latlng.lat, lng: latlng.lng });
     if (!measurePolyline) {
       measurePolyline = L.polyline([], { color: "#22d3ee", weight: 3, dashArray: "7 6" }).addTo(map);
+      measureHitbox = L.polyline([], { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
       wireMeasureLineInteractions();
     }
     measurePolyline.addLatLng(latlng);
+    measureHitbox.addLatLng(latlng);
     const vm = L.marker(latlng, { icon: makeDistanceMarkerIcon(measurePoints.length, "#22d3ee") }).addTo(map);
     measureVertexMarkers.push(vm);
   }
@@ -5081,6 +5105,7 @@
     mapEl.classList.remove("measuring-active");
     if (map.doubleClickZoom) map.doubleClickZoom.enable();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    if (measureHitbox) { map.removeLayer(measureHitbox); measureHitbox = null; }
     if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
     clearMeasureVertexMarkers();
     measurePoints = [];
@@ -5100,6 +5125,7 @@
       // gap/overlap from the imprecise tap that closed the loop.
       measurePoints[measurePoints.length - 1] = { lat: measurePoints[0].lat, lng: measurePoints[0].lng };
       if (measurePolyline) measurePolyline.setLatLngs(measurePoints.map((p) => [p.lat, p.lng]));
+      if (measureHitbox) measureHitbox.setLatLngs(measurePoints.map((p) => [p.lat, p.lng]));
     }
     showMeasureSummaryModal();
   }
@@ -5167,6 +5193,7 @@
     measurements.push(m);
     saveMeasurements();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
+    if (measureHitbox) { map.removeLayer(measureHitbox); measureHitbox = null; }
     if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
     clearMeasureVertexMarkers();
     measurePoints = [];
@@ -5189,6 +5216,7 @@
   function renderSavedMeasurement(m) {
     if (savedMeasurementLayers[m.id]) {
       map.removeLayer(savedMeasurementLayers[m.id].polyline);
+      if (savedMeasurementLayers[m.id].hitbox) map.removeLayer(savedMeasurementLayers[m.id].hitbox);
       savedMeasurementLayers[m.id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
     }
     const latlngs = m.points.map((p) => [p.lat, p.lng]);
@@ -5196,7 +5224,13 @@
     const layer = closed
       ? L.polygon(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85, fillColor: "#22d3ee", fillOpacity: 0.15 }).addTo(map)
       : L.polyline(latlngs, { color: "#22d3ee", weight: 4, opacity: 0.85 }).addTo(map);
-    layer.on("click", (e) => { L.DomEvent.stopPropagation(e); showMeasureSegmentDistancePopup(e.latlng, m.points); });
+    // Matches the visible shape's geometry (polygon vs polyline) so a
+    // closed shape's hitbox also covers its closing segment, not just the
+    // originally-drawn points.
+    const hitbox = closed
+      ? L.polygon(latlngs, { color: "#000", weight: 24, opacity: 0, fillOpacity: 0, interactive: true }).addTo(map)
+      : L.polyline(latlngs, { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
+    hitbox.on("click", (e) => { L.DomEvent.stopPropagation(e); showMeasureSegmentDistancePopup(e.latlng, m.points); });
     // For a closed loop the final point is snapped exactly onto the first —
     // skip it here so the two numbered markers don't sit stacked on top of
     // each other at the same spot.
@@ -5206,7 +5240,7 @@
       marker.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
       return marker;
     });
-    savedMeasurementLayers[m.id] = { polyline: layer, vertexMarkers };
+    savedMeasurementLayers[m.id] = { polyline: layer, hitbox, vertexMarkers };
   }
   function renderAllSavedMeasurements() {
     measurements.forEach(renderSavedMeasurement);
@@ -5254,6 +5288,7 @@
       saveMeasurements();
       if (savedMeasurementLayers[id]) {
         map.removeLayer(savedMeasurementLayers[id].polyline);
+        if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
         savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
         delete savedMeasurementLayers[id];
       }
@@ -5294,6 +5329,7 @@
     editingMeasurementId = id;
     if (savedMeasurementLayers[id]) {
       map.removeLayer(savedMeasurementLayers[id].polyline);
+      if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
       savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
     }
     editLivePoints = m.points.map((p) => ({ lat: p.lat, lng: p.lng }));
