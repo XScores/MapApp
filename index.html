@@ -147,7 +147,11 @@
   .layers-panel.show{display:block;}
   .layers-panel-header{position:sticky; top:-14px; margin:-14px -14px 12px; padding:14px 14px 12px;
     background:rgba(15,23,42,.98); z-index:1; display:flex; justify-content:space-between; align-items:center;}
-  .layers-panel-header h3{margin:0; font-size:13px; font-weight:600; color:var(--text);}
+  .layers-tabs{display:flex; gap:4px;}
+  .layers-tab{background:none; border:none; color:var(--text-mute); font-size:14px; font-weight:600;
+    padding:6px 10px; border-radius:8px; cursor:pointer;}
+  .layers-tab.active{background:var(--surface-2); color:var(--text);}
+  .layers-panel-body.hidden{display:none;}
   .layers-section + .layers-section{margin-top:14px; padding-top:14px; border-top:1px solid #1e293b;}
   .layers-section-title{font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-mute);
     font-weight:700; margin:0 0 8px;}
@@ -631,26 +635,13 @@
       <button id="layersToggleBtn" class="btn-icon layers-toggle" title="Map layers"></button>
       <div id="layersPanel" class="layers-panel">
         <div class="layers-panel-header">
-          <h3>Map layers</h3>
+          <div class="layers-tabs" id="layersTabs">
+            <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
+            <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
+          </div>
           <button class="icon-btn" id="layersPanelCloseBtn"></button>
         </div>
-        <div class="layers-panel-body">
-        <div class="layers-section">
-          <p class="layers-section-title" id="appVersionLabel">App version</p>
-          <div class="home-actions">
-            <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
-          </div>
-        </div>
-        <div class="layers-section">
-          <p class="layers-section-title">Home base</p>
-          <p class="home-status" id="homeStatus">No home set yet.</p>
-          <div class="home-actions">
-            <button class="home-action-btn" id="homeFlyBtn" style="display:none;">Fly to home</button>
-            <button class="home-action-btn" id="homeUseLocationBtn">Use current location</button>
-            <button class="home-action-btn" id="homePickMapBtn">Tap map to set</button>
-            <button class="home-action-btn danger" id="homeClearBtn" style="display:none;">Remove home</button>
-          </div>
-        </div>
+        <div class="layers-panel-body" id="layersViewMain">
         <div class="layers-section">
           <p class="layers-section-title">Base map</p>
           <label class="layers-option"><input type="radio" name="baseLayer" value="street" /><span>Street</span></label>
@@ -684,6 +675,27 @@
           <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
           <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
           <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
+        </div>
+        </div>
+        <div class="layers-panel-body hidden" id="layersViewSettings">
+        <div class="layers-section">
+          <p class="layers-section-title" id="appVersionLabel">App version</p>
+          <div class="home-actions">
+            <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Home base</p>
+          <p class="home-status" id="homeStatus">No home set yet.</p>
+          <div class="home-actions">
+            <button class="home-action-btn" id="homeFlyBtn" style="display:none;">Fly to home</button>
+            <button class="home-action-btn" id="homeUseLocationBtn">Use current location</button>
+            <button class="home-action-btn" id="homePickMapBtn">Tap map to set</button>
+            <button class="home-action-btn danger" id="homeClearBtn" style="display:none;">Remove home</button>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Admin</p>
           <label class="layers-option"><input type="checkbox" id="adminModeToggle" /><span class="swatch" style="background:#f59e0b"></span><span>Admin: curate region names</span></label>
           <p class="layers-hint">Shows the ~418km anchor-region grid (red) only while this is on, so you can click a hex to rename it.</p>
           <p class="layers-hint" id="curatedCountHint">0 of 842 regions curated</p>
@@ -708,19 +720,18 @@
           <input type="file" id="importBackupFile" accept="application/json" style="display:none;" />
 
           <div class="gist-sync-block">
-            <p class="layers-section-title" style="margin-top:14px;">GitHub Gist sync</p>
-            <p class="layers-hint">Sync waypoints between devices via a private GitHub Gist. Needs a personal access token with <span class="mono">gist</span> scope — the token stays on this device and is never included in exports or the synced data itself.</p>
+            <p class="layers-section-title" style="margin-top:14px;">GitHub Repository sync</p>
+            <p class="layers-hint">Sync waypoints, routes, and measurements between devices via a GitHub repository you already have. Needs a personal access token with <span class="mono">repo</span> scope — the token stays on this device and is never included in exports or the synced data itself.</p>
             <label class="field-label" style="margin-top:8px;">Access token</label>
             <div class="token-input-row">
               <input type="password" id="gistTokenInput" class="field-input" placeholder="ghp_…" autocomplete="off" />
               <button type="button" class="token-visibility-btn" id="gistTokenVisibilityBtn" title="Show token"></button>
             </div>
-            <label class="field-label" style="margin-top:10px;">Gist ID</label>
-            <input type="text" id="gistIdInput" class="field-input" placeholder="Leave blank to create a new one" autocomplete="off" />
+            <label class="field-label" style="margin-top:10px;">Repository (owner/repo)</label>
+            <input type="text" id="githubRepoInput" class="field-input" placeholder="e.g. yourname/mapapp-data" autocomplete="off" />
             <p class="layers-hint" id="gistStatusText" style="margin-top:6px;"></p>
             <div class="home-actions" style="margin-top:8px;">
-              <button class="home-action-btn" id="gistCreateBtn">Create new Gist</button>
-              <button class="home-action-btn" id="gistSyncBtn">Sync Waypoints</button>
+              <button class="home-action-btn" id="gistSyncBtn">Sync</button>
             </div>
           </div>
         </div>
@@ -1110,8 +1121,9 @@
 <script>var exports = {};</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/h3-js/4.4.0/h3-js.js"></script>
 <script>window.h3 = exports;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 <script>
-(function () {
+(async function () {
   "use strict";
 
   /* ================================================================ */
@@ -1341,70 +1353,132 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "172";
+  const APP_VERSION = "177";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
   const MEASUREMENTS_KEY = "waypoint-saver:measurements";
 
-  function loadRides() {
-    try {
-      const raw = localStorage.getItem(RIDES_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
-  }
-  function saveRides() {
-    try { localStorage.setItem(RIDES_KEY, JSON.stringify(rides)); }
-    catch (e) { showToast("Couldn't save this route — this device's storage may be full."); }
-  }
-  function loadMeasurements() {
-    try {
-      const raw = localStorage.getItem(MEASUREMENTS_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
-  }
-  function saveMeasurements() {
-    try { localStorage.setItem(MEASUREMENTS_KEY, JSON.stringify(measurements)); }
-    catch (e) { showToast("Couldn't save this measurement — this device's storage may be full."); }
-  }
-
-  function loadWaypoints() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
-  }
-  function saveWaypoints() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(waypoints)); }
-    catch (e) {
-      showToast("Couldn't save — this device's storage is full. Try removing some photos from your waypoints.");
-    }
-  }
+  // All persisted data now lives in IndexedDB via localForage instead of
+  // localStorage, which caps out around 5-10MB per origin in most browsers —
+  // far too little once photos are embedded as base64 across many
+  // waypoints. localForage falls back to WebSQL, then localStorage itself,
+  // if IndexedDB genuinely isn't available, so this still degrades
+  // gracefully rather than failing outright.
+  const dataStore = (typeof localforage !== "undefined")
+    ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
+    : null;
 
   const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
-  function loadSettings() {
-    try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      return Object.assign({}, DEFAULT_SETTINGS, parsed, { weather: Object.assign({}, DEFAULT_SETTINGS.weather, parsed.weather) });
-    } catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
+
+  // A setItem failure can happen for more than one reason, and they need
+  // different explanations. A genuine quota error means this app's own
+  // storage allotment is full — with IndexedDB that's typically a large
+  // fraction of available disk space, not the tiny handful of MB
+  // localStorage used to allow, but it can still theoretically happen.
+  // Other failures (e.g. Private Browsing restricting storage entirely)
+  // need a different explanation, not a "storage is full" message that
+  // isn't actually true.
+  function describeStorageError(e, itemLabel) {
+    const isQuota = e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22);
+    if (isQuota) {
+      return "Couldn't save " + itemLabel + " — this app's own storage allotment (separate from your device's overall free space) is full. See Settings \u2192 Backup & sync for the actual usage. Try removing photos from older waypoints, or download a backup first so nothing is lost.";
+    }
+    return "Couldn't save " + itemLabel + " — the browser blocked it. If you're in Private Browsing mode, try a regular window instead.";
+  }
+  function normalizeArray(parsed) { return Array.isArray(parsed) ? parsed : []; }
+  function normalizeSettingsValue(parsed) {
+    const p = parsed && typeof parsed === "object" ? parsed : {};
+    return Object.assign({}, DEFAULT_SETTINGS, p, { weather: Object.assign({}, DEFAULT_SETTINGS.weather, p.weather) });
+  }
+
+  // Fire-and-forget saves — every caller throughout this file calls these
+  // exactly as it did when they were synchronous localStorage writes (no
+  // caller needs to change or await anything); the actual persistence now
+  // happens asynchronously in the background, with errors caught here so
+  // no caller needs its own try/catch either.
+  function saveRides() {
+    if (!dataStore) { showToast(describeStorageError(null, "this route")); return; }
+    dataStore.setItem(RIDES_KEY, rides).catch((e) => showToast(describeStorageError(e, "this route")));
+  }
+  function saveMeasurements() {
+    if (!dataStore) { showToast(describeStorageError(null, "this measurement")); return; }
+    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showToast(describeStorageError(e, "this measurement")));
+  }
+  function saveWaypoints() {
+    if (!dataStore) { showToast(describeStorageError(null, "your waypoints")); return; }
+    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showToast(describeStorageError(e, "your waypoints")));
   }
   function saveSettings() {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
-    catch (e) { /* non-fatal: settings just won't persist */ }
+    if (!dataStore) return;
+    dataStore.setItem(SETTINGS_KEY, settings).catch(() => { /* non-fatal: settings just won't persist */ });
+  }
+
+  // One-time, idempotent migration: anything still sitting in localStorage
+  // from before this app switched to IndexedDB gets copied over, then the
+  // old localStorage copy is cleared — so nothing existing is lost and
+  // nothing ends up duplicated between the two stores. A migration flag
+  // (itself stored in IndexedDB) means this whole check is skipped on every
+  // subsequent load once it's done. Any individual key that fails partway
+  // through is left in localStorage untouched, to retry on the next load
+  // rather than risk silently losing it.
+  const MIGRATION_FLAG_KEY = "mapapp:migratedToIndexedDB";
+  async function migrateFromLocalStorageIfNeeded() {
+    if (!dataStore) return;
+    let alreadyMigrated = false;
+    try { alreadyMigrated = await dataStore.getItem(MIGRATION_FLAG_KEY); } catch (e) { /* proceed as if not migrated */ }
+    if (alreadyMigrated) return;
+
+    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, SETTINGS_KEY];
+    const stringKeys = ["mapapp:githubToken", "mapapp:githubGistId"];
+    for (const key of jsonKeys.concat(stringKeys)) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) continue; // nothing here to migrate
+        let value = raw;
+        if (jsonKeys.includes(key)) {
+          try { value = JSON.parse(raw); } catch (e) { continue; } // corrupted JSON — skip rather than migrate garbage
+        }
+        const existingInDb = await dataStore.getItem(key);
+        if (existingInDb === null || existingInDb === undefined) {
+          await dataStore.setItem(key, value);
+        }
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.error("[storage migration] failed for " + key, e);
+      }
+    }
+    try { await dataStore.setItem(MIGRATION_FLAG_KEY, true); } catch (e) { /* non-fatal */ }
+  }
+
+  async function loadPersistedState() {
+    if (!dataStore) {
+      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
+    }
+    try {
+      const [w, r, m, s] = await Promise.all([
+        dataStore.getItem(STORAGE_KEY),
+        dataStore.getItem(RIDES_KEY),
+        dataStore.getItem(MEASUREMENTS_KEY),
+        dataStore.getItem(SETTINGS_KEY)
+      ]);
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), settings: normalizeSettingsValue(s) };
+    } catch (e) {
+      console.error("[storage] failed to load from IndexedDB", e);
+      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
+    }
   }
 
   /* ================================================================ */
   /*  State                                                             */
   /* ================================================================ */
 
-  let waypoints = loadWaypoints();
-  let rides = loadRides();
-  let measurements = loadMeasurements();
-  let settings = loadSettings();
+  await migrateFromLocalStorageIfNeeded();
+  const _persisted = await loadPersistedState();
+  let waypoints = _persisted.waypoints;
+  let rides = _persisted.rides;
+  let measurements = _persisted.measurements;
+  let settings = _persisted.settings;
   initSpatialAddressing();
   let markers = {};
   let pendingMarker = null;
@@ -1537,6 +1611,10 @@
   const layersToggleBtn = el("layersToggleBtn");
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
+  const layersTabMainBtn = el("layersTabMainBtn");
+  const layersTabSettingsBtn = el("layersTabSettingsBtn");
+  const layersViewMain = el("layersViewMain");
+  const layersViewSettings = el("layersViewSettings");
   const refreshAppBtn = el("refreshAppBtn");
   const appVersionLabel = el("appVersionLabel");
   appVersionLabel.textContent = "App version " + APP_VERSION;
@@ -1559,9 +1637,8 @@
   const importBackupFile = el("importBackupFile");
   const gistTokenInput = el("gistTokenInput");
   const gistTokenVisibilityBtn = el("gistTokenVisibilityBtn");
-  const gistIdInput = el("gistIdInput");
+  const githubRepoInput = el("githubRepoInput");
   const gistStatusText = el("gistStatusText");
-  const gistCreateBtn = el("gistCreateBtn");
   const gistSyncBtn = el("gistSyncBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
@@ -2207,8 +2284,19 @@
     e.stopPropagation();
     layersPanel.classList.toggle("show");
     layersToggleBtn.classList.toggle("active", layersPanel.classList.contains("show"));
-    if (layersPanel.classList.contains("show")) refreshStorageStatus();
+    if (layersPanel.classList.contains("show")) {
+      refreshStorageStatus();
+      switchLayersTab("main");
+    }
   });
+  function switchLayersTab(tab) {
+    layersTabMainBtn.classList.toggle("active", tab === "main");
+    layersTabSettingsBtn.classList.toggle("active", tab === "settings");
+    layersViewMain.classList.toggle("hidden", tab !== "main");
+    layersViewSettings.classList.toggle("hidden", tab !== "settings");
+  }
+  layersTabMainBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("main"); });
+  layersTabSettingsBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("settings"); });
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
@@ -2638,9 +2726,17 @@
     return Math.max(ANCHOR_RES + 1, Math.min(FINE_RES, Math.round(zoom - 5)));
   }
 
+  // Either toggle can independently call for precision hexes to be shown:
+  // the main toggle always does, and "max zoom only" does too but strictly
+  // while actually at the map's maximum zoom.
+  function shouldShowPrecisionHexes() {
+    if (precisionHexToggle.checked) return true;
+    return precisionHexMaxZoomOnlyToggle.checked && map.getZoom() >= map.getMaxZoom();
+  }
+
   function rebuildPrecisionHexes() {
     if (!h3Ready) return;
-    if (precisionHexMaxZoomOnlyToggle.checked && map.getZoom() < map.getMaxZoom()) {
+    if (!shouldShowPrecisionHexes()) {
       if (precisionHexLayer) { map.removeLayer(precisionHexLayer); precisionHexLayer = null; }
       return;
     }
@@ -2664,6 +2760,12 @@
       showToast("Zoom in further to see precision hexes for this area.");
       return;
     }
+    // The largest possible precision hexes (the coarsest resolution this
+    // grid ever uses) render red instead of blue, as a visual cue that
+    // these are as big as precision hexes get — same "red means large"
+    // language already used for the anchor-region grid.
+    const isLargestPossible = res === ANCHOR_RES + 1;
+    const strokeColor = isLargestPossible ? "#ef4444" : "#3b82f6";
     const group = L.layerGroup();
     cells.forEach((cell) => {
       try {
@@ -2671,22 +2773,18 @@
         const lngs = boundary.map((p) => p[1]);
         if (Math.max(...lngs) - Math.min(...lngs) > 180) return;
         L.polygon(boundary, {
-          color: "#3b82f6", weight: 1, opacity: 0.6, fillColor: "#3b82f6", fillOpacity: 0.04, interactive: false
+          color: strokeColor, weight: 1, opacity: 0.6, fillColor: strokeColor, fillOpacity: 0.04, interactive: false
         }).addTo(group);
       } catch (e) { /* skip malformed cell */ }
     });
     if (precisionHexLayer) map.removeLayer(precisionHexLayer);
     precisionHexLayer = group;
-    if (precisionHexToggle.checked) precisionHexLayer.addTo(map);
+    precisionHexLayer.addTo(map); // shouldShowPrecisionHexes() already confirmed this should be visible
   }
 
   function togglePrecisionHexes(on) {
-    if (on) {
-      if (!h3Ready) { showToast("Precision hexes need the H3 library, which hasn't finished loading."); precisionHexToggle.checked = false; return; }
-      rebuildPrecisionHexes();
-    } else if (precisionHexLayer) {
-      map.removeLayer(precisionHexLayer);
-    }
+    if (on && !h3Ready) { showToast("Precision hexes need the H3 library, which hasn't finished loading."); precisionHexToggle.checked = false; return; }
+    rebuildPrecisionHexes();
   }
   precisionHexToggle.addEventListener("change", () => {
     settings.precisionHex = precisionHexToggle.checked;
@@ -2696,10 +2794,10 @@
   precisionHexMaxZoomOnlyToggle.addEventListener("change", () => {
     settings.precisionHexMaxZoomOnly = precisionHexMaxZoomOnlyToggle.checked;
     saveSettings();
-    if (precisionHexToggle.checked) rebuildPrecisionHexes();
+    rebuildPrecisionHexes(); // independent of the main toggle's own state now
   });
   map.on("moveend", () => {
-    if (!precisionHexToggle.checked) return;
+    if (!shouldShowPrecisionHexes() && !precisionHexLayer) return; // nothing to show and nothing to clean up
     clearTimeout(precisionHexDebounce);
     precisionHexDebounce = setTimeout(rebuildPrecisionHexes, 350);
   });
@@ -2815,6 +2913,7 @@
       exportedAt: new Date().toISOString(),
       waypoints: JSON.parse(JSON.stringify(waypoints)),
       rides: JSON.parse(JSON.stringify(rides)),
+      measurements: JSON.parse(JSON.stringify(measurements)),
       settings: {
         home: settings.home || null,
         anchorOverrides: settings.anchorOverrides || {}
@@ -2822,12 +2921,15 @@
     };
   }
 
-  // Shared by both file-based restore and Gist pull. Deliberately conservative:
+  // Shared by file-based restore and repo-sync pull. Deliberately conservative:
   // waypoints and routes are only ever added (an existing local one is never
   // overwritten, so a restore/pull can't silently clobber an edit made on this
   // device), anchor region names are merged in since they're just shared
   // labels, and Home is only adopted if this device doesn't already have one set.
-  function mergeBackupPayload(payload) {
+  // repoContext ({owner, repo}) is passed only by the repo-sync pull path —
+  // incoming photos there carry a repoPath reference instead of full base64,
+  // which gets resolved into a directly-usable raw GitHub URL here.
+  function mergeBackupPayload(payload, repoContext) {
     if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
       throw new Error("Not a recognized MapApp backup file.");
     }
@@ -2835,6 +2937,14 @@
     payload.waypoints.forEach((wp) => {
       if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
       if (waypoints.some((existing) => existing.id === wp.id)) { skipped++; return; }
+      if (repoContext && Array.isArray(wp.photos)) {
+        wp.photos = wp.photos.map((p) => {
+          if (p && p.repoPath && !p.src) {
+            return Object.assign({}, p, { src: githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath) });
+          }
+          return p;
+        });
+      }
       waypoints.push(wp);
       addSavedMarker(wp);
       added++;
@@ -2854,6 +2964,18 @@
       if (routesAdded > 0) { saveRides(); renderRoutesList(); }
     }
 
+    // Same story — older exports predate measurement syncing entirely.
+    let measurementsAdded = 0, measurementsSkipped = 0;
+    if (Array.isArray(payload.measurements)) {
+      payload.measurements.forEach((m) => {
+        if (!m || !m.id || !Array.isArray(m.points)) { measurementsSkipped++; return; }
+        if (measurements.some((existing) => existing.id === m.id)) { measurementsSkipped++; return; }
+        measurements.push(m);
+        measurementsAdded++;
+      });
+      if (measurementsAdded > 0) { saveMeasurements(); renderMeasurementsList(); }
+    }
+
     let anchorsApplied = 0;
     if (payload.settings && payload.settings.anchorOverrides) {
       Object.keys(payload.settings.anchorOverrides).forEach((cell) => {
@@ -2871,7 +2993,7 @@
       homeAdopted = true;
     }
 
-    return { added, skipped, routesAdded, routesSkipped, anchorsApplied, homeAdopted };
+    return { added, skipped, routesAdded, routesSkipped, measurementsAdded, measurementsSkipped, anchorsApplied, homeAdopted };
   }
 
   exportBackupBtn.addEventListener("click", (e) => {
@@ -2897,6 +3019,7 @@
         const result = mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
+        if (result.measurementsAdded) msg += " and " + result.measurementsAdded + " measurement" + (result.measurementsAdded === 1 ? "" : "s");
         if (result.skipped) msg += " (" + result.skipped + " already saved)";
         showToast(msg);
       } catch (e) {
@@ -2907,37 +3030,43 @@
     reader.readAsText(file);
   });
 
-  /* ---------- GitHub Gist sync ---------- */
-  const GIST_TOKEN_KEY = "mapapp:githubToken";
-  const GIST_ID_KEY = "mapapp:githubGistId";
-  const GIST_FILENAME = "mapapp-waypoints-backup.json";
+  /* ---------- GitHub Repository sync ---------- */
+  const GITHUB_TOKEN_KEY = "mapapp:githubToken"; // unchanged key string -- existing saved tokens carry over automatically
+  const GITHUB_REPO_KEY = "mapapp:githubRepo";
+  const LEGACY_GIST_ID_KEY = "mapapp:githubGistId"; // no longer used for sync -- checked once for a one-time migration notice
+  const GITHUB_DATA_FILE = "waypoints.json";
+  const GITHUB_BRANCH = "main";
 
   function safeLocalStorageGet(key) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
+    if (!dataStore) return Promise.resolve(null);
+    return dataStore.getItem(key).catch(() => null);
   }
   function safeLocalStorageSet(key, value) {
-    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+    if (!dataStore) return Promise.resolve(false);
+    return dataStore.setItem(key, value).then(() => true).catch(() => false);
   }
 
-  // Tolerates pasting the full gist.github.com URL instead of just the ID —
-  // an easy, common mistake since that's literally what's in the address bar
-  // when you're looking at a gist.
-  function extractGistId(raw) {
-    const trimmed = String(raw || "").trim();
-    if (!trimmed) return "";
+  // Tolerates a pasted full repo URL (https://github.com/owner/repo) instead
+  // of just "owner/repo" -- same spirit as the old Gist-URL tolerance, since
+  // that's literally what's in the address bar when looking at a repo.
+  function parseOwnerRepo(raw) {
+    let trimmed = String(raw || "").trim();
+    if (!trimmed) return null;
     if (/^https?:\/\//i.test(trimmed)) {
       try {
         const parts = new URL(trimmed).pathname.split("/").filter(Boolean);
-        if (parts.length > 0) return parts[parts.length - 1];
-      } catch (e) { /* not a parseable URL — fall through and use as-is */ }
+        if (parts.length >= 2) trimmed = parts[0] + "/" + parts[1];
+      } catch (e) { /* not a parseable URL -- fall through and try as-is */ }
     }
-    return trimmed;
+    const m = trimmed.match(/^([^\/\s]+)\/([^\/\s]+?)(?:\.git)?$/);
+    if (!m) return null;
+    return { owner: m[1], repo: m[2] };
   }
 
-  gistTokenInput.value = safeLocalStorageGet(GIST_TOKEN_KEY) || "";
-  gistIdInput.value = safeLocalStorageGet(GIST_ID_KEY) || "";
-  gistTokenInput.addEventListener("change", () => {
-    if (!safeLocalStorageSet(GIST_TOKEN_KEY, gistTokenInput.value.trim())) {
+  gistTokenInput.value = (await safeLocalStorageGet(GITHUB_TOKEN_KEY)) || "";
+  githubRepoInput.value = (await safeLocalStorageGet(GITHUB_REPO_KEY)) || "";
+  gistTokenInput.addEventListener("change", async () => {
+    if (!(await safeLocalStorageSet(GITHUB_TOKEN_KEY, gistTokenInput.value.trim()))) {
       showToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
     }
   });
@@ -2948,11 +3077,12 @@
     gistTokenVisibilityBtn.innerHTML = icon(showing ? "eye" : "eyeOff", 15);
     gistTokenVisibilityBtn.title = showing ? "Show token" : "Hide token";
   });
-  gistIdInput.addEventListener("change", () => {
-    const cleaned = extractGistId(gistIdInput.value);
-    gistIdInput.value = cleaned; // reflect the cleaned-up ID back into the field so it's visibly correct
-    if (!safeLocalStorageSet(GIST_ID_KEY, cleaned)) {
-      showToast("Couldn't save your Gist ID — this device's storage may be full or restricted.");
+  githubRepoInput.addEventListener("change", async () => {
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    const cleaned = parsed ? (parsed.owner + "/" + parsed.repo) : githubRepoInput.value.trim();
+    githubRepoInput.value = cleaned; // reflect the cleaned-up value back into the field so it's visibly correct
+    if (!(await safeLocalStorageSet(GITHUB_REPO_KEY, cleaned))) {
+      showToast("Couldn't save your repository — this device's storage may be full or restricted.");
     }
   });
 
@@ -2964,165 +3094,199 @@
     };
   }
 
-  async function describeGistFetchError(res) {
+  async function describeGitHubApiError(res) {
     let detail = "";
     try {
       const body = await res.json();
       if (body && body.message) detail = body.message;
-    } catch (e) { /* body wasn't JSON — ignore, detail stays empty */ }
+    } catch (e) { /* body wasn't JSON -- ignore, detail stays empty */ }
     if (res.status === 401) return "Bad or expired access token" + (detail ? " (" + detail + ")" : "") + ".";
-    if (res.status === 404) return "Gist not found — check the Gist ID, and make sure the token can access it.";
-    if (res.status === 403) return "Access denied" + (detail ? " (" + detail + ")" : "") + " — check the token has \"gist\" scope.";
+    if (res.status === 404) return "Repository or file not found — check the owner/repo, and make sure the token can access it.";
+    if (res.status === 403) return "Access denied" + (detail ? " (" + detail + ")" : "") + " — check the token has \"repo\" scope.";
+    if (res.status === 409) return "That file changed since the last sync" + (detail ? " (" + detail + ")" : "") + " — try syncing again.";
     if (res.status === 422) return "GitHub rejected the request" + (detail ? " (" + detail + ")" : "") + ".";
     return "GitHub returned HTTP " + res.status + (detail ? ": " + detail : "") + ".";
   }
 
-  gistCreateBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const token = gistTokenInput.value.trim();
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    gistStatusText.textContent = "Creating gist…";
-    try {
-      const res = await fetch("https://api.github.com/gists", {
-        method: "POST",
-        headers: githubHeaders(),
-        body: JSON.stringify({
-          description: "MapApp waypoint backup (secret — anyone with the link can view it)",
-          public: false,
-          files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } }
-        })
-      });
-      if (!res.ok) {
-        const reason = await describeGistFetchError(res);
-        console.error("[gist create] " + reason);
-        gistStatusText.textContent = reason;
-        showToast("Couldn't create the gist: " + reason);
-        return;
-      }
-      const data = await res.json();
-      gistIdInput.value = data.id;
-      if (!safeLocalStorageSet(GIST_ID_KEY, data.id)) {
-        showToast("Gist created, but couldn't save its ID locally — this device's storage may be full or restricted. You may need to re-enter it: " + data.id);
-      }
-      gistStatusText.textContent = "Created and synced just now.";
-      showToast("Gist created and synced.");
-    } catch (e) {
-      console.error("[gist create] network/unexpected error:", e);
-      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
-      showToast("Couldn't reach GitHub — check your connection.");
-    }
-  });
+  // UTF-8-safe base64 encode/decode -- plain btoa/atob only handle Latin1,
+  // which breaks on any waypoint name or note with non-ASCII characters.
+  function encodeBase64Utf8(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    bytes.forEach((b) => { binary += String.fromCharCode(b); });
+    return btoa(binary);
+  }
+  function decodeBase64Utf8(b64) {
+    const binary = atob(String(b64 || "").replace(/\n/g, ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
 
-  async function performGistPush() {
-    const token = gistTokenInput.value.trim();
-    const gistId = extractGistId(gistIdInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return false; }
-    if (!gistId) { showToast("No Gist ID yet — create one first."); return false; }
-    gistStatusText.textContent = "Pushing…";
+  function githubContentsUrl(owner, repo, path) {
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    return "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/contents/" + encodedPath;
+  }
+  function githubRawUrl(owner, repo, path) {
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    return "https://raw.githubusercontent.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/" + GITHUB_BRANCH + "/" + encodedPath;
+  }
+
+  // GET /repos/{owner}/{repo}/contents/{path} -- returns { content (decoded
+  // UTF-8 text), sha } for an existing file, or null if it doesn't exist yet
+  // (a brand-new repo/first sync is a normal, expected case, not an error).
+  async function fetchRepoFile(owner, repo, path) {
+    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders() });
+    if (res.status === 404) return null;
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; throw err; }
+    const data = await res.json();
+    return { content: decodeBase64Utf8(data.content), sha: data.sha };
+  }
+
+  // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
+  // omitted, updates it if sha is provided (GitHub requires the current sha
+  // for any update, to avoid silently clobbering a change made elsewhere).
+  // base64Content must already be base64 -- callers pass raw image bytes
+  // as-is (already base64 from a data: URL) or run text through
+  // encodeBase64Utf8 first.
+  async function putRepoFileRaw(owner, repo, path, base64Content, sha, message) {
+    const body = { message: message || ("Update " + path), content: base64Content, branch: GITHUB_BRANCH };
+    if (sha) body.sha = sha;
+    const res = await fetch(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; throw err; }
+    const data = await res.json();
+    return data.content && data.content.sha;
+  }
+  // Always checks for an existing sha first, so this is safe to call
+  // whether the file already exists or not -- avoids the caller needing to
+  // track sha state itself.
+  async function putRepoFileSmart(owner, repo, path, base64Content, message) {
+    let sha = null;
     try {
-      const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), {
-        method: "PATCH",
-        headers: githubHeaders(),
-        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(buildBackupPayload(), null, 2) } } })
+      const existing = await fetchRepoFile(owner, repo, path);
+      if (existing) sha = existing.sha;
+    } catch (e) { /* if the existence check itself fails, still attempt the PUT as a create */ }
+    return putRepoFileRaw(owner, repo, path, base64Content, sha, message);
+  }
+
+  // Any photo still holding local base64 (never yet uploaded, tracked via
+  // the absence of repoPath) gets uploaded as its own file under images/.
+  // Already-uploaded photos are skipped entirely -- photos are treated as
+  // immutable once synced, so this never re-uploads unchanged data.
+  async function uploadWaypointPhotosIfNeeded(owner, repo) {
+    let anyUploaded = false;
+    let anyFailed = false;
+    for (const wp of waypoints) {
+      if (!Array.isArray(wp.photos)) continue;
+      for (let i = 0; i < wp.photos.length; i++) {
+        const photo = wp.photos[i];
+        if (!photo || photo.repoPath || !photo.src || typeof photo.src !== "string" || !photo.src.startsWith("data:")) continue;
+        const match = photo.src.match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) continue;
+        const mime = match[1];
+        const base64Data = match[2];
+        const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
+        const path = "images/" + wp.id + "-" + i + "." + ext;
+        try {
+          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo for waypoint " + wp.id);
+          photo.repoPath = path;
+          anyUploaded = true;
+        } catch (e) {
+          console.error("[repo sync] failed to upload photo " + path, e);
+          anyFailed = true;
+        }
+      }
+    }
+    if (anyUploaded) saveWaypoints();
+    return { anyUploaded, anyFailed };
+  }
+
+  // Leaner than buildBackupPayload's full local export: photo src (base64)
+  // is dropped in favor of the repoPath reference set by
+  // uploadWaypointPhotosIfNeeded, since the actual image data now lives in
+  // its own file in the repo rather than embedded in this JSON.
+  function buildRepoSyncPayload() {
+    const payload = buildBackupPayload();
+    payload.waypoints = payload.waypoints.map((wp) => {
+      if (!Array.isArray(wp.photos)) return wp;
+      return Object.assign({}, wp, {
+        photos: wp.photos.map((p) => (p && p.repoPath) ? { name: p.name, repoPath: p.repoPath } : p)
       });
-      if (!res.ok) {
-        const reason = await describeGistFetchError(res);
-        console.error("[gist push] " + reason);
-        gistStatusText.textContent = reason;
-        showToast("Couldn't push: " + reason);
+    });
+    return payload;
+  }
+
+  async function performRepoPull() {
+    const token = gistTokenInput.value.trim();
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    if (!token) { showToast("Paste a GitHub access token first."); return false; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return false; }
+    gistStatusText.textContent = "Pulling…";
+    try {
+      const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
+      if (!file) {
+        gistStatusText.textContent = "No " + GITHUB_DATA_FILE + " in that repo yet — sync again to create it.";
+        return true; // an empty/new repo is a valid starting state, not a failure
+      }
+      let payload;
+      try {
+        payload = JSON.parse(stripBom(file.content));
+      } catch (parseErr) {
+        console.error("[repo pull] file content wasn't valid JSON:", parseErr);
+        gistStatusText.textContent = "That file isn't valid MapApp data.";
+        showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
         return false;
       }
-      gistStatusText.textContent = "Pushed just now.";
+      mergeBackupPayload(payload, parsed);
+      gistStatusText.textContent = "Pulled just now.";
       return true;
     } catch (e) {
-      console.error("[gist push] network/unexpected error:", e);
-      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
-      showToast("Couldn't reach GitHub — check your connection.");
+      console.error("[repo pull] error:", e);
+      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      gistStatusText.textContent = reason;
+      showToast("Couldn't pull: " + reason);
       return false;
     }
   }
 
-  async function performGistPull() {
+  async function performRepoPush() {
     const token = gistTokenInput.value.trim();
-    const gistId = extractGistId(gistIdInput.value);
+    const parsed = parseOwnerRepo(githubRepoInput.value);
     if (!token) { showToast("Paste a GitHub access token first."); return false; }
-    if (!gistId) { showToast("Paste a Gist ID to pull from."); return false; }
-    gistStatusText.textContent = "Pulling…";
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return false; }
     try {
-      const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(gistId), { headers: githubHeaders() });
-      if (!res.ok) {
-        const reason = await describeGistFetchError(res);
-        console.error("[gist pull] " + reason);
-        gistStatusText.textContent = reason;
-        showToast("Couldn't pull: " + reason);
-        return false;
+      gistStatusText.textContent = "Uploading photos…";
+      const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
+      if (photoResult.anyFailed) {
+        showToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
       }
-      const data = await res.json();
-      const file = data.files && data.files[GIST_FILENAME];
-      if (!file) {
-        const availableNames = Object.keys(data.files || {}).join(", ") || "none";
-        console.error("[gist pull] expected file \"" + GIST_FILENAME + "\" not found. Files present: " + availableNames);
-        gistStatusText.textContent = 'No "' + GIST_FILENAME + '" file in that gist.';
-        showToast('That gist doesn\'t contain a "' + GIST_FILENAME + '" file — is this the right Gist ID?');
-        return false;
-      }
-
-      // GitHub's API truncates the inline `content` field for files over ~1MB —
-      // very possible here since photos are stored as base64. Don't rely solely
-      // on the `truncated` flag; verify the content we actually got matches the
-      // file's real size, and fetch the untruncated version from raw_url
-      // whenever there's a shortfall, flag or no flag.
-      let contentStr = file.content;
-      const looksIncomplete = typeof contentStr === "string" && typeof file.size === "number" && contentStr.length < file.size * 0.98;
-      if (file.truncated || looksIncomplete) {
-        console.log("[gist pull] content looks incomplete (got " + (contentStr ? contentStr.length : 0) + " chars, file reports " + file.size + " bytes, truncated flag=" + file.truncated + ") — fetching full content from raw_url");
-        try {
-          const rawRes = await fetch(file.raw_url);
-          if (!rawRes.ok) throw new Error("HTTP " + rawRes.status);
-          contentStr = await rawRes.text();
-          console.log("[gist pull] raw_url fetch returned " + contentStr.length + " chars");
-        } catch (rawErr) {
-          console.error("[gist pull] couldn't fetch full (untruncated) content:", rawErr);
-          gistStatusText.textContent = "That gist's backup is large and the full content couldn't be fetched.";
-          showToast("Couldn't fetch the full backup — it may be too large. Try excluding photos, or check your connection.");
-          return false;
-        }
-      }
-
-      let payload;
-      try {
-        payload = JSON.parse(stripBom(contentStr));
-      } catch (parseErr) {
-        const trimmedEnd = contentStr.trim().slice(-30);
-        const looksCutOff = !/[}\]]\s*$/.test(contentStr.trim());
-        console.error("[gist pull] file content wasn't valid JSON:", parseErr);
-        console.error("[gist pull] content length:", contentStr.length, "reported file size:", file.size, "ends with:", JSON.stringify(trimmedEnd));
-        if (looksCutOff) {
-          gistStatusText.textContent = "The backup looks cut off partway through (likely too large for a single sync).";
-          showToast("That gist's content looks cut off partway through — probably a large photo pushing it past size limits.");
-        } else {
-          gistStatusText.textContent = "That gist's content isn't valid MapApp backup JSON.";
-          showToast("That gist's content isn't valid MapApp backup JSON.");
-        }
-        return false;
-      }
-      const result = mergeBackupPayload(payload);
-      gistStatusText.textContent = "Pulled just now.";
+      gistStatusText.textContent = "Pushing…";
+      const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
+      const payload = buildRepoSyncPayload();
+      await putRepoFileRaw(
+        parsed.owner, parsed.repo, GITHUB_DATA_FILE,
+        encodeBase64Utf8(JSON.stringify(payload, null, 2)),
+        existing ? existing.sha : null,
+        "Update MapApp data"
+      );
+      gistStatusText.textContent = "Pushed just now.";
       return true;
     } catch (e) {
-      console.error("[gist pull] network/unexpected error:", e);
-      gistStatusText.textContent = "Couldn't reach GitHub — check your connection.";
-      showToast("Couldn't reach GitHub — check your connection.");
+      console.error("[repo push] error:", e);
+      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      gistStatusText.textContent = reason;
+      showToast("Couldn't push: " + reason);
       return false;
     }
   }
 
   // "Sync" is deliberately pull-then-push, not push-then-pull or push-only:
-  // pulling first absorbs anything another device already added to the Gist
-  // (merge-only, never overwrites a local waypoint), so the push that follows
-  // can't silently erase data that only existed in the Gist. Push alone is a
-  // full overwrite of the Gist's content — doing it without pulling first is
-  // exactly how you'd lose another device's contributions.
+  // pulling first absorbs anything another device already added to the repo
+  // (merge-only, never overwrites a local waypoint), so the push that
+  // follows can't silently erase data that only existed remotely. Push
+  // alone is a full overwrite of the data file's content -- doing it
+  // without pulling first is exactly how you'd lose another device's
+  // contributions.
   let panelSyncStatusTimer = null;
   function setPanelSyncStatus(msg, autoHideMs) {
     panelSyncStatus.textContent = msg;
@@ -3130,24 +3294,40 @@
     clearTimeout(panelSyncStatusTimer);
     if (autoHideMs) panelSyncStatusTimer = setTimeout(() => { panelSyncStatus.classList.remove("show"); }, autoHideMs);
   }
-  async function performGistSync() {
+  async function performRepoSync() {
     gistSyncBtn.disabled = true;
     panelSyncBtn.disabled = true;
     setPanelSyncStatus("Syncing…");
-    const pullOk = await performGistPull();
+    const pullOk = await performRepoPull();
     if (!pullOk) {
       gistSyncBtn.disabled = false;
       panelSyncBtn.disabled = false;
       setPanelSyncStatus("Sync failed", 4000);
-      showToast("Sync stopped — pull failed, so nothing was pushed (to avoid overwriting the Gist with an incomplete list).");
+      showToast("Sync stopped — pull failed, so nothing was pushed (to avoid overwriting the repo with an incomplete list).");
       return;
     }
-    await performGistPush();
+    await performRepoPush();
     gistSyncBtn.disabled = false;
     panelSyncBtn.disabled = false;
     setPanelSyncStatus("Synced just now", 4000);
   }
-  gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistSync(); });
+  gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performRepoSync(); });
+
+  // One-time migration notice: a Gist ID from the old sync system can't be
+  // mechanically converted into an owner/repo (they're structurally
+  // different GitHub entities), so this just clears the stale setting and
+  // lets the person know they'll need to enter a repository to keep syncing.
+  (async function checkLegacyGistMigration() {
+    const legacyGistId = await safeLocalStorageGet(LEGACY_GIST_ID_KEY);
+    if (legacyGistId) {
+      await safeLocalStorageSet(LEGACY_GIST_ID_KEY, "");
+      const hasRepoAlready = !!(await safeLocalStorageGet(GITHUB_REPO_KEY));
+      if (!hasRepoAlready) {
+        showToast("Sync moved from Gists to GitHub repositories — enter a repo in Settings \u2192 Backup & sync to keep syncing.");
+      }
+    }
+  })();
+
 
   refreshCuratedCount();
 
@@ -3167,7 +3347,8 @@
   const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp;
   setWeatherAccordionOpen(!!settings.weatherAccordionOpen || !!anyWeatherActive);
   precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
-  if (settings.precisionHex) { precisionHexToggle.checked = true; togglePrecisionHexes(true); }
+  if (settings.precisionHex) precisionHexToggle.checked = true;
+  rebuildPrecisionHexes(); // re-evaluates the combined condition for both toggles, whichever is set
 
   function pinSvg(color) {
     return '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
@@ -6350,7 +6531,7 @@
     importModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
   }
-  panelSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performGistSync(); });
+  panelSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performRepoSync(); });
   el("layersImportTextBtn").addEventListener("click", openImportModal);
   importModalCloseBtn.addEventListener("click", closeImportModal);
   importCancelBtn.addEventListener("click", closeImportModal);
@@ -6808,13 +6989,13 @@
   /*  Empty-state sync safeguard — iOS Safari can silently clear a      */
   /*  site's localStorage (7-day inactivity eviction, private browsing, */
   /*  low-storage cleanup), which looks like "waypoints just vanished". */
-  /*  If that happens but a Gist is still configured, offer to pull      */
+  /*  If that happens but a repo is still configured, offer to pull     */
   /*  them straight back rather than leaving an unexplained empty list. */
   /* ================================================================ */
-  (function checkEmptyStateSyncSuggestion() {
-    const hasToken = !!safeLocalStorageGet(GIST_TOKEN_KEY);
-    const hasGistId = !!safeLocalStorageGet(GIST_ID_KEY);
-    if (waypoints.length === 0 && hasToken && hasGistId) {
+  (async function checkEmptyStateSyncSuggestion() {
+    const hasToken = !!(await safeLocalStorageGet(GITHUB_TOKEN_KEY));
+    const hasRepo = !!(await safeLocalStorageGet(GITHUB_REPO_KEY));
+    if (waypoints.length === 0 && hasToken && hasRepo) {
       syncSuggestionBanner.classList.remove("hidden");
     }
   })();
@@ -6823,7 +7004,7 @@
     syncSuggestionBanner.classList.add("hidden");
     layersPanel.classList.add("show");
     layersToggleBtn.classList.add("active");
-    performGistSync();
+    performRepoSync();
   });
   syncSuggestionDismissBtn.addEventListener("click", (e) => {
     e.stopPropagation();
