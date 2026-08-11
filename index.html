@@ -732,6 +732,7 @@
             <p class="layers-hint" id="gistStatusText" style="margin-top:6px;"></p>
             <div class="home-actions" style="margin-top:8px;">
               <button class="home-action-btn" id="gistSyncBtn">Sync</button>
+              <button class="home-action-btn" id="gistCheckRepoBtn">Check repo</button>
             </div>
           </div>
         </div>
@@ -1353,7 +1354,7 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "177";
+  const APP_VERSION = "179";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1640,6 +1641,7 @@
   const githubRepoInput = el("githubRepoInput");
   const gistStatusText = el("gistStatusText");
   const gistSyncBtn = el("gistSyncBtn");
+  const gistCheckRepoBtn = el("gistCheckRepoBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
   const anchorModalCellId = el("anchorModalCellId");
@@ -3088,7 +3090,7 @@
 
   function githubHeaders() {
     return {
-      "Authorization": "token " + gistTokenInput.value.trim(),
+      "Authorization": "Bearer " + gistTokenInput.value.trim(),
       "Accept": "application/vnd.github+json",
       "Content-Type": "application/json"
     };
@@ -3219,14 +3221,14 @@
   async function performRepoPull() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return false; }
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return false; }
+    if (!token) { gistStatusText.textContent = "No access token entered."; showToast("Paste a GitHub access token first."); return { ok: false, reason: "No access token entered." }; }
+    if (!parsed) { gistStatusText.textContent = "Repository isn't in owner/repo format."; showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return { ok: false, reason: "Repository isn't in owner/repo format." }; }
     gistStatusText.textContent = "Pulling…";
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
         gistStatusText.textContent = "No " + GITHUB_DATA_FILE + " in that repo yet — sync again to create it.";
-        return true; // an empty/new repo is a valid starting state, not a failure
+        return { ok: true, reason: null }; // an empty/new repo is a valid starting state, not a failure
       }
       let payload;
       try {
@@ -3235,17 +3237,17 @@
         console.error("[repo pull] file content wasn't valid JSON:", parseErr);
         gistStatusText.textContent = "That file isn't valid MapApp data.";
         showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
-        return false;
+        return { ok: false, reason: "That file isn't valid MapApp data." };
       }
       mergeBackupPayload(payload, parsed);
       gistStatusText.textContent = "Pulled just now.";
-      return true;
+      return { ok: true, reason: null };
     } catch (e) {
       console.error("[repo pull] error:", e);
       const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
       gistStatusText.textContent = reason;
       showToast("Couldn't pull: " + reason);
-      return false;
+      return { ok: false, reason };
     }
   }
 
@@ -3298,12 +3300,12 @@
     gistSyncBtn.disabled = true;
     panelSyncBtn.disabled = true;
     setPanelSyncStatus("Syncing…");
-    const pullOk = await performRepoPull();
-    if (!pullOk) {
+    const pullResult = await performRepoPull();
+    if (!pullResult.ok) {
       gistSyncBtn.disabled = false;
       panelSyncBtn.disabled = false;
       setPanelSyncStatus("Sync failed", 4000);
-      showToast("Sync stopped — pull failed, so nothing was pushed (to avoid overwriting the repo with an incomplete list).");
+      showToast("Sync stopped (nothing was pushed, to avoid overwriting the repo with an incomplete list): " + pullResult.reason);
       return;
     }
     await performRepoPush();
@@ -3312,6 +3314,47 @@
     setPanelSyncStatus("Synced just now", 4000);
   }
   gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performRepoSync(); });
+
+  // Read-only: never writes anything, just reports what's actually in the
+  // repo right now. Exists specifically to answer "did my data actually
+  // make it to GitHub" without needing to leave the app or guess based on
+  // an unrelated sync failure.
+  async function checkRepoStatus() {
+    const token = gistTokenInput.value.trim();
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    gistCheckRepoBtn.disabled = true;
+    gistStatusText.textContent = "Checking…";
+    try {
+      const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
+      if (!file) {
+        gistStatusText.textContent = "No " + GITHUB_DATA_FILE + " found in " + parsed.owner + "/" + parsed.repo + " — nothing has synced to this repo yet.";
+        gistCheckRepoBtn.disabled = false;
+        return;
+      }
+      let summary;
+      try {
+        const payload = JSON.parse(stripBom(file.content));
+        const wpCount = Array.isArray(payload.waypoints) ? payload.waypoints.length : 0;
+        const rideCount = Array.isArray(payload.rides) ? payload.rides.length : 0;
+        const measurementCount = Array.isArray(payload.measurements) ? payload.measurements.length : 0;
+        const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "unknown time";
+        summary = wpCount + " waypoint" + (wpCount === 1 ? "" : "s") + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".";
+      } catch (parseErr) {
+        summary = "File exists but isn't valid JSON — something may have gone wrong on a previous push.";
+      }
+      gistStatusText.textContent = summary;
+      showToast("Found " + GITHUB_DATA_FILE + " in the repo: " + summary);
+    } catch (e) {
+      console.error("[repo check] error:", e);
+      const reason = e && e.isGitHubApiError ? e.message : "Couldn't reach GitHub — check your connection.";
+      gistStatusText.textContent = reason;
+      showToast("Couldn't check the repo: " + reason);
+    }
+    gistCheckRepoBtn.disabled = false;
+  }
+  gistCheckRepoBtn.addEventListener("click", (e) => { e.stopPropagation(); checkRepoStatus(); });
 
   // One-time migration notice: a Gist ID from the old sync system can't be
   // mechanically converted into an owner/repo (they're structurally
