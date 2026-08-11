@@ -1355,11 +1355,12 @@
   /*  static page, so it's available, unlike in a sandboxed preview).  */
   /* ================================================================ */
 
-  const APP_VERSION = "186";
+  const APP_VERSION = "188";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
   const MEASUREMENTS_KEY = "waypoint-saver:measurements";
+  const DELETED_IDS_KEY = "waypoint-saver:deletedIds";
 
   // All persisted data now lives in IndexedDB via localForage instead of
   // localStorage, which caps out around 5-10MB per origin in most browsers —
@@ -1393,6 +1394,14 @@
     const p = parsed && typeof parsed === "object" ? parsed : {};
     return Object.assign({}, DEFAULT_SETTINGS, p, { weather: Object.assign({}, DEFAULT_SETTINGS.weather, p.weather) });
   }
+  function normalizeDeletedIds(parsed) {
+    const p = parsed && typeof parsed === "object" ? parsed : {};
+    return {
+      waypoints: Array.isArray(p.waypoints) ? p.waypoints : [],
+      rides: Array.isArray(p.rides) ? p.rides : [],
+      measurements: Array.isArray(p.measurements) ? p.measurements : []
+    };
+  }
 
   // Fire-and-forget saves — every caller throughout this file calls these
   // exactly as it did when they were synchronous localStorage writes (no
@@ -1415,6 +1424,10 @@
     if (!dataStore) return;
     dataStore.setItem(SETTINGS_KEY, settings).catch(() => { /* non-fatal: settings just won't persist */ });
   }
+  function saveDeletedIds() {
+    if (!dataStore) return;
+    dataStore.setItem(DELETED_IDS_KEY, deletedIds).catch(() => { /* non-fatal locally -- worst case a deletion doesn't sync until the next successful save */ });
+  }
 
   // One-time, idempotent migration: anything still sitting in localStorage
   // from before this app switched to IndexedDB gets copied over, then the
@@ -1431,7 +1444,7 @@
     try { alreadyMigrated = await dataStore.getItem(MIGRATION_FLAG_KEY); } catch (e) { /* proceed as if not migrated */ }
     if (alreadyMigrated) return;
 
-    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, SETTINGS_KEY];
+    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, SETTINGS_KEY, DELETED_IDS_KEY];
     const stringKeys = ["mapapp:githubToken", "mapapp:githubGistId"];
     for (const key of jsonKeys.concat(stringKeys)) {
       try {
@@ -1455,19 +1468,20 @@
 
   async function loadPersistedState() {
     if (!dataStore) {
-      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
+      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [] } };
     }
     try {
-      const [w, r, m, s] = await Promise.all([
+      const [w, r, m, s, d] = await Promise.all([
         dataStore.getItem(STORAGE_KEY),
         dataStore.getItem(RIDES_KEY),
         dataStore.getItem(MEASUREMENTS_KEY),
-        dataStore.getItem(SETTINGS_KEY)
+        dataStore.getItem(SETTINGS_KEY),
+        dataStore.getItem(DELETED_IDS_KEY)
       ]);
-      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), settings: normalizeSettingsValue(s) };
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
     } catch (e) {
       console.error("[storage] failed to load from IndexedDB", e);
-      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
+      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [] } };
     }
   }
 
@@ -1481,6 +1495,13 @@
   let rides = _persisted.rides;
   let measurements = _persisted.measurements;
   let settings = _persisted.settings;
+  // Tombstones: IDs of waypoints/routes/measurements deliberately deleted on
+  // this device. Sync payloads include these so a pull can tell "this ID
+  // was never seen before" (add it) apart from "this ID was deleted on
+  // purpose" (don't resurrect it) -- without this, a deletion made on one
+  // device gets silently undone the next time that device syncs, since the
+  // pulled copy from before the deletion looks exactly like new data.
+  let deletedIds = _persisted.deletedIds;
   initSpatialAddressing();
   let markers = {};
   let pendingMarker = null;
@@ -1810,6 +1831,7 @@
   modalCloseBtn.innerHTML = icon("x", 18);
   anchorModalCloseBtn.innerHTML = icon("x", 18);
   confirmModalCloseBtn.innerHTML = icon("x", 18);
+  measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
   panelSyncBtn.innerHTML = icon("sync", 16);
@@ -2918,6 +2940,7 @@
       waypoints: JSON.parse(JSON.stringify(waypoints)),
       rides: JSON.parse(JSON.stringify(rides)),
       measurements: JSON.parse(JSON.stringify(measurements)),
+      deletedIds: JSON.parse(JSON.stringify(deletedIds)),
       settings: {
         home: settings.home || null,
         anchorOverrides: settings.anchorOverrides || {}
@@ -2942,9 +2965,59 @@
       const preview = JSON.stringify(payload).slice(0, 200);
       throw new Error("Not a recognized MapApp backup file (no \"waypoints\" list — object has keys: " + keys + " — content starts: " + preview + ").");
     }
+
+    // Tombstones first: merge in any incoming deletions (so this device
+    // also "remembers" them for future merges with other devices, growing
+    // the combined knowledge of what's been deleted everywhere it's synced
+    // to), then apply any deletion this device doesn't already reflect --
+    // removing the item locally (including its map layer, if any) exactly
+    // as if it had been deleted here. This is what makes a deletion made on
+    // one device actually propagate to another, rather than only ever
+    // preventing that one device from resurrecting its own deletion.
+    const incomingDeleted = payload.deletedIds && typeof payload.deletedIds === "object" ? payload.deletedIds : {};
+    let tombstonesChanged = false;
+    ["waypoints", "rides", "measurements"].forEach((kind) => {
+      const incomingIds = Array.isArray(incomingDeleted[kind]) ? incomingDeleted[kind] : [];
+      incomingIds.forEach((id) => {
+        if (!deletedIds[kind].includes(id)) { deletedIds[kind].push(id); tombstonesChanged = true; }
+      });
+    });
+    if (tombstonesChanged) saveDeletedIds();
+
+    const deletedWaypointSet = new Set(deletedIds.waypoints);
+    const deletedRideSet = new Set(deletedIds.rides);
+    const deletedMeasurementSet = new Set(deletedIds.measurements);
+
+    let remoteWaypointDeletions = 0;
+    waypoints.forEach((w) => {
+      if (!deletedWaypointSet.has(w.id)) return;
+      const marker = markers[w.id];
+      if (marker) map.removeLayer(marker);
+      delete markers[w.id];
+      remoteWaypointDeletions++;
+    });
+    if (remoteWaypointDeletions > 0) waypoints = waypoints.filter((w) => !deletedWaypointSet.has(w.id));
+
+    const beforeRideCount = rides.length;
+    rides = rides.filter((r) => !deletedRideSet.has(r.id));
+    const remoteRideDeletions = beforeRideCount - rides.length;
+
+    let remoteMeasurementDeletions = 0;
+    measurements.forEach((m) => {
+      if (!deletedMeasurementSet.has(m.id)) return;
+      if (savedMeasurementLayers[m.id]) {
+        map.removeLayer(savedMeasurementLayers[m.id].polyline);
+        savedMeasurementLayers[m.id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+        delete savedMeasurementLayers[m.id];
+      }
+      remoteMeasurementDeletions++;
+    });
+    if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
+
     let added = 0, skipped = 0;
     payload.waypoints.forEach((wp) => {
       if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
+      if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
       if (waypoints.some((existing) => existing.id === wp.id)) { skipped++; return; }
       if (repoContext && Array.isArray(wp.photos)) {
         wp.photos = wp.photos.map((p) => {
@@ -2958,7 +3031,7 @@
       addSavedMarker(wp);
       added++;
     });
-    if (added > 0) { saveWaypoints(); renderList(); updateCounters(); }
+    if (added > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
     // exist at all — that's fine, just nothing to merge on that front.
@@ -2966,24 +3039,26 @@
     if (Array.isArray(payload.rides)) {
       payload.rides.forEach((r) => {
         if (!r || !r.id || !Array.isArray(r.points) || typeof r.distanceMeters !== "number") { routesSkipped++; return; }
+        if (deletedRideSet.has(r.id)) { routesSkipped++; return; }
         if (rides.some((existing) => existing.id === r.id)) { routesSkipped++; return; }
         rides.push(r);
         routesAdded++;
       });
-      if (routesAdded > 0) { saveRides(); renderRoutesList(); }
     }
+    if (routesAdded > 0 || remoteRideDeletions > 0) { saveRides(); renderRoutesList(); }
 
     // Same story — older exports predate measurement syncing entirely.
     let measurementsAdded = 0, measurementsSkipped = 0;
     if (Array.isArray(payload.measurements)) {
       payload.measurements.forEach((m) => {
         if (!m || !m.id || !Array.isArray(m.points)) { measurementsSkipped++; return; }
+        if (deletedMeasurementSet.has(m.id)) { measurementsSkipped++; return; }
         if (measurements.some((existing) => existing.id === m.id)) { measurementsSkipped++; return; }
         measurements.push(m);
         measurementsAdded++;
       });
-      if (measurementsAdded > 0) { saveMeasurements(); renderMeasurementsList(); }
     }
+    if (measurementsAdded > 0 || remoteMeasurementDeletions > 0) { saveMeasurements(); renderMeasurementsList(); }
 
     let anchorsApplied = 0;
     if (payload.settings && payload.settings.anchorOverrides) {
@@ -3002,7 +3077,11 @@
       homeAdopted = true;
     }
 
-    return { added, skipped, routesAdded, routesSkipped, measurementsAdded, measurementsSkipped, anchorsApplied, homeAdopted };
+    return {
+      added, skipped, routesAdded, routesSkipped, measurementsAdded, measurementsSkipped,
+      remoteWaypointDeletions, remoteRideDeletions, remoteMeasurementDeletions,
+      anchorsApplied, homeAdopted
+    };
   }
 
   exportBackupBtn.addEventListener("click", (e) => {
@@ -5170,6 +5249,8 @@
     closeMeasureModal();
     openConfirmModal("Delete this measurement?", 'Delete "' + m.name + '"? This can\'t be undone.', () => {
       measurements = measurements.filter((mm) => mm.id !== id);
+      deletedIds.measurements.push(id);
+      saveDeletedIds();
       saveMeasurements();
       if (savedMeasurementLayers[id]) {
         map.removeLayer(savedMeasurementLayers[id].polyline);
@@ -5298,6 +5379,8 @@
     if (!ride) return;
     openConfirmModal("Delete this route?", 'Delete "' + ride.name + '" (' + formatDistance(ride.distanceMeters) + ")? This can't be undone.", () => {
       rides = rides.filter((r) => r.id !== id);
+      deletedIds.rides.push(id);
+      saveDeletedIds();
       saveRides();
       renderRoutesList();
       showToast("Route deleted");
@@ -6706,6 +6789,8 @@
     delete markers[id];
     if (selectedWaypointId === id) selectedWaypointId = null;
     waypoints = waypoints.filter((w) => w.id !== id);
+    deletedIds.waypoints.push(id);
+    saveDeletedIds();
     saveWaypoints();
     renderList();
     updateCounters();
