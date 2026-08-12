@@ -358,6 +358,8 @@
     margin:8px 0 0 24px; padding:6px 10px; border-radius:8px; border:1.5px dashed var(--border-soft);
     cursor:pointer; background:none;}
   .card-photo-drop-empty:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
+  .card-photo-drop-link{background:none; border:none; padding:0; font:inherit; color:var(--amber-light);
+    text-decoration:underline dotted; cursor:pointer;}
   .card-photo-drop-empty.paste-armed, .card-photos.paste-armed{outline:none; border-color:rgba(245,158,11,.7);
     box-shadow:0 0 0 2px rgba(245,158,11,.35); border-radius:8px;}
   .style-toggle-row{display:flex; gap:8px; margin-bottom:14px;}
@@ -408,6 +410,29 @@
   .panel-tab.active{background:var(--surface-2); color:var(--text);}
   .panel-subtitle{font-size:12px; color:var(--text-mute); margin:0;}
   .panel-subtitle-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 16px 0;}
+  .panel-subtitle-row .panel-subtitle{flex:1; min-width:0;}
+  .list-filter-wrap{position:relative; flex-shrink:0;}
+  .list-filter-btn{display:flex; align-items:center; gap:3px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:5px 7px; cursor:pointer; color:var(--text-dim); flex-shrink:0;}
+  .list-filter-btn.active{border-color:var(--cyan); color:var(--text);}
+  .list-filter-btn .icon{display:flex;}
+  .list-filter-chevron{width:10px; height:10px;}
+  .list-filter-chevron::before{content:""; display:block; width:0; height:0; margin:3px 1px;
+    border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid currentColor;}
+  .list-filter-dropdown{position:absolute; top:calc(100% + 6px); left:0; z-index:26; background:rgba(15,23,42,.98);
+    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; padding:6px;
+    box-shadow:0 12px 28px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:2px; min-width:160px; max-height:280px; overflow-y:auto;}
+  .list-filter-dropdown.hidden{display:none;}
+  .list-filter-option{display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:8px;
+    background:none; border:none; color:#e2e8f0; font-size:13px; cursor:pointer; text-align:left; width:100%;}
+  .list-filter-option:hover{background:var(--surface-2);}
+  .list-filter-option.active{background:rgba(34,211,238,.15); color:var(--cyan);}
+  .list-filter-option .icon{display:flex; flex-shrink:0;}
+  .list-filter-option-count{margin-left:auto; color:var(--text-mute); font-size:11.5px; flex-shrink:0;}
+  .list-favorite-filter-btn{display:flex; align-items:center; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:5px 7px; cursor:pointer; color:var(--text-dim); flex-shrink:0;}
+  .list-favorite-filter-btn:hover{color:var(--red);}
+  .list-favorite-filter-btn.active{color:var(--red); border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.1);}
   .panel-sync-status{font-size:12px; color:var(--cyan); margin:0; text-align:right; opacity:0; transition:opacity .2s;}
   .panel-sync-status.show{opacity:1;}
   .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
@@ -462,6 +487,19 @@
   .card-copy-code{margin-left:auto; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-copy-code:hover{color:var(--text-dim);}
   .card-notes{margin-left:24px; margin-top:6px;}
+  .card-url{margin-left:24px; margin-top:6px; display:flex; align-items:center; gap:6px;}
+  .card-url-link{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--cyan); text-decoration:none;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+  .card-url-link:hover{text-decoration:underline;}
+  .card-url-link .icon{flex-shrink:0;}
+  .card-url-edit-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:2px; display:flex;
+    background:none; border:none;}
+  .card-url-edit-btn:hover{color:var(--amber-light);}
+  .card-url-btn{display:flex; gap:6px; align-items:center; font-size:12px; color:var(--text-mute); cursor:text;
+    background:none; border:none; padding:0; text-align:left; font-style:italic;}
+  .card-url-btn:hover{color:var(--amber-light);}
+  .card-url-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
+    padding:2px 6px; font-size:12px; color:var(--text); outline:none; width:100%;}
   .card-notes-btn{display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:text;
     background:none; border:none; padding:0; width:100%; text-align:left;}
   .card-notes-btn .icon{margin-top:2px; color:var(--text-mute); flex-shrink:0;}
@@ -873,6 +911,11 @@
         </div>
       </div>
 
+      <div id="urlFieldSection">
+        <label class="field-label">Link</label>
+        <input id="urlInput" class="field-input" type="url" placeholder="Paste a link related to this waypoint…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      </div>
+
       <div class="field-label-row">
         <label class="field-label">Notes</label>
         <div class="notes-toolbar-group">
@@ -1095,6 +1138,16 @@
       </div>
     </div>
     <div class="panel-subtitle-row">
+      <div class="list-filter-wrap" id="listIconFilterWrap">
+        <button type="button" class="list-filter-btn" id="listIconFilterBtn" title="Filter by icon">
+          <span class="icon" id="listIconFilterCurrentIcon"></span>
+          <span class="icon list-filter-chevron"></span>
+        </button>
+        <div class="list-filter-dropdown hidden" id="listIconFilterDropdown"></div>
+      </div>
+      <button type="button" class="list-favorite-filter-btn" id="listFavoriteFilterBtn" title="Show favorites only">
+        <span class="icon"></span>
+      </button>
       <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
       <p class="panel-sync-status" id="panelSyncStatus"></p>
     </div>
@@ -1229,6 +1282,7 @@
     trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
     plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
     plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
     mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
     check: '<polyline points="20 6 9 17 4 12"></polyline>',
@@ -1264,6 +1318,26 @@
     return String(str || "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[c]));
+  }
+
+  // Prepends https:// to a bare domain like "example.com" or "www.example.com"
+  // pasted without a protocol -- without one, an <a href="..."> would treat
+  // it as a relative path on this page rather than an external link.
+  function normalizeUrl(raw) {
+    const trimmed = String(raw || "").trim();
+    if (!trimmed) return "";
+    if (/^(https?|mailto|tel):/i.test(trimmed)) return trimmed;
+    return "https://" + trimmed;
+  }
+  // Shows just the hostname in the card (e.g. "example.com" instead of the
+  // full, potentially very long URL with path/query) -- the full URL is
+  // still in the title attribute and is what actually gets opened on click.
+  function formatUrlDisplay(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch (e) {
+      return url.length > 40 ? url.slice(0, 40) + "…" : url;
+    }
   }
 
   /* ================================================================ */
@@ -1436,7 +1510,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "201";
+  const APP_VERSION = "204";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1603,6 +1677,12 @@
   let pendingPhotos = [];
   let selectedWaypointId = null;
   let activePanelTab = "waypoints";
+  // Icon filter: null means "show all"; a string key identifies a specific
+  // icon (an activity type for routes, or "emoji:<char>"/"pin:<color>" for
+  // waypoints). Measurements have no icon filter -- every measurement uses
+  // the same ruler icon, so a filter there would be meaningless.
+  const listIconFilter = { waypoints: null, routes: null };
+  const listFavoriteFilter = { waypoints: false, routes: false, measurements: false };
   const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   // RainViewer's radar tiles only exist up to zoom 7 (documented on their own
   // API reference) — requesting tiles beyond that returns a "Zoom Level Not
@@ -1881,6 +1961,8 @@
   const homeLocationSection = el("homeLocationSection");
   const nameFieldSection = el("nameFieldSection");
   const wordCodeSection = el("wordCodeSection");
+  const urlFieldSection = el("urlFieldSection");
+  const urlInput = el("urlInput");
   const homeAddressInput = el("homeQueryInput");
   const homeAddressSearchBtn = el("homeAddressSearchBtn");
   const homeAddressResults = el("homeAddressResults");
@@ -1890,6 +1972,11 @@
   const panel = el("panel");
   const panelCloseBtn = el("panelCloseBtn");
   const panelSubtitle = el("panelSubtitle");
+  const listIconFilterWrap = el("listIconFilterWrap");
+  const listIconFilterBtn = el("listIconFilterBtn");
+  const listIconFilterCurrentIcon = el("listIconFilterCurrentIcon");
+  const listIconFilterDropdown = el("listIconFilterDropdown");
+  const listFavoriteFilterBtn = el("listFavoriteFilterBtn");
   const panelSyncStatus = el("panelSyncStatus");
   const panelList = el("panelList");
   const panelSearchIcon = el("panelSearchIcon");
@@ -2649,6 +2736,7 @@
     wordCodeSection.style.display = "none";
     nameFieldSection.style.display = "block";
     homeLocationSection.style.display = "block";
+    urlFieldSection.style.display = "none";
 
     homeAddressInput.value = "";
     homeAddressResults.innerHTML = "";
@@ -3919,7 +4007,12 @@
 
   function addSavedMarker(wp) {
     const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)) }).addTo(map);
-    marker.on("click", () => {
+    marker.on("click", (e) => {
+      // A marker's click doesn't bubble up to the map's own click handler
+      // in Leaflet, so measuring has to be checked here too -- otherwise
+      // tapping a waypoint while measuring would fly to/select it and open
+      // the panel instead of adding a measurement point there.
+      if (measuringActive) { handleMeasureClick(e.latlng); return; }
       flyTo(wp.lat, wp.lng, getMaxZoomForCurrentBaseLayer());
       openPanel();
       setSelectedWaypointMarker(wp.id);
@@ -5317,7 +5410,8 @@
       const latlngs = ride.points.map((p) => [p.lat, p.lng]);
       const polyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
       const hitbox = addWideClickHitbox(latlngs, {
-        click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); }
+        click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); },
+        dblclick: (e) => { L.DomEvent.stopPropagation(e); startEditingRoutePoints(id); }
       });
       const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
       visibleRouteLayers[id] = { polyline, hitbox, startMarker: start, endMarker: end };
@@ -5358,7 +5452,8 @@
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
     viewedRideHitbox = addWideClickHitbox(latlngs, {
-      click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); }
+      click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); },
+      dblclick: (e) => { L.DomEvent.stopPropagation(e); startEditingRoutePoints(ride.id); }
     });
     const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
     viewedRideStartMarker = start; viewedRideEndMarker = end;
@@ -5691,6 +5786,7 @@
       ? L.polygon(latlngs, { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, fillOpacity: 0, interactive: true }).addTo(map)
       : L.polyline(latlngs, { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, interactive: true }).addTo(map);
     hitbox.on("click", (e) => { L.DomEvent.stopPropagation(e); showMeasureSegmentDistancePopup(e.latlng, m.points); });
+    hitbox.on("dblclick", (e) => { L.DomEvent.stopPropagation(e); startEditingMeasurementPoints(m.id); });
     // For a closed loop the final point is snapped exactly onto the first —
     // skip it here so the two numbered markers don't sit stacked on top of
     // each other at the same spot.
@@ -6014,6 +6110,7 @@
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
     if (tab === "measurements") renderMeasurementsList();
+    refreshListFilterControls();
   }
   panelTabWaypoints.addEventListener("click", () => switchPanelTab("waypoints"));
   panelTabRoutes.addEventListener("click", () => switchPanelTab("routes"));
@@ -6075,12 +6172,15 @@
         const ride = rides.find((r) => r.id === btn.dataset.id);
         if (!ride) return;
         ride.favorite = !ride.favorite;
+        ride.updatedAt = Date.now();
         saveRides();
         btn.classList.toggle("favorited", ride.favorite);
         btn.title = ride.favorite ? "Remove from favorites" : "Add to favorites";
+        applyActiveTabFilter(); // hides it immediately if the favorites-only filter is active
       });
     });
     refreshRoutesAzPickerAvailability();
+    refreshListFilterControls();
     applyRoutesSearchFilter();
   }
   renderRoutesList();
@@ -6107,6 +6207,7 @@
       return '<div class="card ride-card" data-id="' + m.id + '">' +
         '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
         '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
+        '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
         '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
@@ -6124,6 +6225,19 @@
         deleteMeasurement(btn.dataset.id);
       });
     });
+    measurementsPanelList.querySelectorAll("[data-action='toggle-favorite-measurement']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const m = measurements.find((mm) => mm.id === btn.dataset.id);
+        if (!m) return;
+        m.favorite = !m.favorite;
+        m.updatedAt = Date.now();
+        saveMeasurements();
+        btn.classList.toggle("favorited", m.favorite);
+        btn.title = m.favorite ? "Remove from favorites" : "Add to favorites";
+        applyActiveTabFilter();
+      });
+    });
     measurementsPanelList.querySelectorAll("[data-action='edit-measurement-points']").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -6132,6 +6246,7 @@
       });
     });
     refreshMeasurementsAzPickerAvailability();
+    refreshListFilterControls();
     applyMeasurementsSearchFilter();
   }
   renderMeasurementsList();
@@ -6147,7 +6262,7 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(routesPanelList.querySelectorAll(".ride-card"));
+        const cards = Array.from(routesPanelList.querySelectorAll(".ride-card")).filter((c) => c.style.display !== "none");
         const targetCard = cards.find((cardEl) => {
           const r = rides.find((ride) => ride.id === cardEl.dataset.id);
           return r && getIndexLetter(r.name) === letter;
@@ -6161,7 +6276,12 @@
     refreshRoutesAzPickerAvailability();
   }
   function refreshRoutesAzPickerAvailability() {
-    const available = new Set(rides.map((r) => getIndexLetter(r.name)).filter(Boolean));
+    const available = new Set();
+    routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+      if (cardEl.style.display === "none") return;
+      const r = rides.find((ride) => ride.id === cardEl.dataset.id);
+      if (r) available.add(getIndexLetter(r.name));
+    });
     routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -6177,7 +6297,7 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(measurementsPanelList.querySelectorAll(".ride-card"));
+        const cards = Array.from(measurementsPanelList.querySelectorAll(".ride-card")).filter((c) => c.style.display !== "none");
         const targetCard = cards.find((cardEl) => {
           const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
           return m && getIndexLetter(m.name) === letter;
@@ -6191,7 +6311,12 @@
     refreshMeasurementsAzPickerAvailability();
   }
   function refreshMeasurementsAzPickerAvailability() {
-    const available = new Set(measurements.map((m) => getIndexLetter(m.name)).filter(Boolean));
+    const available = new Set();
+    measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
+      if (cardEl.style.display === "none") return;
+      const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
+      if (m) available.add(getIndexLetter(m.name));
+    });
     measurementsAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -6689,6 +6814,7 @@
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
     homeLocationSection.style.display = "none";
+    urlFieldSection.style.display = "block";
     saveBtn.textContent = "Save waypoint";
     modalTitle.textContent = pendingPoint.isCurrentLocation ? "Save current location" : "New waypoint";
     modalCoords.textContent = pendingPoint.lat.toFixed(6) + ", " + pendingPoint.lng.toFixed(6);
@@ -6701,6 +6827,7 @@
       nameInput.placeholder = "Name this location";
     }
     notesInput.value = "";
+    urlInput.value = "";
     const defaultColor = pendingPoint.isCurrentLocation ? "#22d3ee" : "#f59e0b";
     markerColorInput.value = defaultColor;
     markSwatchSelected(markerColorSwatches, defaultColor);
@@ -6721,6 +6848,7 @@
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
     homeLocationSection.style.display = "none";
+    urlFieldSection.style.display = "block";
     const existingMarker = markers[wp.id];
     if (existingMarker) { map.removeLayer(existingMarker); delete markers[wp.id]; }
 
@@ -6736,6 +6864,7 @@
     modalWordCode.textContent = wp.code;
     nameInput.value = wp.name;
     notesInput.value = wp.notes || "";
+    urlInput.value = wp.url || "";
     markerColorInput.value = color;
     markSwatchSelected(markerColorSwatches, color);
     markerEmojiInput.value = wp.markerStyle === "emoji" ? emoji : "";
@@ -6801,6 +6930,7 @@
     if (!pendingPoint) return;
     const name = nameInput.value.trim() || (pendingPoint.isCurrentLocation ? "My Location" : ("Waypoint " + (waypoints.length + 1)));
     const notes = notesInput.value.trim();
+    const url = normalizeUrl(urlInput.value);
     const markerStyle = pendingMarkerStyle;
     const markerColor = markerColorInput.value;
     const markerEmoji = markerEmojiInput.value.trim() || "📍";
@@ -6823,6 +6953,7 @@
       if (wp) {
         wp.name = name;
         wp.notes = notes;
+        wp.url = url;
         wp.markerStyle = markerStyle;
         wp.markerColor = markerColor;
         wp.markerEmoji = markerEmoji;
@@ -6844,7 +6975,7 @@
     const { lat, lng, isCurrentLocation } = pendingPoint;
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const wp = {
-      id, lat, lng, name, notes, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
+      id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(),
       createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
@@ -7490,11 +7621,13 @@
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
         "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
       panelNoResults.style.display = "none";
+      refreshListFilterControls();
       return;
     }
     const sorted = waypoints.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
     panelList.innerHTML = sorted.map((wp) => cardHtml(wp)).join("");
     bindCardEvents();
+    refreshListFilterControls();
     applyWaypointSearchFilter();
     refreshAzPickerAvailability();
   }
@@ -7503,17 +7636,23 @@
     const query = panelSearchInput.value.trim().toLowerCase();
     const terms = query.split(/\s+/).filter(Boolean);
     panelSearchClearBtn.style.display = query ? "flex" : "none";
+    const iconFilter = listIconFilter.waypoints;
+    const favoriteOnly = listFavoriteFilter.waypoints;
 
     let visibleCount = 0;
     panelList.querySelectorAll(".card").forEach((cardEl) => {
       const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
       if (!wp) return;
       const nameLower = wp.name.toLowerCase();
-      const matches = terms.length === 0 || terms.some((t) => nameLower.includes(t));
+      const matchesSearch = terms.length === 0 || terms.some((t) => nameLower.includes(t));
+      const matchesIcon = !iconFilter || waypointIconKey(wp) === iconFilter;
+      const matchesFavorite = !favoriteOnly || wp.favorite;
+      const matches = matchesSearch && matchesIcon && matchesFavorite;
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    panelNoResults.style.display = waypoints.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    panelNoResults.style.display = waypoints.length > 0 && (terms.length > 0 || iconFilter || favoriteOnly) && visibleCount === 0 ? "block" : "none";
+    refreshAzPickerAvailability();
   }
   panelSearchInput.addEventListener("input", applyWaypointSearchFilter);
   panelSearchClearBtn.addEventListener("click", () => {
@@ -7526,17 +7665,23 @@
     const query = routesSearchInput.value.trim().toLowerCase();
     const terms = query.split(/\s+/).filter(Boolean);
     routesSearchClearBtn.style.display = query ? "flex" : "none";
+    const iconFilter = listIconFilter.routes;
+    const favoriteOnly = listFavoriteFilter.routes;
 
     let visibleCount = 0;
     routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       const r = rides.find((ride) => ride.id === cardEl.dataset.id);
       if (!r) return;
       const haystack = (r.name + " " + (r.notes || "")).toLowerCase();
-      const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      const matchesSearch = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      const matchesIcon = !iconFilter || (r.activityType || "bike") === iconFilter;
+      const matchesFavorite = !favoriteOnly || r.favorite;
+      const matches = matchesSearch && matchesIcon && matchesFavorite;
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    routesNoResults.style.display = rides.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    routesNoResults.style.display = rides.length > 0 && (terms.length > 0 || iconFilter || favoriteOnly) && visibleCount === 0 ? "block" : "none";
+    refreshRoutesAzPickerAvailability();
   }
   routesSearchInput.addEventListener("input", applyRoutesSearchFilter);
   routesSearchClearBtn.addEventListener("click", () => {
@@ -7549,17 +7694,21 @@
     const query = measurementsSearchInput.value.trim().toLowerCase();
     const terms = query.split(/\s+/).filter(Boolean);
     measurementsSearchClearBtn.style.display = query ? "flex" : "none";
+    const favoriteOnly = listFavoriteFilter.measurements;
 
     let visibleCount = 0;
     measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
       if (!m) return;
       const haystack = m.name.toLowerCase();
-      const matches = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      const matchesSearch = terms.length === 0 || terms.some((t) => haystack.includes(t));
+      const matchesFavorite = !favoriteOnly || m.favorite;
+      const matches = matchesSearch && matchesFavorite;
       cardEl.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
-    measurementsNoResults.style.display = measurements.length > 0 && terms.length > 0 && visibleCount === 0 ? "block" : "none";
+    measurementsNoResults.style.display = measurements.length > 0 && (terms.length > 0 || favoriteOnly) && visibleCount === 0 ? "block" : "none";
+    refreshMeasurementsAzPickerAvailability();
   }
   measurementsSearchInput.addEventListener("input", applyMeasurementsSearchFilter);
   measurementsSearchClearBtn.addEventListener("click", () => {
@@ -7567,6 +7716,103 @@
     applyMeasurementsSearchFilter();
     measurementsSearchInput.focus();
   });
+
+  function applyActiveTabFilter() {
+    if (activePanelTab === "waypoints") applyWaypointSearchFilter();
+    else if (activePanelTab === "routes") applyRoutesSearchFilter();
+    else applyMeasurementsSearchFilter();
+  }
+
+  // Rebuilds the icon-filter dropdown's options for whichever tab is
+  // currently active — waypoints group by their actual displayed icon
+  // (emoji or pin color), routes group by activity type, and measurements
+  // have no icon filter at all since every measurement shares one icon.
+  // Only icons genuinely in use are listed, not the full palette of
+  // possible ones, sorted by how many items use each.
+  function rebuildListIconFilterDropdown() {
+    if (activePanelTab === "measurements") {
+      listIconFilterWrap.classList.add("hidden");
+      return;
+    }
+    listIconFilterWrap.classList.remove("hidden");
+
+    const counts = new Map(); // key -> { iconContent, count }
+    let totalCount = 0;
+    if (activePanelTab === "routes") {
+      rides.forEach((r) => {
+        const type = r.activityType || "bike";
+        if (!counts.has(type)) {
+          const info = activityInfo(type);
+          counts.set(type, { iconContent: '<span style="color:' + info.color + '; display:flex;">' + icon(info.icon, 14) + "</span>", count: 0 });
+        }
+        counts.get(type).count++;
+        totalCount++;
+      });
+    } else {
+      waypoints.forEach((wp) => {
+        const key = waypointIconKey(wp);
+        if (!counts.has(key)) {
+          const iconContent = wp.markerStyle === "emoji"
+            ? '<span style="font-size:14px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span>"
+            : '<span style="color:' + (wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)")) + '; display:flex;">' + icon("mapPin", 14) + "</span>";
+          counts.set(key, { iconContent, count: 0 });
+        }
+        counts.get(key).count++;
+        totalCount++;
+      });
+    }
+
+    // If the currently-selected filter no longer matches anything (its last
+    // item was deleted, its icon changed, etc.), fall back to "All" rather
+    // than silently leaving the list stuck empty with no obvious cause.
+    if (listIconFilter[activePanelTab] && !counts.has(listIconFilter[activePanelTab])) {
+      listIconFilter[activePanelTab] = null;
+    }
+    const currentFilter = listIconFilter[activePanelTab];
+
+    const sortedEntries = Array.from(counts.entries()).sort((a, b) => b[1].count - a[1].count);
+    let optionsHtml = '<button type="button" class="list-filter-option' + (!currentFilter ? " active" : "") + '" data-filter-value="">All<span class="list-filter-option-count">' + totalCount + "</span></button>";
+    sortedEntries.forEach(([key, data]) => {
+      optionsHtml += '<button type="button" class="list-filter-option' + (currentFilter === key ? " active" : "") + '" data-filter-value="' + escapeHtml(key) + '">' + data.iconContent + '<span class="list-filter-option-count">' + data.count + "</span></button>";
+    });
+    listIconFilterDropdown.innerHTML = optionsHtml;
+    listIconFilterDropdown.querySelectorAll(".list-filter-option").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        listIconFilter[activePanelTab] = btn.dataset.filterValue || null;
+        listIconFilterDropdown.classList.add("hidden");
+        applyActiveTabFilter();
+        rebuildListIconFilterDropdown(); // refreshes active-state highlighting + the button's own icon
+      });
+    });
+
+    listIconFilterBtn.classList.toggle("active", !!currentFilter);
+    listIconFilterCurrentIcon.innerHTML = (currentFilter && counts.has(currentFilter)) ? counts.get(currentFilter).iconContent : icon("list", 14);
+  }
+
+  listIconFilterBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    listIconFilterDropdown.classList.toggle("hidden");
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".list-filter-wrap")) listIconFilterDropdown.classList.add("hidden");
+  });
+
+  listFavoriteFilterBtn.querySelector(".icon").innerHTML = icon("heart", 15);
+  listFavoriteFilterBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    listFavoriteFilter[activePanelTab] = !listFavoriteFilter[activePanelTab];
+    listFavoriteFilterBtn.classList.toggle("active", listFavoriteFilter[activePanelTab]);
+    applyActiveTabFilter();
+  });
+
+  // Called whenever the active tab changes or the underlying data for that
+  // tab changes (items added/removed/favorited) -- keeps the dropdown's
+  // options, counts, and the favorite button's state in sync.
+  function refreshListFilterControls() {
+    rebuildListIconFilterDropdown();
+    listFavoriteFilterBtn.classList.toggle("active", listFavoriteFilter[activePanelTab]);
+  }
 
   // Jumps to the first (alphabetically, matching the sort above) waypoint
   // starting with the tapped letter — same model as the iOS Contacts index:
@@ -7579,7 +7825,7 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(panelList.querySelectorAll(".card"));
+        const cards = Array.from(panelList.querySelectorAll(".card")).filter((c) => c.style.display !== "none");
         const targetCard = cards.find((cardEl) => {
           const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
           return wp && getIndexLetter(wp.name) === letter;
@@ -7595,7 +7841,12 @@
   // Dims letters with no current waypoints, so it's clear before tapping
   // whether anything will happen — recomputed whenever the list changes.
   function refreshAzPickerAvailability() {
-    const available = new Set(waypoints.map((wp) => getIndexLetter(wp.name)).filter(Boolean));
+    const available = new Set();
+    panelList.querySelectorAll(".card").forEach((cardEl) => {
+      if (cardEl.style.display === "none") return;
+      const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
+      if (wp) available.add(getIndexLetter(wp.name));
+    });
     azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -7608,6 +7859,14 @@
     }
     const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
     return '<span class="icon" style="color:' + pinColor + '">' + icon("mapPin", 16) + "</span>";
+  }
+  // Matches cardIconHtml's exact color fallback, so two waypoints with no
+  // markerColor set still get grouped by whatever color they'd actually
+  // display (isCurrentLocation vs not), not lumped together incorrectly.
+  function waypointIconKey(wp) {
+    if (wp.markerStyle === "emoji") return "emoji:" + (wp.markerEmoji || "📍");
+    const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
+    return "pin:" + pinColor;
   }
 
   function cardHtml(wp) {
@@ -7632,6 +7891,12 @@
           '<span class="code-badge amber mono">' + escapeHtml(wp.code) + "</span>" +
           '<button class="card-copy-code" data-action="copy-code" data-id="' + wp.id + '">' + icon("copy", 14) + "</button>" +
         "</div>" +
+        '<div class="card-url" data-id="' + wp.id + '">' +
+          (wp.url
+            ? '<a class="card-url-link" href="' + escapeHtml(wp.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(wp.url) + '">' + icon("link", 12) + '<span>' + escapeHtml(formatUrlDisplay(wp.url)) + "</span></a>" +
+              '<button class="card-url-edit-btn" data-action="edit-url" data-id="' + wp.id + '" title="Edit link">' + icon("edit", 12) + "</button>"
+            : '<button class="card-url-btn placeholder" data-action="edit-url" data-id="' + wp.id + '">' + icon("link", 12) + "<span>Add a link</span></button>") +
+        "</div>" +
         '<div class="card-notes">' +
           '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
             icon("note", 12) + '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
@@ -7645,8 +7910,8 @@
             ).join("") +
             '<button class="card-photo-add" data-action="add-photo" data-id="' + wp.id + '" title="Add another photo">' + icon("upload", 14) + "</button>" +
           "</div>" :
-          '<div class="card-photo-drop-empty" role="button" data-action="add-photo" data-id="' + wp.id + '" data-photo-target="' + wp.id + '" tabindex="0">' +
-            icon("image", 13) + "<span>Drop, paste (Ctrl/Cmd+V), or click to add a photo</span></div>") +
+          '<div class="card-photo-drop-empty" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
+            icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="copy-coords" data-id="' + wp.id + '">' + icon("copy", 14) + " Copy coordinates</button>" +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
@@ -7673,12 +7938,14 @@
             saveWaypoints();
             node.classList.toggle("favorited", wp.favorite);
             node.title = wp.favorite ? "Remove from favorites" : "Add to favorites";
+            applyActiveTabFilter();
             break;
           case "delete":
             e.stopPropagation();
             openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
             break;
           case "edit-name": e.stopPropagation(); startEditName(id); break;
+          case "edit-url": e.stopPropagation(); startEditUrl(id); break;
           case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
           case "copy-code":
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
@@ -7734,7 +8001,7 @@
         selectCardForPaste(id);
       });
       zoneEl.addEventListener("keydown", (e) => {
-        if ((e.key === "Enter" || e.key === " ") && zoneEl.dataset.action === "add-photo") {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           zoneEl.click();
         }
@@ -7855,6 +8122,29 @@
     input.focus(); input.select();
     const commit = () => {
       wp.name = input.value.trim() || wp.name;
+      wp.updatedAt = Date.now();
+      saveWaypoints();
+      renderList();
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+  }
+
+  function startEditUrl(id) {
+    const urlEl = panelList.querySelector('.card-url[data-id="' + id + '"]');
+    if (!urlEl) return;
+    const wp = waypoints.find((w) => w.id === id);
+    if (!wp) return;
+    const input = document.createElement("input");
+    input.className = "card-url-input";
+    input.type = "url";
+    input.placeholder = "Paste a link…";
+    input.value = wp.url || "";
+    urlEl.replaceWith(input);
+    input.focus();
+    if (wp.url) input.select();
+    const commit = () => {
+      wp.url = normalizeUrl(input.value);
       wp.updatedAt = Date.now();
       saveWaypoints();
       renderList();
