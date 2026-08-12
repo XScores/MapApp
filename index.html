@@ -1403,7 +1403,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "192";
+  const APP_VERSION = "193";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3107,9 +3107,18 @@
       // etc.), so a pull never discards a more recent local change, but a
       // genuinely newer edit made elsewhere actually propagates here
       // instead of being silently and permanently ignored.
+      //
+      // Data edited before this timestamp field existed has no updatedAt
+      // on either side, which made "0 > 0" false and permanently blocked
+      // any update -- worse than picking a side, since it meant older
+      // edits (already-synced photos, notes) could never sync at all. In
+      // that specific case only, the incoming/pulled version wins, since
+      // pulling it in is the entire point of a Sync.
       const incomingUpdatedAt = wp.updatedAt || 0;
       const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
-      if (incomingUpdatedAt > existingUpdatedAt) {
+      const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
+      if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+        if (bothLackTimestamp) wp.updatedAt = Date.now(); // gives this item a real timestamp so it doesn't hit this same ambiguous tie-break again next sync
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
@@ -3137,7 +3146,9 @@
         }
         const incomingUpdatedAt = r.updatedAt || 0;
         const existingUpdatedAt = rides[existingIndex].updatedAt || 0;
-        if (incomingUpdatedAt > existingUpdatedAt) {
+        const bothLackTimestamp = !r.updatedAt && !rides[existingIndex].updatedAt;
+        if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          if (bothLackTimestamp) r.updatedAt = Date.now();
           rides[existingIndex] = r;
           routesUpdated++;
         } else {
@@ -3161,7 +3172,9 @@
         }
         const incomingUpdatedAt = m.updatedAt || 0;
         const existingUpdatedAt = measurements[existingIndex].updatedAt || 0;
-        if (incomingUpdatedAt > existingUpdatedAt) {
+        const bothLackTimestamp = !m.updatedAt && !measurements[existingIndex].updatedAt;
+        if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          if (bothLackTimestamp) m.updatedAt = Date.now();
           measurements[existingIndex] = m;
           renderSavedMeasurement(m); // handles removing the old map layer internally
           measurementsUpdated++;
