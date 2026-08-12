@@ -329,6 +329,18 @@
   .measure-edit-banner .measure-edit-total{color:var(--text); font-variant-numeric:tabular-nums;}
   .measure-edit-banner-actions{display:flex; gap:8px; flex-shrink:0;}
   .measure-edit-banner-actions .btn{padding:6px 12px; font-size:13px;}
+
+  /* ---------- point-edit toolbar (route/measurement point editing) ---------- */
+  .point-edit-toolbar{position:absolute; top:64px; left:12px; right:12px; z-index:55; display:flex; align-items:center;
+    gap:8px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:10px; padding:8px 10px;
+    box-shadow:0 6px 20px rgba(0,0,0,.4); font-size:12.5px; color:var(--text-dim);}
+  .point-edit-toolbar.hidden{display:none;}
+  .point-edit-toolbar-hint{flex:1; min-width:0;}
+  .point-edit-mode-btn{display:flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:6px 10px; font-size:12.5px; color:var(--text-dim); cursor:pointer; flex-shrink:0;}
+  .point-edit-mode-btn.active{background:rgba(34,211,238,.18); border-color:var(--cyan); color:var(--text);}
+  .point-edit-mode-btn[data-mode="delete"].active{background:rgba(248,113,113,.18); border-color:var(--red); color:var(--text);}
+  .point-edit-vertex-deletable{cursor:pointer !important;}
   .import-modal-card{max-width:min(480px, 92vw);}
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
@@ -433,6 +445,9 @@
   .card-name-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
     padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
   .card-coords{font-size:11px; color:var(--text-mute); margin:2px 0 0;}
+  .card-meta{display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-mute); margin:2px 0 0;}
+  .card-meta-weather{display:flex; align-items:center; gap:2px;}
+  .card-meta-weather .icon{display:flex;}
   .card-top-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
   .card-favorite{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-favorite:hover{color:var(--red);}
@@ -558,6 +573,13 @@
   .ride-card-delete-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
     display:flex; padding:6px;}
   .ride-card-delete-btn:hover{color:#f87171;}
+  .card-edit-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
+    display:flex; padding:6px;}
+  .card-edit-btn:hover{color:var(--cyan);}
+  .card-visibility-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
+    display:flex; padding:6px;}
+  .card-visibility-btn:hover{color:var(--cyan);}
+  .card-visibility-btn.active{color:var(--cyan);}
   .voice-capture-panel{position:fixed; top:calc(80px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:45;
     background:var(--surface); border:1px solid var(--red); border-radius:14px; padding:14px 18px;
     box-shadow:0 10px 30px rgba(0,0,0,.45); width:min(340px, 90vw); pointer-events:none;}
@@ -633,6 +655,7 @@
         <button class="ride-dropdown-option" data-activity="hike"><span class="icon"></span><span>Hike</span></button>
         <button class="ride-dropdown-option" data-activity="car"><span class="icon"></span><span>Drive</span></button>
         <button class="ride-dropdown-option" data-activity="boat"><span class="icon"></span><span>Cruise</span></button>
+        <button class="ride-dropdown-option" data-activity="fly"><span class="icon"></span><span>Fly</span></button>
         <div class="ride-dropdown-divider"></div>
         <button class="ride-dropdown-option" id="rideDropdownViewRoutesBtn"><span class="icon"></span><span>View Routes</span></button>
         <div class="ride-dropdown-divider"></div>
@@ -798,6 +821,12 @@
     <button id="panelToggleBtn" class="btn-icon panel-toggle" title="Saved waypoints">
       <span class="count-badge" id="countBadge">0</span>
     </button>
+  </div>
+
+  <div class="point-edit-toolbar hidden" id="pointEditToolbar">
+    <span class="point-edit-toolbar-hint">Drag a point to move it.</span>
+    <button type="button" class="point-edit-mode-btn" id="pointEditAddBtn" data-mode="add" title="Tap the line to add a point"><span class="icon"></span><span>Add point</span></button>
+    <button type="button" class="point-edit-mode-btn" id="pointEditDeleteBtn" data-mode="delete" title="Tap a point to delete it"><span class="icon"></span><span>Delete point</span></button>
   </div>
 
   <div class="hud">
@@ -1198,6 +1227,8 @@
     mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line>',
     micOff: '<path d="M12 1a3 3 0 0 0-3 3v6"></path><path d="M15.5 9.5V4a3 3 0 0 0-5.9-.8"></path><path d="M19 10v2a7 7 0 0 1-9.9 6.4"></path><path d="M5 10v2a7 7 0 0 0 1.4 4.2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line><line x1="1" y1="1" x2="23" y2="23"></line>',
     trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
+    plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+    plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>',
     mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
     check: '<polyline points="20 6 9 17 4 12"></polyline>',
@@ -1405,7 +1436,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "194";
+  const APP_VERSION = "201";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1590,9 +1621,21 @@
   let lastMeasureClickLatLng = null;
   let livePositionMarker = null;
   const savedMeasurementLayers = {}; // id -> { polyline }
-  let editingMeasurementId = null;
+  // Routes toggled visible via the eyeball icon -- independent of, and can
+  // coexist with, the single-focus "viewRide" state below. Multiple routes
+  // can be shown on the map at once this way, each toggled on/off from the
+  // routes list without navigating away from it.
+  const visibleRouteLayers = {}; // id -> { polyline, hitbox, startMarker, endMarker }
+  // Point editing (drag/add/delete points) is shared between routes and
+  // measurements -- the core mechanics are identical, just operating on
+  // different data arrays and with a couple of route-specific details
+  // (distance recompute, no area display).
+  let pointEditKind = null; // "route" | "measurement" | null
+  let pointEditId = null;
+  let pointEditMode = "drag"; // "drag" | "add" | "delete"
   let editVertexMarkers = [];
   let editLivePolyline = null;
+  let editPolylineHitbox = null;
   let currentlyViewedMeasurementId = null;
   let measureEditBanner = null;
   let editLivePoints = [];
@@ -1827,6 +1870,9 @@
   const measureViewBtnRow = el("measureViewBtnRow");
   const measureDeleteBtn = el("measureDeleteBtn");
   const measureEditPointsBtn = el("measureEditPointsBtn");
+  const pointEditToolbar = el("pointEditToolbar");
+  const pointEditAddBtn = el("pointEditAddBtn");
+  const pointEditDeleteBtn = el("pointEditDeleteBtn");
   const measureViewCloseBtn = el("measureViewCloseBtn");
   const micBtn = el("micBtn");
   const cancelBtn = el("cancelBtn");
@@ -1887,6 +1933,8 @@
   el("hudIcon").innerHTML = icon("crosshair", 11);
   locateBtn.innerHTML = icon("navigation", 18);
   cameraBtn.innerHTML = icon("camera", 18);
+  pointEditAddBtn.querySelector(".icon").innerHTML = icon("plus", 14);
+  pointEditDeleteBtn.querySelector(".icon").innerHTML = icon("trash", 14);
   voiceWaypointBtn.innerHTML = icon("mic", 18);
   voiceCaptureIcon.innerHTML = icon("mic", 13);
   syncSuggestionIcon.innerHTML = icon("cloudDownload", 18);
@@ -1935,10 +1983,17 @@
   /* ================================================================ */
 
   let confirmModalCallback = null;
-  function openConfirmModal(title, message, onConfirm) {
+  let confirmModalCancelCallback = null;
+  function openConfirmModal(title, message, onConfirm, options) {
+    options = options || {};
     confirmModalTitle.textContent = title;
     confirmModalMessage.textContent = message;
+    confirmModalConfirmBtn.textContent = options.confirmLabel || "Delete";
+    confirmModalConfirmBtn.classList.toggle("btn-danger", options.danger !== false);
+    confirmModalConfirmBtn.classList.toggle("btn-primary", options.danger === false);
+    confirmModalCancelBtn.textContent = options.cancelLabel || "Cancel";
     confirmModalCallback = onConfirm;
+    confirmModalCancelCallback = options.onCancel || null;
     confirmModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
   }
@@ -1946,9 +2001,18 @@
     confirmModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
     confirmModalCallback = null;
+    confirmModalCancelCallback = null;
   }
-  confirmModalCloseBtn.addEventListener("click", closeConfirmModal);
-  confirmModalCancelBtn.addEventListener("click", closeConfirmModal);
+  confirmModalCloseBtn.addEventListener("click", () => {
+    const cb = confirmModalCancelCallback;
+    closeConfirmModal();
+    if (cb) cb();
+  });
+  confirmModalCancelBtn.addEventListener("click", () => {
+    const cb = confirmModalCancelCallback;
+    closeConfirmModal();
+    if (cb) cb();
+  });
   confirmModalConfirmBtn.addEventListener("click", () => {
     const cb = confirmModalCallback;
     closeConfirmModal();
@@ -2281,6 +2345,21 @@
     toggle.classList.toggle("open");
     if (toggle.nextElementSibling) toggle.nextElementSibling.classList.toggle("open");
   });
+
+  // Compact "when this was made" info for waypoint/route list cards --
+  // captured once at creation and never touched by later edits, so it
+  // always reflects the actual conditions at the time, not whenever it was
+  // last modified or viewed.
+  function formatWeatherBadge(weather) {
+    if (!weather) return "";
+    const iconName = weatherIconNameForOwmCode(weather.icon);
+    return '<span class="card-meta-weather">' + icon(iconName, 12) + formatWeatherTemp(weather.tempC) + "</span>";
+  }
+  function formatCardMeta(createdAtMs, weather) {
+    if (!createdAtMs) return "";
+    const dateStr = new Date(createdAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return '<span class="card-meta">' + escapeHtml(dateStr) + formatWeatherBadge(weather) + "</span>";
+  }
 
   // The 5-day/3-hour endpoint returns ~40 individual 3-hour readings, not
   // daily summaries — this groups them into calendar days using the
@@ -3071,6 +3150,7 @@
     if (remoteWaypointDeletions > 0) waypoints = waypoints.filter((w) => !deletedWaypointSet.has(w.id));
 
     const beforeRideCount = rides.length;
+    rides.forEach((r) => { if (deletedRideSet.has(r.id)) removeRouteVisibilityLayer(r.id); });
     rides = rides.filter((r) => !deletedRideSet.has(r.id));
     const remoteRideDeletions = beforeRideCount - rides.length;
 
@@ -3935,6 +4015,44 @@
   updateHud();
   updateCounters();
   renderList();
+  backfillMissingWaypointMeta();
+
+  // One-time-per-waypoint backfill: waypoints created before this feature
+  // existed have no createdAt/weather captured at all. The actual original
+  // creation date isn't recoverable, so a missing createdAt is set to right
+  // now (today) as specified, and a fresh weather snapshot is fetched for
+  // the waypoint's location, the same as any newly-created waypoint gets.
+  // Runs every load rather than using a one-time migration flag, since that
+  // naturally self-limits (a waypoint stops "needing" weather once it has
+  // any) and self-heals if a fetch fails or no API key was configured yet.
+  async function backfillMissingWaypointMeta() {
+    const needsCreatedAt = waypoints.filter((wp) => !wp.createdAt);
+    if (needsCreatedAt.length > 0) {
+      const now = Date.now();
+      needsCreatedAt.forEach((wp) => {
+        wp.createdAt = now;
+        if (!wp.updatedAt) wp.updatedAt = now;
+      });
+      saveWaypoints();
+      renderList();
+    }
+    const needsWeather = waypoints.filter((wp) => !wp.weather);
+    if (needsWeather.length === 0) return;
+    // Fetched one at a time, not all at once -- a large existing waypoint
+    // collection could otherwise fire dozens of simultaneous requests
+    // against OpenWeatherMap's free-tier rate limit the moment the app loads.
+    for (const wp of needsWeather) {
+      const weather = await fetchWeatherSnapshot(wp.lat, wp.lng);
+      if (weather) {
+        const stillExists = waypoints.find((w) => w.id === wp.id);
+        if (stillExists) {
+          stillExists.weather = weather;
+          saveWaypoints();
+          renderList();
+        }
+      }
+    }
+  }
 
   function updateHud() {
     const c = map.getCenter();
@@ -4222,7 +4340,7 @@
   // measurement's actual line (not just its recorded points — a click near
   // the middle of a long, sparse segment needs to count too) to suppress
   // that fallthrough instead.
-  const MAP_CLICK_NEAR_POLYLINE_METERS = 35;
+  const MAP_CLICK_NEAR_POLYLINE_METERS = 50;
   // Distance from a point to a line segment, via a local planar projection
   // (fine at these short distances — this is a proximity heuristic, not
   // precision measurement) clamped to the segment's actual endpoints, then
@@ -4255,6 +4373,12 @@
     return false;
   }
 
+  // 24px was narrower than a typical fingertip contact area -- standard
+  // mobile touch-target guidelines call for 44-48px minimum. Used for every
+  // invisible line/shape hitbox in the app (routes, in-progress and saved
+  // measurements) so they're all consistently forgiving to tap.
+  const LINE_HITBOX_WEIGHT_PX = 44;
+
   // A polyline's native click hit-area matches its thin visual stroke
   // weight, which is genuinely too narrow to tap reliably — worse on
   // touch, but noticeably fussy with a mouse too. This draws a second,
@@ -4263,7 +4387,7 @@
   // change how the visible line looks at all. The standard, well-known
   // Leaflet pattern for this.
   function addWideClickHitbox(latlngs, handlers) {
-    const hitbox = L.polyline(latlngs, { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
+    const hitbox = L.polyline(latlngs, { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, interactive: true }).addTo(map);
     Object.keys(handlers).forEach((evt) => hitbox.on(evt, handlers[evt]));
     return hitbox;
   }
@@ -4502,7 +4626,8 @@
     bike: { label: "Bike", icon: "bike", color: "#a78bfa" },
     hike: { label: "Hike", icon: "hike", color: "#4ade80" },
     car:  { label: "Drive",  icon: "car",  color: "#f59e0b" },
-    boat: { label: "Cruise", icon: "boat", color: "#38bdf8" }
+    boat: { label: "Cruise", icon: "boat", color: "#38bdf8" },
+    fly:  { label: "Fly", icon: "plane", color: "#f472b6" }
   };
   function activityInfo(type) { return ACTIVITY_TYPES[type] || ACTIVITY_TYPES.bike; } // old saved rides predate activity types
 
@@ -5172,6 +5297,56 @@
   // this context: Date / Distance / Duration instead of Time / Distance /
   // Speed). Blocked while actively tracking, rather than silently replacing
   // the live-tracking HUD out from under an in-progress route.
+  // Toggles a route's presence on the map independently of the single-focus
+  // "view" state -- multiple routes can be switched on this way at once,
+  // each with its own polyline, click hitbox (for the segment-distance
+  // popup), and endpoint markers, without opening the full stats HUD or
+  // navigating away from the routes list.
+  function toggleRouteVisibility(id) {
+    if (visibleRouteLayers[id]) {
+      const layers = visibleRouteLayers[id];
+      map.removeLayer(layers.polyline);
+      map.removeLayer(layers.hitbox);
+      if (layers.startMarker) map.removeLayer(layers.startMarker);
+      if (layers.endMarker) map.removeLayer(layers.endMarker);
+      delete visibleRouteLayers[id];
+    } else {
+      const ride = rides.find((r) => r.id === id);
+      if (!ride) return;
+      const info = activityInfo(ride.activityType);
+      const latlngs = ride.points.map((p) => [p.lat, p.lng]);
+      const polyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
+      const hitbox = addWideClickHitbox(latlngs, {
+        click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); }
+      });
+      const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
+      visibleRouteLayers[id] = { polyline, hitbox, startMarker: start, endMarker: end };
+    }
+    refreshRouteVisibilityButton(id);
+  }
+  // Updates just the one button in place rather than re-rendering the whole
+  // list, so scroll position and any active search/filter stay intact.
+  function refreshRouteVisibilityButton(id) {
+    const btn = routesPanelList.querySelector('[data-action="toggle-route-visibility"][data-id="' + id + '"]');
+    if (!btn) return;
+    const isVisible = !!visibleRouteLayers[id];
+    btn.classList.toggle("active", isVisible);
+    btn.title = isVisible ? "Hide from map" : "Show on map";
+    btn.innerHTML = icon(isVisible ? "eye" : "eyeOff", 15);
+  }
+  // If a route currently shown via the eyeball gets deleted or has its
+  // points edited, its map layer needs to be torn down (delete) or rebuilt
+  // (edit) so it never silently goes stale or orphaned on the map.
+  function removeRouteVisibilityLayer(id) {
+    if (!visibleRouteLayers[id]) return;
+    const layers = visibleRouteLayers[id];
+    map.removeLayer(layers.polyline);
+    map.removeLayer(layers.hitbox);
+    if (layers.startMarker) map.removeLayer(layers.startMarker);
+    if (layers.endMarker) map.removeLayer(layers.endMarker);
+    delete visibleRouteLayers[id];
+  }
+
   function viewRide(ride) {
     if (rideTracking) { showToast("Stop your current route before viewing a saved one."); return; }
     if (viewedRidePolyline) map.removeLayer(viewedRidePolyline);
@@ -5351,7 +5526,7 @@
     measurePoints.push({ lat: latlng.lat, lng: latlng.lng });
     if (!measurePolyline) {
       measurePolyline = L.polyline([], { color: "#22d3ee", weight: 3, dashArray: "7 6" }).addTo(map);
-      measureHitbox = L.polyline([], { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
+      measureHitbox = L.polyline([], { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, interactive: true }).addTo(map);
       wireMeasureLineInteractions();
     }
     measurePolyline.addLatLng(latlng);
@@ -5513,8 +5688,8 @@
     // closed shape's hitbox also covers its closing segment, not just the
     // originally-drawn points.
     const hitbox = closed
-      ? L.polygon(latlngs, { color: "#000", weight: 24, opacity: 0, fillOpacity: 0, interactive: true }).addTo(map)
-      : L.polyline(latlngs, { color: "#000", weight: 24, opacity: 0, interactive: true }).addTo(map);
+      ? L.polygon(latlngs, { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, fillOpacity: 0, interactive: true }).addTo(map)
+      : L.polyline(latlngs, { color: "#000", weight: LINE_HITBOX_WEIGHT_PX, opacity: 0, interactive: true }).addTo(map);
     hitbox.on("click", (e) => { L.DomEvent.stopPropagation(e); showMeasureSegmentDistancePopup(e.latlng, m.points); });
     // For a closed loop the final point is snapped exactly onto the first —
     // skip it here so the two numbered markers don't sit stacked on top of
@@ -5583,9 +5758,9 @@
     });
   }
 
-  /* ---- Edit points (drag to adjust) ---- */
-  function makeMeasureVertexIcon() {
-    return L.divIcon({ html: '<div class="measure-vertex"></div>', className: "wp-div-icon", iconSize: [16, 16], iconAnchor: [8, 8] });
+  /* ---- Edit points (drag/add/delete) -- shared by routes & measurements ---- */
+  function makeMeasureVertexIcon(deletable) {
+    return L.divIcon({ html: '<div class="measure-vertex' + (deletable ? " point-edit-vertex-deletable" : "") + '"></div>', className: "wp-div-icon", iconSize: [16, 16], iconAnchor: [8, 8] });
   }
   function updateEditLiveTotal() {
     if (!measureEditBanner) return;
@@ -5595,7 +5770,8 @@
     }
     measureEditBanner.querySelector(".measure-edit-total").textContent = formatDistance(totalM);
     const areaSpan = measureEditBanner.querySelector(".measure-edit-area");
-    if (isClosedLoop(editLivePoints)) {
+    // Area only makes sense for a closed-loop measurement, not a route.
+    if (pointEditKind === "measurement" && isClosedLoop(editLivePoints)) {
       const areaSqMeters = computePolygonAreaSqMeters(editLivePoints);
       measureEditBanner.querySelector(".measure-edit-area-value").textContent =
         (areaSqMeters >= 100 ? Math.round(areaSqMeters).toLocaleString() : areaSqMeters.toFixed(1)) + " m²";
@@ -5608,29 +5784,102 @@
     editVertexMarkers.forEach((mk) => map.removeLayer(mk));
     editVertexMarkers = [];
   }
-  function startEditingMeasurementPoints(id) {
-    const m = measurements.find((mm) => mm.id === id);
-    if (!m) return;
+  // Rebuilt (rather than reconfigured in place) every time the mode changes
+  // or a point is added/removed -- simpler and more robust than toggling
+  // draggability and rewiring handlers on existing markers, and the vertex
+  // counts involved are small enough that this is never a performance concern.
+  function rebuildEditVertexMarkers() {
+    clearEditVertexMarkers();
+    const deletable = pointEditMode === "delete";
+    editVertexMarkers = editLivePoints.map((p, i) => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeMeasureVertexIcon(deletable), draggable: pointEditMode === "drag" }).addTo(map);
+      if (pointEditMode === "drag") {
+        marker.on("drag", () => {
+          const ll = marker.getLatLng();
+          editLivePoints[i] = { lat: ll.lat, lng: ll.lng };
+          editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+          if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+          updateEditLiveTotal();
+        });
+      } else if (pointEditMode === "delete") {
+        marker.on("click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          if (editLivePoints.length <= 2) { showToast((pointEditKind === "route" ? "A route" : "A measurement") + " needs at least 2 points."); return; }
+          editLivePoints.splice(i, 1);
+          editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+          if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+          updateEditLiveTotal();
+          rebuildEditVertexMarkers();
+        });
+      }
+      return marker;
+    });
+  }
+  function handleEditPolylineClick(latlng) {
+    if (pointEditMode !== "add") return;
+    const segIdx = findNearestMeasureSegment(latlng, editLivePoints);
+    if (segIdx === null) return;
+    editLivePoints.splice(segIdx + 1, 0, { lat: latlng.lat, lng: latlng.lng });
+    editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+    if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
+    updateEditLiveTotal();
+    rebuildEditVertexMarkers();
+  }
+  function setPointEditMode(mode) {
+    pointEditMode = mode;
+    pointEditAddBtn.classList.toggle("active", mode === "add");
+    pointEditDeleteBtn.classList.toggle("active", mode === "delete");
+    const hint = pointEditToolbar.querySelector(".point-edit-toolbar-hint");
+    if (mode === "add") hint.textContent = "Tap the line to add a point.";
+    else if (mode === "delete") hint.textContent = "Tap a point to delete it.";
+    else hint.textContent = "Drag a point to move it.";
+    rebuildEditVertexMarkers();
+  }
+  pointEditAddBtn.addEventListener("click", () => setPointEditMode(pointEditMode === "add" ? "drag" : "add"));
+  pointEditDeleteBtn.addEventListener("click", () => setPointEditMode(pointEditMode === "delete" ? "drag" : "delete"));
+
+  // Entry point for both "Edit route points" and "Edit measurement points" --
+  // tears down whatever's currently shown for that item, replaces it with
+  // a draggable/editable line centered on screen, and shows the toolbar +
+  // banner. kind is "route" or "measurement".
+  function startPointEdit(kind, id) {
+    const item = kind === "route" ? rides.find((r) => r.id === id) : measurements.find((mm) => mm.id === id);
+    if (!item) return;
     closeMeasureModal();
-    editingMeasurementId = id;
-    if (savedMeasurementLayers[id]) {
+
+    pointEditKind = kind;
+    pointEditId = id;
+    pointEditMode = "drag";
+
+    if (kind === "route") {
+      if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
+      if (viewedRideHitbox) { map.removeLayer(viewedRideHitbox); viewedRideHitbox = null; }
+      clearViewedRideEndpointMarkers();
+      clearViewedRideDistanceMarkers();
+      rideHud.classList.add("hidden");
+    } else if (savedMeasurementLayers[id]) {
       map.removeLayer(savedMeasurementLayers[id].polyline);
       if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
       savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
     }
-    editLivePoints = m.points.map((p) => ({ lat: p.lat, lng: p.lng }));
-    editLivePolyline = L.polyline(editLivePoints.map((p) => [p.lat, p.lng]), { color: "#22d3ee", weight: 4, opacity: 0.9, dashArray: "5 5" }).addTo(map);
-    editVertexMarkers = editLivePoints.map((p, i) => {
-      const marker = L.marker([p.lat, p.lng], { icon: makeMeasureVertexIcon(), draggable: true }).addTo(map);
-      marker.on("drag", () => {
-        const ll = marker.getLatLng();
-        editLivePoints[i] = { lat: ll.lat, lng: ll.lng };
-        editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
-        updateEditLiveTotal();
-      });
-      return marker;
+
+    editLivePoints = item.points.map((p) => ({ lat: p.lat, lng: p.lng }));
+    const lineColor = kind === "route" ? activityInfo(item.activityType).color : "#22d3ee";
+    editLivePolyline = L.polyline(editLivePoints.map((p) => [p.lat, p.lng]), { color: lineColor, weight: 4, opacity: 0.9, dashArray: "5 5" }).addTo(map);
+    editPolylineHitbox = addWideClickHitbox(editLivePoints.map((p) => [p.lat, p.lng]), {
+      click: (e) => { L.DomEvent.stopPropagation(e); handleEditPolylineClick(e.latlng); }
     });
+
+    try { map.fitBounds(editLivePolyline.getBounds().pad(0.15)); } catch (e) { /* not enough points to bound yet */ }
+
+    pointEditToolbar.classList.remove("hidden");
+    setPointEditMode("drag");
     showMeasureEditBanner();
+  }
+  function startEditingMeasurementPoints(id) { startPointEdit("measurement", id); }
+  function startEditingRoutePoints(id) {
+    if (rideTracking) { showToast("Stop your current route before editing a saved one."); return; }
+    startPointEdit("route", id);
   }
   function showMeasureEditBanner() {
     if (!measureEditBanner) {
@@ -5643,28 +5892,55 @@
           '<button class="btn btn-primary" id="measureEditSaveBtn">Save</button>' +
         "</div>";
       document.body.appendChild(measureEditBanner);
-      measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => finishEditingMeasurementPoints(false));
-      measureEditBanner.querySelector("#measureEditSaveBtn").addEventListener("click", () => finishEditingMeasurementPoints(true));
+      measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => finishPointEdit(false));
+      measureEditBanner.querySelector("#measureEditSaveBtn").addEventListener("click", () => finishPointEdit(true));
     }
     measureEditBanner.classList.remove("hidden");
     updateEditLiveTotal();
   }
-  function finishEditingMeasurementPoints(save) {
-    const id = editingMeasurementId;
-    const m = measurements.find((mm) => mm.id === id);
-    if (save && m) {
-      m.points = editLivePoints.slice();
-      m.updatedAt = Date.now();
-      saveMeasurements();
-      showToast("Measurement updated");
-      renderMeasurementsList();
+  function finishPointEdit(save) {
+    const kind = pointEditKind;
+    const id = pointEditId;
+    const item = kind === "route" ? rides.find((r) => r.id === id) : kind === "measurement" ? measurements.find((mm) => mm.id === id) : null;
+
+    if (save && item) {
+      if (editLivePoints.length < 2) {
+        showToast((kind === "route" ? "A route" : "A measurement") + " needs at least 2 points.");
+        return;
+      }
+      item.points = editLivePoints.slice();
+      item.updatedAt = Date.now();
+      if (kind === "route") {
+        let newDistance = 0;
+        for (let i = 0; i < item.points.length - 1; i++) {
+          newDistance += haversineMeters(item.points[i].lat, item.points[i].lng, item.points[i + 1].lat, item.points[i + 1].lng);
+        }
+        item.distanceMeters = newDistance; // duration/timestamps stay as originally recorded
+        saveRides();
+        showToast("Route updated");
+        renderRoutesList();
+        if (visibleRouteLayers[id]) { removeRouteVisibilityLayer(id); toggleRouteVisibility(id); }
+      } else {
+        saveMeasurements();
+        showToast("Measurement updated");
+        renderMeasurementsList();
+      }
     }
+
     if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
+    if (editPolylineHitbox) { map.removeLayer(editPolylineHitbox); editPolylineHitbox = null; }
     clearEditVertexMarkers();
+    pointEditToolbar.classList.add("hidden");
     if (measureEditBanner) measureEditBanner.classList.add("hidden");
-    editingMeasurementId = null;
+    pointEditKind = null;
+    pointEditId = null;
+    pointEditMode = "drag";
     editLivePoints = [];
-    if (m) renderSavedMeasurement(m);
+
+    if (item) {
+      if (kind === "route") viewRide(item);
+      else renderSavedMeasurement(item);
+    }
   }
   measureEditPointsBtn.addEventListener("click", () => {
     const id = currentlyViewedMeasurementId;
@@ -5702,6 +5978,7 @@
     const ride = rides.find((r) => r.id === id);
     if (!ride) return;
     openConfirmModal("Delete this route?", 'Delete "' + ride.name + '" (' + formatDistance(ride.distanceMeters) + ")? This can't be undone.", () => {
+      removeRouteVisibilityLayer(id);
       rides = rides.filter((r) => r.id !== id);
       deletedIds.rides.push(id);
       saveDeletedIds();
@@ -5753,12 +6030,16 @@
     const sortedRides = rides.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
     routesPanelList.innerHTML = sortedRides.map((r) => {
       const info = activityInfo(r.activityType);
-      const dateStr = new Date(r.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const dateStr = new Date(r.startTime).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
       const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
+      const isVisible = !!visibleRouteLayers[r.id];
+      const weatherBadge = r.weather ? '<span class="card-meta">' + formatWeatherBadge(r.weather) + "</span>" : "";
       return '<div class="card ride-card" data-id="' + r.id + '">' +
         '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + notesPreview + "</div>" +
+        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + weatherBadge + notesPreview + "</div>" +
+        '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
         '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+        '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
@@ -5773,6 +6054,19 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteRide(btn.dataset.id);
+      });
+    });
+    routesPanelList.querySelectorAll("[data-action='toggle-route-visibility']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleRouteVisibility(btn.dataset.id);
+      });
+    });
+    routesPanelList.querySelectorAll("[data-action='edit-route-points']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        panel.classList.remove("open");
+        startEditingRoutePoints(btn.dataset.id);
       });
     });
     routesPanelList.querySelectorAll("[data-action='toggle-favorite-route']").forEach((btn) => {
@@ -5813,6 +6107,7 @@
       return '<div class="card ride-card" data-id="' + m.id + '">' +
         '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
         '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
+        '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
       "</div>";
     }).join("");
@@ -5827,6 +6122,13 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteMeasurement(btn.dataset.id);
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='edit-measurement-points']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        panel.classList.remove("open");
+        startEditingMeasurementPoints(btn.dataset.id);
       });
     });
     refreshMeasurementsAzPickerAvailability();
@@ -5928,18 +6230,39 @@
   function placeCameraPhotoAtLocation(lat, lng, dataUrl) {
     const nearby = findNearbyWaypoint(lat, lng);
     if (nearby) {
-      commitPhotosToWaypoint(nearby, [dataUrl]);
-      flyTo(nearby.lat, nearby.lng, getMaxZoomForCurrentBaseLayer());
-      setSelectedWaypointMarker(nearby.id);
+      openConfirmModal(
+        "Add photo to a nearby waypoint?",
+        'This photo was taken close to "' + nearby.name + '". Add it there, or save it as a new, separate waypoint?',
+        () => {
+          commitPhotosToWaypoint(nearby, [dataUrl]);
+          flyTo(nearby.lat, nearby.lng, getMaxZoomForCurrentBaseLayer());
+          setSelectedWaypointMarker(nearby.id);
+        },
+        {
+          confirmLabel: 'Add to "' + nearby.name + '"',
+          cancelLabel: "New waypoint",
+          danger: false,
+          onCancel: () => createWaypointFromCameraPhoto(lat, lng, dataUrl)
+        }
+      );
       return;
     }
+    createWaypointFromCameraPhoto(lat, lng, dataUrl);
+  }
+
+  // Saves a real waypoint right away (so the photo is never lost even if
+  // the person closes the modal without touching anything) with a
+  // reasonable default name, then immediately opens the edit modal so
+  // they can name it on the spot -- rather than leaving a generically
+  // named "Photo Aug 12" pin that has to be found and renamed later.
+  function createWaypointFromCameraPhoto(lat, lng, dataUrl) {
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const name = "Photo " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const wp = {
       id, lat, lng, name, notes: "",
       code: generateWordCode(lat, lng), isCurrentLocation: false,
       markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷",
-      photos: [dataUrl]
+      photos: [dataUrl], createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
     waypoints.push(wp);
@@ -5948,7 +6271,19 @@
     updateCounters();
     flyTo(lat, lng, getMaxZoomForCurrentBaseLayer());
     setSelectedWaypointMarker(id);
-    showToast('Created new waypoint "' + name + '" from photo');
+    openEditModal(wp);
+    // openEditModal focuses the name field but leaves the generic default
+    // in place; select it too so typing a real name immediately replaces
+    // it instead of requiring a manual clear first.
+    setTimeout(() => nameInput.select(), 40);
+    fetchWeatherSnapshot(lat, lng).then((weather) => {
+      if (!weather) return;
+      const stillExists = waypoints.find((w) => w.id === id);
+      if (!stillExists) return; // deleted before the fetch finished
+      stillExists.weather = weather;
+      saveWaypoints();
+      renderList();
+    });
   }
 
   function armCameraPhotoMapPick(dataUrl) {
@@ -7284,12 +7619,13 @@
             '<div style="min-width:0; flex:1;">' +
               '<p class="card-name" data-action="edit-name" data-id="' + wp.id + '" title="Click to rename">' + escapeHtml(wp.name) + "</p>" +
               '<p class="card-coords mono">' + wp.lat.toFixed(5) + ", " + wp.lng.toFixed(5) + "</p>" +
+              formatCardMeta(wp.createdAt, wp.weather) +
             "</div>" +
           "</button>" +
           '<div class="card-top-actions">' +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
-            '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("trash", 16) + "</button>" +
+            '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("x", 16) + "</button>" +
           "</div>" +
         "</div>" +
         '<div class="card-codes">' +
