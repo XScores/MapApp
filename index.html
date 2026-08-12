@@ -208,6 +208,20 @@
   .home-action-btn.picking-active{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
 
   .home-address-results{position:static; margin-top:8px; max-height:180px; display:none;}
+
+  /* ---------- units settings ---------- */
+  .units-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #1e293b; gap:12px;}
+  .units-row:last-child{border-bottom:none;}
+  .units-row-label{font-size:13.5px; color:var(--text); font-weight:600; flex-shrink:0;}
+  .unit-slider{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  .unit-slider-label{font-size:12px; color:var(--text-mute); font-variant-numeric:tabular-nums; min-width:36px; text-align:center; transition:color .15s;}
+  .unit-slider-label.active{color:var(--text); font-weight:700;}
+  .unit-slider-switch{position:relative; width:42px; height:23px; border-radius:12px; background:var(--surface-2);
+    border:1px solid var(--border); cursor:pointer; flex-shrink:0; padding:0; transition:background .15s, border-color .15s;}
+  .unit-slider-switch.imperial{background:rgba(245,158,11,.35); border-color:rgba(245,158,11,.6);}
+  .unit-slider-thumb{position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.4); transition:transform .15s;}
+  .unit-slider-switch.imperial .unit-slider-thumb{transform:translateX(19px);}
   .home-address-results.show{display:block;}
   .home-modal-divider{display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--text-mute); font-size:11px; text-transform:uppercase; letter-spacing:1px;}
   .home-modal-divider::before, .home-modal-divider::after{content:""; flex:1; height:1px; background:#1e293b;}
@@ -679,6 +693,41 @@
           <p class="layers-section-title" id="appVersionLabel">App version</p>
           <div class="home-actions">
             <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Units</p>
+          <div class="units-row">
+            <span class="units-row-label">Temperature</span>
+            <div class="unit-slider">
+              <span class="unit-slider-label" data-side="metric">°C</span>
+              <button type="button" class="unit-slider-switch" id="unitTempSwitch" role="switch" aria-label="Temperature unit"><span class="unit-slider-thumb"></span></button>
+              <span class="unit-slider-label" data-side="imperial">°F</span>
+            </div>
+          </div>
+          <div class="units-row">
+            <span class="units-row-label">Distance</span>
+            <div class="unit-slider">
+              <span class="unit-slider-label" data-side="metric">km</span>
+              <button type="button" class="unit-slider-switch" id="unitDistanceSwitch" role="switch" aria-label="Distance unit"><span class="unit-slider-thumb"></span></button>
+              <span class="unit-slider-label" data-side="imperial">mi</span>
+            </div>
+          </div>
+          <div class="units-row">
+            <span class="units-row-label">Smaller distances</span>
+            <div class="unit-slider">
+              <span class="unit-slider-label" data-side="metric">cm/m</span>
+              <button type="button" class="unit-slider-switch" id="unitSmallDistanceSwitch" role="switch" aria-label="Small distance unit"><span class="unit-slider-thumb"></span></button>
+              <span class="unit-slider-label" data-side="imperial">in/ft</span>
+            </div>
+          </div>
+          <div class="units-row">
+            <span class="units-row-label">Speed</span>
+            <div class="unit-slider">
+              <span class="unit-slider-label" data-side="metric">km/h</span>
+              <button type="button" class="unit-slider-switch" id="unitSpeedSwitch" role="switch" aria-label="Speed unit"><span class="unit-slider-thumb"></span></button>
+              <span class="unit-slider-label" data-side="imperial">mph</span>
+            </div>
           </div>
         </div>
         <div class="layers-section">
@@ -1354,7 +1403,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "190";
+  const APP_VERSION = "192";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1371,7 +1420,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, distanceUnit: "km" };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -1391,7 +1440,21 @@
   function normalizeArray(parsed) { return Array.isArray(parsed) ? parsed : []; }
   function normalizeSettingsValue(parsed) {
     const p = parsed && typeof parsed === "object" ? parsed : {};
-    return Object.assign({}, DEFAULT_SETTINGS, p, { weather: Object.assign({}, DEFAULT_SETTINGS.weather, p.weather) });
+    const merged = Object.assign({}, DEFAULT_SETTINGS, p, {
+      weather: Object.assign({}, DEFAULT_SETTINGS.weather, p.weather),
+      units: Object.assign({}, DEFAULT_SETTINGS.units, p.units)
+    });
+    // Back-compat: the old single distanceUnit ("km"/"mi") controlled both
+    // distance and speed together. If a saved settings object still has it
+    // and hasn't already been migrated to the new independent units,
+    // carry it over as the starting point for both, rather than silently
+    // resetting an existing user's preference back to the default.
+    if (p.distanceUnit && !p.units) {
+      merged.units.distance = p.distanceUnit;
+      merged.units.speed = p.distanceUnit === "mi" ? "mph" : "kmh";
+    }
+    delete merged.distanceUnit;
+    return merged;
   }
   function normalizeDeletedIds(parsed) {
     const p = parsed && typeof parsed === "object" ? parsed : {};
@@ -1592,6 +1655,10 @@
   const rideHudPrefsRow = el("rideHudPrefsRow");
   const rideHudWakeLockRow = el("rideHudWakeLockRow");
   const unitToggle = el("unitToggle");
+  const unitTempSwitch = el("unitTempSwitch");
+  const unitDistanceSwitch = el("unitDistanceSwitch");
+  const unitSmallDistanceSwitch = el("unitSmallDistanceSwitch");
+  const unitSpeedSwitch = el("unitSpeedSwitch");
   const rideHudStopBtn = el("rideHudStopBtn");
   const rideHudResumeBtn = el("rideHudResumeBtn");
   const rideHudSaveBtn = el("rideHudSaveBtn");
@@ -2181,7 +2248,7 @@
     } catch (e) { return null; }
   }
   function formatWeatherTemp(tempC) {
-    return settings.distanceUnit === "mi" ? Math.round(tempC * 9 / 5 + 32) + "°F" : Math.round(tempC) + "°C";
+    return settings.units.temperature === "f" ? Math.round(tempC * 9 / 5 + 32) + "°F" : Math.round(tempC) + "°C";
   }
 
   // Reuses the same accordion chrome already established for the Layers
@@ -2282,7 +2349,7 @@
     }
 
     try {
-      const units = settings.distanceUnit === "mi" ? "imperial" : "metric";
+      const units = settings.units.temperature === "f" ? "imperial" : "metric";
       const url = "https://api.openweathermap.org/data/2.5/forecast?lat=" + lat + "&lon=" + lng +
         "&appid=" + encodeURIComponent(settings.owmApiKey) + "&units=" + units;
       const res = await fetch(url);
@@ -3016,11 +3083,10 @@
     });
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
-    let added = 0, skipped = 0;
+    let added = 0, updated = 0, skipped = 0;
     payload.waypoints.forEach((wp) => {
       if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
       if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
-      if (waypoints.some((existing) => existing.id === wp.id)) { skipped++; return; }
       if (repoContext && Array.isArray(wp.photos)) {
         wp.photos = wp.photos.map((p) => {
           if (p && p.repoPath && !p.src) {
@@ -3029,38 +3095,82 @@
           return p;
         });
       }
-      waypoints.push(wp);
-      addSavedMarker(wp);
-      added++;
+      const existingIndex = waypoints.findIndex((existing) => existing.id === wp.id);
+      if (existingIndex === -1) {
+        waypoints.push(wp);
+        addSavedMarker(wp);
+        added++;
+        return;
+      }
+      // Already have this one locally -- only replace it if the incoming
+      // version is a strictly newer edit (new photos, changed notes,
+      // etc.), so a pull never discards a more recent local change, but a
+      // genuinely newer edit made elsewhere actually propagates here
+      // instead of being silently and permanently ignored.
+      const incomingUpdatedAt = wp.updatedAt || 0;
+      const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
+      if (incomingUpdatedAt > existingUpdatedAt) {
+        const oldMarker = markers[wp.id];
+        if (oldMarker) map.removeLayer(oldMarker);
+        delete markers[wp.id];
+        waypoints[existingIndex] = wp;
+        addSavedMarker(wp);
+        updated++;
+      } else {
+        skipped++;
+      }
     });
-    if (added > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
+    if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
     // exist at all — that's fine, just nothing to merge on that front.
-    let routesAdded = 0, routesSkipped = 0;
+    let routesAdded = 0, routesUpdated = 0, routesSkipped = 0;
     if (Array.isArray(payload.rides)) {
       payload.rides.forEach((r) => {
         if (!r || !r.id || !Array.isArray(r.points) || typeof r.distanceMeters !== "number") { routesSkipped++; return; }
         if (deletedRideSet.has(r.id)) { routesSkipped++; return; }
-        if (rides.some((existing) => existing.id === r.id)) { routesSkipped++; return; }
-        rides.push(r);
-        routesAdded++;
+        const existingIndex = rides.findIndex((existing) => existing.id === r.id);
+        if (existingIndex === -1) {
+          rides.push(r);
+          routesAdded++;
+          return;
+        }
+        const incomingUpdatedAt = r.updatedAt || 0;
+        const existingUpdatedAt = rides[existingIndex].updatedAt || 0;
+        if (incomingUpdatedAt > existingUpdatedAt) {
+          rides[existingIndex] = r;
+          routesUpdated++;
+        } else {
+          routesSkipped++;
+        }
       });
     }
-    if (routesAdded > 0 || remoteRideDeletions > 0) { saveRides(); renderRoutesList(); }
+    if (routesAdded > 0 || routesUpdated > 0 || remoteRideDeletions > 0) { saveRides(); renderRoutesList(); }
 
     // Same story — older exports predate measurement syncing entirely.
-    let measurementsAdded = 0, measurementsSkipped = 0;
+    let measurementsAdded = 0, measurementsUpdated = 0, measurementsSkipped = 0;
     if (Array.isArray(payload.measurements)) {
       payload.measurements.forEach((m) => {
         if (!m || !m.id || !Array.isArray(m.points)) { measurementsSkipped++; return; }
         if (deletedMeasurementSet.has(m.id)) { measurementsSkipped++; return; }
-        if (measurements.some((existing) => existing.id === m.id)) { measurementsSkipped++; return; }
-        measurements.push(m);
-        measurementsAdded++;
+        const existingIndex = measurements.findIndex((existing) => existing.id === m.id);
+        if (existingIndex === -1) {
+          measurements.push(m);
+          measurementsAdded++;
+          return;
+        }
+        const incomingUpdatedAt = m.updatedAt || 0;
+        const existingUpdatedAt = measurements[existingIndex].updatedAt || 0;
+        if (incomingUpdatedAt > existingUpdatedAt) {
+          measurements[existingIndex] = m;
+          renderSavedMeasurement(m); // handles removing the old map layer internally
+          measurementsUpdated++;
+        } else {
+          measurementsSkipped++;
+        }
       });
     }
-    if (measurementsAdded > 0 || remoteMeasurementDeletions > 0) { saveMeasurements(); renderMeasurementsList(); }
+    if (measurementsAdded > 0 || measurementsUpdated > 0 || remoteMeasurementDeletions > 0) { saveMeasurements(); renderMeasurementsList(); }
 
     let anchorsApplied = 0;
     if (payload.settings && payload.settings.anchorOverrides) {
@@ -3080,7 +3190,8 @@
     }
 
     return {
-      added, skipped, routesAdded, routesSkipped, measurementsAdded, measurementsSkipped,
+      added, updated, skipped, routesAdded, routesUpdated, routesSkipped,
+      measurementsAdded, measurementsUpdated, measurementsSkipped,
       remoteWaypointDeletions, remoteRideDeletions, remoteMeasurementDeletions,
       anchorsApplied, homeAdopted
     };
@@ -3110,7 +3221,9 @@
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
         if (result.measurementsAdded) msg += " and " + result.measurementsAdded + " measurement" + (result.measurementsAdded === 1 ? "" : "s");
-        if (result.skipped) msg += " (" + result.skipped + " already saved)";
+        const totalUpdated = result.updated + result.routesUpdated + result.measurementsUpdated;
+        if (totalUpdated) msg += ", updated " + totalUpdated + " with newer edits";
+        if (result.skipped) msg += " (" + result.skipped + " already up to date)";
         showToast(msg);
       } catch (e) {
         showToast("Couldn't read that file — expected a MapApp backup JSON.");
@@ -4199,19 +4312,58 @@
   }
   function setUnitToggleUI() {
     unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.unit === settings.distanceUnit);
+      btn.classList.toggle("active", btn.dataset.unit === settings.units.distance);
     });
   }
   setUnitToggleUI();
   unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      settings.distanceUnit = btn.dataset.unit;
+      // A quick, single km/mi toggle in this compact context sets distance
+      // and speed together, since that matches what someone tapping "mi"
+      // here would expect — the Settings tab has fully independent
+      // controls for anyone who wants a different combination.
+      settings.units.distance = btn.dataset.unit;
+      settings.units.speed = btn.dataset.unit === "mi" ? "mph" : "kmh";
       saveSettings();
       setUnitToggleUI();
       refreshUnitDisplay();
+      syncUnitsSettingsUI();
     });
   });
+
+  // Settings tab: four fully independent unit toggles — unlike the quick
+  // km/mi toggle above, these are never linked to each other, so someone
+  // can mix (for example) distance in miles with temperature in Celsius if
+  // that's genuinely what they want.
+  const UNIT_SWITCHES = [
+    { el: unitTempSwitch, key: "temperature", metricValue: "c", imperialValue: "f" },
+    { el: unitDistanceSwitch, key: "distance", metricValue: "km", imperialValue: "mi" },
+    { el: unitSmallDistanceSwitch, key: "smallDistance", metricValue: "metric", imperialValue: "imperial" },
+    { el: unitSpeedSwitch, key: "speed", metricValue: "kmh", imperialValue: "mph" }
+  ];
+  function syncUnitsSettingsUI() {
+    UNIT_SWITCHES.forEach((cfg) => {
+      const isImperial = settings.units[cfg.key] === cfg.imperialValue;
+      cfg.el.classList.toggle("imperial", isImperial);
+      cfg.el.setAttribute("aria-checked", isImperial ? "true" : "false");
+      const row = cfg.el.closest(".unit-slider");
+      row.querySelector('[data-side="metric"]').classList.toggle("active", !isImperial);
+      row.querySelector('[data-side="imperial"]').classList.toggle("active", isImperial);
+    });
+  }
+  UNIT_SWITCHES.forEach((cfg) => {
+    cfg.el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isCurrentlyImperial = settings.units[cfg.key] === cfg.imperialValue;
+      settings.units[cfg.key] = isCurrentlyImperial ? cfg.metricValue : cfg.imperialValue;
+      saveSettings();
+      syncUnitsSettingsUI();
+      refreshUnitDisplay();
+      setUnitToggleUI(); // keeps the route-HUD km/mi toggle in sync if distance or speed changed here
+    });
+  });
+  syncUnitsSettingsUI();
 
   /* ================================================================ */
   /*  Ride tracking — live GPS trace, distance/time/speed, and a saved  */
@@ -4269,16 +4421,31 @@
     return (h > 0 ? h + ":" : "") + mStr + ":" + String(s).padStart(2, "0");
   }
   function formatDistance(meters) {
-    if (settings.distanceUnit === "mi") return (meters / 1609.344).toFixed(2) + " mi";
+    if (settings.units.distance === "mi") return (meters / 1609.344).toFixed(2) + " mi";
     return (meters / 1000).toFixed(2) + " km";
   }
-  function distanceUnitLabel() { return settings.distanceUnit === "mi" ? "mi" : "km"; }
-  function speedUnitLabel() { return settings.distanceUnit === "mi" ? "mph" : "km/h"; }
+  function distanceUnitLabel() { return settings.units.distance === "mi" ? "mi" : "km"; }
+  function speedUnitLabel() { return settings.units.speed === "mph" ? "mph" : "km/h"; }
   function formatDistanceValue(meters) {
-    return settings.distanceUnit === "mi" ? (meters / 1609.344).toFixed(2) : (meters / 1000).toFixed(2);
+    return settings.units.distance === "mi" ? (meters / 1609.344).toFixed(2) : (meters / 1000).toFixed(2);
   }
   function formatSpeedValue(kmh) {
-    return settings.distanceUnit === "mi" ? (kmh / 1.609344).toFixed(1) : kmh.toFixed(1);
+    return settings.units.speed === "mph" ? (kmh / 1.609344).toFixed(1) : kmh.toFixed(1);
+  }
+  // "Smaller distances" — a separate unit preference from route/waypoint
+  // distance, since someone might want routes in miles but a short
+  // measurement in centimeters, or vice versa. Auto-scales between the two
+  // sub-units within whichever system is selected, the same way most
+  // mapping tools do (e.g. showing cm for something under a meter, m above
+  // that) rather than needing its own separate toggle for each.
+  function formatSmallDistance(meters) {
+    if (settings.units.smallDistance === "imperial") {
+      const feet = meters / 0.3048;
+      if (feet < 1) return (feet * 12).toFixed(1) + " in";
+      return feet.toFixed(2) + " ft";
+    }
+    if (meters < 1) return (meters * 100).toFixed(1) + " cm";
+    return meters.toFixed(2) + " m";
   }
 
   let currentSpeedKmh = 0;
@@ -4462,7 +4629,7 @@
   // whole-unit threshold, rather than just marking GPS points nearest to it.
   function computeDistanceMarkerPositions(points, intervalMultiplier) {
     intervalMultiplier = intervalMultiplier || 1;
-    const unitMeters = (settings.distanceUnit === "mi" ? 1609.344 : 1000) * intervalMultiplier;
+    const unitMeters = (settings.units.distance === "mi" ? 1609.344 : 1000) * intervalMultiplier;
     const positions = [];
     if (!points || points.length < 2) return positions;
     let cumulative = 0;
@@ -4496,7 +4663,7 @@
   // so the interval halves accordingly, never going below the base unit.
   const MARKER_INTERVALS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
   function pickBaseMarkerInterval(totalDistanceMeters) {
-    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+    const unitMeters = settings.units.distance === "mi" ? 1609.344 : 1000;
     const totalInUnit = totalDistanceMeters / unitMeters;
     const maxMarkers = 20;
     for (const interval of MARKER_INTERVALS) {
@@ -4553,7 +4720,7 @@
   // the last marker) that point's cumulative distance falls between.
   function findClickedSegment(points, clickLat, clickLng) {
     if (!points || points.length < 2) return null;
-    const unitMeters = settings.distanceUnit === "mi" ? 1609.344 : 1000;
+    const unitMeters = settings.units.distance === "mi" ? 1609.344 : 1000;
     let cumulative = 0;
     const cumulativeAtIndex = [0];
     for (let i = 1; i < points.length; i++) {
@@ -4584,7 +4751,7 @@
     const avgSpeedKmh = (timeMs > 0 && distanceM > 0) ? (distanceM / 1000) / (timeMs / 3600000) : 0;
     const fromLabel = (segment.start.distanceM / segment.unitMeters).toFixed(2);
     const toLabel = (segment.end.distanceM / segment.unitMeters).toFixed(2);
-    const unitName = settings.distanceUnit === "mi" ? "mi" : "km";
+    const unitName = settings.units.distance === "mi" ? "mi" : "km";
     const content = '<div class="segment-popup">' +
       '<b>' + fromLabel + '–' + toLabel + ' ' + unitName + '</b>' +
       '<div>Time: ' + formatDuration(timeMs) + '</div>' +
@@ -4792,7 +4959,8 @@
       points: ridePoints,
       distanceMeters: rideDistanceMeters,
       durationMs: currentElapsedMs(), // moving time, excludes any paused segments
-      weather: null
+      weather: null,
+      updatedAt: Date.now()
     };
     rides.push(ride);
     saveRides();
@@ -4978,7 +5146,7 @@
       if (spd > maxSpeedKmh) maxSpeedKmh = spd;
     }
     const avgSpeedKmh = ride.durationMs > 0 ? (ride.distanceMeters / (ride.durationMs / 1000)) * 3.6 : 0;
-    const distanceInUnit = settings.distanceUnit === "mi" ? ride.distanceMeters / 1609.344 : ride.distanceMeters / 1000;
+    const distanceInUnit = settings.units.distance === "mi" ? ride.distanceMeters / 1609.344 : ride.distanceMeters / 1000;
     const avgTimePerUnitMs = distanceInUnit > 0 ? ride.durationMs / distanceInUnit : 0;
     return { maxSpeedKmh, avgSpeedKmh, avgTimePerUnitMs };
   }
@@ -5185,7 +5353,7 @@
 
   function saveMeasurement() {
     const name = measureNameInput.value.trim() || "Measurement";
-    const m = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, points: measurePoints.slice(), createdAt: Date.now() };
+    const m = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, points: measurePoints.slice(), createdAt: Date.now(), updatedAt: Date.now() };
     measurements.push(m);
     saveMeasurements();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
@@ -5264,6 +5432,7 @@
     const newName = measureNameInput.value.trim();
     if (newName && newName !== m.name) {
       m.name = newName;
+      m.updatedAt = Date.now();
       saveMeasurements();
       renderMeasurementsList();
     }
@@ -5364,6 +5533,7 @@
     const m = measurements.find((mm) => mm.id === id);
     if (save && m) {
       m.points = editLivePoints.slice();
+      m.updatedAt = Date.now();
       saveMeasurements();
       showToast("Measurement updated");
       renderMeasurementsList();
@@ -5395,6 +5565,7 @@
     function commit() {
       const newName = input.value.trim() || currentlyViewedRide.name;
       currentlyViewedRide.name = newName;
+      currentlyViewedRide.updatedAt = Date.now();
       saveRides();
       renderRoutesList();
       rideHudTitle.textContent = newName;
@@ -6200,6 +6371,7 @@
         wp.markerColor = markerColor;
         wp.markerEmoji = markerEmoji;
         wp.photos = pendingPhotos.slice();
+        wp.updatedAt = Date.now();
         addSavedMarker(wp);
         saveWaypoints();
         renderList();
@@ -6218,7 +6390,7 @@
     const wp = {
       id, lat, lng, name, notes, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(),
-      createdAt: Date.now(), weather: null
+      createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
     waypoints.push(wp);
@@ -6362,6 +6534,7 @@
     const trimmedName = voiceCaptureNameBuffer.trim();
     if (trimmedName) wp.name = capitalizeFirst(trimmedName);
     wp.notes = voiceCaptureNotesBuffer.trim();
+    wp.updatedAt = Date.now();
     saveWaypoints();
     renderList();
     updateCounters();
@@ -7039,6 +7212,7 @@
           case "toggle-favorite":
             e.stopPropagation();
             wp.favorite = !wp.favorite;
+            wp.updatedAt = Date.now();
             saveWaypoints();
             node.classList.toggle("favorited", wp.favorite);
             node.title = wp.favorite ? "Remove from favorites" : "Add to favorites";
@@ -7169,6 +7343,7 @@
       added++;
     }
     if (added > 0) {
+      wp.updatedAt = Date.now();
       saveWaypoints();
       renderList();
       showToast("Added " + added + " photo" + (added === 1 ? "" : "s") + ' to "' + wp.name + '"');
@@ -7223,6 +7398,7 @@
     input.focus(); input.select();
     const commit = () => {
       wp.name = input.value.trim() || wp.name;
+      wp.updatedAt = Date.now();
       saveWaypoints();
       renderList();
     };
