@@ -1654,7 +1654,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "212";
+  const APP_VERSION = "213";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3339,7 +3339,7 @@
   // repoContext ({owner, repo}) is passed only by the repo-sync pull path —
   // incoming photos there carry a repoPath reference instead of full base64,
   // which gets resolved into a directly-usable raw GitHub URL here.
-  function mergeBackupPayload(payload, repoContext) {
+  async function mergeBackupPayload(payload, repoContext) {
     if (!payload || typeof payload !== "object") {
       throw new Error("Not a recognized MapApp backup file (expected a JSON object, got " + (payload === null ? "null" : typeof payload) + ").");
     }
@@ -3400,22 +3400,11 @@
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
     let added = 0, updated = 0, skipped = 0;
-    payload.waypoints.forEach((wp) => {
-      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
-      if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
-      if (repoContext && Array.isArray(wp.photos)) {
-        wp.photos = wp.photos.map((p) => {
-          if (p && p.repoPath && !p.src) return githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath);
-          return p;
-        });
-      }
+    for (const wp of payload.waypoints) {
+      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; continue; }
+      if (deletedWaypointSet.has(wp.id)) { skipped++; continue; } // deleted somewhere -- don't resurrect it
+
       const existingIndex = waypoints.findIndex((existing) => existing.id === wp.id);
-      if (existingIndex === -1) {
-        waypoints.push(wp);
-        addSavedMarker(wp);
-        added++;
-        return;
-      }
       // Already have this one locally -- only replace it if the incoming
       // version is a strictly newer edit (new photos, changed notes,
       // etc.), so a pull never discards a more recent local change, but a
@@ -3428,10 +3417,30 @@
       // edits (already-synced photos, notes) could never sync at all. In
       // that specific case only, the incoming/pulled version wins, since
       // pulling it in is the entire point of a Sync.
-      const incomingUpdatedAt = wp.updatedAt || 0;
-      const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
-      const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
-      if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+      let willApply = existingIndex === -1;
+      if (!willApply) {
+        const incomingUpdatedAt = wp.updatedAt || 0;
+        const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
+        const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
+        willApply = incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp;
+      }
+
+      // Only fetch photos for a waypoint that's actually going to be used --
+      // no point authenticating and downloading photo content for a
+      // waypoint this device is about to skip anyway because it's already
+      // up to date, which is the common case on a routine, repeated sync.
+      if (willApply && repoContext && Array.isArray(wp.photos)) {
+        wp.photos = await Promise.all(wp.photos.map((p) => {
+          if (p && p.repoPath && !p.src) return rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
+          return p;
+        }));
+      }
+
+      if (existingIndex === -1) {
+        waypoints.push(wp);
+        addSavedMarker(wp);
+        added++;
+      } else if (willApply) {
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
@@ -3441,7 +3450,7 @@
       } else {
         skipped++;
       }
-    });
+    }
     if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
@@ -3538,10 +3547,10 @@
     const file = importBackupFile.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const payload = JSON.parse(stripBom(String(reader.result)));
-        const result = mergeBackupPayload(payload);
+        const result = await mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
         if (result.measurementsAdded) msg += " and " + result.measurementsAdded + " measurement" + (result.measurementsAdded === 1 ? "" : "s");
@@ -3700,6 +3709,59 @@
       throw err;
     }
     return { content: decodeBase64Utf8(blobData.content), sha: data.sha };
+  }
+
+  // Like fetchRepoFile, but for binary content (photos) -- returns the raw
+  // base64 as-is rather than UTF-8-decoding it. decodeBase64Utf8 is correct
+  // for the JSON data file (genuine text) but would corrupt binary image
+  // bytes, since it assumes the content is valid UTF-8 text. Falls back to
+  // the Git Blobs API for files over the Contents API's 1MB read limit,
+  // same as fetchRepoFile.
+  async function fetchRepoFileBase64(owner, repo, path) {
+    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    if (res.status === 404) return null;
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
+    const data = await res.json();
+    if (data.content && data.encoding === "base64") return data.content.replace(/\n/g, "");
+    if (!data.sha) {
+      const err = new Error("This file is too large to read (no blob sha was provided).");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
+    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
+    const blobData = await blobRes.json();
+    if (blobData.encoding !== "base64" || !blobData.content) {
+      const err = new Error("The large file's blob came back in an unexpected format.");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    return blobData.content.replace(/\n/g, "");
+  }
+  function mimeFromExtension(path) {
+    const ext = (path.split(".").pop() || "").toLowerCase();
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    return "image/jpeg";
+  }
+  // Fetches a photo's actual content and reconstructs a directly-usable
+  // data: URL -- unlike a plain githubRawUrl, this works even for a
+  // private repository, since the fetch is authenticated (an
+  // <img src="https://raw.githubusercontent.com/..."> can't attach the
+  // Authorization header a private repo requires, which is what left every
+  // photo showing as a broken-image placeholder). Falls back to the plain
+  // raw URL if the fetch fails, in case the repo IS public and this was
+  // just a transient error -- better to attempt something displayable than
+  // show nothing at all.
+  async function rehydratePhotoRef(owner, repo, repoPath) {
+    try {
+      const base64 = await fetchRepoFileBase64(owner, repo, repoPath);
+      if (base64) return "data:" + mimeFromExtension(repoPath) + ";base64," + base64;
+    } catch (e) {
+      console.error("[repo pull] failed to fetch photo " + repoPath, e);
+    }
+    return githubRawUrl(owner, repo, repoPath);
   }
 
   // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
@@ -3861,7 +3923,8 @@
         showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
         return { ok: false, reason: "That file isn't valid MapApp data." };
       }
-      mergeBackupPayload(payload, parsed);
+      gistStatusText.textContent = "Merging…";
+      await mergeBackupPayload(payload, parsed);
       gistStatusText.textContent = "Pulled just now.";
       return { ok: true, reason: null };
     } catch (e) {
@@ -4081,15 +4144,15 @@
       });
 
       waypoints = payload.waypoints.filter((wp) => wp && wp.id && typeof wp.lat === "number" && typeof wp.lng === "number");
-      waypoints.forEach((wp) => {
+      for (const wp of waypoints) {
         if (Array.isArray(wp.photos)) {
-          wp.photos = wp.photos.map((p) => {
-            if (p && p.repoPath && !p.src) return githubRawUrl(parsed.owner, parsed.repo, p.repoPath);
+          wp.photos = await Promise.all(wp.photos.map((p) => {
+            if (p && p.repoPath && !p.src) return rehydratePhotoRef(parsed.owner, parsed.repo, p.repoPath);
             return p;
-          });
+          }));
         }
         addSavedMarker(wp);
-      });
+      }
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
       measurements.forEach((m) => renderSavedMeasurement(m));
