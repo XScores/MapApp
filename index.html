@@ -536,8 +536,14 @@
   /* ---------- toast ---------- */
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40; background:var(--surface);
     border:1px solid var(--border); color:#e2e8f0; font-size:12px; padding:9px 14px; border-radius:10px;
-    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;}
+    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;
+    display:flex; align-items:flex-start; gap:10px; max-width:min(420px, 88vw);}
   .toast.show{opacity:1;}
+  .toast-message{flex:1; min-width:0; white-space:pre-line;}
+  .toast-close-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
+    padding:2px; display:flex; pointer-events:auto; margin:-2px -4px 0 0;}
+  .toast-close-btn:hover{color:#fff;}
+  .toast-close-btn.hidden{display:none;}
 
   .sync-suggestion-banner{position:fixed; top:calc(80px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:44;
     display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--cyan);
@@ -1190,7 +1196,10 @@
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast">
+    <span class="toast-message" id="toastMessage"></span>
+    <button type="button" class="toast-close-btn hidden" id="toastCloseBtn" aria-label="Close"></button>
+  </div>
 
   <div class="sync-suggestion-banner hidden" id="syncSuggestionBanner">
     <div class="sync-suggestion-top">
@@ -1654,7 +1663,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "213";
+  const APP_VERSION = "215";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1722,16 +1731,16 @@
   // happens asynchronously in the background, with errors caught here so
   // no caller needs its own try/catch either.
   function saveRides() {
-    if (!dataStore) { showToast(describeStorageError(null, "this route")); return; }
-    dataStore.setItem(RIDES_KEY, rides).catch((e) => showToast(describeStorageError(e, "this route")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "this route")); return; }
+    dataStore.setItem(RIDES_KEY, rides).catch((e) => showErrorToast(describeStorageError(e, "this route")));
   }
   function saveMeasurements() {
-    if (!dataStore) { showToast(describeStorageError(null, "this measurement")); return; }
-    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showToast(describeStorageError(e, "this measurement")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "this measurement")); return; }
+    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showErrorToast(describeStorageError(e, "this measurement")));
   }
   function saveWaypoints() {
-    if (!dataStore) { showToast(describeStorageError(null, "your waypoints")); return; }
-    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showToast(describeStorageError(e, "your waypoints")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
+    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showErrorToast(describeStorageError(e, "your waypoints")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -2141,6 +2150,8 @@
   const routesAzPicker = el("routesAzPicker");
   const measurementsAzPicker = el("measurementsAzPicker");
   const toastEl = el("toast");
+  const toastMessage = el("toastMessage");
+  const toastCloseBtn = el("toastCloseBtn");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
   const syncSuggestionPullBtn = el("syncSuggestionPullBtn");
@@ -2183,6 +2194,7 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
+  toastCloseBtn.innerHTML = icon("x", 15);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
   panelSyncBtn.innerHTML = icon("sync", 16);
   importModalCloseBtn.innerHTML = icon("x", 18);
@@ -2202,12 +2214,26 @@
   /* ================================================================ */
 
   let toastTimer = null;
-  function showToast(msg) {
-    toastEl.textContent = msg;
+  function showToast(msg, isError) {
+    toastMessage.textContent = msg;
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
+    toastCloseBtn.classList.toggle("hidden", !isError);
+    if (isError) return; // persists until manually dismissed -- see showErrorToast
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
   }
+  // The explicit way to show an error: persists until the person closes it
+  // themselves (via the X button), rather than the standard toast's brief
+  // auto-dismiss -- an error is often something worth reading carefully,
+  // copying, or screenshotting to report, and 3.2 seconds isn't always
+  // enough for that, especially for a longer message.
+  function showErrorToast(msg) {
+    showToast(msg, true);
+  }
+  toastCloseBtn.addEventListener("click", () => {
+    toastEl.classList.remove("show");
+    clearTimeout(toastTimer);
+  });
 
   /* ================================================================ */
   /*  Confirmation modal (reusable)                                     */
@@ -2378,7 +2404,7 @@
     baseLayers[name].on("tileerror", () => {
       if (activeBaseLayer !== baseLayers[name] || baseLayerErrorShown) return;
       baseLayerErrorShown = true;
-      showToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
+      showErrorToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
     });
   });
 
@@ -2445,7 +2471,7 @@
         showToast("Zoomed out — live radar tiles are only available up to this zoom level.");
       }
       const frames = await fetchPrecipFrameLayers();
-      if (!frames.length) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
+      if (!frames.length) { showErrorToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
       precipFrameLayers = frames;
       precipFrameIndex = 0;
       showPrecipFrame(0);
@@ -2843,7 +2869,7 @@
       (err) => {
         triggerBtn.disabled = false; triggerBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -2998,7 +3024,7 @@
       (err) => {
         homeModalUseLocationBtn.disabled = false; homeModalUseLocationBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -3159,7 +3185,7 @@
     try {
       cells = window.h3.polygonToCells(loop, res);
     } catch (e) {
-      showToast("Couldn't compute precision hexes for this view.");
+      showErrorToast("Couldn't compute precision hexes for this view.");
       return;
     }
     if (myToken !== precisionHexToken) return; // a newer rebuild superseded this one
@@ -3292,7 +3318,7 @@
         refreshAllHexCells();
         showToast("Imported " + applied + " region name" + (applied === 1 ? "" : "s") + (skipped ? (", skipped " + skipped) : ""));
       } catch (e) {
-        showToast("Couldn't read that file — expected a JSON export from this app.");
+        showErrorToast("Couldn't read that file — expected a JSON export from this app.");
       }
       importAnchorsFile.value = "";
     };
@@ -3400,6 +3426,10 @@
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
     let added = 0, updated = 0, skipped = 0;
+    // Determine every waypoint's fate first, without touching photos at all
+    // -- keeps this part fast and purely synchronous, and means only
+    // waypoints that actually need it ever trigger a photo fetch.
+    const toApply = [];
     for (const wp of payload.waypoints) {
       if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; continue; }
       if (deletedWaypointSet.has(wp.id)) { skipped++; continue; } // deleted somewhere -- don't resurrect it
@@ -3424,33 +3454,45 @@
         const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
         willApply = incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp;
       }
+      if (willApply) toApply.push({ wp, existingIndex });
+      else skipped++;
+    }
 
-      // Only fetch photos for a waypoint that's actually going to be used --
-      // no point authenticating and downloading photo content for a
-      // waypoint this device is about to skip anyway because it's already
-      // up to date, which is the common case on a routine, repeated sync.
-      if (willApply && repoContext && Array.isArray(wp.photos)) {
-        wp.photos = await Promise.all(wp.photos.map((p) => {
-          if (p && p.repoPath && !p.src) return rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
-          return p;
+    // Fetch every needed photo across every waypoint at once, rather than
+    // one waypoint at a time -- this is what actually makes a device's
+    // first-ever sync (where every waypoint and all its photos need
+    // fetching) complete in a reasonable time instead of processing
+    // requests almost one at a time.
+    if (repoContext) {
+      let photoIndex = 0;
+      let photoTotal = 0;
+      toApply.forEach(({ wp }) => { if (Array.isArray(wp.photos)) photoTotal += wp.photos.filter((p) => p && p.repoPath && !p.src).length; });
+      await Promise.all(toApply.map(async ({ wp }) => {
+        if (!Array.isArray(wp.photos)) return;
+        wp.photos = await Promise.all(wp.photos.map(async (p) => {
+          if (!(p && p.repoPath && !p.src)) return p;
+          const result = await rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
+          photoIndex++;
+          if (photoTotal > 1) gistStatusText.textContent = "Fetching photos (" + photoIndex + "/" + photoTotal + ")…";
+          return result;
         }));
-      }
+      }));
+    }
 
+    toApply.forEach(({ wp, existingIndex }) => {
       if (existingIndex === -1) {
         waypoints.push(wp);
         addSavedMarker(wp);
         added++;
-      } else if (willApply) {
+      } else {
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
         waypoints[existingIndex] = wp;
         addSavedMarker(wp);
         updated++;
-      } else {
-        skipped++;
       }
-    }
+    });
     if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
@@ -3559,7 +3601,7 @@
         if (result.skipped) msg += " (" + result.skipped + " already up to date)";
         showToast(msg);
       } catch (e) {
-        showToast("Couldn't read that file — expected a MapApp backup JSON.");
+        showErrorToast("Couldn't read that file — expected a MapApp backup JSON.");
       }
       importBackupFile.value = "";
     };
@@ -3603,7 +3645,7 @@
   githubRepoInput.value = (await safeLocalStorageGet(GITHUB_REPO_KEY)) || "";
   gistTokenInput.addEventListener("change", async () => {
     if (!(await safeLocalStorageSet(GITHUB_TOKEN_KEY, gistTokenInput.value.trim()))) {
-      showToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
+      showErrorToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
     }
   });
   gistTokenVisibilityBtn.addEventListener("click", (e) => {
@@ -3618,7 +3660,7 @@
     const cleaned = parsed ? (parsed.owner + "/" + parsed.repo) : githubRepoInput.value.trim();
     githubRepoInput.value = cleaned; // reflect the cleaned-up value back into the field so it's visibly correct
     if (!(await safeLocalStorageSet(GITHUB_REPO_KEY, cleaned))) {
-      showToast("Couldn't save your repository — this device's storage may be full or restricted.");
+      showErrorToast("Couldn't save your repository — this device's storage may be full or restricted.");
     }
   });
 
@@ -3628,6 +3670,18 @@
       "Accept": "application/vnd.github+json",
       "Content-Type": "application/json"
     };
+  }
+
+  const NETWORK_FETCH_TIMEOUT_MS = 20000;
+  // fetch() has no built-in timeout -- without this, a single slow or
+  // stalled request on an unreliable mobile connection could hang
+  // indefinitely, which would silently block an entire sync (nothing
+  // waiting on it, like a Promise.all across many photo fetches, would
+  // ever resolve).
+  function fetchWithTimeout(url, opts) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), NETWORK_FETCH_TIMEOUT_MS);
+    return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(() => clearTimeout(timer));
   }
 
   async function describeGitHubApiError(res) {
@@ -3687,7 +3741,7 @@
   // file's content SHA (no branch, no pre-signed URL) and authenticated
   // exactly the same way as every other request in this app.
   async function fetchRepoFile(owner, repo, path) {
-    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
@@ -3700,7 +3754,7 @@
       throw err;
     }
     const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
     if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
     const blobData = await blobRes.json();
     if (blobData.encoding !== "base64" || !blobData.content) {
@@ -3718,7 +3772,7 @@
   // the Git Blobs API for files over the Contents API's 1MB read limit,
   // same as fetchRepoFile.
   async function fetchRepoFileBase64(owner, repo, path) {
-    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
@@ -3729,7 +3783,7 @@
       throw err;
     }
     const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
     if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
     const blobData = await blobRes.json();
     if (blobData.encoding !== "base64" || !blobData.content) {
@@ -3773,7 +3827,7 @@
   async function putRepoFileRaw(owner, repo, path, base64Content, sha, message) {
     const body = { message: message || ("Update " + path), content: base64Content, branch: GITHUB_BRANCH };
     if (sha) body.sha = sha;
-    const res = await fetch(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
     return data.content && data.content.sha;
@@ -3829,8 +3883,12 @@
   // isn't a data: URL at all (already a remote reference from a prior pull).
   async function uploadWaypointPhotosIfNeeded(owner, repo) {
     const cache = await loadPhotoUploadCache();
-    let anyUploaded = false;
-    let anyFailed = false;
+    // Collect every photo that actually needs uploading first (fast, no
+    // network), then upload them all concurrently rather than one at a
+    // time -- the same fix as the pull side, since this was exactly as
+    // slow otherwise for a device with many newly-added photos to push.
+    const needsUpload = [];
+    const seenHashes = new Set(); // avoids uploading the same content twice concurrently if it appears on more than one waypoint, since the cache won't reflect an in-progress upload yet
     for (const wp of waypoints) {
       if (!Array.isArray(wp.photos)) continue;
       for (const src of wp.photos) {
@@ -3840,19 +3898,28 @@
         const mime = match[1];
         const base64Data = match[2];
         const hash = hashPhotoContent(base64Data);
-        if (cache[hash]) continue; // already uploaded in a previous sync
+        if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
+        seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        const path = "images/" + hash + "." + ext;
-        try {
-          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo " + hash + " (waypoint " + wp.id + ")");
-          cache[hash] = path;
-          anyUploaded = true;
-        } catch (e) {
-          console.error("[repo sync] failed to upload photo " + path, e);
-          anyFailed = true;
-        }
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
       }
     }
+
+    let anyUploaded = false;
+    let anyFailed = false;
+    let doneCount = 0;
+    await Promise.all(needsUpload.map(async (item) => {
+      try {
+        await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
+        cache[item.hash] = item.path;
+        anyUploaded = true;
+      } catch (e) {
+        console.error("[repo sync] failed to upload photo " + item.path, e);
+        anyFailed = true;
+      }
+      doneCount++;
+      if (needsUpload.length > 1) gistStatusText.textContent = "Uploading photos (" + doneCount + "/" + needsUpload.length + ")…";
+    }));
     if (anyUploaded) await savePhotoUploadCache(cache);
     return { anyUploaded, anyFailed, cache };
   }
@@ -3931,7 +3998,7 @@
       console.error("[repo pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason);
       return { ok: false, reason };
     }
   }
@@ -3946,7 +4013,7 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
+        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -3976,7 +4043,7 @@
       console.error("[repo push] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't push: " + reason);
+      showErrorToast("Couldn't push: " + reason);
       return false;
     }
   }
@@ -4060,7 +4127,7 @@
       console.error("[repo check] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't check the repo: " + reason);
+      showErrorToast("Couldn't check the repo: " + reason);
     }
     gistCheckRepoBtn.disabled = false;
   }
@@ -4122,14 +4189,14 @@
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
-        showToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
+        showErrorToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
       }
       const payload = JSON.parse(stripBom(file.content));
       if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
-        showToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
+        showErrorToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
@@ -4173,7 +4240,7 @@
       console.error("[force pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason);
     }
     gistForcePullBtn.disabled = false;
     gistSyncBtn.disabled = false;
@@ -6692,7 +6759,7 @@
   function armCameraPhotoMapPick(dataUrl) {
     pendingCameraDataUrl = dataUrl;
     pickingCameraLocation = true;
-    showToast("Couldn't find a location for that photo — tap the map to place it.");
+    showErrorToast("Couldn't find a location for that photo — tap the map to place it.");
   }
 
   async function handleCameraCapture(file) {
@@ -6706,7 +6773,7 @@
     try {
       compressedDataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
     } catch (e) {
-      showToast("Couldn't read that photo.");
+      showErrorToast("Couldn't read that photo.");
       return;
     }
 
@@ -6777,7 +6844,7 @@
     // same geolocation/tap-to-place fallback used when a real photo has no GPS tag.
     const { dataUrls, hadUnusableSource } = await collectImageDataUrlsFromDrop(e.dataTransfer);
     if (dataUrls.length === 0) {
-      if (hadUnusableSource) showToast("Couldn't read that as an image.");
+      if (hadUnusableSource) showErrorToast("Couldn't read that as an image.");
       return;
     }
     for (const dataUrl of dataUrls) {
@@ -7184,7 +7251,7 @@
       (err) => {
         locateBtn.disabled = false; locateBtn.innerHTML = icon("navigation", 18);
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -7483,7 +7550,7 @@
       () => {
         voiceCaptureState = "idle";
         speak("Couldn't get your location.");
-        showToast("Couldn't get your current location for the hands-free waypoint.");
+        showErrorToast("Couldn't get your current location for the hands-free waypoint.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -7563,7 +7630,7 @@
     };
     handsFreeRecognition.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        showToast("Microphone access was denied — hands-free waypoints need it to work.");
+        showErrorToast("Microphone access was denied — hands-free waypoints need it to work.");
         stopHandsFreeListening();
       }
       // other errors (no-speech, network, aborted) are transient; onend below restarts automatically
@@ -7579,7 +7646,7 @@
       showToast('Listening — say "waypoint" to save your location, hands-free.');
       speak("Hands-free waypoints on.");
     } catch (e) {
-      showToast("Couldn't start voice recognition.");
+      showErrorToast("Couldn't start voice recognition.");
       handsFreeListening = false;
       voiceWaypointBtn.classList.remove("listening");
       voiceWaypointBtn.innerHTML = icon("mic", 18);
@@ -7885,7 +7952,7 @@
     if (navigator.share) {
       navigator.share({ title: wp.name, text }).catch(() => {});
     } else {
-      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showToast("Couldn't copy to clipboard."));
+      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showErrorToast("Couldn't copy to clipboard."));
     }
   }
 
@@ -8252,7 +8319,7 @@
           case "copy-coords":
             copyText(wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6))
               .then(() => flashCheck(node, "copy", " Copy coordinates"))
-              .catch(() => showToast("Couldn't copy to clipboard."));
+              .catch(() => showErrorToast("Couldn't copy to clipboard."));
             break;
           case "share": shareWaypoint(wp); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
@@ -8406,7 +8473,7 @@
       if (result.dataUrls.length > 0) {
         commitPhotosToWaypoint(wp, result.dataUrls);
       } else if (result.hadUnusableSource) {
-        showToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
+        showErrorToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
       } else {
         showToast("That doesn't look like an image — check the browser console (F12) for what was actually dragged.");
       }
