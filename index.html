@@ -289,12 +289,16 @@
   .photo-thumbs{display:flex; flex-wrap:wrap; gap:8px;}
   .photo-thumbs:not(:empty){margin-top:2px;}
   .photo-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden;
-    border:1px solid var(--border); flex-shrink:0;}
+    border:1px solid var(--border); flex-shrink:0; cursor:grab; touch-action:none;}
   .photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .photo-thumb-remove{position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
     background:rgba(2,6,23,.75); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
     cursor:pointer; padding:0;}
   .photo-thumb-remove:hover{background:var(--red);}
+  .thumb-reorder-active .photo-thumb,
+  .thumb-reorder-active .card-photo-thumb{pointer-events:none;}
+  .thumb-drag-ghost{cursor:grabbing;}
+  .thumb-drop-indicator{width:3px; border-radius:2px; background:var(--cyan); flex-shrink:0; box-shadow:0 0 6px var(--cyan);}
   .photo-view-card{max-width:min(520px, 92vw); padding:16px;}
   .forecast-card{max-width:min(420px, 92vw);}
   .forecast-status{color:var(--text-mute); font-size:14px; padding:20px 0; text-align:center;}
@@ -346,7 +350,7 @@
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
   .photo-view-card img{width:100%; max-height:70vh; max-height:70dvh; object-fit:contain; border-radius:10px; display:block;}
   .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
-  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:pointer;
+  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:grab; touch-action:none;
     border:1px solid var(--border); flex-shrink:0;}
   .card-photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .card-photo-add{width:38px; height:38px; border-radius:6px; flex-shrink:0; cursor:pointer;
@@ -467,6 +471,8 @@
   .card-name{font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; cursor:text; margin:0;}
   .card-name:hover{text-decoration:underline dotted;}
+  .ride-card-name-editable{cursor:text;}
+  .ride-card-name-editable:hover{text-decoration:underline dotted;}
   .card-name-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
     padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
   .card-coords{font-size:11px; color:var(--text-mute); margin:2px 0 0;}
@@ -1329,6 +1335,144 @@
     if (/^(https?|mailto|tel):/i.test(trimmed)) return trimmed;
     return "https://" + trimmed;
   }
+
+  // Enables drag-to-reorder for thumbnail elements within a container,
+  // using pointer events so it works consistently across mouse, touch, and
+  // pen -- HTML5 drag-and-drop doesn't work reliably on touch devices,
+  // which this app needs to support on iPhone. A tap with no meaningful
+  // movement still falls through to whatever click behavior the element
+  // already has (e.g. opening the photo viewer, or the remove button) --
+  // only movement past a small threshold is treated as a drag, and any
+  // click event that would otherwise fire right after a real drag is
+  // suppressed so it doesn't accidentally trigger those.
+  //
+  // While dragging, the real element is fully hidden (not just dimmed) --
+  // only ONE copy is ever visible at a time: a floating "ghost" clone that
+  // follows the pointer. A dedicated insertion-point indicator (a thin bar)
+  // shows exactly where the item will land, tracked purely as an index in
+  // state rather than by live-reordering the actual DOM elements -- nothing
+  // is applied to the underlying data or the real list until the pointer is
+  // released, at which point the reorder is computed and committed once.
+  function enableThumbDragReorder(container, thumbSelector, onReorderComplete) {
+    const DRAG_THRESHOLD_PX = 8;
+    let drag = null;
+    let suppressNextClick = false;
+
+    function getThumbs() { return Array.from(container.querySelectorAll(thumbSelector)).filter((el) => !drag || el !== drag.el); }
+
+    // Given the pointer's current position, finds which gap between
+    // thumbnails (or before the first / after the last) it's closest to --
+    // the index the dragged item would land at if dropped right now.
+    function findInsertionIndex(px, py) {
+      const others = getThumbs();
+      if (others.length === 0) return 0;
+      let bestIdx = others.length;
+      let bestDist = Infinity;
+      others.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = Math.hypot(px - cx, py - cy);
+        if (dist < bestDist) { bestDist = dist; bestIdx = px < cx ? i : i + 1; }
+      });
+      return bestIdx;
+    }
+
+    function moveIndicatorTo(index) {
+      const others = getThumbs();
+      if (index >= others.length) container.appendChild(drag.indicator);
+      else others[index].before(drag.indicator);
+    }
+
+    container.addEventListener("pointerdown", (e) => {
+      if (e.button != null && e.button !== 0) return; // left click / primary touch only
+      const thumbEl = e.target.closest(thumbSelector);
+      if (!thumbEl || thumbEl.parentElement !== container) return;
+      drag = { el: thumbEl, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startIndex: 0, dragging: false, ghost: null, indicator: null, insertionIndex: -1 };
+      drag.startIndex = Array.from(container.querySelectorAll(thumbSelector)).indexOf(thumbEl);
+    });
+
+    container.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      if (!drag.el.isConnected) { abortDrag(); return; } // pulled out from under us by an unrelated re-render -- bail out cleanly
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.dragging) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        drag.dragging = true;
+        try { drag.el.setPointerCapture(drag.pointerId); } catch (err) { /* not supported / already captured */ }
+        const rect = drag.el.getBoundingClientRect();
+        const ghost = drag.el.cloneNode(true);
+        ghost.style.cssText = "position:fixed; left:" + rect.left + "px; top:" + rect.top + "px; width:" + rect.width + "px; height:" + rect.height + "px; margin:0; pointer-events:none; z-index:9999; opacity:.92; box-shadow:0 6px 16px rgba(0,0,0,.45); border-radius:6px; transform:scale(1.06);";
+        ghost.classList.add("thumb-drag-ghost");
+        document.body.appendChild(ghost);
+        drag.ghost = ghost;
+        drag.ghostOriginLeft = rect.left;
+        drag.ghostOriginTop = rect.top;
+
+        const indicator = document.createElement("div");
+        indicator.className = "thumb-drop-indicator";
+        indicator.style.height = rect.height + "px";
+        drag.indicator = indicator;
+
+        drag.el.style.display = "none"; // fully removed from flow -- only the ghost is visible while dragging
+        container.classList.add("thumb-reorder-active");
+        drag.insertionIndex = drag.startIndex;
+        moveIndicatorTo(drag.insertionIndex);
+      }
+      e.preventDefault();
+      drag.ghost.style.left = (drag.ghostOriginLeft + dx) + "px";
+      drag.ghost.style.top = (drag.ghostOriginTop + dy) + "px";
+
+      const ghostRect = drag.ghost.getBoundingClientRect();
+      const cx = ghostRect.left + ghostRect.width / 2;
+      const cy = ghostRect.top + ghostRect.height / 2;
+      const newIndex = findInsertionIndex(cx, cy);
+      if (newIndex !== drag.insertionIndex) {
+        drag.insertionIndex = newIndex;
+        moveIndicatorTo(newIndex);
+      }
+    });
+
+    // Cleans up an in-progress drag without applying any reorder -- used
+    // when the dragged element has been pulled out from under us by an
+    // unrelated re-render, so the underlying data (which may have already
+    // changed for other reasons) isn't touched based on stale state.
+    function abortDrag() {
+      if (!drag) return;
+      if (drag.ghost) drag.ghost.remove();
+      if (drag.indicator) drag.indicator.remove();
+      try { if (drag.dragging) drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released, or element gone */ }
+      if (drag.el && drag.el.isConnected) drag.el.style.display = "";
+      drag = null;
+    }
+
+    function endDrag() {
+      if (!drag) return;
+      if (!drag.el.isConnected) { abortDrag(); return; }
+      if (drag.dragging) {
+        try { drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released */ }
+        drag.ghost.remove();
+        drag.indicator.remove();
+        drag.el.style.display = "";
+        container.classList.remove("thumb-reorder-active");
+        suppressNextClick = true;
+        setTimeout(() => { suppressNextClick = false; }, 0);
+        // insertionIndex is relative to the "others" list (dragged item
+        // excluded), which is exactly the index to insert at after removing
+        // the dragged item from the underlying array -- no further
+        // adjustment needed regardless of whether it moved up or down.
+        if (drag.insertionIndex !== drag.startIndex) onReorderComplete(drag.startIndex, drag.insertionIndex);
+      }
+      drag = null;
+    }
+    container.addEventListener("pointerup", endDrag);
+    container.addEventListener("pointercancel", endDrag);
+    container.addEventListener("click", (e) => {
+      if (suppressNextClick) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
+  }
+
   // Shows just the hostname in the card (e.g. "example.com" instead of the
   // full, potentially very long URL with path/query) -- the full URL is
   // still in the title attribute and is what actually gets opened on click.
@@ -1510,7 +1654,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "204";
+  const APP_VERSION = "212";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3261,9 +3405,7 @@
       if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
       if (repoContext && Array.isArray(wp.photos)) {
         wp.photos = wp.photos.map((p) => {
-          if (p && p.repoPath && !p.src) {
-            return Object.assign({}, p, { src: githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath) });
-          }
+          if (p && p.repoPath && !p.src) return githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath);
           return p;
         });
       }
@@ -3586,27 +3728,62 @@
     return putRepoFileRaw(owner, repo, path, base64Content, sha, message);
   }
 
-  // Any photo still holding local base64 (never yet uploaded, tracked via
-  // the absence of repoPath) gets uploaded as its own file under images/.
-  // Already-uploaded photos are skipped entirely -- photos are treated as
-  // immutable once synced, so this never re-uploads unchanged data.
+  const PHOTO_UPLOAD_CACHE_KEY = "waypoint-saver:photoUploadCache";
+  async function loadPhotoUploadCache() {
+    if (!dataStore) return {};
+    try {
+      const cache = await dataStore.getItem(PHOTO_UPLOAD_CACHE_KEY);
+      return (cache && typeof cache === "object") ? cache : {};
+    } catch (e) { return {}; }
+  }
+  async function savePhotoUploadCache(cache) {
+    if (!dataStore) return;
+    try { await dataStore.setItem(PHOTO_UPLOAD_CACHE_KEY, cache); } catch (e) { /* non-fatal -- worst case, re-uploads next sync */ }
+  }
+  // A fast, non-cryptographic hash of a photo's base64 content -- used only
+  // as a compact, stable identifier for "have I already uploaded this exact
+  // photo" and as its filename in the repo. Content-based (not
+  // position/index-based) so it's completely unaffected by later
+  // reordering, deleting, or adding other photos. Collisions are
+  // astronomically unlikely for deduplicating one person's photo
+  // collection; nothing security-sensitive depends on this.
+  function hashPhotoContent(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+    return (hash >>> 0).toString(36) + "-" + str.length.toString(36);
+  }
+  // Reverses githubRawUrl -- given a raw.githubusercontent.com URL this app
+  // itself produced (from a previous pull), extracts the repo-relative
+  // path back out, so an already-hosted photo can be represented compactly
+  // in the sync payload instead of as its full URL.
+  function extractRepoPathFromRawUrl(url) {
+    const m = /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)$/.exec(url || "");
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  // Uploads any locally-created photo (still a data: URL, never yet synced)
+  // as its own file under images/, named by a hash of its content. Skips
+  // anything already in the cache (uploaded in a previous sync) or that
+  // isn't a data: URL at all (already a remote reference from a prior pull).
   async function uploadWaypointPhotosIfNeeded(owner, repo) {
+    const cache = await loadPhotoUploadCache();
     let anyUploaded = false;
     let anyFailed = false;
     for (const wp of waypoints) {
       if (!Array.isArray(wp.photos)) continue;
-      for (let i = 0; i < wp.photos.length; i++) {
-        const photo = wp.photos[i];
-        if (!photo || photo.repoPath || !photo.src || typeof photo.src !== "string" || !photo.src.startsWith("data:")) continue;
-        const match = photo.src.match(/^data:([^;]+);base64,(.+)$/);
+      for (const src of wp.photos) {
+        if (typeof src !== "string" || !src.startsWith("data:")) continue;
+        const match = src.match(/^data:([^;]+);base64,(.+)$/);
         if (!match) continue;
         const mime = match[1];
         const base64Data = match[2];
+        const hash = hashPhotoContent(base64Data);
+        if (cache[hash]) continue; // already uploaded in a previous sync
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        const path = "images/" + wp.id + "-" + i + "." + ext;
+        const path = "images/" + hash + "." + ext;
         try {
-          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo for waypoint " + wp.id);
-          photo.repoPath = path;
+          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo " + hash + " (waypoint " + wp.id + ")");
+          cache[hash] = path;
           anyUploaded = true;
         } catch (e) {
           console.error("[repo sync] failed to upload photo " + path, e);
@@ -3614,20 +3791,36 @@
         }
       }
     }
-    if (anyUploaded) saveWaypoints();
-    return { anyUploaded, anyFailed };
+    if (anyUploaded) await savePhotoUploadCache(cache);
+    return { anyUploaded, anyFailed, cache };
   }
 
-  // Leaner than buildBackupPayload's full local export: photo src (base64)
-  // is dropped in favor of the repoPath reference set by
-  // uploadWaypointPhotosIfNeeded, since the actual image data now lives in
-  // its own file in the repo rather than embedded in this JSON.
-  function buildRepoSyncPayload() {
+  // Leaner than buildBackupPayload's full local export: any photo already
+  // uploaded as its own file (per photoCache, or already a raw GitHub URL
+  // from a prior pull) is replaced here with a small {repoPath} reference
+  // instead of its full base64 or URL -- since the actual image data lives
+  // in its own file in the repo, this is what keeps data.json itself well
+  // under GitHub's 1MB Contents API limit regardless of how many or how
+  // large the photos are. A photo that failed to upload (or hasn't been
+  // attempted yet) falls back to being embedded in full, rather than lost.
+  function buildRepoSyncPayload(photoCache) {
     const payload = buildBackupPayload();
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
-        photos: wp.photos.map((p) => (p && p.repoPath) ? { name: p.name, repoPath: p.repoPath } : p)
+        photos: wp.photos.map((p) => {
+          if (typeof p !== "string") return p;
+          if (p.startsWith("data:")) {
+            const match = p.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              const hash = hashPhotoContent(match[2]);
+              if (photoCache[hash]) return { repoPath: photoCache[hash] };
+            }
+            return p;
+          }
+          const extracted = extractRepoPathFromRawUrl(p);
+          return extracted ? { repoPath: extracted } : p;
+        })
       });
     });
     return payload;
@@ -3694,7 +3887,7 @@
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
-      const payload = buildRepoSyncPayload();
+      const payload = buildRepoSyncPayload(photoResult.cache);
       await putRepoFileRaw(
         parsed.owner, parsed.repo, GITHUB_DATA_FILE,
         encodeBase64Utf8(JSON.stringify(payload, null, 2)),
@@ -3891,9 +4084,7 @@
       waypoints.forEach((wp) => {
         if (Array.isArray(wp.photos)) {
           wp.photos = wp.photos.map((p) => {
-            if (p && p.repoPath && !p.src) {
-              return Object.assign({}, p, { src: githubRawUrl(parsed.owner, parsed.repo, p.repoPath) });
-            }
+            if (p && p.repoPath && !p.src) return githubRawUrl(parsed.owner, parsed.repo, p.repoPath);
             return p;
           });
         }
@@ -4297,7 +4488,7 @@
   renderIconQuickPick();
 
   /* ---------- photo capture (library, drag/drop, paste) ---------- */
-  const MAX_PHOTOS_PER_WAYPOINT = 6;
+  const MAX_PHOTOS_PER_WAYPOINT = 12;
   const PHOTO_MAX_DIMENSION = 1280;
   const PHOTO_JPEG_QUALITY = 0.75;
 
@@ -5155,6 +5346,7 @@
   function startRide(activityType) {
     if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
     blurActiveTextInput();
+    if (pointEditKind) finishPointEdit(false); // discard any in-progress edit of a saved route/measurement first
     currentActivityType = activityType;
     const info = activityInfo(currentActivityType);
     rideTracking = true;
@@ -5349,6 +5541,7 @@
     if (strayInput) { strayInput.replaceWith(rideHudTitle); rideHudEditBtn.classList.remove("hidden"); }
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
+    if (pointEditKind === "route") teardownPointEditDisplay();
     if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
     if (viewedRideHitbox) { map.removeLayer(viewedRideHitbox); viewedRideHitbox = null; }
     clearViewedRideEndpointMarkers();
@@ -5443,20 +5636,9 @@
 
   function viewRide(ride) {
     if (rideTracking) { showToast("Stop your current route before viewing a saved one."); return; }
-    if (viewedRidePolyline) map.removeLayer(viewedRidePolyline);
-    if (viewedRideHitbox) map.removeLayer(viewedRideHitbox);
-    clearViewedRideEndpointMarkers();
-    clearViewedRideDistanceMarkers();
     currentlyViewedRide = ride;
     const info = activityInfo(ride.activityType);
     const latlngs = ride.points.map((p) => [p.lat, p.lng]);
-    viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
-    viewedRideHitbox = addWideClickHitbox(latlngs, {
-      click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); },
-      dblclick: (e) => { L.DomEvent.stopPropagation(e); startEditingRoutePoints(ride.id); }
-    });
-    const { start, end } = placeEndpointMarkers(ride.points, ride.activityType);
-    viewedRideStartMarker = start; viewedRideEndMarker = end;
 
     rideHudLabel1.textContent = "Date";
     rideHudTime.textContent = new Date(ride.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -5488,10 +5670,10 @@
     // instead of a continuous pan.
     try {
       const hudRect = rideHud.getBoundingClientRect();
-      const bounds = viewedRidePolyline.getBounds();
+      const bounds = L.latLngBounds(latlngs);
       map.fitBounds(bounds, { paddingTopLeft: [24, hudRect.bottom + 20], paddingBottomRight: [24, 24] });
     } catch (e) {
-      map.fitBounds(viewedRidePolyline.getBounds().pad(0.15));
+      map.fitBounds(L.latLngBounds(latlngs).pad(0.15));
     }
 
     // Picks a marker spacing appropriate for seeing the whole route at once,
@@ -5503,6 +5685,12 @@
     panel.classList.remove("open");
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
+
+    // Viewing a route now goes straight into its editable form — draggable
+    // points and the add/delete toolbar — rather than a separate, static
+    // display requiring a further "Edit" step. The HUD and its just-computed
+    // fit are kept exactly as set up above.
+    startPointEdit("route", ride.id, { keepHud: true, skipFitBounds: true });
   }
 
   // As the user zooms into a specific section of a viewed route, the marker
@@ -5793,7 +5981,7 @@
     const pointsForMarkers = closed ? m.points.slice(0, -1) : m.points;
     const vertexMarkers = pointsForMarkers.map((p, i) => {
       const marker = L.marker([p.lat, p.lng], { icon: makeDistanceMarkerIcon(i + 1, "#22d3ee") }).addTo(map);
-      marker.on("click", (e) => { L.DomEvent.stopPropagation(e); openMeasurementViewModal(m.id); });
+      marker.on("click", (e) => { L.DomEvent.stopPropagation(e); startEditingMeasurementPoints(m.id); });
       return marker;
     });
     savedMeasurementLayers[m.id] = { polyline: layer, hitbox, vertexMarkers };
@@ -5803,18 +5991,6 @@
   }
   renderAllSavedMeasurements();
 
-  function openMeasurementViewModal(id) {
-    const m = measurements.find((mm) => mm.id === id);
-    if (!m) return;
-    currentlyViewedMeasurementId = id;
-    measureModalTitle.textContent = m.name;
-    measureNameInput.value = m.name;
-    renderMeasureSegmentsList(m.points);
-    measureCreateBtnRow.classList.add("hidden");
-    measureViewBtnRow.classList.remove("hidden");
-    measureModalOverlay.classList.remove("hidden");
-    document.body.classList.add("modal-open");
-  }
   // Commits any name edit made while viewing, so typing a new name and
   // tapping Close (rather than some dedicated "save name" step) just works.
   function commitMeasurementRename() {
@@ -5884,10 +6060,21 @@
   // or a point is added/removed -- simpler and more robust than toggling
   // draggability and rewiring handlers on existing markers, and the vertex
   // counts involved are small enough that this is never a performance concern.
+  // For very dense tracks (e.g. a long GPS-recorded route), showing a
+  // draggable handle at every single point would be both visually
+  // overwhelming and slow to render -- thinned out to a manageable count.
+  // The underlying line and its full point-set stay intact either way; this
+  // only limits how many points get their own interactive marker. The last
+  // point is always kept so the end of the line is never left unreachable.
+  const MAX_VISIBLE_VERTEX_MARKERS = 200;
   function rebuildEditVertexMarkers() {
     clearEditVertexMarkers();
     const deletable = pointEditMode === "delete";
-    editVertexMarkers = editLivePoints.map((p, i) => {
+    const total = editLivePoints.length;
+    const step = total > MAX_VISIBLE_VERTEX_MARKERS ? Math.ceil(total / MAX_VISIBLE_VERTEX_MARKERS) : 1;
+    editVertexMarkers = [];
+    editLivePoints.forEach((p, i) => {
+      if (step > 1 && i % step !== 0 && i !== total - 1) return;
       const marker = L.marker([p.lat, p.lng], { icon: makeMeasureVertexIcon(deletable), draggable: pointEditMode === "drag" }).addTo(map);
       if (pointEditMode === "drag") {
         marker.on("drag", () => {
@@ -5908,7 +6095,7 @@
           rebuildEditVertexMarkers();
         });
       }
-      return marker;
+      editVertexMarkers.push(marker);
     });
   }
   function handleEditPolylineClick(latlng) {
@@ -5938,7 +6125,8 @@
   // tears down whatever's currently shown for that item, replaces it with
   // a draggable/editable line centered on screen, and shows the toolbar +
   // banner. kind is "route" or "measurement".
-  function startPointEdit(kind, id) {
+  function startPointEdit(kind, id, options) {
+    options = options || {};
     const item = kind === "route" ? rides.find((r) => r.id === id) : measurements.find((mm) => mm.id === id);
     if (!item) return;
     closeMeasureModal();
@@ -5948,11 +6136,17 @@
     pointEditMode = "drag";
 
     if (kind === "route") {
+      // Clean up BOTH possible existing display mechanisms for this route --
+      // the single-focus "viewed" display and the eyeball-toggled
+      // multi-visible one -- regardless of which is currently active, so
+      // entering edit mode never leaves a duplicate, orphaned line
+      // underneath the editable one.
       if (viewedRidePolyline) { map.removeLayer(viewedRidePolyline); viewedRidePolyline = null; }
       if (viewedRideHitbox) { map.removeLayer(viewedRideHitbox); viewedRideHitbox = null; }
       clearViewedRideEndpointMarkers();
       clearViewedRideDistanceMarkers();
-      rideHud.classList.add("hidden");
+      if (visibleRouteLayers[id]) removeRouteVisibilityLayer(id);
+      if (!options.keepHud) rideHud.classList.add("hidden");
     } else if (savedMeasurementLayers[id]) {
       map.removeLayer(savedMeasurementLayers[id].polyline);
       if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
@@ -5966,7 +6160,9 @@
       click: (e) => { L.DomEvent.stopPropagation(e); handleEditPolylineClick(e.latlng); }
     });
 
-    try { map.fitBounds(editLivePolyline.getBounds().pad(0.15)); } catch (e) { /* not enough points to bound yet */ }
+    if (!options.skipFitBounds) {
+      try { map.fitBounds(editLivePolyline.getBounds().pad(0.15)); } catch (e) { /* not enough points to bound yet */ }
+    }
 
     pointEditToolbar.classList.remove("hidden");
     setPointEditMode("drag");
@@ -5985,7 +6181,7 @@
         '<span>Drag the points to adjust — <b class="measure-edit-total">0.00 km</b><span class="measure-edit-area hidden"> · <b class="measure-edit-area-value"></b></span></span>' +
         '<div class="measure-edit-banner-actions">' +
           '<button class="btn btn-secondary" id="measureEditCancelBtn">Cancel</button>' +
-          '<button class="btn btn-primary" id="measureEditSaveBtn">Save</button>' +
+          '<button class="btn btn-primary" id="measureEditSaveBtn">Save &amp; Hide</button>' +
         "</div>";
       document.body.appendChild(measureEditBanner);
       measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => finishPointEdit(false));
@@ -5993,6 +6189,23 @@
     }
     measureEditBanner.classList.remove("hidden");
     updateEditLiveTotal();
+  }
+  // Tears down just the point-edit display/state (editable line, vertex
+  // markers, toolbar, banner) without deciding whether to save first --
+  // shared by finishPointEdit (which does decide that) and closeViewedRide
+  // (the HUD's own X button, which can be clicked directly while a route
+  // happens to be in this always-editable state, bypassing the toolbar's
+  // own Save/Cancel entirely).
+  function teardownPointEditDisplay() {
+    if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
+    if (editPolylineHitbox) { map.removeLayer(editPolylineHitbox); editPolylineHitbox = null; }
+    clearEditVertexMarkers();
+    pointEditToolbar.classList.add("hidden");
+    if (measureEditBanner) measureEditBanner.classList.add("hidden");
+    pointEditKind = null;
+    pointEditId = null;
+    pointEditMode = "drag";
+    editLivePoints = [];
   }
   function finishPointEdit(save) {
     const kind = pointEditKind;
@@ -6015,7 +6228,6 @@
         saveRides();
         showToast("Route updated");
         renderRoutesList();
-        if (visibleRouteLayers[id]) { removeRouteVisibilityLayer(id); toggleRouteVisibility(id); }
       } else {
         saveMeasurements();
         showToast("Measurement updated");
@@ -6023,18 +6235,15 @@
       }
     }
 
-    if (editLivePolyline) { map.removeLayer(editLivePolyline); editLivePolyline = null; }
-    if (editPolylineHitbox) { map.removeLayer(editPolylineHitbox); editPolylineHitbox = null; }
-    clearEditVertexMarkers();
-    pointEditToolbar.classList.add("hidden");
-    if (measureEditBanner) measureEditBanner.classList.add("hidden");
-    pointEditKind = null;
-    pointEditId = null;
-    pointEditMode = "drag";
-    editLivePoints = [];
+    teardownPointEditDisplay();
 
+    // Editing is now the same state as viewing, so "done" always means
+    // fully closing -- there's no separate static view left to fall back
+    // to. Matches "save and turn visibility off": a route disappears from
+    // the map entirely; a measurement reverts to its normal always-on
+    // display (measurements, unlike routes, are shown by default).
     if (item) {
-      if (kind === "route") viewRide(item);
+      if (kind === "route") closeViewedRide();
       else renderSavedMeasurement(item);
     }
   }
@@ -6124,7 +6333,7 @@
       refreshRoutesAzPickerAvailability();
       return;
     }
-    const sortedRides = rides.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    const sortedRides = rides.slice().sort((a, b) => compareSortNames(a.name, b.name));
     routesPanelList.innerHTML = sortedRides.map((r) => {
       const info = activityInfo(r.activityType);
       const dateStr = new Date(r.startTime).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -6194,7 +6403,7 @@
       refreshMeasurementsAzPickerAvailability();
       return;
     }
-    const sortedMeasurements = measurements.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    const sortedMeasurements = measurements.slice().sort((a, b) => compareSortNames(a.name, b.name));
     measurementsPanelList.innerHTML = sortedMeasurements.map((m) => {
       const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
       let totalM = 0;
@@ -6206,7 +6415,7 @@
         : formatDistance(totalM) + " · " + dateStr;
       return '<div class="card ride-card" data-id="' + m.id + '">' +
         '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(m.name) + '</b><span>' + summary + "</span></div>" +
+        '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
         '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
         '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
@@ -6216,13 +6425,19 @@
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
         panel.classList.remove("open");
-        openMeasurementViewModal(cardEl.dataset.id);
+        startEditingMeasurementPoints(cardEl.dataset.id);
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='delete-measurement']").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteMeasurement(btn.dataset.id);
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='edit-measurement-name']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startEditMeasurementName(btn.dataset.id);
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='toggle-favorite-measurement']").forEach((btn) => {
@@ -6611,6 +6826,14 @@
       });
     });
   }
+  // Set up once -- the container itself persists across renderPhotoThumbs
+  // calls (only its innerHTML changes), so this doesn't need to re-run
+  // every render.
+  enableThumbDragReorder(photoThumbs, ".photo-thumb", (fromIdx, toIdx) => {
+    const [moved] = pendingPhotos.splice(fromIdx, 1);
+    pendingPhotos.splice(toIdx, 0, moved);
+    renderPhotoThumbs();
+  });
 
   async function addPhotoFiles(fileList) {
     const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
@@ -7615,8 +7838,21 @@
     const m = String(name || "").match(/[A-Za-z].*/s);
     return (m ? m[0] : String(name || "")).toLowerCase();
   }
+  // Natural/numeric sort so "Site 2" correctly comes before "Site 10" --
+  // plain localeCompare treats these as strings and compares character by
+  // character, putting "Site 10" and "Site 19" before "Site 2" since '1' <
+  // '2'. The numeric option compares embedded digit runs by their numeric
+  // value instead.
+  function compareSortNames(a, b) {
+    return getSortKey(a).localeCompare(getSortKey(b), undefined, { numeric: true });
+  }
 
   function renderList() {
+    // Safety net: if a drag-in-progress ghost is somehow still on screen
+    // (e.g. an unrelated background render interrupted a drag between
+    // pointer events), clear it before rebuilding the list so it can never
+    // look like a duplicated photo.
+    document.querySelectorAll(".thumb-drag-ghost").forEach((g) => g.remove());
     if (waypoints.length === 0) {
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
         "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
@@ -7624,7 +7860,7 @@
       refreshListFilterControls();
       return;
     }
-    const sorted = waypoints.slice().sort((a, b) => getSortKey(a.name).localeCompare(getSortKey(b.name)));
+    const sorted = waypoints.slice().sort((a, b) => compareSortNames(a.name, b.name));
     panelList.innerHTML = sorted.map((wp) => cardHtml(wp)).join("");
     bindCardEvents();
     refreshListFilterControls();
@@ -7966,6 +8202,7 @@
           }
           case "add-photo":
             e.stopPropagation();
+            selectCardForPaste(id); // stopPropagation above prevents this from reaching the container's own paste-arming listener otherwise
             cardPhotoTargetId = id;
             cardPhotoFileInput.click();
             break;
@@ -8005,6 +8242,18 @@
           e.preventDefault();
           zoneEl.click();
         }
+      });
+    });
+    panelList.querySelectorAll(".card-photos").forEach((container) => {
+      const id = container.dataset.photoTarget;
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      enableThumbDragReorder(container, ".card-photo-thumb", (fromIdx, toIdx) => {
+        const [moved] = wp.photos.splice(fromIdx, 1);
+        wp.photos.splice(toIdx, 0, moved);
+        wp.updatedAt = Date.now();
+        saveWaypoints();
+        renderList();
       });
     });
     if (selectedPasteCardId) {
@@ -8148,6 +8397,29 @@
       wp.updatedAt = Date.now();
       saveWaypoints();
       renderList();
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+  }
+
+  // Preserves rename capability for measurements now that their previous
+  // rename path (the view modal, which is now bypassed in favor of going
+  // straight to point-edit mode) no longer runs.
+  function startEditMeasurementName(id) {
+    const nameEl = measurementsPanelList.querySelector('.ride-card-name-editable[data-id="' + id + '"]');
+    if (!nameEl) return;
+    const m = measurements.find((mm) => mm.id === id);
+    if (!m) return;
+    const input = document.createElement("input");
+    input.className = "card-name-input";
+    input.value = m.name;
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    const commit = () => {
+      m.name = input.value.trim() || m.name;
+      m.updatedAt = Date.now();
+      saveMeasurements();
+      renderMeasurementsList();
     };
     input.addEventListener("blur", commit);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
