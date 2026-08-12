@@ -1663,7 +1663,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "216";
+  const APP_VERSION = "217";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3836,12 +3836,28 @@
       if (!Array.isArray(wp.photos)) return;
       let changed = false;
       const fixed = await Promise.all(wp.photos.map(async (p) => {
-        if (typeof p !== "string" || !p.startsWith(prefix)) return p;
-        const repoPath = extractRepoPathFromRawUrl(p);
-        if (!repoPath) return p;
-        const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
-        if (rehydrated !== p) changed = true;
-        return rehydrated;
+        // Never rehydrated at all -- still the raw {repoPath} reference
+        // object exactly as it came from the repo. An <img src> given this
+        // object directly stringifies it to "[object Object]", an invalid
+        // URL that's guaranteed to show as broken -- with nothing to
+        // report as an error, since no network request was ever even
+        // attempted for it.
+        if (p && typeof p === "object" && p.repoPath && !p.src) {
+          changed = true;
+          return await rehydratePhotoRef(owner, repo, p.repoPath);
+        }
+        // Rehydrated once already, but to a broken, unauthenticated raw
+        // URL -- left over from an earlier, intermediate version of this
+        // sync logic, before photo fetching became authenticated.
+        if (typeof p === "string" && p.startsWith(prefix)) {
+          const repoPath = extractRepoPathFromRawUrl(p);
+          if (repoPath) {
+            const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
+            if (rehydrated !== p) changed = true;
+            return rehydrated;
+          }
+        }
+        return p;
       }));
       if (changed) { wp.photos = fixed; anyRepaired = true; }
     }));
