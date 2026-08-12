@@ -1663,7 +1663,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "215";
+  const APP_VERSION = "216";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3818,6 +3818,37 @@
     return githubRawUrl(owner, repo, repoPath);
   }
 
+  // Repairs any locally-stored photo that's still a broken, unauthenticated
+  // raw.githubusercontent.com URL -- left over from a device that pulled
+  // while an earlier, intermediate version of this sync logic was in
+  // place, before photo fetching became authenticated. A private repo
+  // rejects that unauthenticated request outright, which is exactly what
+  // left these showing as broken images no matter how many times a sync
+  // "succeeded" afterward: the waypoint holding it already looks fully up
+  // to date, so the normal merge logic never touches it again, and the
+  // stale value no longer matches the {repoPath} reference pattern that
+  // logic looks for in the first place. This runs across every local
+  // waypoint regardless of sync state, specifically to catch that.
+  async function repairBrokenPhotoReferences(owner, repo) {
+    const prefix = "https://raw.githubusercontent.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/";
+    let anyRepaired = false;
+    await Promise.all(waypoints.map(async (wp) => {
+      if (!Array.isArray(wp.photos)) return;
+      let changed = false;
+      const fixed = await Promise.all(wp.photos.map(async (p) => {
+        if (typeof p !== "string" || !p.startsWith(prefix)) return p;
+        const repoPath = extractRepoPathFromRawUrl(p);
+        if (!repoPath) return p;
+        const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
+        if (rehydrated !== p) changed = true;
+        return rehydrated;
+      }));
+      if (changed) { wp.photos = fixed; anyRepaired = true; }
+    }));
+    if (anyRepaired) { saveWaypoints(); renderList(); }
+    return anyRepaired;
+  }
+
   // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
   // omitted, updates it if sha is provided (GitHub requires the current sha
   // for any update, to avoid silently clobbering a change made elsewhere).
@@ -3992,6 +4023,7 @@
       }
       gistStatusText.textContent = "Merging…";
       await mergeBackupPayload(payload, parsed);
+      await repairBrokenPhotoReferences(parsed.owner, parsed.repo);
       gistStatusText.textContent = "Pulled just now.";
       return { ok: true, reason: null };
     } catch (e) {
