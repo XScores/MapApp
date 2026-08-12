@@ -779,7 +779,9 @@
             <div class="home-actions" style="margin-top:8px;">
               <button class="home-action-btn" id="gistSyncBtn">Sync</button>
               <button class="home-action-btn" id="gistCheckRepoBtn">Check repo</button>
+              <button class="home-action-btn" id="gistCheckLocalBtn">Check local data</button>
               <button class="home-action-btn danger" id="gistForcePushBtn">Push (overwrite)</button>
+              <button class="home-action-btn danger" id="gistForcePullBtn">Pull (overwrite)</button>
             </div>
           </div>
         </div>
@@ -1403,7 +1405,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "193";
+  const APP_VERSION = "194";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1731,7 +1733,9 @@
   const gistStatusText = el("gistStatusText");
   const gistSyncBtn = el("gistSyncBtn");
   const gistCheckRepoBtn = el("gistCheckRepoBtn");
+  const gistCheckLocalBtn = el("gistCheckLocalBtn");
   const gistForcePushBtn = el("gistForcePushBtn");
+  const gistForcePullBtn = el("gistForcePullBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
   const anchorModalCloseBtn = el("anchorModalCloseBtn");
   const anchorModalCellId = el("anchorModalCellId");
@@ -3118,7 +3122,6 @@
       const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
       const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
       if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
-        if (bothLackTimestamp) wp.updatedAt = Date.now(); // gives this item a real timestamp so it doesn't hit this same ambiguous tie-break again next sync
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
@@ -3148,7 +3151,6 @@
         const existingUpdatedAt = rides[existingIndex].updatedAt || 0;
         const bothLackTimestamp = !r.updatedAt && !rides[existingIndex].updatedAt;
         if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
-          if (bothLackTimestamp) r.updatedAt = Date.now();
           rides[existingIndex] = r;
           routesUpdated++;
         } else {
@@ -3174,7 +3176,6 @@
         const existingUpdatedAt = measurements[existingIndex].updatedAt || 0;
         const bothLackTimestamp = !m.updatedAt && !measurements[existingIndex].updatedAt;
         if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
-          if (bothLackTimestamp) m.updatedAt = Date.now();
           measurements[existingIndex] = m;
           renderSavedMeasurement(m); // handles removing the old map layer internally
           measurementsUpdated++;
@@ -3593,6 +3594,18 @@
   // repo right now. Exists specifically to answer "did my data actually
   // make it to GitHub" without needing to leave the app or guess based on
   // an unrelated sync failure.
+  // Shared by "Check repo" and "Check local data" -- a bare count can't
+  // reveal a mismatch like "the repo has photos on this waypoint but the
+  // local copy doesn't", so this surfaces photo counts and how many items
+  // still have no real updatedAt (data edited before that field existed),
+  // which is exactly the detail needed to directly compare the two.
+  function summarizeWaypointDataset(waypointsArr) {
+    const wpCount = Array.isArray(waypointsArr) ? waypointsArr.length : 0;
+    const withPhotos = Array.isArray(waypointsArr) ? waypointsArr.filter((w) => Array.isArray(w.photos) && w.photos.length > 0).length : 0;
+    const missingTimestamp = Array.isArray(waypointsArr) ? waypointsArr.filter((w) => !w.updatedAt).length : 0;
+    return wpCount + " waypoint" + (wpCount === 1 ? "" : "s") + " (" + withPhotos + " with photos, " + missingTimestamp + " with no updatedAt)";
+  }
+
   async function checkRepoStatus() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
@@ -3610,11 +3623,10 @@
       let summary;
       try {
         const payload = JSON.parse(stripBom(file.content));
-        const wpCount = Array.isArray(payload.waypoints) ? payload.waypoints.length : 0;
         const rideCount = Array.isArray(payload.rides) ? payload.rides.length : 0;
         const measurementCount = Array.isArray(payload.measurements) ? payload.measurements.length : 0;
         const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "unknown time";
-        summary = wpCount + " waypoint" + (wpCount === 1 ? "" : "s") + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".";
+        summary = summarizeWaypointDataset(payload.waypoints) + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".";
       } catch (parseErr) {
         summary = "File exists but isn't valid JSON — something may have gone wrong on a previous push.";
       }
@@ -3629,6 +3641,18 @@
     gistCheckRepoBtn.disabled = false;
   }
   gistCheckRepoBtn.addEventListener("click", (e) => { e.stopPropagation(); checkRepoStatus(); });
+
+  // Read-only, purely local -- no network involved. Reports the exact same
+  // kind of summary as Check repo, but for what this device actually has
+  // right now, so the two can be directly compared to see exactly where a
+  // sync mismatch is: a stale push (repo is behind), a stale pull (this
+  // device is behind), or something else entirely.
+  function checkLocalDataStatus() {
+    const summary = summarizeWaypointDataset(waypoints) + ", " + rides.length + " route" + (rides.length === 1 ? "" : "s") + ", " + measurements.length + " measurement" + (measurements.length === 1 ? "" : "s") + " on this device.";
+    gistStatusText.textContent = summary;
+    showToast(summary);
+  }
+  gistCheckLocalBtn.addEventListener("click", (e) => { e.stopPropagation(); checkLocalDataStatus(); });
 
   // Deliberately skips the pull-first step performRepoSync always does.
   // Exists specifically as a recovery path: if the remote file is
@@ -3654,6 +3678,90 @@
       "Overwrite the repo?",
       "This replaces whatever's currently in " + GITHUB_DATA_FILE + " with this device's data, without pulling first. Use this only if a normal Sync keeps failing — for example, if the repo's file is corrupted. Anything only saved on another device that hasn't synced yet will be lost.",
       performForcePush
+    );
+  });
+
+  // Replaces this device's local data with the repo's version outright --
+  // no merge, no timestamp comparison at all. Exists as a direct escape
+  // hatch for when a normal Sync's merge logic isn't picking up a change
+  // that should be here, for whatever reason (including a since-fixed bug
+  // that could leave a stale timestamp already sitting in local storage,
+  // which a normal Sync would otherwise keep trusting).
+  async function performForcePull() {
+    const token = gistTokenInput.value.trim();
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    if (!token) { showToast("Paste a GitHub access token first."); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    gistForcePullBtn.disabled = true;
+    gistSyncBtn.disabled = true;
+    gistStatusText.textContent = "Pulling…";
+    try {
+      const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
+      if (!file) {
+        showToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
+        gistForcePullBtn.disabled = false;
+        gistSyncBtn.disabled = false;
+        return;
+      }
+      const payload = JSON.parse(stripBom(file.content));
+      if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
+        showToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
+        gistForcePullBtn.disabled = false;
+        gistSyncBtn.disabled = false;
+        return;
+      }
+
+      Object.keys(markers).forEach((id) => { map.removeLayer(markers[id]); delete markers[id]; });
+      Object.keys(savedMeasurementLayers).forEach((id) => {
+        map.removeLayer(savedMeasurementLayers[id].polyline);
+        if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
+        savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+        delete savedMeasurementLayers[id];
+      });
+
+      waypoints = payload.waypoints.filter((wp) => wp && wp.id && typeof wp.lat === "number" && typeof wp.lng === "number");
+      waypoints.forEach((wp) => {
+        if (Array.isArray(wp.photos)) {
+          wp.photos = wp.photos.map((p) => {
+            if (p && p.repoPath && !p.src) {
+              return Object.assign({}, p, { src: githubRawUrl(parsed.owner, parsed.repo, p.repoPath) });
+            }
+            return p;
+          });
+        }
+        addSavedMarker(wp);
+      });
+      rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
+      measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
+      measurements.forEach((m) => renderSavedMeasurement(m));
+      deletedIds = normalizeDeletedIds(payload.deletedIds);
+
+      saveWaypoints();
+      saveRides();
+      saveMeasurements();
+      saveDeletedIds();
+      renderList();
+      updateCounters();
+      renderRoutesList();
+      renderMeasurementsList();
+
+      gistStatusText.textContent = "Pulled just now.";
+      showToast("Pulled — this device's data now matches the repo.");
+    } catch (e) {
+      console.error("[force pull] error:", e);
+      const reason = describeSyncError(e);
+      gistStatusText.textContent = reason;
+      showToast("Couldn't pull: " + reason);
+    }
+    gistForcePullBtn.disabled = false;
+    gistSyncBtn.disabled = false;
+  }
+  gistForcePullBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openConfirmModal(
+      "Overwrite this device's data?",
+      "This replaces everything on this device with whatever's currently in the repo, without merging. Use this if a normal Sync isn't picking up changes that should be here. Anything only saved on this device that hasn't synced to the repo yet will be lost.",
+      performForcePull
     );
   });
 
