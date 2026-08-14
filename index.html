@@ -1675,7 +1675,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "232";
+  const APP_VERSION = "233";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3460,8 +3460,9 @@
     });
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
-    let added = 0, updated = 0, skipped = 0;
+    let added = 0, updated = 0, skipped = 0, photosRecovered = 0;
     const toApply = [];
+    const toUnionPhotos = []; // { existingWp, incomingPhotos } -- overall update skipped, but might still carry a photo the local copy is missing
     for (const wp of payload.waypoints) {
       if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; continue; }
       if (deletedWaypointSet.has(wp.id)) { skipped++; continue; } // deleted somewhere -- don't resurrect it
@@ -3486,8 +3487,14 @@
         const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
         willApply = incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp;
       }
-      if (willApply) toApply.push({ wp, existingIndex });
-      else skipped++;
+      if (willApply) {
+        toApply.push({ wp, existingIndex });
+      } else {
+        skipped++;
+        if (existingIndex !== -1 && Array.isArray(wp.photos) && wp.photos.length > 0) {
+          toUnionPhotos.push({ existingWp: waypoints[existingIndex], incomingPhotos: wp.photos });
+        }
+      }
     }
 
     // Fetch every needed photo across every waypoint at once, rather than
@@ -3512,6 +3519,37 @@
       await runWithConcurrencyLimit(toFetch, PHOTO_FETCH_CONCURRENCY, async (item) => {
         item.wp.photos[item.i] = await rehydratePhotoRef(repoContext.owner, repoContext.repo, item.repoPath);
       });
+
+      // For waypoints whose overall update was skipped, still recover any
+      // photo the incoming side has that this device doesn't -- compared
+      // by content hash, so this works whether the local copy still has
+      // its original data: URL or an already-rehydrated one.
+      if (toUnionPhotos.length > 0) {
+        const toFetchMissing = [];
+        toUnionPhotos.forEach((item) => {
+          const localHashes = localPhotoHashes(item.existingWp.photos);
+          item.incomingPhotos.forEach((p) => {
+            let repoPath = null;
+            if (p && p.repoPath) repoPath = p.repoPath;
+            else if (typeof p === "string") repoPath = extractRepoPathFromRawUrl(p);
+            if (!repoPath) return;
+            const hash = repoPathHash(repoPath);
+            if (hash && !localHashes.has(hash)) {
+              toFetchMissing.push({ wp: item.existingWp, repoPath });
+              localHashes.add(hash); // avoid double-adding the same photo if it appears more than once in the incoming list
+            }
+          });
+        });
+        if (toFetchMissing.length > 0) {
+          await runWithConcurrencyLimit(toFetchMissing, PHOTO_FETCH_CONCURRENCY, async (item) => {
+            const rehydrated = await rehydratePhotoRef(repoContext.owner, repoContext.repo, item.repoPath);
+            if (!Array.isArray(item.wp.photos)) item.wp.photos = [];
+            item.wp.photos.push(rehydrated);
+            item.wp.updatedAt = Date.now(); // a genuine local change -- this device now has a photo it didn't before
+            photosRecovered++;
+          });
+        }
+      }
     }
 
     toApply.forEach(({ wp, existingIndex }) => {
@@ -3528,7 +3566,7 @@
         updated++;
       }
     });
-    if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
+    if (added > 0 || updated > 0 || photosRecovered > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
     // exist at all — that's fine, just nothing to merge on that front.
@@ -4057,6 +4095,33 @@
     return m ? decodeURIComponent(m[1]) : null;
   }
 
+  // Extracts the content hash embedded in a repoPath like "images/{hash}.jpg"
+  // -- since uploaded photos are named by their own content hash, this lets
+  // a locally-stored photo and an incoming reference be compared for "is
+  // this the same photo" without needing to fetch or decode anything.
+  function repoPathHash(repoPath) {
+    const m = /images\/([^./]+)\.[a-z0-9]+$/i.exec(repoPath || "");
+    return m ? m[1] : null;
+  }
+  // Returns the set of content hashes for every photo a waypoint already
+  // has, in whatever form each one currently happens to be in.
+  function localPhotoHashes(photosArr) {
+    const hashes = new Set();
+    (photosArr || []).forEach((p) => {
+      if (typeof p === "string" && p.startsWith("data:")) {
+        const match = p.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) hashes.add(hashPhotoContent(match[2]));
+      } else if (p && p.repoPath) {
+        const h = repoPathHash(p.repoPath);
+        if (h) hashes.add(h);
+      } else if (typeof p === "string") {
+        const rp = extractRepoPathFromRawUrl(p);
+        if (rp) { const h = repoPathHash(rp); if (h) hashes.add(h); }
+      }
+    });
+    return hashes;
+  }
+
   // Uploads any locally-created photo (still a data: URL, never yet synced)
   // as its own file under images/, named by a hash of its content. Skips
   // anything already in the cache (uploaded in a previous sync) or that
@@ -4277,6 +4342,7 @@
     if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
     gistCheckRepoBtn.disabled = true;
     gistStatusText.textContent = "Checking…";
+    gistPhotoCheckDetail.textContent = "";
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
@@ -4291,6 +4357,39 @@
         const measurementCount = Array.isArray(payload.measurements) ? payload.measurements.length : 0;
         const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "unknown time";
         summary = summarizeWaypointDataset(payload.waypoints) + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".";
+
+        // Compare each waypoint the repo and this device both have, by id --
+        // a photo count mismatch here is exactly what "I synced but it
+        // didn't show up" looks like from the data's perspective, and
+        // showing both sides' updatedAt makes a clock-skew/timestamp-
+        // comparison problem between devices visible directly, rather than
+        // something that has to be guessed at.
+        if (Array.isArray(payload.waypoints)) {
+          const mismatches = [];
+          payload.waypoints.forEach((remoteWp) => {
+            if (!remoteWp || !remoteWp.id) return;
+            const localWp = waypoints.find((w) => w.id === remoteWp.id);
+            if (!localWp) return; // not on this device yet -- a normal Sync/Pull handles that, not a mismatch to flag here
+            const remotePhotoCount = Array.isArray(remoteWp.photos) ? remoteWp.photos.length : 0;
+            const localPhotoCount = Array.isArray(localWp.photos) ? localWp.photos.length : 0;
+            if (remotePhotoCount !== localPhotoCount) {
+              mismatches.push({
+                name: localWp.name || remoteWp.name || "(unnamed)",
+                localPhotoCount, remotePhotoCount,
+                localUpdatedAt: localWp.updatedAt || 0, remoteUpdatedAt: remoteWp.updatedAt || 0
+              });
+            }
+          });
+          if (mismatches.length > 0) {
+            const MAX_SHOWN = 5;
+            const lines = ["Photo count mismatches (this device vs. the repo):"];
+            mismatches.slice(0, MAX_SHOWN).forEach((m) => {
+              lines.push('"' + m.name + '": this device has ' + m.localPhotoCount + " (updated " + (m.localUpdatedAt ? new Date(m.localUpdatedAt).toLocaleString() : "never") + "), repo has " + m.remotePhotoCount + " (updated " + (m.remoteUpdatedAt ? new Date(m.remoteUpdatedAt).toLocaleString() : "never") + ")");
+            });
+            if (mismatches.length > MAX_SHOWN) lines.push("…and " + (mismatches.length - MAX_SHOWN) + " more.");
+            gistPhotoCheckDetail.textContent = lines.join("\n");
+          }
+        }
       } catch (parseErr) {
         summary = "File exists but isn't valid JSON — something may have gone wrong on a previous push.";
       }
