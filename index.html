@@ -289,16 +289,12 @@
   .photo-thumbs{display:flex; flex-wrap:wrap; gap:8px;}
   .photo-thumbs:not(:empty){margin-top:2px;}
   .photo-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden;
-    border:1px solid var(--border); flex-shrink:0; cursor:grab; touch-action:none;}
+    border:1px solid var(--border); flex-shrink:0;}
   .photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .photo-thumb-remove{position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
     background:rgba(2,6,23,.75); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
     cursor:pointer; padding:0;}
   .photo-thumb-remove:hover{background:var(--red);}
-  .thumb-reorder-active .photo-thumb,
-  .thumb-reorder-active .card-photo-thumb{pointer-events:none;}
-  .thumb-drag-ghost{cursor:grabbing;}
-  .thumb-drop-indicator{width:3px; border-radius:2px; background:var(--cyan); flex-shrink:0; box-shadow:0 0 6px var(--cyan);}
   .photo-view-card{max-width:min(520px, 92vw); padding:16px;}
   .forecast-card{max-width:min(420px, 92vw);}
   .forecast-status{color:var(--text-mute); font-size:14px; padding:20px 0; text-align:center;}
@@ -349,18 +345,8 @@
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
   .photo-view-card img{width:100%; max-height:70vh; max-height:70dvh; object-fit:contain; border-radius:10px; display:block;}
-  .photo-view-img-wrap{position:relative;}
-  .photo-view-nav-btn{position:absolute; top:50%; transform:translateY(-50%); width:38px; height:38px; border-radius:50%;
-    background:rgba(2,6,23,.7); border:1px solid rgba(255,255,255,.15); color:#fff; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; z-index:2;}
-  .photo-view-nav-btn:hover{background:rgba(2,6,23,.9);}
-  .photo-view-nav-btn.hidden{display:none;}
-  .photo-view-prev{left:10px;}
-  .photo-view-next{right:10px;}
-  .photo-view-counter{text-align:center; font-size:12px; color:var(--text-mute); margin-top:8px;}
-  .photo-view-counter.hidden{display:none;}
   .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
-  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:grab; touch-action:none;
+  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:pointer;
     border:1px solid var(--border); flex-shrink:0;}
   .card-photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .card-photo-add{width:38px; height:38px; border-radius:6px; flex-shrink:0; cursor:pointer;
@@ -546,14 +532,8 @@
   /* ---------- toast ---------- */
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40; background:var(--surface);
     border:1px solid var(--border); color:#e2e8f0; font-size:12px; padding:9px 14px; border-radius:10px;
-    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;
-    display:flex; align-items:flex-start; gap:10px; max-width:min(420px, 88vw);}
+    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;}
   .toast.show{opacity:1;}
-  .toast-message{flex:1; min-width:0; white-space:pre-line;}
-  .toast-close-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
-    padding:2px; display:flex; pointer-events:auto; margin:-2px -4px 0 0;}
-  .toast-close-btn:hover{color:#fff;}
-  .toast-close-btn.hidden{display:none;}
 
   .sync-suggestion-banner{position:fixed; top:calc(80px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:44;
     display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--cyan);
@@ -1085,12 +1065,7 @@
         <h2 id="photoViewTitle">Photo</h2>
         <button class="icon-btn" id="photoViewCloseBtn"></button>
       </div>
-      <div class="photo-view-img-wrap">
-        <button type="button" class="photo-view-nav-btn photo-view-prev hidden" id="photoViewPrevBtn" aria-label="Previous photo"></button>
-        <img id="photoViewImg" src="" alt="Waypoint photo" />
-        <button type="button" class="photo-view-nav-btn photo-view-next hidden" id="photoViewNextBtn" aria-label="Next photo"></button>
-      </div>
-      <div class="photo-view-counter hidden" id="photoViewCounter"></div>
+      <img id="photoViewImg" src="" alt="Waypoint photo" />
     </div>
   </div>
 
@@ -1211,10 +1186,7 @@
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
-  <div class="toast" id="toast">
-    <span class="toast-message" id="toastMessage"></span>
-    <button type="button" class="toast-close-btn hidden" id="toastCloseBtn" aria-label="Close"></button>
-  </div>
+  <div class="toast" id="toast"></div>
 
   <div class="sync-suggestion-banner hidden" id="syncSuggestionBanner">
     <div class="sync-suggestion-top">
@@ -1313,8 +1285,6 @@
     plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
     plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
-    chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>',
-    chevronRight: '<polyline points="9 18 15 12 9 6"></polyline>',
     mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
     check: '<polyline points="20 6 9 17 4 12"></polyline>',
@@ -1361,144 +1331,6 @@
     if (/^(https?|mailto|tel):/i.test(trimmed)) return trimmed;
     return "https://" + trimmed;
   }
-
-  // Enables drag-to-reorder for thumbnail elements within a container,
-  // using pointer events so it works consistently across mouse, touch, and
-  // pen -- HTML5 drag-and-drop doesn't work reliably on touch devices,
-  // which this app needs to support on iPhone. A tap with no meaningful
-  // movement still falls through to whatever click behavior the element
-  // already has (e.g. opening the photo viewer, or the remove button) --
-  // only movement past a small threshold is treated as a drag, and any
-  // click event that would otherwise fire right after a real drag is
-  // suppressed so it doesn't accidentally trigger those.
-  //
-  // While dragging, the real element is fully hidden (not just dimmed) --
-  // only ONE copy is ever visible at a time: a floating "ghost" clone that
-  // follows the pointer. A dedicated insertion-point indicator (a thin bar)
-  // shows exactly where the item will land, tracked purely as an index in
-  // state rather than by live-reordering the actual DOM elements -- nothing
-  // is applied to the underlying data or the real list until the pointer is
-  // released, at which point the reorder is computed and committed once.
-  function enableThumbDragReorder(container, thumbSelector, onReorderComplete) {
-    const DRAG_THRESHOLD_PX = 8;
-    let drag = null;
-    let suppressNextClick = false;
-
-    function getThumbs() { return Array.from(container.querySelectorAll(thumbSelector)).filter((el) => !drag || el !== drag.el); }
-
-    // Given the pointer's current position, finds which gap between
-    // thumbnails (or before the first / after the last) it's closest to --
-    // the index the dragged item would land at if dropped right now.
-    function findInsertionIndex(px, py) {
-      const others = getThumbs();
-      if (others.length === 0) return 0;
-      let bestIdx = others.length;
-      let bestDist = Infinity;
-      others.forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const dist = Math.hypot(px - cx, py - cy);
-        if (dist < bestDist) { bestDist = dist; bestIdx = px < cx ? i : i + 1; }
-      });
-      return bestIdx;
-    }
-
-    function moveIndicatorTo(index) {
-      const others = getThumbs();
-      if (index >= others.length) container.appendChild(drag.indicator);
-      else others[index].before(drag.indicator);
-    }
-
-    container.addEventListener("pointerdown", (e) => {
-      if (e.button != null && e.button !== 0) return; // left click / primary touch only
-      const thumbEl = e.target.closest(thumbSelector);
-      if (!thumbEl || thumbEl.parentElement !== container) return;
-      drag = { el: thumbEl, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startIndex: 0, dragging: false, ghost: null, indicator: null, insertionIndex: -1 };
-      drag.startIndex = Array.from(container.querySelectorAll(thumbSelector)).indexOf(thumbEl);
-    });
-
-    container.addEventListener("pointermove", (e) => {
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      if (!drag.el.isConnected) { abortDrag(); return; } // pulled out from under us by an unrelated re-render -- bail out cleanly
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
-      if (!drag.dragging) {
-        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-        drag.dragging = true;
-        try { drag.el.setPointerCapture(drag.pointerId); } catch (err) { /* not supported / already captured */ }
-        const rect = drag.el.getBoundingClientRect();
-        const ghost = drag.el.cloneNode(true);
-        ghost.style.cssText = "position:fixed; left:" + rect.left + "px; top:" + rect.top + "px; width:" + rect.width + "px; height:" + rect.height + "px; margin:0; pointer-events:none; z-index:9999; opacity:.92; box-shadow:0 6px 16px rgba(0,0,0,.45); border-radius:6px; transform:scale(1.06);";
-        ghost.classList.add("thumb-drag-ghost");
-        document.body.appendChild(ghost);
-        drag.ghost = ghost;
-        drag.ghostOriginLeft = rect.left;
-        drag.ghostOriginTop = rect.top;
-
-        const indicator = document.createElement("div");
-        indicator.className = "thumb-drop-indicator";
-        indicator.style.height = rect.height + "px";
-        drag.indicator = indicator;
-
-        drag.el.style.display = "none"; // fully removed from flow -- only the ghost is visible while dragging
-        container.classList.add("thumb-reorder-active");
-        drag.insertionIndex = drag.startIndex;
-        moveIndicatorTo(drag.insertionIndex);
-      }
-      e.preventDefault();
-      drag.ghost.style.left = (drag.ghostOriginLeft + dx) + "px";
-      drag.ghost.style.top = (drag.ghostOriginTop + dy) + "px";
-
-      const ghostRect = drag.ghost.getBoundingClientRect();
-      const cx = ghostRect.left + ghostRect.width / 2;
-      const cy = ghostRect.top + ghostRect.height / 2;
-      const newIndex = findInsertionIndex(cx, cy);
-      if (newIndex !== drag.insertionIndex) {
-        drag.insertionIndex = newIndex;
-        moveIndicatorTo(newIndex);
-      }
-    });
-
-    // Cleans up an in-progress drag without applying any reorder -- used
-    // when the dragged element has been pulled out from under us by an
-    // unrelated re-render, so the underlying data (which may have already
-    // changed for other reasons) isn't touched based on stale state.
-    function abortDrag() {
-      if (!drag) return;
-      if (drag.ghost) drag.ghost.remove();
-      if (drag.indicator) drag.indicator.remove();
-      try { if (drag.dragging) drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released, or element gone */ }
-      if (drag.el && drag.el.isConnected) drag.el.style.display = "";
-      drag = null;
-    }
-
-    function endDrag() {
-      if (!drag) return;
-      if (!drag.el.isConnected) { abortDrag(); return; }
-      if (drag.dragging) {
-        try { drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released */ }
-        drag.ghost.remove();
-        drag.indicator.remove();
-        drag.el.style.display = "";
-        container.classList.remove("thumb-reorder-active");
-        suppressNextClick = true;
-        setTimeout(() => { suppressNextClick = false; }, 0);
-        // insertionIndex is relative to the "others" list (dragged item
-        // excluded), which is exactly the index to insert at after removing
-        // the dragged item from the underlying array -- no further
-        // adjustment needed regardless of whether it moved up or down.
-        if (drag.insertionIndex !== drag.startIndex) onReorderComplete(drag.startIndex, drag.insertionIndex);
-      }
-      drag = null;
-    }
-    container.addEventListener("pointerup", endDrag);
-    container.addEventListener("pointercancel", endDrag);
-    container.addEventListener("click", (e) => {
-      if (suppressNextClick) { e.stopPropagation(); e.preventDefault(); }
-    }, true);
-  }
-
   // Shows just the hostname in the card (e.g. "example.com" instead of the
   // full, potentially very long URL with path/query) -- the full URL is
   // still in the title attribute and is what actually gets opened on click.
@@ -1680,7 +1512,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "218";
+  const APP_VERSION = "208";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1748,16 +1580,16 @@
   // happens asynchronously in the background, with errors caught here so
   // no caller needs its own try/catch either.
   function saveRides() {
-    if (!dataStore) { showErrorToast(describeStorageError(null, "this route")); return; }
-    dataStore.setItem(RIDES_KEY, rides).catch((e) => showErrorToast(describeStorageError(e, "this route")));
+    if (!dataStore) { showToast(describeStorageError(null, "this route")); return; }
+    dataStore.setItem(RIDES_KEY, rides).catch((e) => showToast(describeStorageError(e, "this route")));
   }
   function saveMeasurements() {
-    if (!dataStore) { showErrorToast(describeStorageError(null, "this measurement")); return; }
-    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showErrorToast(describeStorageError(e, "this measurement")));
+    if (!dataStore) { showToast(describeStorageError(null, "this measurement")); return; }
+    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showToast(describeStorageError(e, "this measurement")));
   }
   function saveWaypoints() {
-    if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
-    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showErrorToast(describeStorageError(e, "your waypoints")));
+    if (!dataStore) { showToast(describeStorageError(null, "your waypoints")); return; }
+    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showToast(describeStorageError(e, "your waypoints")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -2091,9 +1923,6 @@
   const photoViewCloseBtn = el("photoViewCloseBtn");
   const photoViewTitle = el("photoViewTitle");
   const photoViewImg = el("photoViewImg");
-  const photoViewPrevBtn = el("photoViewPrevBtn");
-  const photoViewNextBtn = el("photoViewNextBtn");
-  const photoViewCounter = el("photoViewCounter");
   const confirmModalOverlay = el("confirmModalOverlay");
   const confirmModalCloseBtn = el("confirmModalCloseBtn");
   const confirmModalTitle = el("confirmModalTitle");
@@ -2170,8 +1999,6 @@
   const routesAzPicker = el("routesAzPicker");
   const measurementsAzPicker = el("measurementsAzPicker");
   const toastEl = el("toast");
-  const toastMessage = el("toastMessage");
-  const toastCloseBtn = el("toastCloseBtn");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
   const syncSuggestionPullBtn = el("syncSuggestionPullBtn");
@@ -2214,9 +2041,6 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
-  photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
-  photoViewNextBtn.innerHTML = icon("chevronRight", 22);
-  toastCloseBtn.innerHTML = icon("x", 15);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
   panelSyncBtn.innerHTML = icon("sync", 16);
   importModalCloseBtn.innerHTML = icon("x", 18);
@@ -2236,26 +2060,12 @@
   /* ================================================================ */
 
   let toastTimer = null;
-  function showToast(msg, isError) {
-    toastMessage.textContent = msg;
+  function showToast(msg) {
+    toastEl.textContent = msg;
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
-    toastCloseBtn.classList.toggle("hidden", !isError);
-    if (isError) return; // persists until manually dismissed -- see showErrorToast
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
   }
-  // The explicit way to show an error: persists until the person closes it
-  // themselves (via the X button), rather than the standard toast's brief
-  // auto-dismiss -- an error is often something worth reading carefully,
-  // copying, or screenshotting to report, and 3.2 seconds isn't always
-  // enough for that, especially for a longer message.
-  function showErrorToast(msg) {
-    showToast(msg, true);
-  }
-  toastCloseBtn.addEventListener("click", () => {
-    toastEl.classList.remove("show");
-    clearTimeout(toastTimer);
-  });
 
   /* ================================================================ */
   /*  Confirmation modal (reusable)                                     */
@@ -2323,53 +2133,19 @@
     }
   });
 
-  let photoViewPhotos = [];
-  let photoViewIndex = 0;
-  function openPhotoViewModal(name, photos, startIndex) {
+  function openPhotoViewModal(name, src) {
     photoViewTitle.textContent = name || "Photo";
-    photoViewPhotos = Array.isArray(photos) ? photos : [photos];
-    photoViewIndex = startIndex || 0;
-    renderPhotoViewCurrent();
+    photoViewImg.src = src;
     photoViewModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
-  }
-  function renderPhotoViewCurrent() {
-    photoViewImg.src = photoViewPhotos[photoViewIndex] || "";
-    const hasMultiple = photoViewPhotos.length > 1;
-    photoViewPrevBtn.classList.toggle("hidden", !hasMultiple);
-    photoViewNextBtn.classList.toggle("hidden", !hasMultiple);
-    photoViewCounter.classList.toggle("hidden", !hasMultiple);
-    if (hasMultiple) photoViewCounter.textContent = (photoViewIndex + 1) + " / " + photoViewPhotos.length;
-  }
-  // Wraps around at both ends -- browsing a small set of photos back to
-  // back is the common case, and having Next stop dead at the last photo
-  // (rather than looping back to the first) would just mean an extra tap
-  // back to Prev to get there anyway.
-  function showPhotoViewPrev() {
-    if (photoViewPhotos.length < 2) return;
-    photoViewIndex = (photoViewIndex - 1 + photoViewPhotos.length) % photoViewPhotos.length;
-    renderPhotoViewCurrent();
-  }
-  function showPhotoViewNext() {
-    if (photoViewPhotos.length < 2) return;
-    photoViewIndex = (photoViewIndex + 1) % photoViewPhotos.length;
-    renderPhotoViewCurrent();
   }
   function closePhotoViewModal() {
     photoViewModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
     photoViewImg.src = "";
-    photoViewPhotos = [];
   }
   photoViewCloseBtn.addEventListener("click", closePhotoViewModal);
   photoViewModalOverlay.addEventListener("click", (e) => { if (e.target === photoViewModalOverlay) closePhotoViewModal(); });
-  photoViewPrevBtn.addEventListener("click", (e) => { e.stopPropagation(); showPhotoViewPrev(); });
-  photoViewNextBtn.addEventListener("click", (e) => { e.stopPropagation(); showPhotoViewNext(); });
-  document.addEventListener("keydown", (e) => {
-    if (photoViewModalOverlay.classList.contains("hidden")) return;
-    if (e.key === "ArrowLeft") showPhotoViewPrev();
-    else if (e.key === "ArrowRight") showPhotoViewNext();
-  });
 
   /* ================================================================ */
   /*  Map setup                                                         */
@@ -2460,7 +2236,7 @@
     baseLayers[name].on("tileerror", () => {
       if (activeBaseLayer !== baseLayers[name] || baseLayerErrorShown) return;
       baseLayerErrorShown = true;
-      showErrorToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
+      showToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
     });
   });
 
@@ -2527,7 +2303,7 @@
         showToast("Zoomed out — live radar tiles are only available up to this zoom level.");
       }
       const frames = await fetchPrecipFrameLayers();
-      if (!frames.length) { showErrorToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
+      if (!frames.length) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
       precipFrameLayers = frames;
       precipFrameIndex = 0;
       showPrecipFrame(0);
@@ -2925,7 +2701,7 @@
       (err) => {
         triggerBtn.disabled = false; triggerBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showErrorToast(messages[err.code] || "Couldn't get your location.");
+        showToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -3080,7 +2856,7 @@
       (err) => {
         homeModalUseLocationBtn.disabled = false; homeModalUseLocationBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showErrorToast(messages[err.code] || "Couldn't get your location.");
+        showToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -3241,7 +3017,7 @@
     try {
       cells = window.h3.polygonToCells(loop, res);
     } catch (e) {
-      showErrorToast("Couldn't compute precision hexes for this view.");
+      showToast("Couldn't compute precision hexes for this view.");
       return;
     }
     if (myToken !== precisionHexToken) return; // a newer rebuild superseded this one
@@ -3374,7 +3150,7 @@
         refreshAllHexCells();
         showToast("Imported " + applied + " region name" + (applied === 1 ? "" : "s") + (skipped ? (", skipped " + skipped) : ""));
       } catch (e) {
-        showErrorToast("Couldn't read that file — expected a JSON export from this app.");
+        showToast("Couldn't read that file — expected a JSON export from this app.");
       }
       importAnchorsFile.value = "";
     };
@@ -3421,7 +3197,7 @@
   // repoContext ({owner, repo}) is passed only by the repo-sync pull path —
   // incoming photos there carry a repoPath reference instead of full base64,
   // which gets resolved into a directly-usable raw GitHub URL here.
-  async function mergeBackupPayload(payload, repoContext) {
+  function mergeBackupPayload(payload, repoContext) {
     if (!payload || typeof payload !== "object") {
       throw new Error("Not a recognized MapApp backup file (expected a JSON object, got " + (payload === null ? "null" : typeof payload) + ").");
     }
@@ -3482,15 +3258,24 @@
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
     let added = 0, updated = 0, skipped = 0;
-    // Determine every waypoint's fate first, without touching photos at all
-    // -- keeps this part fast and purely synchronous, and means only
-    // waypoints that actually need it ever trigger a photo fetch.
-    const toApply = [];
-    for (const wp of payload.waypoints) {
-      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; continue; }
-      if (deletedWaypointSet.has(wp.id)) { skipped++; continue; } // deleted somewhere -- don't resurrect it
-
+    payload.waypoints.forEach((wp) => {
+      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
+      if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
+      if (repoContext && Array.isArray(wp.photos)) {
+        wp.photos = wp.photos.map((p) => {
+          if (p && p.repoPath && !p.src) {
+            return Object.assign({}, p, { src: githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath) });
+          }
+          return p;
+        });
+      }
       const existingIndex = waypoints.findIndex((existing) => existing.id === wp.id);
+      if (existingIndex === -1) {
+        waypoints.push(wp);
+        addSavedMarker(wp);
+        added++;
+        return;
+      }
       // Already have this one locally -- only replace it if the incoming
       // version is a strictly newer edit (new photos, changed notes,
       // etc.), so a pull never discards a more recent local change, but a
@@ -3503,50 +3288,18 @@
       // edits (already-synced photos, notes) could never sync at all. In
       // that specific case only, the incoming/pulled version wins, since
       // pulling it in is the entire point of a Sync.
-      let willApply = existingIndex === -1;
-      if (!willApply) {
-        const incomingUpdatedAt = wp.updatedAt || 0;
-        const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
-        const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
-        willApply = incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp;
-      }
-      if (willApply) toApply.push({ wp, existingIndex });
-      else skipped++;
-    }
-
-    // Fetch every needed photo across every waypoint at once, rather than
-    // one waypoint at a time -- this is what actually makes a device's
-    // first-ever sync (where every waypoint and all its photos need
-    // fetching) complete in a reasonable time instead of processing
-    // requests almost one at a time.
-    if (repoContext) {
-      let photoIndex = 0;
-      let photoTotal = 0;
-      toApply.forEach(({ wp }) => { if (Array.isArray(wp.photos)) photoTotal += wp.photos.filter((p) => p && p.repoPath && !p.src).length; });
-      await Promise.all(toApply.map(async ({ wp }) => {
-        if (!Array.isArray(wp.photos)) return;
-        wp.photos = await Promise.all(wp.photos.map(async (p) => {
-          if (!(p && p.repoPath && !p.src)) return p;
-          const result = await rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
-          photoIndex++;
-          if (photoTotal > 1) gistStatusText.textContent = "Fetching photos (" + photoIndex + "/" + photoTotal + ")…";
-          return result;
-        }));
-      }));
-    }
-
-    toApply.forEach(({ wp, existingIndex }) => {
-      if (existingIndex === -1) {
-        waypoints.push(wp);
-        addSavedMarker(wp);
-        added++;
-      } else {
+      const incomingUpdatedAt = wp.updatedAt || 0;
+      const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
+      const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
+      if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
         waypoints[existingIndex] = wp;
         addSavedMarker(wp);
         updated++;
+      } else {
+        skipped++;
       }
     });
     if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
@@ -3645,10 +3398,10 @@
     const file = importBackupFile.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       try {
         const payload = JSON.parse(stripBom(String(reader.result)));
-        const result = await mergeBackupPayload(payload);
+        const result = mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
         if (result.measurementsAdded) msg += " and " + result.measurementsAdded + " measurement" + (result.measurementsAdded === 1 ? "" : "s");
@@ -3657,7 +3410,7 @@
         if (result.skipped) msg += " (" + result.skipped + " already up to date)";
         showToast(msg);
       } catch (e) {
-        showErrorToast("Couldn't read that file — expected a MapApp backup JSON.");
+        showToast("Couldn't read that file — expected a MapApp backup JSON.");
       }
       importBackupFile.value = "";
     };
@@ -3701,7 +3454,7 @@
   githubRepoInput.value = (await safeLocalStorageGet(GITHUB_REPO_KEY)) || "";
   gistTokenInput.addEventListener("change", async () => {
     if (!(await safeLocalStorageSet(GITHUB_TOKEN_KEY, gistTokenInput.value.trim()))) {
-      showErrorToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
+      showToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
     }
   });
   gistTokenVisibilityBtn.addEventListener("click", (e) => {
@@ -3716,7 +3469,7 @@
     const cleaned = parsed ? (parsed.owner + "/" + parsed.repo) : githubRepoInput.value.trim();
     githubRepoInput.value = cleaned; // reflect the cleaned-up value back into the field so it's visibly correct
     if (!(await safeLocalStorageSet(GITHUB_REPO_KEY, cleaned))) {
-      showErrorToast("Couldn't save your repository — this device's storage may be full or restricted.");
+      showToast("Couldn't save your repository — this device's storage may be full or restricted.");
     }
   });
 
@@ -3726,18 +3479,6 @@
       "Accept": "application/vnd.github+json",
       "Content-Type": "application/json"
     };
-  }
-
-  const NETWORK_FETCH_TIMEOUT_MS = 20000;
-  // fetch() has no built-in timeout -- without this, a single slow or
-  // stalled request on an unreliable mobile connection could hang
-  // indefinitely, which would silently block an entire sync (nothing
-  // waiting on it, like a Promise.all across many photo fetches, would
-  // ever resolve).
-  function fetchWithTimeout(url, opts) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), NETWORK_FETCH_TIMEOUT_MS);
-    return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(() => clearTimeout(timer));
   }
 
   async function describeGitHubApiError(res) {
@@ -3797,7 +3538,7 @@
   // file's content SHA (no branch, no pre-signed URL) and authenticated
   // exactly the same way as every other request in this app.
   async function fetchRepoFile(owner, repo, path) {
-    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
@@ -3810,7 +3551,7 @@
       throw err;
     }
     const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
     if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
     const blobData = await blobRes.json();
     if (blobData.encoding !== "base64" || !blobData.content) {
@@ -3819,106 +3560,6 @@
       throw err;
     }
     return { content: decodeBase64Utf8(blobData.content), sha: data.sha };
-  }
-
-  // Like fetchRepoFile, but for binary content (photos) -- returns the raw
-  // base64 as-is rather than UTF-8-decoding it. decodeBase64Utf8 is correct
-  // for the JSON data file (genuine text) but would corrupt binary image
-  // bytes, since it assumes the content is valid UTF-8 text. Falls back to
-  // the Git Blobs API for files over the Contents API's 1MB read limit,
-  // same as fetchRepoFile.
-  async function fetchRepoFileBase64(owner, repo, path) {
-    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
-    if (res.status === 404) return null;
-    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
-    const data = await res.json();
-    if (data.content && data.encoding === "base64") return data.content.replace(/\n/g, "");
-    if (!data.sha) {
-      const err = new Error("This file is too large to read (no blob sha was provided).");
-      err.isGitHubApiError = true;
-      throw err;
-    }
-    const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
-    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
-    const blobData = await blobRes.json();
-    if (blobData.encoding !== "base64" || !blobData.content) {
-      const err = new Error("The large file's blob came back in an unexpected format.");
-      err.isGitHubApiError = true;
-      throw err;
-    }
-    return blobData.content.replace(/\n/g, "");
-  }
-  function mimeFromExtension(path) {
-    const ext = (path.split(".").pop() || "").toLowerCase();
-    if (ext === "png") return "image/png";
-    if (ext === "webp") return "image/webp";
-    return "image/jpeg";
-  }
-  // Fetches a photo's actual content and reconstructs a directly-usable
-  // data: URL -- unlike a plain githubRawUrl, this works even for a
-  // private repository, since the fetch is authenticated (an
-  // <img src="https://raw.githubusercontent.com/..."> can't attach the
-  // Authorization header a private repo requires, which is what left every
-  // photo showing as a broken-image placeholder). Falls back to the plain
-  // raw URL if the fetch fails, in case the repo IS public and this was
-  // just a transient error -- better to attempt something displayable than
-  // show nothing at all.
-  async function rehydratePhotoRef(owner, repo, repoPath) {
-    try {
-      const base64 = await fetchRepoFileBase64(owner, repo, repoPath);
-      if (base64) return "data:" + mimeFromExtension(repoPath) + ";base64," + base64;
-    } catch (e) {
-      console.error("[repo pull] failed to fetch photo " + repoPath, e);
-    }
-    return githubRawUrl(owner, repo, repoPath);
-  }
-
-  // Repairs any locally-stored photo that's still a broken, unauthenticated
-  // raw.githubusercontent.com URL -- left over from a device that pulled
-  // while an earlier, intermediate version of this sync logic was in
-  // place, before photo fetching became authenticated. A private repo
-  // rejects that unauthenticated request outright, which is exactly what
-  // left these showing as broken images no matter how many times a sync
-  // "succeeded" afterward: the waypoint holding it already looks fully up
-  // to date, so the normal merge logic never touches it again, and the
-  // stale value no longer matches the {repoPath} reference pattern that
-  // logic looks for in the first place. This runs across every local
-  // waypoint regardless of sync state, specifically to catch that.
-  async function repairBrokenPhotoReferences(owner, repo) {
-    const prefix = "https://raw.githubusercontent.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/";
-    let anyRepaired = false;
-    await Promise.all(waypoints.map(async (wp) => {
-      if (!Array.isArray(wp.photos)) return;
-      let changed = false;
-      const fixed = await Promise.all(wp.photos.map(async (p) => {
-        // Never rehydrated at all -- still the raw {repoPath} reference
-        // object exactly as it came from the repo. An <img src> given this
-        // object directly stringifies it to "[object Object]", an invalid
-        // URL that's guaranteed to show as broken -- with nothing to
-        // report as an error, since no network request was ever even
-        // attempted for it.
-        if (p && typeof p === "object" && p.repoPath && !p.src) {
-          changed = true;
-          return await rehydratePhotoRef(owner, repo, p.repoPath);
-        }
-        // Rehydrated once already, but to a broken, unauthenticated raw
-        // URL -- left over from an earlier, intermediate version of this
-        // sync logic, before photo fetching became authenticated.
-        if (typeof p === "string" && p.startsWith(prefix)) {
-          const repoPath = extractRepoPathFromRawUrl(p);
-          if (repoPath) {
-            const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
-            if (rehydrated !== p) changed = true;
-            return rehydrated;
-          }
-        }
-        return p;
-      }));
-      if (changed) { wp.photos = fixed; anyRepaired = true; }
-    }));
-    if (anyRepaired) { saveWaypoints(); renderList(); }
-    return anyRepaired;
   }
 
   // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
@@ -3930,7 +3571,7 @@
   async function putRepoFileRaw(owner, repo, path, base64Content, sha, message) {
     const body = { message: message || ("Update " + path), content: base64Content, branch: GITHUB_BRANCH };
     if (sha) body.sha = sha;
-    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
+    const res = await fetch(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
     return data.content && data.content.sha;
@@ -3947,112 +3588,48 @@
     return putRepoFileRaw(owner, repo, path, base64Content, sha, message);
   }
 
-  const PHOTO_UPLOAD_CACHE_KEY = "waypoint-saver:photoUploadCache";
-  async function loadPhotoUploadCache() {
-    if (!dataStore) return {};
-    try {
-      const cache = await dataStore.getItem(PHOTO_UPLOAD_CACHE_KEY);
-      return (cache && typeof cache === "object") ? cache : {};
-    } catch (e) { return {}; }
-  }
-  async function savePhotoUploadCache(cache) {
-    if (!dataStore) return;
-    try { await dataStore.setItem(PHOTO_UPLOAD_CACHE_KEY, cache); } catch (e) { /* non-fatal -- worst case, re-uploads next sync */ }
-  }
-  // A fast, non-cryptographic hash of a photo's base64 content -- used only
-  // as a compact, stable identifier for "have I already uploaded this exact
-  // photo" and as its filename in the repo. Content-based (not
-  // position/index-based) so it's completely unaffected by later
-  // reordering, deleting, or adding other photos. Collisions are
-  // astronomically unlikely for deduplicating one person's photo
-  // collection; nothing security-sensitive depends on this.
-  function hashPhotoContent(str) {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
-    return (hash >>> 0).toString(36) + "-" + str.length.toString(36);
-  }
-  // Reverses githubRawUrl -- given a raw.githubusercontent.com URL this app
-  // itself produced (from a previous pull), extracts the repo-relative
-  // path back out, so an already-hosted photo can be represented compactly
-  // in the sync payload instead of as its full URL.
-  function extractRepoPathFromRawUrl(url) {
-    const m = /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)$/.exec(url || "");
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
-  // Uploads any locally-created photo (still a data: URL, never yet synced)
-  // as its own file under images/, named by a hash of its content. Skips
-  // anything already in the cache (uploaded in a previous sync) or that
-  // isn't a data: URL at all (already a remote reference from a prior pull).
+  // Any photo still holding local base64 (never yet uploaded, tracked via
+  // the absence of repoPath) gets uploaded as its own file under images/.
+  // Already-uploaded photos are skipped entirely -- photos are treated as
+  // immutable once synced, so this never re-uploads unchanged data.
   async function uploadWaypointPhotosIfNeeded(owner, repo) {
-    const cache = await loadPhotoUploadCache();
-    // Collect every photo that actually needs uploading first (fast, no
-    // network), then upload them all concurrently rather than one at a
-    // time -- the same fix as the pull side, since this was exactly as
-    // slow otherwise for a device with many newly-added photos to push.
-    const needsUpload = [];
-    const seenHashes = new Set(); // avoids uploading the same content twice concurrently if it appears on more than one waypoint, since the cache won't reflect an in-progress upload yet
+    let anyUploaded = false;
+    let anyFailed = false;
     for (const wp of waypoints) {
       if (!Array.isArray(wp.photos)) continue;
-      for (const src of wp.photos) {
-        if (typeof src !== "string" || !src.startsWith("data:")) continue;
-        const match = src.match(/^data:([^;]+);base64,(.+)$/);
+      for (let i = 0; i < wp.photos.length; i++) {
+        const photo = wp.photos[i];
+        if (!photo || photo.repoPath || !photo.src || typeof photo.src !== "string" || !photo.src.startsWith("data:")) continue;
+        const match = photo.src.match(/^data:([^;]+);base64,(.+)$/);
         if (!match) continue;
         const mime = match[1];
         const base64Data = match[2];
-        const hash = hashPhotoContent(base64Data);
-        if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
-        seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
+        const path = "images/" + wp.id + "-" + i + "." + ext;
+        try {
+          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo for waypoint " + wp.id);
+          photo.repoPath = path;
+          anyUploaded = true;
+        } catch (e) {
+          console.error("[repo sync] failed to upload photo " + path, e);
+          anyFailed = true;
+        }
       }
     }
-
-    let anyUploaded = false;
-    let anyFailed = false;
-    let doneCount = 0;
-    await Promise.all(needsUpload.map(async (item) => {
-      try {
-        await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
-        cache[item.hash] = item.path;
-        anyUploaded = true;
-      } catch (e) {
-        console.error("[repo sync] failed to upload photo " + item.path, e);
-        anyFailed = true;
-      }
-      doneCount++;
-      if (needsUpload.length > 1) gistStatusText.textContent = "Uploading photos (" + doneCount + "/" + needsUpload.length + ")…";
-    }));
-    if (anyUploaded) await savePhotoUploadCache(cache);
-    return { anyUploaded, anyFailed, cache };
+    if (anyUploaded) saveWaypoints();
+    return { anyUploaded, anyFailed };
   }
 
-  // Leaner than buildBackupPayload's full local export: any photo already
-  // uploaded as its own file (per photoCache, or already a raw GitHub URL
-  // from a prior pull) is replaced here with a small {repoPath} reference
-  // instead of its full base64 or URL -- since the actual image data lives
-  // in its own file in the repo, this is what keeps data.json itself well
-  // under GitHub's 1MB Contents API limit regardless of how many or how
-  // large the photos are. A photo that failed to upload (or hasn't been
-  // attempted yet) falls back to being embedded in full, rather than lost.
-  function buildRepoSyncPayload(photoCache) {
+  // Leaner than buildBackupPayload's full local export: photo src (base64)
+  // is dropped in favor of the repoPath reference set by
+  // uploadWaypointPhotosIfNeeded, since the actual image data now lives in
+  // its own file in the repo rather than embedded in this JSON.
+  function buildRepoSyncPayload() {
     const payload = buildBackupPayload();
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
-        photos: wp.photos.map((p) => {
-          if (typeof p !== "string") return p;
-          if (p.startsWith("data:")) {
-            const match = p.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              const hash = hashPhotoContent(match[2]);
-              if (photoCache[hash]) return { repoPath: photoCache[hash] };
-            }
-            return p;
-          }
-          const extracted = extractRepoPathFromRawUrl(p);
-          return extracted ? { repoPath: extracted } : p;
-        })
+        photos: wp.photos.map((p) => (p && p.repoPath) ? { name: p.name, repoPath: p.repoPath } : p)
       });
     });
     return payload;
@@ -4093,16 +3670,14 @@
         showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
         return { ok: false, reason: "That file isn't valid MapApp data." };
       }
-      gistStatusText.textContent = "Merging…";
-      await mergeBackupPayload(payload, parsed);
-      await repairBrokenPhotoReferences(parsed.owner, parsed.repo);
+      mergeBackupPayload(payload, parsed);
       gistStatusText.textContent = "Pulled just now.";
       return { ok: true, reason: null };
     } catch (e) {
       console.error("[repo pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't pull: " + reason);
+      showToast("Couldn't pull: " + reason);
       return { ok: false, reason };
     }
   }
@@ -4117,11 +3692,11 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
+        showToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
-      const payload = buildRepoSyncPayload(photoResult.cache);
+      const payload = buildRepoSyncPayload();
       await putRepoFileRaw(
         parsed.owner, parsed.repo, GITHUB_DATA_FILE,
         encodeBase64Utf8(JSON.stringify(payload, null, 2)),
@@ -4147,7 +3722,7 @@
       console.error("[repo push] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't push: " + reason);
+      showToast("Couldn't push: " + reason);
       return false;
     }
   }
@@ -4231,7 +3806,7 @@
       console.error("[repo check] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't check the repo: " + reason);
+      showToast("Couldn't check the repo: " + reason);
     }
     gistCheckRepoBtn.disabled = false;
   }
@@ -4293,14 +3868,14 @@
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
-        showErrorToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
+        showToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
       }
       const payload = JSON.parse(stripBom(file.content));
       if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
-        showErrorToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
+        showToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
@@ -4315,15 +3890,17 @@
       });
 
       waypoints = payload.waypoints.filter((wp) => wp && wp.id && typeof wp.lat === "number" && typeof wp.lng === "number");
-      for (const wp of waypoints) {
+      waypoints.forEach((wp) => {
         if (Array.isArray(wp.photos)) {
-          wp.photos = await Promise.all(wp.photos.map((p) => {
-            if (p && p.repoPath && !p.src) return rehydratePhotoRef(parsed.owner, parsed.repo, p.repoPath);
+          wp.photos = wp.photos.map((p) => {
+            if (p && p.repoPath && !p.src) {
+              return Object.assign({}, p, { src: githubRawUrl(parsed.owner, parsed.repo, p.repoPath) });
+            }
             return p;
-          }));
+          });
         }
         addSavedMarker(wp);
-      }
+      });
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
       measurements.forEach((m) => renderSavedMeasurement(m));
@@ -4344,7 +3921,7 @@
       console.error("[force pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't pull: " + reason);
+      showToast("Couldn't pull: " + reason);
     }
     gistForcePullBtn.disabled = false;
     gistSyncBtn.disabled = false;
@@ -6863,7 +6440,7 @@
   function armCameraPhotoMapPick(dataUrl) {
     pendingCameraDataUrl = dataUrl;
     pickingCameraLocation = true;
-    showErrorToast("Couldn't find a location for that photo — tap the map to place it.");
+    showToast("Couldn't find a location for that photo — tap the map to place it.");
   }
 
   async function handleCameraCapture(file) {
@@ -6877,7 +6454,7 @@
     try {
       compressedDataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
     } catch (e) {
-      showErrorToast("Couldn't read that photo.");
+      showToast("Couldn't read that photo.");
       return;
     }
 
@@ -6948,7 +6525,7 @@
     // same geolocation/tap-to-place fallback used when a real photo has no GPS tag.
     const { dataUrls, hadUnusableSource } = await collectImageDataUrlsFromDrop(e.dataTransfer);
     if (dataUrls.length === 0) {
-      if (hadUnusableSource) showErrorToast("Couldn't read that as an image.");
+      if (hadUnusableSource) showToast("Couldn't read that as an image.");
       return;
     }
     for (const dataUrl of dataUrls) {
@@ -7060,14 +6637,6 @@
       });
     });
   }
-  // Set up once -- the container itself persists across renderPhotoThumbs
-  // calls (only its innerHTML changes), so this doesn't need to re-run
-  // every render.
-  enableThumbDragReorder(photoThumbs, ".photo-thumb", (fromIdx, toIdx) => {
-    const [moved] = pendingPhotos.splice(fromIdx, 1);
-    pendingPhotos.splice(toIdx, 0, moved);
-    renderPhotoThumbs();
-  });
 
   async function addPhotoFiles(fileList) {
     const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
@@ -7355,7 +6924,7 @@
       (err) => {
         locateBtn.disabled = false; locateBtn.innerHTML = icon("navigation", 18);
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showErrorToast(messages[err.code] || "Couldn't get your location.");
+        showToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -7654,7 +7223,7 @@
       () => {
         voiceCaptureState = "idle";
         speak("Couldn't get your location.");
-        showErrorToast("Couldn't get your current location for the hands-free waypoint.");
+        showToast("Couldn't get your current location for the hands-free waypoint.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -7734,7 +7303,7 @@
     };
     handsFreeRecognition.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        showErrorToast("Microphone access was denied — hands-free waypoints need it to work.");
+        showToast("Microphone access was denied — hands-free waypoints need it to work.");
         stopHandsFreeListening();
       }
       // other errors (no-speech, network, aborted) are transient; onend below restarts automatically
@@ -7750,7 +7319,7 @@
       showToast('Listening — say "waypoint" to save your location, hands-free.');
       speak("Hands-free waypoints on.");
     } catch (e) {
-      showErrorToast("Couldn't start voice recognition.");
+      showToast("Couldn't start voice recognition.");
       handsFreeListening = false;
       voiceWaypointBtn.classList.remove("listening");
       voiceWaypointBtn.innerHTML = icon("mic", 18);
@@ -8056,7 +7625,7 @@
     if (navigator.share) {
       navigator.share({ title: wp.name, text }).catch(() => {});
     } else {
-      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showErrorToast("Couldn't copy to clipboard."));
+      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showToast("Couldn't copy to clipboard."));
     }
   }
 
@@ -8082,11 +7651,6 @@
   }
 
   function renderList() {
-    // Safety net: if a drag-in-progress ghost is somehow still on screen
-    // (e.g. an unrelated background render interrupted a drag between
-    // pointer events), clear it before rebuilding the list so it can never
-    // look like a duplicated photo.
-    document.querySelectorAll(".thumb-drag-ghost").forEach((g) => g.remove());
     if (waypoints.length === 0) {
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
         "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
@@ -8423,7 +7987,7 @@
           case "copy-coords":
             copyText(wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6))
               .then(() => flashCheck(node, "copy", " Copy coordinates"))
-              .catch(() => showErrorToast("Couldn't copy to clipboard."));
+              .catch(() => showToast("Couldn't copy to clipboard."));
             break;
           case "share": shareWaypoint(wp); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
@@ -8431,7 +7995,7 @@
             e.stopPropagation();
             const idx = Number(node.dataset.photoIdx);
             const src = wp.photos && wp.photos[idx];
-            if (src) openPhotoViewModal(wp.name, wp.photos, idx);
+            if (src) openPhotoViewModal(wp.name, src);
             break;
           }
           case "add-photo":
@@ -8476,18 +8040,6 @@
           e.preventDefault();
           zoneEl.click();
         }
-      });
-    });
-    panelList.querySelectorAll(".card-photos").forEach((container) => {
-      const id = container.dataset.photoTarget;
-      const wp = waypoints.find((w) => w.id === id);
-      if (!wp) return;
-      enableThumbDragReorder(container, ".card-photo-thumb", (fromIdx, toIdx) => {
-        const [moved] = wp.photos.splice(fromIdx, 1);
-        wp.photos.splice(toIdx, 0, moved);
-        wp.updatedAt = Date.now();
-        saveWaypoints();
-        renderList();
       });
     });
     if (selectedPasteCardId) {
@@ -8577,7 +8129,7 @@
       if (result.dataUrls.length > 0) {
         commitPhotosToWaypoint(wp, result.dataUrls);
       } else if (result.hadUnusableSource) {
-        showErrorToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
+        showToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
       } else {
         showToast("That doesn't look like an image — check the browser console (F12) for what was actually dragged.");
       }
