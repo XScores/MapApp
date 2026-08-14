@@ -1656,7 +1656,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "227";
+  const APP_VERSION = "228";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3449,7 +3449,7 @@
       toApply.forEach(({ wp }) => {
         if (!Array.isArray(wp.photos)) return;
         wp.photos.forEach((p, i) => {
-          if (p && p.repoPath && !p.src) toFetch.push({ wp, i, repoPath: p.repoPath });
+          if (p && p.repoPath) toFetch.push({ wp, i, repoPath: p.repoPath });
         });
       });
       await runWithConcurrencyLimit(toFetch, PHOTO_FETCH_CONCURRENCY, async (item) => {
@@ -3804,7 +3804,7 @@
     waypoints.forEach((wp) => {
       if (!Array.isArray(wp.photos)) return;
       wp.photos.forEach((p, i) => {
-        if (p && typeof p === "object" && p.repoPath && !p.src) {
+        if (p && typeof p === "object" && p.repoPath) {
           toRepair.push({ wp, i, repoPath: p.repoPath, original: p });
         } else if (typeof p === "string" && p.startsWith(prefix)) {
           const repoPath = extractRepoPathFromRawUrl(p);
@@ -4372,7 +4372,7 @@
       waypoints.forEach((wp) => {
         if (Array.isArray(wp.photos)) {
           wp.photos.forEach((p, i) => {
-            if (p && p.repoPath && !p.src) toFetch.push({ wp, i, repoPath: p.repoPath });
+            if (p && p.repoPath) toFetch.push({ wp, i, repoPath: p.repoPath });
           });
         }
       });
