@@ -1656,7 +1656,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "228";
+  const APP_VERSION = "229";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3906,8 +3906,20 @@
   // cause of the browser becoming unresponsive or crashing on mobile.
   const THUMBNAIL_MAX_DIMENSION = 120;
   const THUMBNAIL_JPEG_QUALITY = 0.7;
+  const THUMBNAIL_GENERATION_CONCURRENCY = 4;
+  // A tiny, fixed-size 1x1 transparent GIF -- used as the fallback while a
+  // real thumbnail is still generating, instead of the full photo. Falling
+  // back to the full photo defeats the purpose of this whole system on
+  // exactly the render that matters most: the very first one after a large
+  // pull (e.g. Force Pull into an empty local database), where every
+  // photo's thumbnail is still ungenerated at once -- embedding hundreds
+  // of full-resolution photos directly into that one HTML string is
+  // itself enough to crash or hang a browser tab.
+  const PHOTO_THUMB_PLACEHOLDER = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
   const thumbnailCache = {}; // content hash -> small thumbnail data: URL, in-memory only (cheap to regenerate, never needs to survive a reload)
-  const thumbnailGenerating = new Set(); // hashes currently being generated, to avoid duplicate concurrent work for the same photo
+  const thumbnailGenerating = new Set(); // hashes already queued or in flight, to avoid duplicate work for the same photo
+  const thumbnailQueue = [];
+  let thumbnailWorkersActive = 0;
 
   function generatePhotoThumbnail(photoDataUrl) {
     return new Promise((resolve, reject) => {
@@ -3929,10 +3941,31 @@
     });
   }
 
+  // Processes the thumbnail queue with a bounded number of workers --
+  // rendering a large collection at once (hundreds of cards on the very
+  // first render) would otherwise queue up that many simultaneous
+  // Image/Canvas decode operations, which is its own source of memory and
+  // CPU pressure independent of the network side.
+  function pumpThumbnailQueue() {
+    while (thumbnailWorkersActive < THUMBNAIL_GENERATION_CONCURRENCY && thumbnailQueue.length > 0) {
+      const { photoDataUrl, hash } = thumbnailQueue.shift();
+      thumbnailWorkersActive++;
+      generatePhotoThumbnail(photoDataUrl).then((thumbSrc) => {
+        thumbnailCache[hash] = thumbSrc;
+        document.querySelectorAll('img[data-photo-hash="' + hash + '"]').forEach((imgEl) => { imgEl.src = thumbSrc; });
+      }).catch(() => { /* leave it on the placeholder -- the full photo is still reachable via the enlarged viewer */ })
+        .finally(() => {
+          thumbnailGenerating.delete(hash);
+          thumbnailWorkersActive--;
+          pumpThumbnailQueue();
+        });
+    }
+  }
+
   // Returns a photo's cached small thumbnail immediately if one already
-  // exists; otherwise kicks off generating it in the background (unless
-  // already in flight) and returns null so the caller can fall back to
-  // something displayable for this render only. Once ready, every
+  // exists; otherwise queues it for background generation (unless already
+  // queued or in flight) and returns null so the caller can fall back to
+  // a lightweight placeholder for this render only. Once ready, every
   // currently-rendered <img> tagged with this photo's hash gets patched in
   // place -- deliberately not a full list re-render, since that would
   // defeat the purpose.
@@ -3944,11 +3977,8 @@
     if (thumbnailCache[hash]) return thumbnailCache[hash];
     if (!thumbnailGenerating.has(hash)) {
       thumbnailGenerating.add(hash);
-      generatePhotoThumbnail(photoDataUrl).then((thumbSrc) => {
-        thumbnailCache[hash] = thumbSrc;
-        thumbnailGenerating.delete(hash);
-        document.querySelectorAll('img[data-photo-hash="' + hash + '"]').forEach((imgEl) => { imgEl.src = thumbSrc; });
-      }).catch(() => { thumbnailGenerating.delete(hash); });
+      thumbnailQueue.push({ photoDataUrl, hash });
+      pumpThumbnailQueue();
     }
     return null;
   }
@@ -7105,7 +7135,7 @@
   function renderPhotoThumbs() {
     photoDropzoneEmpty.style.display = pendingPhotos.length ? "none" : "flex";
     photoThumbs.innerHTML = pendingPhotos.map((src, i) =>
-      '<div class="photo-thumb"><img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" />' +
+      '<div class="photo-thumb"><img src="' + (getCachedPhotoThumb(src) || PHOTO_THUMB_PLACEHOLDER) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" />' +
       '<button type="button" class="photo-thumb-remove" data-idx="' + i + '">' + icon("x", 11) + "</button></div>"
     ).join("");
     photoThumbs.querySelectorAll(".photo-thumb-remove").forEach((btn) => {
@@ -8432,7 +8462,7 @@
           '<div class="card-photos" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
             wp.photos.map((src, i) =>
               '<div class="card-photo-thumb" data-action="view-photo" data-id="' + wp.id + '" data-photo-idx="' + i + '">' +
-                '<img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" /></div>'
+                '<img src="' + (getCachedPhotoThumb(src) || PHOTO_THUMB_PLACEHOLDER) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" /></div>'
             ).join("") +
             '<button class="card-photo-add" data-action="add-photo" data-id="' + wp.id + '" title="Add another photo">' + icon("upload", 14) + "</button>" +
           "</div>" :
