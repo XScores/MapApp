@@ -248,6 +248,8 @@
   .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;}
   .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--surface); border-color:var(--border-soft);}
+  @keyframes panel-sync-spin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
+  #panelSyncBtn.syncing svg{animation:panel-sync-spin 1s linear infinite;}
   .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
   .modal-coords-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
   .modal-coords-row .modal-coords{margin:0;}
@@ -548,8 +550,14 @@
   /* ---------- toast ---------- */
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40; background:var(--surface);
     border:1px solid var(--border); color:#e2e8f0; font-size:12px; padding:9px 14px; border-radius:10px;
-    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;}
+    box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;
+    display:flex; align-items:flex-start; gap:10px; max-width:min(420px, 88vw);}
   .toast.show{opacity:1;}
+  .toast-message{flex:1; min-width:0; white-space:pre-line;}
+  .toast-close-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
+    padding:2px; display:flex; pointer-events:auto; margin:-2px -4px 0 0;}
+  .toast-close-btn:hover{color:#fff;}
+  .toast-close-btn.hidden{display:none;}
 
   .sync-suggestion-banner{position:fixed; top:calc(80px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:44;
     display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--cyan);
@@ -1209,7 +1217,10 @@
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast">
+    <span class="toast-message" id="toastMessage"></span>
+    <button type="button" class="toast-close-btn hidden" id="toastCloseBtn" aria-label="Close"></button>
+  </div>
 
   <div class="sync-suggestion-banner hidden" id="syncSuggestionBanner">
     <div class="sync-suggestion-top">
@@ -1675,7 +1686,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "233";
+  const APP_VERSION = "234";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1743,16 +1754,16 @@
   // happens asynchronously in the background, with errors caught here so
   // no caller needs its own try/catch either.
   function saveRides() {
-    if (!dataStore) { showToast(describeStorageError(null, "this route")); return; }
-    dataStore.setItem(RIDES_KEY, rides).catch((e) => showToast(describeStorageError(e, "this route")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "this route")); return; }
+    dataStore.setItem(RIDES_KEY, rides).catch((e) => showErrorToast(describeStorageError(e, "this route")));
   }
   function saveMeasurements() {
-    if (!dataStore) { showToast(describeStorageError(null, "this measurement")); return; }
-    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showToast(describeStorageError(e, "this measurement")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "this measurement")); return; }
+    dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showErrorToast(describeStorageError(e, "this measurement")));
   }
   function saveWaypoints() {
-    if (!dataStore) { showToast(describeStorageError(null, "your waypoints")); return; }
-    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showToast(describeStorageError(e, "your waypoints")));
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
+    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showErrorToast(describeStorageError(e, "your waypoints")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -2167,6 +2178,8 @@
   const routesAzPicker = el("routesAzPicker");
   const measurementsAzPicker = el("measurementsAzPicker");
   const toastEl = el("toast");
+  const toastMessage = el("toastMessage");
+  const toastCloseBtn = el("toastCloseBtn");
   const syncSuggestionBanner = el("syncSuggestionBanner");
   const syncSuggestionIcon = el("syncSuggestionIcon");
   const syncSuggestionPullBtn = el("syncSuggestionPullBtn");
@@ -2209,6 +2222,7 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
+  toastCloseBtn.innerHTML = icon("x", 15);
   photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
   photoViewNextBtn.innerHTML = icon("chevronRight", 22);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
@@ -2230,12 +2244,27 @@
   /* ================================================================ */
 
   let toastTimer = null;
-  function showToast(msg) {
-    toastEl.textContent = msg;
+  function showToast(msg, isError) {
+    toastMessage.textContent = msg;
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
+    toastCloseBtn.classList.toggle("hidden", !isError);
+    if (isError) return; // persists until manually dismissed -- see showErrorToast
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
   }
+  // The explicit way to show an error: persists until the person closes it
+  // themselves (via the X button), rather than the standard toast's brief
+  // auto-dismiss -- an error is often something worth reading carefully,
+  // copying, or screenshotting to report, and 3.2 seconds isn't always
+  // enough for that, especially for a longer message.
+  function showErrorToast(msg) {
+    showToast(msg, true);
+  }
+  function hideToast() {
+    toastEl.classList.remove("show");
+    clearTimeout(toastTimer);
+  }
+  toastCloseBtn.addEventListener("click", hideToast);
 
   /* ================================================================ */
   /*  Confirmation modal (reusable)                                     */
@@ -2439,7 +2468,7 @@
     baseLayers[name].on("tileerror", () => {
       if (activeBaseLayer !== baseLayers[name] || baseLayerErrorShown) return;
       baseLayerErrorShown = true;
-      showToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
+      showErrorToast(BASE_LAYER_NAMES[name] + " tiles failed to load — check your network connection or tile-provider access.");
     });
   });
 
@@ -2506,7 +2535,7 @@
         showToast("Zoomed out — live radar tiles are only available up to this zoom level.");
       }
       const frames = await fetchPrecipFrameLayers();
-      if (!frames.length) { showToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
+      if (!frames.length) { showErrorToast("Couldn't load live radar right now."); wxPrecip.checked = false; return; }
       precipFrameLayers = frames;
       precipFrameIndex = 0;
       showPrecipFrame(0);
@@ -2904,7 +2933,7 @@
       (err) => {
         triggerBtn.disabled = false; triggerBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -3059,7 +3088,7 @@
       (err) => {
         homeModalUseLocationBtn.disabled = false; homeModalUseLocationBtn.textContent = original;
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -3220,7 +3249,7 @@
     try {
       cells = window.h3.polygonToCells(loop, res);
     } catch (e) {
-      showToast("Couldn't compute precision hexes for this view.");
+      showErrorToast("Couldn't compute precision hexes for this view.");
       return;
     }
     if (myToken !== precisionHexToken) return; // a newer rebuild superseded this one
@@ -3353,7 +3382,7 @@
         refreshAllHexCells();
         showToast("Imported " + applied + " region name" + (applied === 1 ? "" : "s") + (skipped ? (", skipped " + skipped) : ""));
       } catch (e) {
-        showToast("Couldn't read that file — expected a JSON export from this app.");
+        showErrorToast("Couldn't read that file — expected a JSON export from this app.");
       }
       importAnchorsFile.value = "";
     };
@@ -3674,7 +3703,7 @@
         if (result.skipped) msg += " (" + result.skipped + " already up to date)";
         showToast(msg);
       } catch (e) {
-        showToast("Couldn't read that file — expected a MapApp backup JSON.");
+        showErrorToast("Couldn't read that file — expected a MapApp backup JSON.");
       }
       importBackupFile.value = "";
     };
@@ -3718,7 +3747,7 @@
   githubRepoInput.value = (await safeLocalStorageGet(GITHUB_REPO_KEY)) || "";
   gistTokenInput.addEventListener("change", async () => {
     if (!(await safeLocalStorageSet(GITHUB_TOKEN_KEY, gistTokenInput.value.trim()))) {
-      showToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
+      showErrorToast("Couldn't save your GitHub token — this device's storage may be full or restricted.");
     }
   });
   gistTokenVisibilityBtn.addEventListener("click", (e) => {
@@ -3733,7 +3762,7 @@
     const cleaned = parsed ? (parsed.owner + "/" + parsed.repo) : githubRepoInput.value.trim();
     githubRepoInput.value = cleaned; // reflect the cleaned-up value back into the field so it's visibly correct
     if (!(await safeLocalStorageSet(GITHUB_REPO_KEY, cleaned))) {
-      showToast("Couldn't save your repository — this device's storage may be full or restricted.");
+      showErrorToast("Couldn't save your repository — this device's storage may be full or restricted.");
     }
   });
 
@@ -4236,7 +4265,7 @@
       console.error("[repo pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason);
       return { ok: false, reason };
     }
   }
@@ -4251,7 +4280,7 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
+        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -4281,7 +4310,7 @@
       console.error("[repo push] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't push: " + reason);
+      showErrorToast("Couldn't push: " + reason);
       return false;
     }
   }
@@ -4303,11 +4332,13 @@
   async function performRepoSync() {
     gistSyncBtn.disabled = true;
     panelSyncBtn.disabled = true;
+    panelSyncBtn.classList.add("syncing");
     setPanelSyncStatus("Syncing…");
     const pullResult = await performRepoPull();
     if (!pullResult.ok) {
       gistSyncBtn.disabled = false;
       panelSyncBtn.disabled = false;
+      panelSyncBtn.classList.remove("syncing");
       setPanelSyncStatus("Sync failed", 4000);
       showToast("Sync stopped (nothing was pushed, to avoid overwriting the repo with an incomplete list): " + pullResult.reason);
       return;
@@ -4315,6 +4346,7 @@
     await performRepoPush();
     gistSyncBtn.disabled = false;
     panelSyncBtn.disabled = false;
+    panelSyncBtn.classList.remove("syncing");
     setPanelSyncStatus("Synced just now", 4000);
   }
   gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performRepoSync(); });
@@ -4399,7 +4431,7 @@
       console.error("[repo check] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't check the repo: " + reason);
+      showErrorToast("Couldn't check the repo: " + reason);
     }
     gistCheckRepoBtn.disabled = false;
   }
@@ -4532,14 +4564,14 @@
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
-        showToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
+        showErrorToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
       }
       const payload = JSON.parse(stripBom(file.content));
       if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
-        showToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
+        showErrorToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
@@ -4586,7 +4618,7 @@
       console.error("[force pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason);
     }
     gistForcePullBtn.disabled = false;
     gistSyncBtn.disabled = false;
@@ -4714,6 +4746,7 @@
     }
     if (pickingCameraLocation) {
       pickingCameraLocation = false;
+      hideToast();
       const dataUrl = pendingCameraDataUrl;
       pendingCameraDataUrl = null;
       placeCameraPhotoAtLocation(e.latlng.lat, e.latlng.lng, dataUrl);
@@ -7126,7 +7159,7 @@
   function armCameraPhotoMapPick(dataUrl) {
     pendingCameraDataUrl = dataUrl;
     pickingCameraLocation = true;
-    showToast("Couldn't find a location for that photo — tap the map to place it.");
+    showErrorToast("Couldn't find a location for that photo — tap the map to place it.");
   }
 
   async function handleCameraCapture(file) {
@@ -7140,7 +7173,7 @@
     try {
       compressedDataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
     } catch (e) {
-      showToast(e && e.isHeic
+      showErrorToast(e && e.isHeic
         ? "Couldn't read that photo — it looks like it's in Apple's HEIC format, which isn't supported. In Settings > Camera > Formats, switch to \"Most Compatible\" so new photos save as JPEG instead."
         : "Couldn't read that photo.");
       return;
@@ -7225,7 +7258,7 @@
     // same geolocation/tap-to-place fallback used when a real photo has no GPS tag.
     const { dataUrls, hadUnusableSource } = await collectImageDataUrlsFromDrop(e.dataTransfer);
     if (dataUrls.length === 0) {
-      if (hadUnusableSource) showToast("Couldn't read that as an image.");
+      if (hadUnusableSource) showErrorToast("Couldn't read that as an image.");
       return;
     }
     for (const dataUrl of dataUrls) {
@@ -7634,7 +7667,7 @@
       (err) => {
         locateBtn.disabled = false; locateBtn.innerHTML = icon("navigation", 18);
         const messages = { 1: "Location access was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
-        showToast(messages[err.code] || "Couldn't get your location.");
+        showErrorToast(messages[err.code] || "Couldn't get your location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -7933,7 +7966,7 @@
       () => {
         voiceCaptureState = "idle";
         speak("Couldn't get your location.");
-        showToast("Couldn't get your current location for the hands-free waypoint.");
+        showErrorToast("Couldn't get your current location for the hands-free waypoint.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -8013,7 +8046,7 @@
     };
     handsFreeRecognition.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        showToast("Microphone access was denied — hands-free waypoints need it to work.");
+        showErrorToast("Microphone access was denied — hands-free waypoints need it to work.");
         stopHandsFreeListening();
       }
       // other errors (no-speech, network, aborted) are transient; onend below restarts automatically
@@ -8029,7 +8062,7 @@
       showToast('Listening — say "waypoint" to save your location, hands-free.');
       speak("Hands-free waypoints on.");
     } catch (e) {
-      showToast("Couldn't start voice recognition.");
+      showErrorToast("Couldn't start voice recognition.");
       handsFreeListening = false;
       voiceWaypointBtn.classList.remove("listening");
       voiceWaypointBtn.innerHTML = icon("mic", 18);
@@ -8335,7 +8368,7 @@
     if (navigator.share) {
       navigator.share({ title: wp.name, text }).catch(() => {});
     } else {
-      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showToast("Couldn't copy to clipboard."));
+      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showErrorToast("Couldn't copy to clipboard."));
     }
   }
 
@@ -8708,7 +8741,7 @@
           case "copy-coords":
             copyText(wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6))
               .then(() => flashCheck(node, "copy", " Copy coordinates"))
-              .catch(() => showToast("Couldn't copy to clipboard."));
+              .catch(() => showErrorToast("Couldn't copy to clipboard."));
             break;
           case "share": shareWaypoint(wp); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
@@ -8854,7 +8887,7 @@
     }
     commitPhotosToWaypoint(wp, dataUrls);
     if (anyFailed) {
-      showToast(anyHeic
+      showErrorToast(anyHeic
         ? "Some photos couldn't be added — they look like Apple's HEIC format, which isn't supported. In Settings > Camera > Formats, switch to \"Most Compatible\" so new photos save as JPEG."
         : "Some photos couldn't be added.");
     }
@@ -8868,7 +8901,7 @@
       if (result.dataUrls.length > 0) {
         commitPhotosToWaypoint(wp, result.dataUrls);
       } else if (result.hadUnusableSource) {
-        showToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
+        showErrorToast("Couldn't read that image directly from its source. Try saving it as a file first, then drag that file in.");
       } else {
         showToast("That doesn't look like an image — check the browser console (F12) for what was actually dragged.");
       }
