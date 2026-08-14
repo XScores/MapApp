@@ -1211,7 +1211,6 @@
     </div>
     <p class="panel-no-results" id="measurementsNoResults" style="display:none;">No measurements match your search.</p>
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
-    <input type="file" id="cardCameraCaptureInput" accept="image/*" capture="environment" style="display:none;" />
   </div>
 
   <div class="toast" id="toast">
@@ -1683,7 +1682,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "219";
+  const APP_VERSION = "222";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2072,7 +2071,6 @@
   const photoStatus = el("photoStatus");
   const modalWeatherContainer = el("modalWeatherContainer");
   const cardPhotoFileInput = el("cardPhotoFileInput");
-  const cardCameraCaptureInput = el("cardCameraCaptureInput");
   const panelSyncBtn = el("panelSyncBtn");
   const importModalOverlay = el("importModalOverlay");
   const importModalCloseBtn = el("importModalCloseBtn");
@@ -2256,10 +2254,11 @@
   function showErrorToast(msg) {
     showToast(msg, true);
   }
-  toastCloseBtn.addEventListener("click", () => {
+  function hideToast() {
     toastEl.classList.remove("show");
     clearTimeout(toastTimer);
-  });
+  }
+  toastCloseBtn.addEventListener("click", hideToast);
 
   /* ================================================================ */
   /*  Confirmation modal (reusable)                                     */
@@ -4476,6 +4475,7 @@
     }
     if (pickingCameraLocation) {
       pickingCameraLocation = false;
+      hideToast();
       const dataUrl = pendingCameraDataUrl;
       pendingCameraDataUrl = null;
       placeCameraPhotoAtLocation(e.latlng.lat, e.latlng.lng, dataUrl);
@@ -6837,7 +6837,7 @@
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const name = "Photo " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const wp = {
-      id, lat, lng, name, notes: "",
+      id, lat, lng, name, notes: "", url: "",
       code: generateWordCode(lat, lng), isCurrentLocation: false,
       markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷",
       photos: [dataUrl], createdAt: Date.now(), updatedAt: Date.now(), weather: null
@@ -6904,9 +6904,52 @@
     }
   }
 
-  cameraBtn.addEventListener("click", () => cameraCaptureInput.click());
+  const CHROME_IOS_CAMERA_HINT_KEY = "waypoint-saver:chromeIosCameraHintShown";
+  function isChromeOnIOS() {
+    return /CriOS/.test(navigator.userAgent);
+  }
+  // Chrome on iOS has a known, longstanding limitation where the camera
+  // view opened via <input capture> shows as black and non-functional --
+  // a browser-level issue in how Chrome integrates with iOS's camera
+  // capture mechanism (unlike Safari, which is a first-party integration
+  // and doesn't have this problem), not something fixable from here.
+  // Warned once, before the camera opens rather than after, since a black
+  // screen with no camera controls gives no indication of what went wrong
+  // or that the home-screen version would work instead.
+  function maybeWarnChromeIosCamera(proceed) {
+    if (!isChromeOnIOS() || localStorage.getItem(CHROME_IOS_CAMERA_HINT_KEY)) { proceed(); return; }
+    const markShown = () => { try { localStorage.setItem(CHROME_IOS_CAMERA_HINT_KEY, "1"); } catch (e) { /* non-fatal -- worst case, this shows again next time */ } };
+    openConfirmModal(
+      "Camera may not work in Chrome",
+      "Chrome on iPhone has a known issue where the camera view can appear as a black screen. If that happens, try the home-screen version of this app instead (Share \u2192 Add to Home Screen in Safari), which uses the camera directly.",
+      () => { markShown(); proceed(); },
+      { confirmLabel: "Try anyway", cancelLabel: "Cancel", danger: false, onCancel: markShown }
+    );
+  }
+
+  cameraBtn.addEventListener("click", () => maybeWarnChromeIosCamera(() => {
+    // Guards against stale state: if a card's camera/file picker was
+    // opened and then cancelled without choosing a file, its change event
+    // never fires, so cardPhotoTargetId would otherwise still be set from
+    // that earlier interaction -- silently routing this photo to the
+    // wrong (or since-deleted) waypoint instead of creating a new one.
+    cardPhotoTargetId = null;
+    cameraCaptureInput.click();
+  }));
   cameraCaptureInput.addEventListener("change", () => {
-    if (cameraCaptureInput.files && cameraCaptureInput.files[0]) handleCameraCapture(cameraCaptureInput.files[0]);
+    const file = cameraCaptureInput.files && cameraCaptureInput.files[0];
+    if (file) {
+      if (cardPhotoTargetId) {
+        // Triggered from a specific waypoint's camera button on its card --
+        // add the photo directly to that waypoint, skipping the GPS/nearby-
+        // waypoint flow entirely since the target is already known.
+        const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
+        if (wp) addPhotosToWaypoint(wp, [file]);
+      } else {
+        handleCameraCapture(file);
+      }
+    }
+    cardPhotoTargetId = null;
     cameraCaptureInput.value = "";
   });
 
@@ -7635,10 +7678,10 @@
         const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
         const name = "Waypoint " + (waypoints.length + 1);
         const wp = {
-          id, lat: latitude, lng: longitude, name, notes: "",
+          id, lat: latitude, lng: longitude, name, notes: "", url: "",
           code: generateWordCode(latitude, longitude), isCurrentLocation: true,
           markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍",
-          photos: []
+          photos: [], createdAt: Date.now(), updatedAt: Date.now(), weather: null
         };
         addSavedMarker(wp);
         waypoints.push(wp);
@@ -7956,11 +7999,12 @@
       const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       imported.push({
         id, lat: coords.lat, lng: coords.lng, name,
-        notes: noteParts.join("\n\n"),
+        notes: noteParts.join("\n\n"), url: "",
         code: generateWordCode(coords.lat, coords.lng),
         isCurrentLocation: false,
         markerStyle: "emoji", markerColor: TENT_IMPORT_COLOR, markerEmoji: "⛺",
-        photos: isPictureUrl ? [picture] : []
+        photos: isPictureUrl ? [picture] : [],
+        createdAt: Date.now(), updatedAt: Date.now(), weather: null
       });
     });
     return { imported, skipped, notes };
@@ -8418,7 +8462,7 @@
           case "take-photo":
             e.stopPropagation();
             cardPhotoTargetId = id;
-            cardCameraCaptureInput.click();
+            maybeWarnChromeIosCamera(() => cameraCaptureInput.click());
             break;
           case "delete":
             e.stopPropagation();
@@ -8545,14 +8589,6 @@
       addPhotosToWaypoint(wp, cardPhotoFileInput.files);
     }
     cardPhotoFileInput.value = "";
-    cardPhotoTargetId = null;
-  });
-  cardCameraCaptureInput.addEventListener("change", () => {
-    const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
-    if (wp && cardCameraCaptureInput.files && cardCameraCaptureInput.files.length) {
-      addPhotosToWaypoint(wp, cardCameraCaptureInput.files);
-    }
-    cardCameraCaptureInput.value = "";
     cardPhotoTargetId = null;
   });
 
