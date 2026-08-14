@@ -1656,7 +1656,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "226";
+  const APP_VERSION = "227";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3437,15 +3437,24 @@
     // one waypoint at a time -- this is what actually makes a device's
     // first-ever sync (where every waypoint and all its photos need
     // fetching) complete in a reasonable time instead of processing
-    // requests almost one at a time.
+    // requests almost one at a time. Capped at a modest concurrency limit
+    // rather than firing every request simultaneously -- a large photo
+    // collection (hundreds of photos) fired all at once can overwhelm the
+    // browser's own connection queue, leaving most requests waiting long
+    // enough to hit this app's own timeout before they've even really
+    // started, which looks like widespread failure even though the same
+    // request succeeds instantly on its own.
     if (repoContext) {
-      await Promise.all(toApply.map(async ({ wp }) => {
+      const toFetch = [];
+      toApply.forEach(({ wp }) => {
         if (!Array.isArray(wp.photos)) return;
-        wp.photos = await Promise.all(wp.photos.map(async (p) => {
-          if (p && p.repoPath && !p.src) return rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
-          return p;
-        }));
-      }));
+        wp.photos.forEach((p, i) => {
+          if (p && p.repoPath && !p.src) toFetch.push({ wp, i, repoPath: p.repoPath });
+        });
+      });
+      await runWithConcurrencyLimit(toFetch, PHOTO_FETCH_CONCURRENCY, async (item) => {
+        item.wp.photos[item.i] = await rehydratePhotoRef(repoContext.owner, repoContext.repo, item.repoPath);
+      });
     }
 
     toApply.forEach(({ wp, existingIndex }) => {
@@ -3791,27 +3800,28 @@
   // <img src> would otherwise stringify into a completely invalid URL.
   async function repairBrokenPhotoReferences(owner, repo) {
     const prefix = "https://raw.githubusercontent.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/";
-    let anyRepaired = false;
-    await Promise.all(waypoints.map(async (wp) => {
+    const toRepair = [];
+    waypoints.forEach((wp) => {
       if (!Array.isArray(wp.photos)) return;
-      let changed = false;
-      const fixed = await Promise.all(wp.photos.map(async (p) => {
+      wp.photos.forEach((p, i) => {
         if (p && typeof p === "object" && p.repoPath && !p.src) {
-          changed = true;
-          return await rehydratePhotoRef(owner, repo, p.repoPath);
-        }
-        if (typeof p === "string" && p.startsWith(prefix)) {
+          toRepair.push({ wp, i, repoPath: p.repoPath, original: p });
+        } else if (typeof p === "string" && p.startsWith(prefix)) {
           const repoPath = extractRepoPathFromRawUrl(p);
-          if (repoPath) {
-            const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
-            if (rehydrated !== p) changed = true;
-            return rehydrated;
-          }
+          if (repoPath) toRepair.push({ wp, i, repoPath, original: p });
         }
-        return p;
-      }));
-      if (changed) { wp.photos = fixed; anyRepaired = true; }
-    }));
+      });
+    });
+    if (toRepair.length === 0) return false;
+
+    let anyRepaired = false;
+    await runWithConcurrencyLimit(toRepair, PHOTO_FETCH_CONCURRENCY, async (item) => {
+      const rehydrated = await rehydratePhotoRef(owner, repo, item.repoPath);
+      if (rehydrated !== item.original) {
+        item.wp.photos[item.i] = rehydrated;
+        anyRepaired = true;
+      }
+    });
     if (anyRepaired) { saveWaypoints(); renderList(); }
     return anyRepaired;
   }
@@ -3861,6 +3871,23 @@
   // reordering, deleting, or adding other photos. Collisions are
   // astronomically unlikely for deduplicating one person's photo
   // collection; nothing security-sensitive depends on this.
+  const PHOTO_FETCH_CONCURRENCY = 6;
+  async function runWithConcurrencyLimit(items, limit, workerFn) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    async function worker() {
+      while (nextIndex < items.length) {
+        const i = nextIndex++;
+        results[i] = await workerFn(items[i], i);
+      }
+    }
+    const workerCount = Math.min(limit, items.length);
+    const workers = [];
+    for (let i = 0; i < workerCount; i++) workers.push(worker());
+    await Promise.all(workers);
+    return results;
+  }
+
   function hashPhotoContent(str) {
     let hash = 5381;
     for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
@@ -3968,7 +3995,7 @@
     }
     let anyUploaded = false;
     let anyFailed = false;
-    await Promise.all(needsUpload.map(async (item) => {
+    await runWithConcurrencyLimit(needsUpload, PHOTO_FETCH_CONCURRENCY, async (item) => {
       try {
         await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
         cache[item.hash] = item.path;
@@ -3977,7 +4004,7 @@
         console.error("[repo sync] failed to upload photo " + item.path, e);
         anyFailed = true;
       }
-    }));
+    });
     if (anyUploaded) await savePhotoUploadCache(cache);
     return { anyUploaded, anyFailed, cache };
   }
@@ -4341,15 +4368,18 @@
       });
 
       waypoints = payload.waypoints.filter((wp) => wp && wp.id && typeof wp.lat === "number" && typeof wp.lng === "number");
-      for (const wp of waypoints) {
+      const toFetch = [];
+      waypoints.forEach((wp) => {
         if (Array.isArray(wp.photos)) {
-          wp.photos = await Promise.all(wp.photos.map((p) => {
-            if (p && p.repoPath && !p.src) return rehydratePhotoRef(parsed.owner, parsed.repo, p.repoPath);
-            return p;
-          }));
+          wp.photos.forEach((p, i) => {
+            if (p && p.repoPath && !p.src) toFetch.push({ wp, i, repoPath: p.repoPath });
+          });
         }
-        addSavedMarker(wp);
-      }
+      });
+      await runWithConcurrencyLimit(toFetch, PHOTO_FETCH_CONCURRENCY, async (item) => {
+        item.wp.photos[item.i] = await rehydratePhotoRef(parsed.owner, parsed.repo, item.repoPath);
+      });
+      waypoints.forEach((wp) => addSavedMarker(wp));
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
       measurements.forEach((m) => renderSavedMeasurement(m));
