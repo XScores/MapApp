@@ -494,8 +494,6 @@
   .card-favorite:hover{color:var(--red);}
   .card-favorite.favorited{color:var(--red);}
   .card-favorite.favorited svg{fill:currentColor;}
-  .card-camera{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
-  .card-camera:hover{color:var(--cyan);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
   .card-delete{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
@@ -1682,7 +1680,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "221";
+  const APP_VERSION = "218";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6902,44 +6900,9 @@
     }
   }
 
-  const CHROME_IOS_CAMERA_HINT_KEY = "waypoint-saver:chromeIosCameraHintShown";
-  function isChromeOnIOS() {
-    return /CriOS/.test(navigator.userAgent);
-  }
-  // Chrome on iOS has a known, longstanding limitation where the camera
-  // view opened via <input capture> shows as black and non-functional --
-  // a browser-level issue in how Chrome integrates with iOS's camera
-  // capture mechanism (unlike Safari, which is a first-party integration
-  // and doesn't have this problem), not something fixable from here.
-  // Warned once, before the camera opens rather than after, since a black
-  // screen with no camera controls gives no indication of what went wrong
-  // or that the home-screen version would work instead.
-  function maybeWarnChromeIosCamera(proceed) {
-    if (!isChromeOnIOS() || localStorage.getItem(CHROME_IOS_CAMERA_HINT_KEY)) { proceed(); return; }
-    const markShown = () => { try { localStorage.setItem(CHROME_IOS_CAMERA_HINT_KEY, "1"); } catch (e) { /* non-fatal -- worst case, this shows again next time */ } };
-    openConfirmModal(
-      "Camera may not work in Chrome",
-      "Chrome on iPhone has a known issue where the camera view can appear as a black screen. If that happens, try the home-screen version of this app instead (Share \u2192 Add to Home Screen in Safari), which uses the camera directly.",
-      () => { markShown(); proceed(); },
-      { confirmLabel: "Try anyway", cancelLabel: "Cancel", danger: false, onCancel: markShown }
-    );
-  }
-
-  cameraBtn.addEventListener("click", () => maybeWarnChromeIosCamera(() => cameraCaptureInput.click()));
+  cameraBtn.addEventListener("click", () => cameraCaptureInput.click());
   cameraCaptureInput.addEventListener("change", () => {
-    const file = cameraCaptureInput.files && cameraCaptureInput.files[0];
-    if (file) {
-      if (cardPhotoTargetId) {
-        // Triggered from a specific waypoint's camera button on its card --
-        // add the photo directly to that waypoint, skipping the GPS/nearby-
-        // waypoint flow entirely since the target is already known.
-        const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
-        if (wp) addPhotosToWaypoint(wp, [file]);
-      } else {
-        handleCameraCapture(file);
-      }
-    }
-    cardPhotoTargetId = null;
+    if (cameraCaptureInput.files && cameraCaptureInput.files[0]) handleCameraCapture(cameraCaptureInput.files[0]);
     cameraCaptureInput.value = "";
   });
 
@@ -8390,7 +8353,6 @@
           "</button>" +
           '<div class="card-top-actions">' +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
-            '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
             '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("x", 16) + "</button>" +
           "</div>" +
@@ -8447,11 +8409,6 @@
             node.classList.toggle("favorited", wp.favorite);
             node.title = wp.favorite ? "Remove from favorites" : "Add to favorites";
             applyActiveTabFilter();
-            break;
-          case "take-photo":
-            e.stopPropagation();
-            cardPhotoTargetId = id;
-            maybeWarnChromeIosCamera(() => cameraCaptureInput.click());
             break;
           case "delete":
             e.stopPropagation();
