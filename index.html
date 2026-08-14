@@ -847,9 +847,11 @@
               <button class="home-action-btn" id="gistSyncBtn">Sync</button>
               <button class="home-action-btn" id="gistCheckRepoBtn">Check repo</button>
               <button class="home-action-btn" id="gistCheckLocalBtn">Check local data</button>
+              <button class="home-action-btn" id="gistCheckPhotosBtn">Check photos</button>
               <button class="home-action-btn danger" id="gistForcePushBtn">Push (overwrite)</button>
               <button class="home-action-btn danger" id="gistForcePullBtn">Pull (overwrite)</button>
             </div>
+            <p class="layers-hint" id="gistPhotoCheckDetail" style="margin-top:6px; white-space:pre-line;"></p>
           </div>
         </div>
         </div>
@@ -1654,7 +1656,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "225";
+  const APP_VERSION = "226";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2001,6 +2003,8 @@
   const gistSyncBtn = el("gistSyncBtn");
   const gistCheckRepoBtn = el("gistCheckRepoBtn");
   const gistCheckLocalBtn = el("gistCheckLocalBtn");
+  const gistCheckPhotosBtn = el("gistCheckPhotosBtn");
+  const gistPhotoCheckDetail = el("gistPhotoCheckDetail");
   const gistForcePushBtn = el("gistForcePushBtn");
   const gistForcePullBtn = el("gistForcePullBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
@@ -4199,6 +4203,77 @@
     showToast(summary);
   }
   gistCheckLocalBtn.addEventListener("click", (e) => { e.stopPropagation(); checkLocalDataStatus(); });
+
+  // Categorizes every local photo by its actual current state, then
+  // directly tests a sample from each broken category -- both the
+  // authenticated fetch this app normally uses, and a plain,
+  // unauthenticated request to the same raw URL (relevant now that the
+  // repo may be public, where that plain request should also succeed).
+  // Reports the real, specific result of each test (success with size,
+  // exact HTTP status, or exact error message) instead of more
+  // speculation about what might be wrong. Repairs anything the
+  // authenticated test confirms is fetchable, same as a normal sync would.
+  async function checkPhotoStatus() {
+    const parsed = parseOwnerRepo(githubRepoInput.value);
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    gistCheckPhotosBtn.disabled = true;
+    gistPhotoCheckDetail.textContent = "Checking…";
+
+    let dataUrlCount = 0, unrehydratedCount = 0, rawUrlCount = 0, otherCount = 0, totalPhotos = 0;
+    let sampleObject = null, sampleRawUrl = null;
+    waypoints.forEach((wp) => {
+      if (!Array.isArray(wp.photos)) return;
+      wp.photos.forEach((p) => {
+        totalPhotos++;
+        if (typeof p === "string" && p.startsWith("data:")) { dataUrlCount++; }
+        else if (p && typeof p === "object" && p.repoPath) {
+          unrehydratedCount++;
+          if (!sampleObject) sampleObject = { wpName: wp.name, repoPath: p.repoPath };
+        } else if (typeof p === "string" && p.startsWith("https://raw.githubusercontent.com/")) {
+          rawUrlCount++;
+          const rp = extractRepoPathFromRawUrl(p);
+          if (!sampleRawUrl && rp) sampleRawUrl = { wpName: wp.name, repoPath: rp };
+        } else { otherCount++; }
+      });
+    });
+
+    const lines = [
+      totalPhotos + " total photo" + (totalPhotos === 1 ? "" : "s") + " on this device:",
+      "  " + dataUrlCount + " already working",
+      "  " + unrehydratedCount + " never fetched from the repo",
+      "  " + rawUrlCount + " stuck as a broken link from an earlier version",
+    ];
+    if (otherCount) lines.push("  " + otherCount + " in an unrecognized format");
+
+    const sample = sampleObject || sampleRawUrl;
+    if (sample) {
+      lines.push("", "Testing 1 photo from \"" + sample.wpName + "\" (" + sample.repoPath + "):");
+      try {
+        const base64 = await fetchRepoFileBase64(parsed.owner, parsed.repo, sample.repoPath);
+        if (base64) lines.push("  Authenticated fetch: OK (" + Math.round(base64.length * 0.75 / 1024) + "KB)");
+        else lines.push("  Authenticated fetch: file not found at that path in the repo");
+      } catch (e) {
+        lines.push("  Authenticated fetch FAILED: " + (e && e.message ? e.message : String(e)));
+      }
+      try {
+        const rawRes = await fetchWithTimeout(githubRawUrl(parsed.owner, parsed.repo, sample.repoPath), { cache: "no-store" });
+        lines.push("  Plain unauthenticated link: HTTP " + rawRes.status + (rawRes.ok ? " (OK)" : ""));
+      } catch (e) {
+        lines.push("  Plain unauthenticated link FAILED: " + (e && e.message ? e.message : String(e)));
+      }
+    }
+
+    if (unrehydratedCount > 0 || rawUrlCount > 0) {
+      lines.push("", "Attempting to repair what it can now…");
+      gistPhotoCheckDetail.textContent = lines.join("\n");
+      const repaired = await repairBrokenPhotoReferences(parsed.owner, parsed.repo);
+      lines.push(repaired ? "Some photos were repaired -- check the list." : "Nothing could be repaired from here (see the test result above for why).");
+    }
+
+    gistPhotoCheckDetail.textContent = lines.join("\n");
+    gistCheckPhotosBtn.disabled = false;
+  }
+  gistCheckPhotosBtn.addEventListener("click", (e) => { e.stopPropagation(); checkPhotoStatus(); });
 
   // Deliberately skips the pull-first step performRepoSync always does.
   // Exists specifically as a recovery path: if the remote file is
