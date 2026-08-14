@@ -1682,7 +1682,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "223";
+  const APP_VERSION = "224";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4077,13 +4077,14 @@
         if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
         seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id, waypointName: wp.name });
       }
     }
 
     let anyUploaded = false;
     let anyFailed = false;
     let doneCount = 0;
+    const failedWaypointNames = new Set();
     await Promise.all(needsUpload.map(async (item) => {
       try {
         await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
@@ -4092,12 +4093,13 @@
       } catch (e) {
         console.error("[repo sync] failed to upload photo " + item.path, e);
         anyFailed = true;
+        failedWaypointNames.add(item.waypointName || "an unnamed waypoint");
       }
       doneCount++;
       if (needsUpload.length > 1) gistStatusText.textContent = "Uploading photos (" + doneCount + "/" + needsUpload.length + ")…";
     }));
     if (anyUploaded) await savePhotoUploadCache(cache);
-    return { anyUploaded, anyFailed, cache };
+    return { anyUploaded, anyFailed, cache, failedWaypointNames: Array.from(failedWaypointNames) };
   }
 
   // Leaner than buildBackupPayload's full local export: any photo already
@@ -4190,7 +4192,11 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
+        const names = photoResult.failedWaypointNames;
+        const MAX_NAMES_SHOWN = 5;
+        const shown = names.slice(0, MAX_NAMES_SHOWN).map((n) => '"' + n + '"').join(", ");
+        const extra = names.length > MAX_NAMES_SHOWN ? " and " + (names.length - MAX_NAMES_SHOWN) + " more" : "";
+        showErrorToast("Some photos couldn't be uploaded (" + shown + extra + ") — they'll retry on the next sync. Continuing with the rest.");
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
