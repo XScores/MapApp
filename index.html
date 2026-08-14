@@ -1682,7 +1682,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "224";
+  const APP_VERSION = "221";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2254,11 +2254,10 @@
   function showErrorToast(msg) {
     showToast(msg, true);
   }
-  function hideToast() {
+  toastCloseBtn.addEventListener("click", () => {
     toastEl.classList.remove("show");
     clearTimeout(toastTimer);
-  }
-  toastCloseBtn.addEventListener("click", hideToast);
+  });
 
   /* ================================================================ */
   /*  Confirmation modal (reusable)                                     */
@@ -3974,76 +3973,6 @@
     for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
     return (hash >>> 0).toString(36) + "-" + str.length.toString(36);
   }
-
-  // A small-thumbnail caching system, keyed by content hash (reusing
-  // hashPhotoContent) rather than by waypoint/array position -- this
-  // decouples thumbnails entirely from wp.photos's structure, so
-  // reordering, deleting, or duplicate photos across waypoints never risk
-  // falling out of sync. The list previously embedded every photo at its
-  // full compressed resolution (up to 1280px) directly into every card,
-  // even though it only ever displays at 38x38px -- with dozens of
-  // waypoints and photos each, a single renderList() (which runs on every
-  // save, delete, or favorite toggle) could require decoding well over a
-  // gigabyte of image data at once, a very plausible cause of the browser
-  // becoming unresponsive or crashing on mobile.
-  const THUMBNAIL_MAX_DIMENSION = 120;
-  const THUMBNAIL_JPEG_QUALITY = 0.7;
-  const thumbnailCache = {}; // content hash -> small thumbnail data: URL, in-memory only (cheap to regenerate, never needs to survive a reload)
-  const thumbnailGenerating = new Set(); // hashes currently being generated, to avoid duplicate concurrent work for the same photo
-
-  function generatePhotoThumbnail(photoDataUrl) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > THUMBNAIL_MAX_DIMENSION || height > THUMBNAIL_MAX_DIMENSION) {
-          if (width > height) { height = Math.round(height * THUMBNAIL_MAX_DIMENSION / width); width = THUMBNAIL_MAX_DIMENSION; }
-          else { width = Math.round(width * THUMBNAIL_MAX_DIMENSION / height); height = THUMBNAIL_MAX_DIMENSION; }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        try { resolve(canvas.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY)); }
-        catch (e) { reject(e); }
-      };
-      img.onerror = () => reject(new Error("Couldn't decode image"));
-      img.src = photoDataUrl;
-    });
-  }
-
-  // Returns a photo's cached small thumbnail immediately if one already
-  // exists; otherwise kicks off generating it in the background (unless
-  // already in flight) and returns null so the caller can fall back to
-  // something displayable for this render only. Once ready, every
-  // currently-rendered <img> tagged with this photo's hash gets patched in
-  // place -- deliberately not a full renderList(), since re-triggering the
-  // very thing this exists to avoid on every single background completion
-  // would defeat the purpose.
-  function getCachedPhotoThumb(photoDataUrl) {
-    if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return null; // not a local data: photo (e.g. a raw GitHub URL) -- nothing to shrink
-    const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) return null;
-    const hash = hashPhotoContent(match[2]);
-    if (thumbnailCache[hash]) return thumbnailCache[hash];
-    if (!thumbnailGenerating.has(hash)) {
-      thumbnailGenerating.add(hash);
-      generatePhotoThumbnail(photoDataUrl).then((thumbSrc) => {
-        thumbnailCache[hash] = thumbSrc;
-        thumbnailGenerating.delete(hash);
-        document.querySelectorAll('img[data-photo-hash="' + hash + '"]').forEach((imgEl) => { imgEl.src = thumbSrc; });
-      }).catch(() => { thumbnailGenerating.delete(hash); });
-    }
-    return null;
-  }
-  // The hash alone (not the cache lookup) is what the patch-in-place step
-  // above needs to find this <img> later, so card rendering always tags it
-  // even on a render where the thumbnail isn't ready yet.
-  function photoContentHashAttr(photoDataUrl) {
-    if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return "";
-    const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    return match ? hashPhotoContent(match[2]) : "";
-  }
-
   // Reverses githubRawUrl -- given a raw.githubusercontent.com URL this app
   // itself produced (from a previous pull), extracts the repo-relative
   // path back out, so an already-hosted photo can be represented compactly
@@ -4077,14 +4006,13 @@
         if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
         seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id, waypointName: wp.name });
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
       }
     }
 
     let anyUploaded = false;
     let anyFailed = false;
     let doneCount = 0;
-    const failedWaypointNames = new Set();
     await Promise.all(needsUpload.map(async (item) => {
       try {
         await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
@@ -4093,13 +4021,12 @@
       } catch (e) {
         console.error("[repo sync] failed to upload photo " + item.path, e);
         anyFailed = true;
-        failedWaypointNames.add(item.waypointName || "an unnamed waypoint");
       }
       doneCount++;
       if (needsUpload.length > 1) gistStatusText.textContent = "Uploading photos (" + doneCount + "/" + needsUpload.length + ")…";
     }));
     if (anyUploaded) await savePhotoUploadCache(cache);
-    return { anyUploaded, anyFailed, cache, failedWaypointNames: Array.from(failedWaypointNames) };
+    return { anyUploaded, anyFailed, cache };
   }
 
   // Leaner than buildBackupPayload's full local export: any photo already
@@ -4192,11 +4119,7 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        const names = photoResult.failedWaypointNames;
-        const MAX_NAMES_SHOWN = 5;
-        const shown = names.slice(0, MAX_NAMES_SHOWN).map((n) => '"' + n + '"').join(", ");
-        const extra = names.length > MAX_NAMES_SHOWN ? " and " + (names.length - MAX_NAMES_SHOWN) + " more" : "";
-        showErrorToast("Some photos couldn't be uploaded (" + shown + extra + ") — they'll retry on the next sync. Continuing with the rest.");
+        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -4551,7 +4474,6 @@
     }
     if (pickingCameraLocation) {
       pickingCameraLocation = false;
-      hideToast();
       const dataUrl = pendingCameraDataUrl;
       pendingCameraDataUrl = null;
       placeCameraPhotoAtLocation(e.latlng.lat, e.latlng.lng, dataUrl);
@@ -6913,7 +6835,7 @@
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const name = "Photo " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const wp = {
-      id, lat, lng, name, notes: "", url: "",
+      id, lat, lng, name, notes: "",
       code: generateWordCode(lat, lng), isCurrentLocation: false,
       markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷",
       photos: [dataUrl], createdAt: Date.now(), updatedAt: Date.now(), weather: null
@@ -7003,15 +6925,7 @@
     );
   }
 
-  cameraBtn.addEventListener("click", () => maybeWarnChromeIosCamera(() => {
-    // Guards against stale state: if a card's camera/file picker was
-    // opened and then cancelled without choosing a file, its change event
-    // never fires, so cardPhotoTargetId would otherwise still be set from
-    // that earlier interaction -- silently routing this photo to the
-    // wrong (or since-deleted) waypoint instead of creating a new one.
-    cardPhotoTargetId = null;
-    cameraCaptureInput.click();
-  }));
+  cameraBtn.addEventListener("click", () => maybeWarnChromeIosCamera(() => cameraCaptureInput.click()));
   cameraCaptureInput.addEventListener("change", () => {
     const file = cameraCaptureInput.files && cameraCaptureInput.files[0];
     if (file) {
@@ -7172,7 +7086,7 @@
   function renderPhotoThumbs() {
     photoDropzoneEmpty.style.display = pendingPhotos.length ? "none" : "flex";
     photoThumbs.innerHTML = pendingPhotos.map((src, i) =>
-      '<div class="photo-thumb"><img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" />' +
+      '<div class="photo-thumb"><img src="' + src + '" alt="Waypoint photo" />' +
       '<button type="button" class="photo-thumb-remove" data-idx="' + i + '">' + icon("x", 11) + "</button></div>"
     ).join("");
     photoThumbs.querySelectorAll(".photo-thumb-remove").forEach((btn) => {
@@ -7754,10 +7668,10 @@
         const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
         const name = "Waypoint " + (waypoints.length + 1);
         const wp = {
-          id, lat: latitude, lng: longitude, name, notes: "", url: "",
+          id, lat: latitude, lng: longitude, name, notes: "",
           code: generateWordCode(latitude, longitude), isCurrentLocation: true,
           markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍",
-          photos: [], createdAt: Date.now(), updatedAt: Date.now(), weather: null
+          photos: []
         };
         addSavedMarker(wp);
         waypoints.push(wp);
@@ -8075,12 +7989,11 @@
       const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       imported.push({
         id, lat: coords.lat, lng: coords.lng, name,
-        notes: noteParts.join("\n\n"), url: "",
+        notes: noteParts.join("\n\n"),
         code: generateWordCode(coords.lat, coords.lng),
         isCurrentLocation: false,
         markerStyle: "emoji", markerColor: TENT_IMPORT_COLOR, markerEmoji: "⛺",
-        photos: isPictureUrl ? [picture] : [],
-        createdAt: Date.now(), updatedAt: Date.now(), weather: null
+        photos: isPictureUrl ? [picture] : []
       });
     });
     return { imported, skipped, notes };
@@ -8501,7 +8414,7 @@
           '<div class="card-photos" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
             wp.photos.map((src, i) =>
               '<div class="card-photo-thumb" data-action="view-photo" data-id="' + wp.id + '" data-photo-idx="' + i + '">' +
-                '<img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" /></div>'
+                '<img src="' + src + '" alt="Waypoint photo" /></div>'
             ).join("") +
             '<button class="card-photo-add" data-action="add-photo" data-id="' + wp.id + '" title="Add another photo">' + icon("upload", 14) + "</button>" +
           "</div>" :
