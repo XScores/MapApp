@@ -289,12 +289,16 @@
   .photo-thumbs{display:flex; flex-wrap:wrap; gap:8px;}
   .photo-thumbs:not(:empty){margin-top:2px;}
   .photo-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden;
-    border:1px solid var(--border); flex-shrink:0;}
+    border:1px solid var(--border); flex-shrink:0; cursor:grab; touch-action:none;}
   .photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .photo-thumb-remove{position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
     background:rgba(2,6,23,.75); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
     cursor:pointer; padding:0;}
   .photo-thumb-remove:hover{background:var(--red);}
+  .thumb-reorder-active .photo-thumb,
+  .thumb-reorder-active .card-photo-thumb{pointer-events:none;}
+  .thumb-drag-ghost{cursor:grabbing;}
+  .thumb-drop-indicator{width:3px; border-radius:2px; background:var(--cyan); flex-shrink:0; box-shadow:0 0 6px var(--cyan);}
   .photo-view-card{max-width:min(520px, 92vw); padding:16px;}
   .forecast-card{max-width:min(420px, 92vw);}
   .forecast-status{color:var(--text-mute); font-size:14px; padding:20px 0; text-align:center;}
@@ -346,7 +350,7 @@
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
   .photo-view-card img{width:100%; max-height:70vh; max-height:70dvh; object-fit:contain; border-radius:10px; display:block;}
   .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
-  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:pointer;
+  .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:grab; touch-action:none;
     border:1px solid var(--border); flex-shrink:0;}
   .card-photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .card-photo-add{width:38px; height:38px; border-radius:6px; flex-shrink:0; cursor:pointer;
@@ -1331,6 +1335,144 @@
     if (/^(https?|mailto|tel):/i.test(trimmed)) return trimmed;
     return "https://" + trimmed;
   }
+
+  // Enables drag-to-reorder for thumbnail elements within a container,
+  // using pointer events so it works consistently across mouse, touch, and
+  // pen -- HTML5 drag-and-drop doesn't work reliably on touch devices,
+  // which this app needs to support on iPhone. A tap with no meaningful
+  // movement still falls through to whatever click behavior the element
+  // already has (e.g. opening the photo viewer, or the remove button) --
+  // only movement past a small threshold is treated as a drag, and any
+  // click event that would otherwise fire right after a real drag is
+  // suppressed so it doesn't accidentally trigger those.
+  //
+  // While dragging, the real element is fully hidden (not just dimmed) --
+  // only ONE copy is ever visible at a time: a floating "ghost" clone that
+  // follows the pointer. A dedicated insertion-point indicator (a thin bar)
+  // shows exactly where the item will land, tracked purely as an index in
+  // state rather than by live-reordering the actual DOM elements -- nothing
+  // is applied to the underlying data or the real list until the pointer is
+  // released, at which point the reorder is computed and committed once.
+  function enableThumbDragReorder(container, thumbSelector, onReorderComplete) {
+    const DRAG_THRESHOLD_PX = 8;
+    let drag = null;
+    let suppressNextClick = false;
+
+    function getThumbs() { return Array.from(container.querySelectorAll(thumbSelector)).filter((el) => !drag || el !== drag.el); }
+
+    // Given the pointer's current position, finds which gap between
+    // thumbnails (or before the first / after the last) it's closest to --
+    // the index the dragged item would land at if dropped right now.
+    function findInsertionIndex(px, py) {
+      const others = getThumbs();
+      if (others.length === 0) return 0;
+      let bestIdx = others.length;
+      let bestDist = Infinity;
+      others.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = Math.hypot(px - cx, py - cy);
+        if (dist < bestDist) { bestDist = dist; bestIdx = px < cx ? i : i + 1; }
+      });
+      return bestIdx;
+    }
+
+    function moveIndicatorTo(index) {
+      const others = getThumbs();
+      if (index >= others.length) container.appendChild(drag.indicator);
+      else others[index].before(drag.indicator);
+    }
+
+    container.addEventListener("pointerdown", (e) => {
+      if (e.button != null && e.button !== 0) return; // left click / primary touch only
+      const thumbEl = e.target.closest(thumbSelector);
+      if (!thumbEl || thumbEl.parentElement !== container) return;
+      drag = { el: thumbEl, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startIndex: 0, dragging: false, ghost: null, indicator: null, insertionIndex: -1 };
+      drag.startIndex = Array.from(container.querySelectorAll(thumbSelector)).indexOf(thumbEl);
+    });
+
+    container.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      if (!drag.el.isConnected) { abortDrag(); return; } // pulled out from under us by an unrelated re-render -- bail out cleanly
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.dragging) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        drag.dragging = true;
+        try { drag.el.setPointerCapture(drag.pointerId); } catch (err) { /* not supported / already captured */ }
+        const rect = drag.el.getBoundingClientRect();
+        const ghost = drag.el.cloneNode(true);
+        ghost.style.cssText = "position:fixed; left:" + rect.left + "px; top:" + rect.top + "px; width:" + rect.width + "px; height:" + rect.height + "px; margin:0; pointer-events:none; z-index:9999; opacity:.92; box-shadow:0 6px 16px rgba(0,0,0,.45); border-radius:6px; transform:scale(1.06);";
+        ghost.classList.add("thumb-drag-ghost");
+        document.body.appendChild(ghost);
+        drag.ghost = ghost;
+        drag.ghostOriginLeft = rect.left;
+        drag.ghostOriginTop = rect.top;
+
+        const indicator = document.createElement("div");
+        indicator.className = "thumb-drop-indicator";
+        indicator.style.height = rect.height + "px";
+        drag.indicator = indicator;
+
+        drag.el.style.display = "none"; // fully removed from flow -- only the ghost is visible while dragging
+        container.classList.add("thumb-reorder-active");
+        drag.insertionIndex = drag.startIndex;
+        moveIndicatorTo(drag.insertionIndex);
+      }
+      e.preventDefault();
+      drag.ghost.style.left = (drag.ghostOriginLeft + dx) + "px";
+      drag.ghost.style.top = (drag.ghostOriginTop + dy) + "px";
+
+      const ghostRect = drag.ghost.getBoundingClientRect();
+      const cx = ghostRect.left + ghostRect.width / 2;
+      const cy = ghostRect.top + ghostRect.height / 2;
+      const newIndex = findInsertionIndex(cx, cy);
+      if (newIndex !== drag.insertionIndex) {
+        drag.insertionIndex = newIndex;
+        moveIndicatorTo(newIndex);
+      }
+    });
+
+    // Cleans up an in-progress drag without applying any reorder -- used
+    // when the dragged element has been pulled out from under us by an
+    // unrelated re-render, so the underlying data (which may have already
+    // changed for other reasons) isn't touched based on stale state.
+    function abortDrag() {
+      if (!drag) return;
+      if (drag.ghost) drag.ghost.remove();
+      if (drag.indicator) drag.indicator.remove();
+      try { if (drag.dragging) drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released, or element gone */ }
+      if (drag.el && drag.el.isConnected) drag.el.style.display = "";
+      drag = null;
+    }
+
+    function endDrag() {
+      if (!drag) return;
+      if (!drag.el.isConnected) { abortDrag(); return; }
+      if (drag.dragging) {
+        try { drag.el.releasePointerCapture(drag.pointerId); } catch (err) { /* already released */ }
+        drag.ghost.remove();
+        drag.indicator.remove();
+        drag.el.style.display = "";
+        container.classList.remove("thumb-reorder-active");
+        suppressNextClick = true;
+        setTimeout(() => { suppressNextClick = false; }, 0);
+        // insertionIndex is relative to the "others" list (dragged item
+        // excluded), which is exactly the index to insert at after removing
+        // the dragged item from the underlying array -- no further
+        // adjustment needed regardless of whether it moved up or down.
+        if (drag.insertionIndex !== drag.startIndex) onReorderComplete(drag.startIndex, drag.insertionIndex);
+      }
+      drag = null;
+    }
+    container.addEventListener("pointerup", endDrag);
+    container.addEventListener("pointercancel", endDrag);
+    container.addEventListener("click", (e) => {
+      if (suppressNextClick) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
+  }
+
   // Shows just the hostname in the card (e.g. "example.com" instead of the
   // full, potentially very long URL with path/query) -- the full URL is
   // still in the title attribute and is what actually gets opened on click.
@@ -1512,7 +1654,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "208";
+  const APP_VERSION = "225";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3197,7 +3339,7 @@
   // repoContext ({owner, repo}) is passed only by the repo-sync pull path —
   // incoming photos there carry a repoPath reference instead of full base64,
   // which gets resolved into a directly-usable raw GitHub URL here.
-  function mergeBackupPayload(payload, repoContext) {
+  async function mergeBackupPayload(payload, repoContext) {
     if (!payload || typeof payload !== "object") {
       throw new Error("Not a recognized MapApp backup file (expected a JSON object, got " + (payload === null ? "null" : typeof payload) + ").");
     }
@@ -3258,24 +3400,12 @@
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
 
     let added = 0, updated = 0, skipped = 0;
-    payload.waypoints.forEach((wp) => {
-      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; return; }
-      if (deletedWaypointSet.has(wp.id)) { skipped++; return; } // deleted somewhere -- don't resurrect it
-      if (repoContext && Array.isArray(wp.photos)) {
-        wp.photos = wp.photos.map((p) => {
-          if (p && p.repoPath && !p.src) {
-            return Object.assign({}, p, { src: githubRawUrl(repoContext.owner, repoContext.repo, p.repoPath) });
-          }
-          return p;
-        });
-      }
+    const toApply = [];
+    for (const wp of payload.waypoints) {
+      if (!wp || !wp.id || typeof wp.lat !== "number" || typeof wp.lng !== "number") { skipped++; continue; }
+      if (deletedWaypointSet.has(wp.id)) { skipped++; continue; } // deleted somewhere -- don't resurrect it
+
       const existingIndex = waypoints.findIndex((existing) => existing.id === wp.id);
-      if (existingIndex === -1) {
-        waypoints.push(wp);
-        addSavedMarker(wp);
-        added++;
-        return;
-      }
       // Already have this one locally -- only replace it if the incoming
       // version is a strictly newer edit (new photos, changed notes,
       // etc.), so a pull never discards a more recent local change, but a
@@ -3288,18 +3418,44 @@
       // edits (already-synced photos, notes) could never sync at all. In
       // that specific case only, the incoming/pulled version wins, since
       // pulling it in is the entire point of a Sync.
-      const incomingUpdatedAt = wp.updatedAt || 0;
-      const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
-      const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
-      if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+      let willApply = existingIndex === -1;
+      if (!willApply) {
+        const incomingUpdatedAt = wp.updatedAt || 0;
+        const existingUpdatedAt = waypoints[existingIndex].updatedAt || 0;
+        const bothLackTimestamp = !wp.updatedAt && !waypoints[existingIndex].updatedAt;
+        willApply = incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp;
+      }
+      if (willApply) toApply.push({ wp, existingIndex });
+      else skipped++;
+    }
+
+    // Fetch every needed photo across every waypoint at once, rather than
+    // one waypoint at a time -- this is what actually makes a device's
+    // first-ever sync (where every waypoint and all its photos need
+    // fetching) complete in a reasonable time instead of processing
+    // requests almost one at a time.
+    if (repoContext) {
+      await Promise.all(toApply.map(async ({ wp }) => {
+        if (!Array.isArray(wp.photos)) return;
+        wp.photos = await Promise.all(wp.photos.map(async (p) => {
+          if (p && p.repoPath && !p.src) return rehydratePhotoRef(repoContext.owner, repoContext.repo, p.repoPath);
+          return p;
+        }));
+      }));
+    }
+
+    toApply.forEach(({ wp, existingIndex }) => {
+      if (existingIndex === -1) {
+        waypoints.push(wp);
+        addSavedMarker(wp);
+        added++;
+      } else {
         const oldMarker = markers[wp.id];
         if (oldMarker) map.removeLayer(oldMarker);
         delete markers[wp.id];
         waypoints[existingIndex] = wp;
         addSavedMarker(wp);
         updated++;
-      } else {
-        skipped++;
       }
     });
     if (added > 0 || updated > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
@@ -3398,10 +3554,10 @@
     const file = importBackupFile.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const payload = JSON.parse(stripBom(String(reader.result)));
-        const result = mergeBackupPayload(payload);
+        const result = await mergeBackupPayload(payload);
         let msg = "Restored " + result.added + " waypoint" + (result.added === 1 ? "" : "s");
         if (result.routesAdded) msg += " and " + result.routesAdded + " route" + (result.routesAdded === 1 ? "" : "s");
         if (result.measurementsAdded) msg += " and " + result.measurementsAdded + " measurement" + (result.measurementsAdded === 1 ? "" : "s");
@@ -3481,6 +3637,16 @@
     };
   }
 
+  const NETWORK_FETCH_TIMEOUT_MS = 20000;
+  // fetch() has no built-in timeout -- without this, a single slow or
+  // stalled request on an unreliable mobile connection could hang
+  // indefinitely, silently blocking an entire sync.
+  function fetchWithTimeout(url, opts) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), NETWORK_FETCH_TIMEOUT_MS);
+    return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(() => clearTimeout(timer));
+  }
+
   async function describeGitHubApiError(res) {
     let detail = "";
     try {
@@ -3538,7 +3704,7 @@
   // file's content SHA (no branch, no pre-signed URL) and authenticated
   // exactly the same way as every other request in this app.
   async function fetchRepoFile(owner, repo, path) {
-    const res = await fetch(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
@@ -3551,7 +3717,7 @@
       throw err;
     }
     const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
-    const blobRes = await fetch(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
     if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
     const blobData = await blobRes.json();
     if (blobData.encoding !== "base64" || !blobData.content) {
@@ -3560,6 +3726,90 @@
       throw err;
     }
     return { content: decodeBase64Utf8(blobData.content), sha: data.sha };
+  }
+
+  // Like fetchRepoFile, but for binary content (photos) -- returns the raw
+  // base64 as-is rather than UTF-8-decoding it, which would corrupt binary
+  // image bytes.
+  async function fetchRepoFileBase64(owner, repo, path) {
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    if (res.status === 404) return null;
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
+    const data = await res.json();
+    if (data.content && data.encoding === "base64") return data.content.replace(/\n/g, "");
+    if (!data.sha) {
+      const err = new Error("This file is too large to read (no blob sha was provided).");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    const blobUrl = "https://api.github.com/repos/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/git/blobs/" + encodeURIComponent(data.sha);
+    const blobRes = await fetchWithTimeout(blobUrl, { headers: githubHeaders(), cache: "no-store" });
+    if (!blobRes.ok) { const err = new Error(await describeGitHubApiError(blobRes)); err.isGitHubApiError = true; err.httpStatus = blobRes.status; throw err; }
+    const blobData = await blobRes.json();
+    if (blobData.encoding !== "base64" || !blobData.content) {
+      const err = new Error("The large file's blob came back in an unexpected format.");
+      err.isGitHubApiError = true;
+      throw err;
+    }
+    return blobData.content.replace(/\n/g, "");
+  }
+  function mimeFromExtension(path) {
+    const ext = (path.split(".").pop() || "").toLowerCase();
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    return "image/jpeg";
+  }
+  // Fetches a photo's actual content via an authenticated request and
+  // reconstructs a directly-usable data: URL -- this is what makes photos
+  // display correctly for a private repository, unlike a plain
+  // raw.githubusercontent.com URL. Falls back to that plain URL if the
+  // authenticated fetch fails, in case the repo IS public and this was
+  // just a transient error.
+  async function rehydratePhotoRef(owner, repo, repoPath) {
+    try {
+      const base64 = await fetchRepoFileBase64(owner, repo, repoPath);
+      if (base64) return "data:" + mimeFromExtension(repoPath) + ";base64," + base64;
+    } catch (e) {
+      console.error("[repo pull] failed to fetch photo " + repoPath, e);
+    }
+    return githubRawUrl(owner, repo, repoPath);
+  }
+
+  // Repairs any locally-stored photo that's still a broken, unauthenticated
+  // raw.githubusercontent.com URL -- left over from a device that pulled
+  // while an earlier version of this sync logic was in place. A private
+  // repo rejects that unauthenticated request outright, which is exactly
+  // what left these showing as broken images no matter how many times a
+  // sync "succeeded" afterward: the waypoint holding it already looks
+  // fully up to date, so the normal merge logic never touches it again.
+  // Also catches a photo that was never rehydrated at all -- still the raw
+  // {repoPath} reference object exactly as it came from the repo, which an
+  // <img src> would otherwise stringify into a completely invalid URL.
+  async function repairBrokenPhotoReferences(owner, repo) {
+    const prefix = "https://raw.githubusercontent.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo) + "/";
+    let anyRepaired = false;
+    await Promise.all(waypoints.map(async (wp) => {
+      if (!Array.isArray(wp.photos)) return;
+      let changed = false;
+      const fixed = await Promise.all(wp.photos.map(async (p) => {
+        if (p && typeof p === "object" && p.repoPath && !p.src) {
+          changed = true;
+          return await rehydratePhotoRef(owner, repo, p.repoPath);
+        }
+        if (typeof p === "string" && p.startsWith(prefix)) {
+          const repoPath = extractRepoPathFromRawUrl(p);
+          if (repoPath) {
+            const rehydrated = await rehydratePhotoRef(owner, repo, repoPath);
+            if (rehydrated !== p) changed = true;
+            return rehydrated;
+          }
+        }
+        return p;
+      }));
+      if (changed) { wp.photos = fixed; anyRepaired = true; }
+    }));
+    if (anyRepaired) { saveWaypoints(); renderList(); }
+    return anyRepaired;
   }
 
   // PUT /repos/{owner}/{repo}/contents/{path} -- creates the file if sha is
@@ -3571,7 +3821,7 @@
   async function putRepoFileRaw(owner, repo, path, base64Content, sha, message) {
     const body = { message: message || ("Update " + path), content: base64Content, branch: GITHUB_BRANCH };
     if (sha) body.sha = sha;
-    const res = await fetch(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path), { method: "PUT", headers: githubHeaders(), body: JSON.stringify(body) });
     if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
     const data = await res.json();
     return data.content && data.content.sha;
@@ -3588,48 +3838,172 @@
     return putRepoFileRaw(owner, repo, path, base64Content, sha, message);
   }
 
-  // Any photo still holding local base64 (never yet uploaded, tracked via
-  // the absence of repoPath) gets uploaded as its own file under images/.
-  // Already-uploaded photos are skipped entirely -- photos are treated as
-  // immutable once synced, so this never re-uploads unchanged data.
+  const PHOTO_UPLOAD_CACHE_KEY = "waypoint-saver:photoUploadCache";
+  async function loadPhotoUploadCache() {
+    if (!dataStore) return {};
+    try {
+      const cache = await dataStore.getItem(PHOTO_UPLOAD_CACHE_KEY);
+      return (cache && typeof cache === "object") ? cache : {};
+    } catch (e) { return {}; }
+  }
+  async function savePhotoUploadCache(cache) {
+    if (!dataStore) return;
+    try { await dataStore.setItem(PHOTO_UPLOAD_CACHE_KEY, cache); } catch (e) { /* non-fatal -- worst case, re-uploads next sync */ }
+  }
+  // A fast, non-cryptographic hash of a photo's base64 content -- used only
+  // as a compact, stable identifier for "have I already uploaded this exact
+  // photo" and as its filename in the repo. Content-based (not
+  // position/index-based) so it's completely unaffected by later
+  // reordering, deleting, or adding other photos. Collisions are
+  // astronomically unlikely for deduplicating one person's photo
+  // collection; nothing security-sensitive depends on this.
+  function hashPhotoContent(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+    return (hash >>> 0).toString(36) + "-" + str.length.toString(36);
+  }
+
+  // A small-thumbnail caching system, keyed by content hash rather than by
+  // waypoint/array position -- this decouples thumbnails entirely from
+  // wp.photos's structure, so reordering, deleting, or duplicate photos
+  // across waypoints never risk falling out of sync. The list otherwise
+  // embeds every photo at its full compressed resolution directly into
+  // every card, even though it only ever displays as a small thumbnail --
+  // with dozens of waypoints and photos each, a single list re-render
+  // (which happens on every save, delete, or favorite toggle) could
+  // require decoding a huge amount of image data at once, a very plausible
+  // cause of the browser becoming unresponsive or crashing on mobile.
+  const THUMBNAIL_MAX_DIMENSION = 120;
+  const THUMBNAIL_JPEG_QUALITY = 0.7;
+  const thumbnailCache = {}; // content hash -> small thumbnail data: URL, in-memory only (cheap to regenerate, never needs to survive a reload)
+  const thumbnailGenerating = new Set(); // hashes currently being generated, to avoid duplicate concurrent work for the same photo
+
+  function generatePhotoThumbnail(photoDataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > THUMBNAIL_MAX_DIMENSION || height > THUMBNAIL_MAX_DIMENSION) {
+          if (width > height) { height = Math.round(height * THUMBNAIL_MAX_DIMENSION / width); width = THUMBNAIL_MAX_DIMENSION; }
+          else { width = Math.round(width * THUMBNAIL_MAX_DIMENSION / height); height = THUMBNAIL_MAX_DIMENSION; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY)); }
+        catch (e) { reject(e); }
+      };
+      img.onerror = () => reject(new Error("Couldn't decode image"));
+      img.src = photoDataUrl;
+    });
+  }
+
+  // Returns a photo's cached small thumbnail immediately if one already
+  // exists; otherwise kicks off generating it in the background (unless
+  // already in flight) and returns null so the caller can fall back to
+  // something displayable for this render only. Once ready, every
+  // currently-rendered <img> tagged with this photo's hash gets patched in
+  // place -- deliberately not a full list re-render, since that would
+  // defeat the purpose.
+  function getCachedPhotoThumb(photoDataUrl) {
+    if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return null; // not a local data: photo (e.g. a raw GitHub URL) -- nothing to shrink
+    const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return null;
+    const hash = hashPhotoContent(match[2]);
+    if (thumbnailCache[hash]) return thumbnailCache[hash];
+    if (!thumbnailGenerating.has(hash)) {
+      thumbnailGenerating.add(hash);
+      generatePhotoThumbnail(photoDataUrl).then((thumbSrc) => {
+        thumbnailCache[hash] = thumbSrc;
+        thumbnailGenerating.delete(hash);
+        document.querySelectorAll('img[data-photo-hash="' + hash + '"]').forEach((imgEl) => { imgEl.src = thumbSrc; });
+      }).catch(() => { thumbnailGenerating.delete(hash); });
+    }
+    return null;
+  }
+  // The hash alone (not the cache lookup) is what the patch-in-place step
+  // above needs to find this <img> later, so card rendering always tags it
+  // even on a render where the thumbnail isn't ready yet.
+  function photoContentHashAttr(photoDataUrl) {
+    if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return "";
+    const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    return match ? hashPhotoContent(match[2]) : "";
+  }
+
+  // Reverses githubRawUrl -- given a raw.githubusercontent.com URL this app
+  // itself produced (from a previous pull), extracts the repo-relative
+  // path back out, so an already-hosted photo can be represented compactly
+  // in the sync payload instead of as its full URL.
+  function extractRepoPathFromRawUrl(url) {
+    const m = /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)$/.exec(url || "");
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  // Uploads any locally-created photo (still a data: URL, never yet synced)
+  // as its own file under images/, named by a hash of its content. Skips
+  // anything already in the cache (uploaded in a previous sync) or that
+  // isn't a data: URL at all (already a remote reference from a prior pull).
   async function uploadWaypointPhotosIfNeeded(owner, repo) {
-    let anyUploaded = false;
-    let anyFailed = false;
+    const cache = await loadPhotoUploadCache();
+    const needsUpload = [];
+    const seenHashes = new Set(); // avoids uploading the same content twice concurrently if it appears on more than one waypoint
     for (const wp of waypoints) {
       if (!Array.isArray(wp.photos)) continue;
-      for (let i = 0; i < wp.photos.length; i++) {
-        const photo = wp.photos[i];
-        if (!photo || photo.repoPath || !photo.src || typeof photo.src !== "string" || !photo.src.startsWith("data:")) continue;
-        const match = photo.src.match(/^data:([^;]+);base64,(.+)$/);
+      for (const src of wp.photos) {
+        if (typeof src !== "string" || !src.startsWith("data:")) continue;
+        const match = src.match(/^data:([^;]+);base64,(.+)$/);
         if (!match) continue;
         const mime = match[1];
         const base64Data = match[2];
+        const hash = hashPhotoContent(base64Data);
+        if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
+        seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        const path = "images/" + wp.id + "-" + i + "." + ext;
-        try {
-          await putRepoFileSmart(owner, repo, path, base64Data, "Add photo for waypoint " + wp.id);
-          photo.repoPath = path;
-          anyUploaded = true;
-        } catch (e) {
-          console.error("[repo sync] failed to upload photo " + path, e);
-          anyFailed = true;
-        }
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
       }
     }
-    if (anyUploaded) saveWaypoints();
-    return { anyUploaded, anyFailed };
+    let anyUploaded = false;
+    let anyFailed = false;
+    await Promise.all(needsUpload.map(async (item) => {
+      try {
+        await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
+        cache[item.hash] = item.path;
+        anyUploaded = true;
+      } catch (e) {
+        console.error("[repo sync] failed to upload photo " + item.path, e);
+        anyFailed = true;
+      }
+    }));
+    if (anyUploaded) await savePhotoUploadCache(cache);
+    return { anyUploaded, anyFailed, cache };
   }
 
-  // Leaner than buildBackupPayload's full local export: photo src (base64)
-  // is dropped in favor of the repoPath reference set by
-  // uploadWaypointPhotosIfNeeded, since the actual image data now lives in
-  // its own file in the repo rather than embedded in this JSON.
-  function buildRepoSyncPayload() {
+  // Leaner than buildBackupPayload's full local export: any photo already
+  // uploaded as its own file (per photoCache, or already a raw GitHub URL
+  // from a prior pull) is replaced here with a small {repoPath} reference
+  // instead of its full base64 or URL -- since the actual image data lives
+  // in its own file in the repo, this is what keeps data.json itself well
+  // under GitHub's 1MB Contents API limit regardless of how many or how
+  // large the photos are. A photo that failed to upload (or hasn't been
+  // attempted yet) falls back to being embedded in full, rather than lost.
+  function buildRepoSyncPayload(photoCache) {
     const payload = buildBackupPayload();
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
-        photos: wp.photos.map((p) => (p && p.repoPath) ? { name: p.name, repoPath: p.repoPath } : p)
+        photos: wp.photos.map((p) => {
+          if (typeof p !== "string") return p;
+          if (p.startsWith("data:")) {
+            const match = p.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              const hash = hashPhotoContent(match[2]);
+              if (photoCache[hash]) return { repoPath: photoCache[hash] };
+            }
+            return p;
+          }
+          const extracted = extractRepoPathFromRawUrl(p);
+          return extracted ? { repoPath: extracted } : p;
+        })
       });
     });
     return payload;
@@ -3670,7 +4044,9 @@
         showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
         return { ok: false, reason: "That file isn't valid MapApp data." };
       }
-      mergeBackupPayload(payload, parsed);
+      gistStatusText.textContent = "Merging…";
+      await mergeBackupPayload(payload, parsed);
+      await repairBrokenPhotoReferences(parsed.owner, parsed.repo);
       gistStatusText.textContent = "Pulled just now.";
       return { ok: true, reason: null };
     } catch (e) {
@@ -3696,7 +4072,7 @@
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
-      const payload = buildRepoSyncPayload();
+      const payload = buildRepoSyncPayload(photoResult.cache);
       await putRepoFileRaw(
         parsed.owner, parsed.repo, GITHUB_DATA_FILE,
         encodeBase64Utf8(JSON.stringify(payload, null, 2)),
@@ -3890,17 +4266,15 @@
       });
 
       waypoints = payload.waypoints.filter((wp) => wp && wp.id && typeof wp.lat === "number" && typeof wp.lng === "number");
-      waypoints.forEach((wp) => {
+      for (const wp of waypoints) {
         if (Array.isArray(wp.photos)) {
-          wp.photos = wp.photos.map((p) => {
-            if (p && p.repoPath && !p.src) {
-              return Object.assign({}, p, { src: githubRawUrl(parsed.owner, parsed.repo, p.repoPath) });
-            }
+          wp.photos = await Promise.all(wp.photos.map((p) => {
+            if (p && p.repoPath && !p.src) return rehydratePhotoRef(parsed.owner, parsed.repo, p.repoPath);
             return p;
-          });
+          }));
         }
         addSavedMarker(wp);
-      });
+      }
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
       measurements.forEach((m) => renderSavedMeasurement(m));
@@ -6626,7 +7000,7 @@
   function renderPhotoThumbs() {
     photoDropzoneEmpty.style.display = pendingPhotos.length ? "none" : "flex";
     photoThumbs.innerHTML = pendingPhotos.map((src, i) =>
-      '<div class="photo-thumb"><img src="' + src + '" alt="Waypoint photo" />' +
+      '<div class="photo-thumb"><img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" />' +
       '<button type="button" class="photo-thumb-remove" data-idx="' + i + '">' + icon("x", 11) + "</button></div>"
     ).join("");
     photoThumbs.querySelectorAll(".photo-thumb-remove").forEach((btn) => {
@@ -6637,6 +7011,14 @@
       });
     });
   }
+  // Set up once -- the container itself persists across renderPhotoThumbs
+  // calls (only its innerHTML changes), so this doesn't need to re-run
+  // every render.
+  enableThumbDragReorder(photoThumbs, ".photo-thumb", (fromIdx, toIdx) => {
+    const [moved] = pendingPhotos.splice(fromIdx, 1);
+    pendingPhotos.splice(toIdx, 0, moved);
+    renderPhotoThumbs();
+  });
 
   async function addPhotoFiles(fileList) {
     const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
@@ -7651,6 +8033,11 @@
   }
 
   function renderList() {
+    // Safety net: if a drag-in-progress ghost is somehow still on screen
+    // (e.g. an unrelated background render interrupted a drag between
+    // pointer events), clear it before rebuilding the list so it can never
+    // look like a duplicated photo.
+    document.querySelectorAll(".thumb-drag-ghost").forEach((g) => g.remove());
     if (waypoints.length === 0) {
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
         "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
@@ -7940,7 +8327,7 @@
           '<div class="card-photos" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
             wp.photos.map((src, i) =>
               '<div class="card-photo-thumb" data-action="view-photo" data-id="' + wp.id + '" data-photo-idx="' + i + '">' +
-                '<img src="' + src + '" alt="Waypoint photo" /></div>'
+                '<img src="' + (getCachedPhotoThumb(src) || src) + '" data-photo-hash="' + photoContentHashAttr(src) + '" alt="Waypoint photo" loading="lazy" decoding="async" /></div>'
             ).join("") +
             '<button class="card-photo-add" data-action="add-photo" data-id="' + wp.id + '" title="Add another photo">' + icon("upload", 14) + "</button>" +
           "</div>" :
@@ -8040,6 +8427,18 @@
           e.preventDefault();
           zoneEl.click();
         }
+      });
+    });
+    panelList.querySelectorAll(".card-photos").forEach((container) => {
+      const id = container.dataset.photoTarget;
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      enableThumbDragReorder(container, ".card-photo-thumb", (fromIdx, toIdx) => {
+        const [moved] = wp.photos.splice(fromIdx, 1);
+        wp.photos.splice(toIdx, 0, moved);
+        wp.updatedAt = Date.now();
+        saveWaypoints();
+        renderList();
       });
     });
     if (selectedPasteCardId) {
