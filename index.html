@@ -349,6 +349,16 @@
   .import-format-list{margin:0 0 12px; padding-left:20px; font-size:12.5px; color:var(--text-dim); line-height:1.7;}
   .import-format-list code, .layers-hint code{background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:11px; color:var(--amber-light);}
   .photo-view-card img{width:100%; max-height:70vh; max-height:70dvh; object-fit:contain; border-radius:10px; display:block;}
+  .photo-view-img-wrap{position:relative;}
+  .photo-view-nav-btn{position:absolute; top:50%; transform:translateY(-50%); width:38px; height:38px; border-radius:50%;
+    background:rgba(2,6,23,.7); border:1px solid rgba(255,255,255,.15); color:#fff; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; z-index:2;}
+  .photo-view-nav-btn:hover{background:rgba(2,6,23,.9);}
+  .photo-view-nav-btn.hidden{display:none;}
+  .photo-view-prev{left:10px;}
+  .photo-view-next{right:10px;}
+  .photo-view-counter{text-align:center; font-size:12px; color:var(--text-mute); margin-top:8px;}
+  .photo-view-counter.hidden{display:none;}
   .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
   .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:grab; touch-action:none;
     border:1px solid var(--border); flex-shrink:0;}
@@ -484,6 +494,8 @@
   .card-favorite:hover{color:var(--red);}
   .card-favorite.favorited{color:var(--red);}
   .card-favorite.favorited svg{fill:currentColor;}
+  .card-camera{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-camera:hover{color:var(--cyan);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
   .card-delete{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
@@ -1071,7 +1083,12 @@
         <h2 id="photoViewTitle">Photo</h2>
         <button class="icon-btn" id="photoViewCloseBtn"></button>
       </div>
-      <img id="photoViewImg" src="" alt="Waypoint photo" />
+      <div class="photo-view-img-wrap">
+        <button type="button" class="photo-view-nav-btn photo-view-prev hidden" id="photoViewPrevBtn" aria-label="Previous photo"></button>
+        <img id="photoViewImg" src="" alt="Waypoint photo" />
+        <button type="button" class="photo-view-nav-btn photo-view-next hidden" id="photoViewNextBtn" aria-label="Next photo"></button>
+      </div>
+      <div class="photo-view-counter hidden" id="photoViewCounter"></div>
     </div>
   </div>
 
@@ -1291,6 +1308,8 @@
     plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
     plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+    chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>',
+    chevronRight: '<polyline points="9 18 15 12 9 6"></polyline>',
     mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
     check: '<polyline points="20 6 9 17 4 12"></polyline>',
@@ -1656,7 +1675,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "229";
+  const APP_VERSION = "232";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2069,6 +2088,9 @@
   const photoViewCloseBtn = el("photoViewCloseBtn");
   const photoViewTitle = el("photoViewTitle");
   const photoViewImg = el("photoViewImg");
+  const photoViewPrevBtn = el("photoViewPrevBtn");
+  const photoViewNextBtn = el("photoViewNextBtn");
+  const photoViewCounter = el("photoViewCounter");
   const confirmModalOverlay = el("confirmModalOverlay");
   const confirmModalCloseBtn = el("confirmModalCloseBtn");
   const confirmModalTitle = el("confirmModalTitle");
@@ -2187,6 +2209,8 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
+  photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
+  photoViewNextBtn.innerHTML = icon("chevronRight", 22);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
   panelSyncBtn.innerHTML = icon("sync", 16);
   importModalCloseBtn.innerHTML = icon("x", 18);
@@ -2279,19 +2303,52 @@
     }
   });
 
-  function openPhotoViewModal(name, src) {
+  let photoViewPhotos = [];
+  let photoViewIndex = 0;
+  function openPhotoViewModal(name, photos, startIndex) {
     photoViewTitle.textContent = name || "Photo";
-    photoViewImg.src = src;
+    photoViewPhotos = Array.isArray(photos) ? photos : [photos];
+    photoViewIndex = startIndex || 0;
+    renderPhotoViewCurrent();
     photoViewModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
+  }
+  function renderPhotoViewCurrent() {
+    photoViewImg.src = photoViewPhotos[photoViewIndex] || "";
+    const hasMultiple = photoViewPhotos.length > 1;
+    photoViewPrevBtn.classList.toggle("hidden", !hasMultiple);
+    photoViewNextBtn.classList.toggle("hidden", !hasMultiple);
+    photoViewCounter.classList.toggle("hidden", !hasMultiple);
+    if (hasMultiple) photoViewCounter.textContent = (photoViewIndex + 1) + " / " + photoViewPhotos.length;
+  }
+  // Wraps around at both ends -- browsing a small set of photos back to
+  // back is the common case, and having Next stop dead at the last photo
+  // would just mean an extra tap back to Prev to get there anyway.
+  function showPhotoViewPrev() {
+    if (photoViewPhotos.length < 2) return;
+    photoViewIndex = (photoViewIndex - 1 + photoViewPhotos.length) % photoViewPhotos.length;
+    renderPhotoViewCurrent();
+  }
+  function showPhotoViewNext() {
+    if (photoViewPhotos.length < 2) return;
+    photoViewIndex = (photoViewIndex + 1) % photoViewPhotos.length;
+    renderPhotoViewCurrent();
   }
   function closePhotoViewModal() {
     photoViewModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
     photoViewImg.src = "";
+    photoViewPhotos = [];
   }
   photoViewCloseBtn.addEventListener("click", closePhotoViewModal);
   photoViewModalOverlay.addEventListener("click", (e) => { if (e.target === photoViewModalOverlay) closePhotoViewModal(); });
+  photoViewPrevBtn.addEventListener("click", (e) => { e.stopPropagation(); showPhotoViewPrev(); });
+  photoViewNextBtn.addEventListener("click", (e) => { e.stopPropagation(); showPhotoViewNext(); });
+  document.addEventListener("keydown", (e) => {
+    if (photoViewModalOverlay.classList.contains("hidden")) return;
+    if (e.key === "ArrowLeft") showPhotoViewPrev();
+    else if (e.key === "ArrowRight") showPhotoViewNext();
+  });
 
   /* ================================================================ */
   /*  Map setup                                                         */
@@ -4812,8 +4869,25 @@
   const PHOTO_MAX_DIMENSION = 1280;
   const PHOTO_JPEG_QUALITY = 0.75;
 
+  const IMAGE_DECODE_TIMEOUT_MS = 15000;
+  function looksLikeHeic(file) {
+    const type = (file.type || "").toLowerCase();
+    if (type === "image/heic" || type === "image/heif") return true;
+    const name = (file.name || "").toLowerCase();
+    return name.endsWith(".heic") || name.endsWith(".heif");
+  }
   function compressImageFile(file, maxDim, quality) {
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const err = new Error("Timed out reading that image.");
+        err.isHeic = looksLikeHeic(file);
+        reject(err);
+      }, IMAGE_DECODE_TIMEOUT_MS);
+      const finishResolve = (val) => { if (settled) return; settled = true; clearTimeout(timer); resolve(val); };
+      const finishReject = (err) => { if (settled) return; settled = true; clearTimeout(timer); reject(err); };
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
@@ -4826,13 +4900,17 @@
           const canvas = document.createElement("canvas");
           canvas.width = width; canvas.height = height;
           canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-          try { resolve(canvas.toDataURL("image/jpeg", quality)); }
-          catch (e) { reject(e); }
+          try { finishResolve(canvas.toDataURL("image/jpeg", quality)); }
+          catch (e) { finishReject(e); }
         };
-        img.onerror = () => reject(new Error("Couldn't decode image"));
+        img.onerror = () => {
+          const err = new Error("Couldn't decode image");
+          err.isHeic = looksLikeHeic(file);
+          finishReject(err);
+        };
         img.src = reader.result;
       };
-      reader.onerror = () => reject(new Error("Couldn't read file"));
+      reader.onerror = () => finishReject(new Error("Couldn't read file"));
       reader.readAsDataURL(file);
     });
   }
@@ -6963,7 +7041,9 @@
     try {
       compressedDataUrl = await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY);
     } catch (e) {
-      showToast("Couldn't read that photo.");
+      showToast(e && e.isHeic
+        ? "Couldn't read that photo — it looks like it's in Apple's HEIC format, which isn't supported. In Settings > Camera > Formats, switch to \"Most Compatible\" so new photos save as JPEG instead."
+        : "Couldn't read that photo.");
       return;
     }
 
@@ -6988,7 +7068,19 @@
 
   cameraBtn.addEventListener("click", () => cameraCaptureInput.click());
   cameraCaptureInput.addEventListener("change", () => {
-    if (cameraCaptureInput.files && cameraCaptureInput.files[0]) handleCameraCapture(cameraCaptureInput.files[0]);
+    const file = cameraCaptureInput.files && cameraCaptureInput.files[0];
+    if (file) {
+      if (cardPhotoTargetId) {
+        // Triggered from a specific waypoint's camera button on its card --
+        // add the photo directly to that waypoint, skipping the GPS/nearby-
+        // waypoint flow entirely since the target is already known.
+        const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
+        if (wp) addPhotosToWaypoint(wp, [file]);
+      } else {
+        handleCameraCapture(file);
+      }
+    }
+    cardPhotoTargetId = null;
     cameraCaptureInput.value = "";
   });
 
@@ -7174,7 +7266,9 @@
         pendingPhotos.push(dataUrl);
         renderPhotoThumbs();
       } catch (e) {
-        photoStatus.textContent = "Couldn't load one of those photos.";
+        photoStatus.textContent = (e && e.isHeic)
+          ? "Couldn't load one of those photos — it looks like Apple's HEIC format, which isn't supported. In Settings > Camera > Formats, switch to \"Most Compatible\"."
+          : "Couldn't load one of those photos.";
         photoStatus.style.display = "block";
       }
     }
@@ -8439,6 +8533,7 @@
           "</button>" +
           '<div class="card-top-actions">' +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+            '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
             '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("x", 16) + "</button>" +
           "</div>" +
@@ -8496,6 +8591,11 @@
             node.title = wp.favorite ? "Remove from favorites" : "Add to favorites";
             applyActiveTabFilter();
             break;
+          case "take-photo":
+            e.stopPropagation();
+            cardPhotoTargetId = id;
+            cameraCaptureInput.click();
+            break;
           case "delete":
             e.stopPropagation();
             openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
@@ -8517,7 +8617,7 @@
             e.stopPropagation();
             const idx = Number(node.dataset.photoIdx);
             const src = wp.photos && wp.photos[idx];
-            if (src) openPhotoViewModal(wp.name, src);
+            if (src) openPhotoViewModal(wp.name, wp.photos, idx);
             break;
           }
           case "add-photo":
@@ -8648,11 +8748,17 @@
     const imageFiles = Array.from(fileList).filter((f) => f.type && f.type.startsWith("image/"));
     if (imageFiles.length === 0) { showToast("That doesn't look like an image file."); return; }
     const dataUrls = [];
+    let anyFailed = false, anyHeic = false;
     for (const file of imageFiles) {
       try { dataUrls.push(await compressImageFile(file, PHOTO_MAX_DIMENSION, PHOTO_JPEG_QUALITY)); }
-      catch (e) { /* skip file that failed to load */ }
+      catch (e) { anyFailed = true; if (e && e.isHeic) anyHeic = true; }
     }
     commitPhotosToWaypoint(wp, dataUrls);
+    if (anyFailed) {
+      showToast(anyHeic
+        ? "Some photos couldn't be added — they look like Apple's HEIC format, which isn't supported. In Settings > Camera > Formats, switch to \"Most Compatible\" so new photos save as JPEG."
+        : "Some photos couldn't be added.");
+    }
   }
 
   // Used when a card's drop event didn't carry real files (e.g. an image dragged
