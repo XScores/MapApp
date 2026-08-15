@@ -329,12 +329,12 @@
   .measure-vertex{width:14px; height:14px; border-radius:50%; background:#22d3ee; border:2px solid #0f172a;
     box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:grab;}
   .measure-edit-banner{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
-    display:flex; align-items:center; gap:14px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:12px;
-    padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; color:var(--text-dim); max-width:min(480px, 94vw);}
+    display:flex; flex-direction:column; gap:10px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:12px;
+    padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; color:var(--text-dim); min-width:260px; max-width:min(480px, 94vw);}
   .measure-edit-banner.hidden{display:none;}
   .measure-edit-banner .measure-edit-total{color:var(--text); font-variant-numeric:tabular-nums;}
-  .measure-edit-banner-actions{display:flex; gap:8px; flex-shrink:0;}
-  .measure-edit-banner-actions .btn{padding:6px 12px; font-size:13px;}
+  .measure-edit-banner-actions{display:flex; gap:8px;}
+  .measure-edit-banner-actions .btn{padding:8px 12px; font-size:13px; flex:1;}
 
   /* ---------- point-edit toolbar (route/measurement point editing) ---------- */
   .point-edit-toolbar{position:absolute; top:64px; left:12px; right:12px; z-index:55; display:flex; align-items:center;
@@ -554,6 +554,7 @@
     display:flex; align-items:flex-start; gap:10px; max-width:min(420px, 88vw);}
   .toast.show{opacity:1;}
   .toast-message{flex:1; min-width:0; white-space:pre-line;}
+  .toast-cyan .toast-message{color:var(--cyan);}
   .toast-close-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
     padding:2px; display:flex; pointer-events:auto; margin:-2px -4px 0 0;}
   .toast-close-btn:hover{color:#fff;}
@@ -871,7 +872,7 @@
               <button class="home-action-btn danger" id="gistForcePushBtn">Push (overwrite)</button>
               <button class="home-action-btn danger" id="gistForcePullBtn">Pull (overwrite)</button>
             </div>
-            <p class="layers-hint" id="gistPhotoCheckDetail" style="margin-top:6px; white-space:pre-line;"></p>
+            <p class="layers-hint" id="gistCheckDetail" style="margin-top:6px; white-space:pre-line;"></p>
           </div>
         </div>
         </div>
@@ -890,7 +891,7 @@
   </div>
 
   <div class="point-edit-toolbar hidden" id="pointEditToolbar">
-    <span class="point-edit-toolbar-hint">Drag a point to move it.</span>
+    <span class="point-edit-toolbar-hint"></span>
     <button type="button" class="point-edit-mode-btn" id="pointEditAddBtn" data-mode="add" title="Tap the line to add a point"><span class="icon"></span><span>Add point</span></button>
     <button type="button" class="point-edit-mode-btn" id="pointEditDeleteBtn" data-mode="delete" title="Tap a point to delete it"><span class="icon"></span><span>Delete point</span></button>
   </div>
@@ -1686,7 +1687,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "234";
+  const APP_VERSION = "238";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2034,7 +2035,7 @@
   const gistCheckRepoBtn = el("gistCheckRepoBtn");
   const gistCheckLocalBtn = el("gistCheckLocalBtn");
   const gistCheckPhotosBtn = el("gistCheckPhotosBtn");
-  const gistPhotoCheckDetail = el("gistPhotoCheckDetail");
+  const gistCheckDetail = el("gistCheckDetail");
   const gistForcePushBtn = el("gistForcePushBtn");
   const gistForcePullBtn = el("gistForcePullBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
@@ -2244,9 +2245,10 @@
   /* ================================================================ */
 
   let toastTimer = null;
-  function showToast(msg, isError) {
+  function showToast(msg, isError, cyan) {
     toastMessage.textContent = msg;
     toastEl.classList.add("show");
+    toastEl.classList.toggle("toast-cyan", !!cyan);
     clearTimeout(toastTimer);
     toastCloseBtn.classList.toggle("hidden", !isError);
     if (isError) return; // persists until manually dismissed -- see showErrorToast
@@ -2257,8 +2259,8 @@
   // auto-dismiss -- an error is often something worth reading carefully,
   // copying, or screenshotting to report, and 3.2 seconds isn't always
   // enough for that, especially for a longer message.
-  function showErrorToast(msg) {
-    showToast(msg, true);
+  function showErrorToast(msg, cyan) {
+    showToast(msg, true, cyan);
   }
   function hideToast() {
     toastEl.classList.remove("show");
@@ -2799,7 +2801,7 @@
     layersToggleBtn.classList.remove("active");
   });
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".layers-wrap")) {
+    if (!e.target.closest(".layers-wrap") && !e.target.closest(".modal-overlay")) {
       layersPanel.classList.remove("show");
       layersToggleBtn.classList.remove("active");
     }
@@ -3479,12 +3481,7 @@
     let remoteMeasurementDeletions = 0;
     measurements.forEach((m) => {
       if (!deletedMeasurementSet.has(m.id)) return;
-      if (savedMeasurementLayers[m.id]) {
-        map.removeLayer(savedMeasurementLayers[m.id].polyline);
-        if (savedMeasurementLayers[m.id].hitbox) map.removeLayer(savedMeasurementLayers[m.id].hitbox);
-        savedMeasurementLayers[m.id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
-        delete savedMeasurementLayers[m.id];
-      }
+      if (savedMeasurementLayers[m.id]) removeMeasurementVisibilityLayer(m.id);
       remoteMeasurementDeletions++;
     });
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
@@ -3639,8 +3636,9 @@
         const existingUpdatedAt = measurements[existingIndex].updatedAt || 0;
         const bothLackTimestamp = !m.updatedAt && !measurements[existingIndex].updatedAt;
         if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          const wasVisible = !!savedMeasurementLayers[m.id];
           measurements[existingIndex] = m;
-          renderSavedMeasurement(m); // handles removing the old map layer internally
+          if (wasVisible) renderSavedMeasurement(m); // keep it visually in sync if it was already being shown -- handles removing the old map layer internally
           measurementsUpdated++;
         } else {
           measurementsSkipped++;
@@ -3863,6 +3861,19 @@
       throw err;
     }
     return { content: decodeBase64Utf8(blobData.content), sha: data.sha };
+  }
+
+  // Lists a repo folder's contents directly -- the Contents API returns an
+  // array of entries (rather than a single file) when the given path is a
+  // directory. Used by Check repo to report the actual number of photo
+  // files sitting in images/, rather than inferring a count from what
+  // waypoints.json happens to reference.
+  async function listRepoDirectory(owner, repo, path) {
+    const res = await fetchWithTimeout(githubContentsUrl(owner, repo, path) + "?ref=" + encodeURIComponent(GITHUB_BRANCH), { headers: githubHeaders(), cache: "no-store" });
+    if (res.status === 404) return []; // folder doesn't exist yet -- nothing uploaded, not an error
+    if (!res.ok) { const err = new Error(await describeGitHubApiError(res)); err.isGitHubApiError = true; err.httpStatus = res.status; throw err; }
+    const data = await res.json();
+    return Array.isArray(data) ? data : []; // a single file at this exact path comes back as an object, not an array -- treat as "not a folder"
   }
 
   // Like fetchRepoFile, but for binary content (photos) -- returns the raw
@@ -4238,8 +4249,8 @@
   async function performRepoPull() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { gistStatusText.textContent = "No access token entered."; showToast("Paste a GitHub access token first."); return { ok: false, reason: "No access token entered." }; }
-    if (!parsed) { gistStatusText.textContent = "Repository isn't in owner/repo format."; showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return { ok: false, reason: "Repository isn't in owner/repo format." }; }
+    if (!token) { gistStatusText.textContent = "No access token entered."; showToast("Paste a GitHub access token first.", false, true); return { ok: false, reason: "No access token entered." }; }
+    if (!parsed) { gistStatusText.textContent = "Repository isn't in owner/repo format."; showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return { ok: false, reason: "Repository isn't in owner/repo format." }; }
     gistStatusText.textContent = "Pulling…";
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -4253,7 +4264,7 @@
       } catch (parseErr) {
         console.error("[repo pull] file content wasn't valid JSON:", parseErr);
         gistStatusText.textContent = "That file isn't valid MapApp data.";
-        showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.");
+        showToast("That repository's " + GITHUB_DATA_FILE + " isn't valid MapApp data.", false, true);
         return { ok: false, reason: "That file isn't valid MapApp data." };
       }
       gistStatusText.textContent = "Merging…";
@@ -4265,7 +4276,7 @@
       console.error("[repo pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason, true);
       return { ok: false, reason };
     }
   }
@@ -4274,13 +4285,13 @@
     if (allowConflictRetry === undefined) allowConflictRetry = true;
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return false; }
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return false; }
+    if (!token) { showToast("Paste a GitHub access token first.", false, true); return false; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return false; }
     try {
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.");
+        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.", true);
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -4310,7 +4321,7 @@
       console.error("[repo push] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't push: " + reason);
+      showErrorToast("Couldn't push: " + reason, true);
       return false;
     }
   }
@@ -4340,7 +4351,7 @@
       panelSyncBtn.disabled = false;
       panelSyncBtn.classList.remove("syncing");
       setPanelSyncStatus("Sync failed", 4000);
-      showToast("Sync stopped (nothing was pushed, to avoid overwriting the repo with an incomplete list): " + pullResult.reason);
+      showToast("Sync stopped (nothing was pushed, to avoid overwriting the repo with an incomplete list): " + pullResult.reason, false, true);
       return;
     }
     await performRepoPush();
@@ -4370,25 +4381,32 @@
   async function checkRepoStatus() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    if (!token) { showToast("Paste a GitHub access token first.", false, true); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return; }
     gistCheckRepoBtn.disabled = true;
-    gistStatusText.textContent = "Checking…";
-    gistPhotoCheckDetail.textContent = "";
+    gistCheckDetail.textContent = "Checking…";
     try {
-      const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
+      const [file, imageEntries] = await Promise.all([
+        fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE),
+        listRepoDirectory(parsed.owner, parsed.repo, "images").catch(() => null) // don't let a folder-listing hiccup block the rest of the report
+      ]);
       if (!file) {
-        gistStatusText.textContent = "No " + GITHUB_DATA_FILE + " found in " + parsed.owner + "/" + parsed.repo + " — nothing has synced to this repo yet.";
+        gistCheckDetail.textContent = "No " + GITHUB_DATA_FILE + " found in " + parsed.owner + "/" + parsed.repo + " — nothing has synced to this repo yet.";
         gistCheckRepoBtn.disabled = false;
         return;
       }
-      let summary;
+      const lines = [];
       try {
         const payload = JSON.parse(stripBom(file.content));
         const rideCount = Array.isArray(payload.rides) ? payload.rides.length : 0;
         const measurementCount = Array.isArray(payload.measurements) ? payload.measurements.length : 0;
         const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "unknown time";
-        summary = summarizeWaypointDataset(payload.waypoints) + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".";
+        lines.push(summarizeWaypointDataset(payload.waypoints) + ", " + rideCount + " route" + (rideCount === 1 ? "" : "s") + ", " + measurementCount + " measurement" + (measurementCount === 1 ? "" : "s") + " — last written " + when + ".");
+        if (imageEntries === null) lines.push("images/ folder: couldn't be checked.");
+        else {
+          const imageFileCount = imageEntries.filter((entry) => entry && entry.type === "file").length;
+          lines.push("images/ folder: " + imageFileCount + " photo file" + (imageFileCount === 1 ? "" : "s") + ".");
+        }
 
         // Compare each waypoint the repo and this device both have, by id --
         // a photo count mismatch here is exactly what "I synced but it
@@ -4414,24 +4432,20 @@
           });
           if (mismatches.length > 0) {
             const MAX_SHOWN = 5;
-            const lines = ["Photo count mismatches (this device vs. the repo):"];
+            lines.push("", "Photo count mismatches (this device vs. the repo):");
             mismatches.slice(0, MAX_SHOWN).forEach((m) => {
               lines.push('"' + m.name + '": this device has ' + m.localPhotoCount + " (updated " + (m.localUpdatedAt ? new Date(m.localUpdatedAt).toLocaleString() : "never") + "), repo has " + m.remotePhotoCount + " (updated " + (m.remoteUpdatedAt ? new Date(m.remoteUpdatedAt).toLocaleString() : "never") + ")");
             });
             if (mismatches.length > MAX_SHOWN) lines.push("…and " + (mismatches.length - MAX_SHOWN) + " more.");
-            gistPhotoCheckDetail.textContent = lines.join("\n");
           }
         }
       } catch (parseErr) {
-        summary = "File exists but isn't valid JSON — something may have gone wrong on a previous push.";
+        lines.push("File exists but isn't valid JSON — something may have gone wrong on a previous push.");
       }
-      gistStatusText.textContent = summary;
-      showToast("Found " + GITHUB_DATA_FILE + " in the repo: " + summary);
+      gistCheckDetail.textContent = lines.join("\n");
     } catch (e) {
       console.error("[repo check] error:", e);
-      const reason = describeSyncError(e);
-      gistStatusText.textContent = reason;
-      showErrorToast("Couldn't check the repo: " + reason);
+      gistCheckDetail.textContent = "Couldn't check the repo: " + describeSyncError(e);
     }
     gistCheckRepoBtn.disabled = false;
   }
@@ -4443,9 +4457,7 @@
   // sync mismatch is: a stale push (repo is behind), a stale pull (this
   // device is behind), or something else entirely.
   function checkLocalDataStatus() {
-    const summary = summarizeWaypointDataset(waypoints) + ", " + rides.length + " route" + (rides.length === 1 ? "" : "s") + ", " + measurements.length + " measurement" + (measurements.length === 1 ? "" : "s") + " on this device.";
-    gistStatusText.textContent = summary;
-    showToast(summary);
+    gistCheckDetail.textContent = summarizeWaypointDataset(waypoints) + ", " + rides.length + " route" + (rides.length === 1 ? "" : "s") + ", " + measurements.length + " measurement" + (measurements.length === 1 ? "" : "s") + " on this device.";
   }
   gistCheckLocalBtn.addEventListener("click", (e) => { e.stopPropagation(); checkLocalDataStatus(); });
 
@@ -4460,9 +4472,9 @@
   // authenticated test confirms is fetchable, same as a normal sync would.
   async function checkPhotoStatus() {
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return; }
     gistCheckPhotosBtn.disabled = true;
-    gistPhotoCheckDetail.textContent = "Checking…";
+    gistCheckDetail.textContent = "Checking…";
 
     let dataUrlCount = 0, unrehydratedCount = 0, rawUrlCount = 0, otherCount = 0, totalPhotos = 0;
     let sampleObject = null, sampleRawUrl = null;
@@ -4510,12 +4522,12 @@
 
     if (unrehydratedCount > 0 || rawUrlCount > 0) {
       lines.push("", "Attempting to repair what it can now…");
-      gistPhotoCheckDetail.textContent = lines.join("\n");
+      gistCheckDetail.textContent = lines.join("\n");
       const repaired = await repairBrokenPhotoReferences(parsed.owner, parsed.repo);
       lines.push(repaired ? "Some photos were repaired -- check the list." : "Nothing could be repaired from here (see the test result above for why).");
     }
 
-    gistPhotoCheckDetail.textContent = lines.join("\n");
+    gistCheckDetail.textContent = lines.join("\n");
     gistCheckPhotosBtn.disabled = false;
   }
   gistCheckPhotosBtn.addEventListener("click", (e) => { e.stopPropagation(); checkPhotoStatus(); });
@@ -4529,14 +4541,14 @@
   async function performForcePush() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    if (!token) { showToast("Paste a GitHub access token first.", false, true); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return; }
     gistForcePushBtn.disabled = true;
     gistSyncBtn.disabled = true;
     const ok = await performRepoPush(false); // no auto-retry-with-pull -- this is a deliberate overwrite, not a normal sync
     gistForcePushBtn.disabled = false;
     gistSyncBtn.disabled = false;
-    if (ok) showToast("Pushed — this device's data now replaces whatever was in the repo.");
+    if (ok) showToast("Pushed — this device's data now replaces whatever was in the repo.", false, true);
   }
   gistForcePushBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -4556,22 +4568,22 @@
   async function performForcePull() {
     const token = gistTokenInput.value.trim();
     const parsed = parseOwnerRepo(githubRepoInput.value);
-    if (!token) { showToast("Paste a GitHub access token first."); return; }
-    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data."); return; }
+    if (!token) { showToast("Paste a GitHub access token first.", false, true); return; }
+    if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return; }
     gistForcePullBtn.disabled = true;
     gistSyncBtn.disabled = true;
     gistStatusText.textContent = "Pulling…";
     try {
       const file = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
       if (!file) {
-        showErrorToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.");
+        showErrorToast("Nothing to pull — no " + GITHUB_DATA_FILE + " found in the repo yet.", true);
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
       }
       const payload = JSON.parse(stripBom(file.content));
       if (!payload || typeof payload !== "object" || !Array.isArray(payload.waypoints)) {
-        showErrorToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.");
+        showErrorToast("Couldn't pull — the repo's file isn't a recognized MapApp backup.", true);
         gistForcePullBtn.disabled = false;
         gistSyncBtn.disabled = false;
         return;
@@ -4600,7 +4612,6 @@
       waypoints.forEach((wp) => addSavedMarker(wp));
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
-      measurements.forEach((m) => renderSavedMeasurement(m));
       deletedIds = normalizeDeletedIds(payload.deletedIds);
 
       saveWaypoints();
@@ -4613,12 +4624,12 @@
       renderMeasurementsList();
 
       gistStatusText.textContent = "Pulled just now.";
-      showToast("Pulled — this device's data now matches the repo.");
+      showToast("Pulled — this device's data now matches the repo.", false, true);
     } catch (e) {
       console.error("[force pull] error:", e);
       const reason = describeSyncError(e);
       gistStatusText.textContent = reason;
-      showErrorToast("Couldn't pull: " + reason);
+      showErrorToast("Couldn't pull: " + reason, true);
     }
     gistForcePullBtn.disabled = false;
     gistSyncBtn.disabled = false;
@@ -6164,6 +6175,39 @@
     delete visibleRouteLayers[id];
   }
 
+  // Measurement equivalent of toggleRouteVisibility/refreshRouteVisibilityButton/
+  // removeRouteVisibilityLayer above -- same eyeball-controlled model, so
+  // multiple measurements can be shown on the map at once, and each one is
+  // independent of the others. savedMeasurementLayers is reused as the
+  // single source of truth for "is this measurement currently on the map"
+  // (renderSavedMeasurement already knows how to build the layers for it).
+  function toggleMeasurementVisibility(id) {
+    if (savedMeasurementLayers[id]) {
+      removeMeasurementVisibilityLayer(id);
+    } else {
+      const m = measurements.find((mm) => mm.id === id);
+      if (!m) return;
+      renderSavedMeasurement(m);
+    }
+    refreshMeasurementVisibilityButton(id);
+  }
+  function refreshMeasurementVisibilityButton(id) {
+    const btn = measurementsPanelList.querySelector('[data-action="toggle-measurement-visibility"][data-id="' + id + '"]');
+    if (!btn) return;
+    const isVisible = !!savedMeasurementLayers[id];
+    btn.classList.toggle("active", isVisible);
+    btn.title = isVisible ? "Hide from map" : "Show on map";
+    btn.innerHTML = icon(isVisible ? "eye" : "eyeOff", 15);
+  }
+  function removeMeasurementVisibilityLayer(id) {
+    if (!savedMeasurementLayers[id]) return;
+    const layers = savedMeasurementLayers[id];
+    map.removeLayer(layers.polyline);
+    if (layers.hitbox) map.removeLayer(layers.hitbox);
+    layers.vertexMarkers.forEach((mk) => map.removeLayer(mk));
+    delete savedMeasurementLayers[id];
+  }
+
   function viewRide(ride) {
     if (rideTracking) { showToast("Stop your current route before viewing a saved one."); return; }
     currentlyViewedRide = ride;
@@ -6516,10 +6560,6 @@
     });
     savedMeasurementLayers[m.id] = { polyline: layer, hitbox, vertexMarkers };
   }
-  function renderAllSavedMeasurements() {
-    measurements.forEach(renderSavedMeasurement);
-  }
-  renderAllSavedMeasurements();
 
   // Commits any name edit made while viewing, so typing a new name and
   // tapping Close (rather than some dedicated "save name" step) just works.
@@ -6549,12 +6589,7 @@
       deletedIds.measurements.push(id);
       saveDeletedIds();
       saveMeasurements();
-      if (savedMeasurementLayers[id]) {
-        map.removeLayer(savedMeasurementLayers[id].polyline);
-        if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
-        savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
-        delete savedMeasurementLayers[id];
-      }
+      if (savedMeasurementLayers[id]) removeMeasurementVisibilityLayer(id);
       showToast("Measurement deleted");
       renderMeasurementsList();
     });
@@ -6645,7 +6680,7 @@
     const hint = pointEditToolbar.querySelector(".point-edit-toolbar-hint");
     if (mode === "add") hint.textContent = "Tap the line to add a point.";
     else if (mode === "delete") hint.textContent = "Tap a point to delete it.";
-    else hint.textContent = "Drag a point to move it.";
+    else hint.textContent = "";
     rebuildEditVertexMarkers();
   }
   pointEditAddBtn.addEventListener("click", () => setPointEditMode(pointEditMode === "add" ? "drag" : "add"));
@@ -6678,9 +6713,8 @@
       if (visibleRouteLayers[id]) removeRouteVisibilityLayer(id);
       if (!options.keepHud) rideHud.classList.add("hidden");
     } else if (savedMeasurementLayers[id]) {
-      map.removeLayer(savedMeasurementLayers[id].polyline);
-      if (savedMeasurementLayers[id].hitbox) map.removeLayer(savedMeasurementLayers[id].hitbox);
-      savedMeasurementLayers[id].vertexMarkers.forEach((mk) => map.removeLayer(mk));
+      removeMeasurementVisibilityLayer(id);
+      refreshMeasurementVisibilityButton(id);
     }
 
     editLivePoints = item.points.map((p) => ({ lat: p.lat, lng: p.lng }));
@@ -6769,12 +6803,15 @@
 
     // Editing is now the same state as viewing, so "done" always means
     // fully closing -- there's no separate static view left to fall back
-    // to. Matches "save and turn visibility off": a route disappears from
-    // the map entirely; a measurement reverts to its normal always-on
-    // display (measurements, unlike routes, are shown by default).
+    // to. Both routes and measurements use the same eyeball-controlled
+    // visibility model, so "Save & Hide" (or Cancel) always means the item
+    // is no longer shown on the map afterward, regardless of whether it
+    // happened to be visible via the eyeball before editing started --
+    // editing itself was what was showing it (via its own temporary
+    // editable line), not the eyeball, so there's nothing to restore back to.
     if (item) {
       if (kind === "route") closeViewedRide();
-      else renderSavedMeasurement(item);
+      else { removeMeasurementVisibilityLayer(id); refreshMeasurementVisibilityButton(id); }
     }
   }
   measureEditPointsBtn.addEventListener("click", () => {
@@ -6943,9 +6980,11 @@
       const summary = isClosedLoop(m.points)
         ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
         : formatDistance(totalM) + " · " + dateStr;
+      const isVisible = !!savedMeasurementLayers[m.id];
       return '<div class="card ride-card" data-id="' + m.id + '">' +
         '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
         '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
+        '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
         '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
         '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
@@ -6962,6 +7001,12 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         deleteMeasurement(btn.dataset.id);
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='toggle-measurement-visibility']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleMeasurementVisibility(btn.dataset.id);
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='edit-measurement-name']").forEach((btn) => {
