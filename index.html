@@ -464,7 +464,7 @@
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
   .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex; flex-direction:column;}
   .panel-list-wrap.hidden{display:none;}
-  .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:34px; display:flex; flex-direction:column; gap:8px;}
+  .panel-list{flex:1; width:calc(100% - 26px); min-width:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;}
   .az-picker{position:absolute; top:0; right:2px; bottom:0; width:24px; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:8px 0; z-index:5;}
   .az-letter-btn{flex:1; width:24px; display:flex; align-items:center; justify-content:center; background:none; border:none;
@@ -489,7 +489,7 @@
   .folder-accordion{margin-bottom:8px;}
   .folder-accordion-header{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer;
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;}
-  .folder-accordion.expanded .folder-accordion-header{border-radius:12px 12px 0 0; border-bottom-color:transparent;}
+  .folder-accordion.expanded .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
   .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
   .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
   .folder-accordion.expanded .folder-accordion-chevron{transform:rotate(0deg);}
@@ -500,7 +500,7 @@
   .folder-accordion-action:hover{color:var(--text-dim);}
   .folder-accordion-body{display:none; padding:10px; background:rgba(15,23,42,.5); border:1px solid var(--border); border-top:none;
     border-radius:0 0 12px 12px;}
-  .folder-accordion.expanded .folder-accordion-body{display:block;}
+  .folder-accordion.expanded .folder-accordion-body{display:block; border-color:var(--cyan);}
   .folder-accordion-body .card{margin-bottom:8px;}
   .folder-accordion-body .card:last-child{margin-bottom:0;}
   .folder-accordion-empty{font-size:12.5px; color:var(--text-mute); padding:6px 4px;}
@@ -516,7 +516,6 @@
   .select-mode .card-main{pointer-events:none;}
   .folder-create-select-mode .card{cursor:pointer;}
   .folder-remove-select-mode .folder-accordion-body .card{cursor:pointer;}
-  .card.bulk-selected{border-color:var(--cyan); box-shadow:0 0 0 2px rgba(34,211,238,.35);}
 
   .folder-picker-list{display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto;}
   .folder-picker-row{display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
@@ -528,8 +527,9 @@
   .folder-picker-new .icon{color:var(--cyan);}
 
   .card{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:12px; transition:border-color .15s, box-shadow .15s;}
-  .card.selected{border-color:var(--amber); box-shadow:0 0 0 2px rgba(245,158,11,.35);}
   .card:hover{border-color:rgba(245,158,11,.35);}
+  .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
   .card-main{display:flex; gap:8px; flex:1; min-width:0; cursor:pointer; background:none; border:none; padding:0; text-align:left;}
   .card-main .icon{margin-top:2px; flex-shrink:0;}
@@ -1795,7 +1795,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "246";
+  const APP_VERSION = "249";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -7228,7 +7228,7 @@
     const folder = waypointFolders.find((f) => f.id === folderId);
     if (!folder) return;
     editingFolderId = folderId;
-    expandedFolderIds.add(folderId); // stays expanded for the duration of editing, so Remove items has something visible to act on
+    setOnlyExpandedFolder(folderId); // stays expanded for the duration of editing, so Remove items has something visible to act on; also collapses whichever other folder was open
     showFolderPanel(folder.name);
     renderList(); // pins this folder to the top of the list, directly under the search bar/panel
     panelList.scrollTop = 0; // in case the list was already scrolled down when Edit was clicked
@@ -7306,7 +7306,7 @@
       if (wp) { wp.folderId = folder.id; wp.updatedAt = Date.now(); }
     });
     if (ids.length > 0) saveWaypoints();
-    expandedFolderIds.add(folder.id); // show it expanded immediately so the newly-grouped items are visible right away
+    setOnlyExpandedFolder(folder.id); // show it expanded immediately so the newly-grouped items are visible right away; also collapses whichever other folder was open
     closeFolderCreatePanel();
     showToast(wasEditing
       ? 'Updated "' + name + '"' + (ids.length > 0 ? " — added " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") : "")
@@ -7646,7 +7646,7 @@
     const wp = {
       id, lat, lng, name, notes: "",
       code: generateWordCode(lat, lng), isCurrentLocation: false,
-      markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷",
+      markerStyle: "emoji", markerColor: "#38bdf8", markerEmoji: "📷", folderId: getOpenFolderId(),
       photos: [dataUrl], createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
@@ -8260,7 +8260,7 @@
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const wp = {
       id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
-      markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(),
+      markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(), folderId: getOpenFolderId(),
       createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
@@ -8460,7 +8460,7 @@
         const wp = {
           id, lat: latitude, lng: longitude, name, notes: "",
           code: generateWordCode(latitude, longitude), isCurrentLocation: true,
-          markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍",
+          markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍", folderId: getOpenFolderId(),
           photos: []
         };
         addSavedMarker(wp);
@@ -8908,6 +8908,18 @@
     return getSortKey(a).localeCompare(getSortKey(b), undefined, { numeric: true });
   }
 
+  // Only one folder accordion is ever open at a time -- expanding one
+  // always collapses whichever else was open, so "the open folder" is
+  // never ambiguous (both visually and for auto-assigning new waypoints
+  // below).
+  function setOnlyExpandedFolder(id) {
+    expandedFolderIds.clear();
+    if (id) expandedFolderIds.add(id);
+  }
+  function getOpenFolderId() {
+    return expandedFolderIds.size > 0 ? Array.from(expandedFolderIds)[0] : null;
+  }
+
   function createWaypointFolder(name) {
     const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, createdAt: Date.now(), updatedAt: Date.now() };
     waypointFolders.push(folder);
@@ -8975,7 +8987,7 @@
         if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return;
         const id = header.dataset.id;
         if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
-        if (expandedFolderIds.has(id)) expandedFolderIds.delete(id); else expandedFolderIds.add(id);
+        if (expandedFolderIds.has(id)) setOnlyExpandedFolder(null); else setOnlyExpandedFolder(id);
         renderList();
       });
     });
@@ -9209,6 +9221,38 @@
     listFavoriteFilterBtn.classList.toggle("active", listFavoriteFilter[activePanelTab]);
   }
 
+  // Walks the currently-rendered waypoint list, returning one {name, el}
+  // entry per effectively-visible row -- an ungrouped waypoint contributes
+  // its own name directly; a CLOSED folder contributes its own name, since
+  // only the folder's summary row is actually on screen, not what's inside
+  // it; an OPEN folder instead contributes each of its own visible
+  // waypoints, since those are what the person now sees instead of the
+  // folder's name. Only counts waypoints that are also currently visible
+  // per search/icon/favorite filtering (not hidden via inline display:none).
+  function getAzVisibleEntries() {
+    const entries = [];
+    Array.from(panelList.children).forEach((el) => {
+      if (el.classList.contains("card")) {
+        if (el.style.display === "none") return;
+        const wp = waypoints.find((w) => w.id === el.dataset.id);
+        if (wp) entries.push({ name: wp.name, el });
+      } else if (el.classList.contains("folder-accordion")) {
+        const folder = waypointFolders.find((f) => f.id === el.dataset.folderId);
+        if (!folder) return;
+        if (el.classList.contains("expanded")) {
+          el.querySelectorAll(".folder-accordion-body .card").forEach((cardEl) => {
+            if (cardEl.style.display === "none") return;
+            const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
+            if (wp) entries.push({ name: wp.name, el: cardEl });
+          });
+        } else {
+          entries.push({ name: folder.name, el });
+        }
+      }
+    });
+    return entries;
+  }
+
   // Jumps to the first (alphabetically, matching the sort above) waypoint
   // starting with the tapped letter — same model as the iOS Contacts index:
   // scrolls the existing list into view rather than hiding everything else.
@@ -9220,13 +9264,9 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(panelList.querySelectorAll(".card")).filter((c) => c.style.display !== "none");
-        const targetCard = cards.find((cardEl) => {
-          const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
-          return wp && getIndexLetter(wp.name) === letter;
-        });
-        if (!targetCard) return; // no waypoint for this letter
-        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        const target = getAzVisibleEntries().find((entry) => getIndexLetter(entry.name) === letter);
+        if (!target) return; // no waypoint or folder for this letter
+        target.el.scrollIntoView({ block: "start", behavior: "smooth" });
         btn.classList.add("active");
         setTimeout(() => btn.classList.remove("active"), 500);
       });
@@ -9236,12 +9276,7 @@
   // Dims letters with no current waypoints, so it's clear before tapping
   // whether anything will happen — recomputed whenever the list changes.
   function refreshAzPickerAvailability() {
-    const available = new Set();
-    panelList.querySelectorAll(".card").forEach((cardEl) => {
-      if (cardEl.style.display === "none") return;
-      const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
-      if (wp) available.add(getIndexLetter(wp.name));
-    });
+    const available = new Set(getAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
