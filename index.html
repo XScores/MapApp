@@ -489,10 +489,11 @@
   .folder-accordion{margin-bottom:8px;}
   .folder-accordion-header{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer;
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;}
-  .folder-accordion.expanded .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
+  .folder-accordion.expanded > .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
   .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
+  .folder-accordion-header.selected-for-move{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
-  .folder-accordion.expanded .folder-accordion-chevron{transform:rotate(0deg);}
+  .folder-accordion.expanded > .folder-accordion-header .folder-accordion-chevron{transform:rotate(0deg);}
   .folder-accordion-icon{color:var(--amber-light); flex-shrink:0; display:flex;}
   .folder-accordion-name{flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .folder-accordion-count{flex-shrink:0; font-size:12px; color:var(--text-mute);}
@@ -500,7 +501,7 @@
   .folder-accordion-action:hover{color:var(--text-dim);}
   .folder-accordion-body{display:none; padding:10px; background:rgba(15,23,42,.5); border:1px solid var(--border); border-top:none;
     border-radius:0 0 12px 12px;}
-  .folder-accordion.expanded .folder-accordion-body{display:block; border-color:var(--cyan);}
+  .folder-accordion.expanded > .folder-accordion-body{display:block; border-color:var(--cyan);}
   .folder-accordion-body .card{margin-bottom:8px;}
   .folder-accordion-body .card:last-child{margin-bottom:0;}
   .folder-accordion-empty{font-size:12.5px; color:var(--text-mute); padding:6px 4px;}
@@ -1795,7 +1796,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "249";
+  const APP_VERSION = "252";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1991,6 +1992,7 @@
   let folderRemoveSelectMode = false;
   let editingFolderId = null;
   const selectedWaypointIdsForMove = new Set();
+  const selectedFolderIdsForMove = new Set();
   // Icon filter: null means "show all"; a string key identifies a specific
   // icon (an activity type for routes, or "emoji:<char>"/"pin:<color>" for
   // waypoints). Measurements have no icon filter -- every measurement uses
@@ -7212,6 +7214,7 @@
     waypointFolderCreatePanel.classList.remove("hidden");
     folderCreateNameInput.value = nameValue;
     selectedWaypointIdsForMove.clear();
+    selectedFolderIdsForMove.clear();
     folderCreateSelectMode = false;
     folderRemoveSelectMode = false;
     folderCreateSelectItemsBtn.classList.remove("active");
@@ -7240,6 +7243,7 @@
     folderCreateSelectItemsBtn.classList.remove("active");
     folderCreateRemoveItemsBtn.classList.remove("active");
     selectedWaypointIdsForMove.clear();
+    selectedFolderIdsForMove.clear();
     editingFolderId = null;
     renderList();
   }
@@ -7267,6 +7271,15 @@
     else selectedWaypointIdsForMove.add(id);
     const card = panelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
     if (card) card.classList.toggle("bulk-selected", selectedWaypointIdsForMove.has(id));
+  }
+  // Same idea, for selecting a folder to nest inside the folder currently
+  // being created/edited -- the header gets the same kind of cyan-keyline
+  // highlight as a selected waypoint card.
+  function toggleFolderSelectionForNesting(id) {
+    if (selectedFolderIdsForMove.has(id)) selectedFolderIdsForMove.delete(id);
+    else selectedFolderIdsForMove.add(id);
+    const header = panelList.querySelector('.folder-accordion-header[data-id="' + CSS.escape(id) + '"]');
+    if (header) header.classList.toggle("selected-for-move", selectedFolderIdsForMove.has(id));
   }
   // Removes a waypoint from the folder currently being edited immediately
   // on tap -- unlike Select items/Add items, there's no separate confirm
@@ -7306,11 +7319,20 @@
       if (wp) { wp.folderId = folder.id; wp.updatedAt = Date.now(); }
     });
     if (ids.length > 0) saveWaypoints();
+    const folderIds = Array.from(selectedFolderIdsForMove).filter((id) => id !== folder.id && !folderIsAncestorOf(id, folder.id)); // defensive re-check -- the UI already prevents selecting these, this just guards against stale selection state
+    folderIds.forEach((id) => {
+      const f = waypointFolders.find((ff) => ff.id === id);
+      if (f) { f.parentFolderId = folder.id; f.updatedAt = Date.now(); }
+    });
+    if (folderIds.length > 0) saveWaypointFolders();
     setOnlyExpandedFolder(folder.id); // show it expanded immediately so the newly-grouped items are visible right away; also collapses whichever other folder was open
     closeFolderCreatePanel();
+    const addedParts = [];
+    if (ids.length > 0) addedParts.push(ids.length + (ids.length === 1 ? " waypoint" : " waypoints"));
+    if (folderIds.length > 0) addedParts.push(folderIds.length + (folderIds.length === 1 ? " folder" : " folders"));
     showToast(wasEditing
-      ? 'Updated "' + name + '"' + (ids.length > 0 ? " — added " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") : "")
-      : 'Created "' + name + '"' + (ids.length > 0 ? " with " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") : ""));
+      ? 'Updated "' + name + '"' + (addedParts.length > 0 ? " — added " + addedParts.join(" and ") : "")
+      : 'Created "' + name + '"' + (addedParts.length > 0 ? " with " + addedParts.join(" and ") : ""));
   }
   waypointNewFolderBtn.addEventListener("click", openFolderCreatePanel);
   folderCreateCancelBtn.addEventListener("click", closeFolderCreatePanel);
@@ -7327,6 +7349,21 @@
   // clicking one removes it from that folder immediately.
   panelList.addEventListener("click", (e) => {
     if (folderCreateSelectMode) {
+      const header = e.target.closest(".folder-accordion-header");
+      if (header) {
+        if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return; // let those keep working normally even during select mode
+        const folderId = header.dataset.id;
+        if (folderIsAncestorOf(folderId, editingFolderId)) {
+          e.stopPropagation();
+          e.preventDefault();
+          showToast(folderId === editingFolderId ? "A folder can't be nested inside itself." : "Can't nest a folder inside one of its own subfolders.");
+          return;
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        toggleFolderSelectionForNesting(folderId);
+        return;
+      }
       const card = e.target.closest(".card");
       if (!card) return;
       e.stopPropagation();
@@ -8908,23 +8945,65 @@
     return getSortKey(a).localeCompare(getSortKey(b), undefined, { numeric: true });
   }
 
-  // Only one folder accordion is ever open at a time -- expanding one
-  // always collapses whichever else was open, so "the open folder" is
-  // never ambiguous (both visually and for auto-assigning new waypoints
-  // below).
+  // Only one folder is ever expanded among a given set of siblings (folders
+  // sharing the same parent) at a time -- but expanding a nested folder
+  // also needs its whole chain of ancestors to stay expanded, since a
+  // folder only actually renders while its parent's body is showing;
+  // collapsing an ancestor the moment a descendant opens would make that
+  // descendant disappear immediately.
   function setOnlyExpandedFolder(id) {
-    expandedFolderIds.clear();
-    if (id) expandedFolderIds.add(id);
+    if (!id) return;
+    const folder = waypointFolders.find((f) => f.id === id);
+    const parentId = folder ? folder.parentFolderId || null : null;
+    waypointFolders.forEach((f) => {
+      if ((f.parentFolderId || null) === parentId && f.id !== id) collapseFolderAndDescendants(f.id);
+    });
+    expandedFolderIds.add(id);
+    let current = parentId ? waypointFolders.find((f) => f.id === parentId) : null;
+    while (current) {
+      expandedFolderIds.add(current.id);
+      current = current.parentFolderId ? waypointFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
   }
+  // Collapsing a folder also collapses whatever's expanded underneath it --
+  // otherwise re-expanding it later would unexpectedly "remember" a deep
+  // expand state from a previous session instead of starting fresh.
+  function collapseFolderAndDescendants(id) {
+    expandedFolderIds.delete(id);
+    waypointFolders.filter((f) => f.parentFolderId === id).forEach((child) => collapseFolderAndDescendants(child.id));
+  }
+  // "The open folder" (for auto-assigning new waypoints into) is the
+  // deepest currently-expanded one -- the expanded set can now contain a
+  // whole ancestor chain at once, so this picks out whichever expanded
+  // folder isn't itself the parent of another expanded folder.
   function getOpenFolderId() {
-    return expandedFolderIds.size > 0 ? Array.from(expandedFolderIds)[0] : null;
+    const ids = Array.from(expandedFolderIds);
+    if (ids.length === 0) return null;
+    const deepest = ids.find((id) => !ids.some((otherId) => {
+      const other = waypointFolders.find((f) => f.id === otherId);
+      return other && other.parentFolderId === id;
+    }));
+    return deepest || null;
   }
 
   function createWaypointFolder(name) {
-    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, createdAt: Date.now(), updatedAt: Date.now() };
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, createdAt: Date.now(), updatedAt: Date.now() };
     waypointFolders.push(folder);
     saveWaypointFolders();
     return folder;
+  }
+  // Walks up from folderId through its chain of parents -- if
+  // candidateAncestorId appears anywhere in that chain (including folderId
+  // itself), then nesting candidateAncestorId inside folderId would create
+  // a cycle (a folder that, directly or through some chain of subfolders,
+  // ends up containing itself).
+  function folderIsAncestorOf(candidateAncestorId, folderId) {
+    let current = waypointFolders.find((f) => f.id === folderId);
+    while (current) {
+      if (current.id === candidateAncestorId) return true;
+      current = current.parentFolderId ? waypointFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+    return false;
   }
   function renameWaypointFolder(id, newName) {
     const folder = waypointFolders.find((f) => f.id === id);
@@ -8939,11 +9018,17 @@
   function deleteWaypointFolder(id) {
     const folder = waypointFolders.find((f) => f.id === id);
     if (!folder) return;
+    const childFolderCount = waypointFolders.filter((f) => f.parentFolderId === id).length;
+    const waypointCount = waypoints.filter((w) => w.folderId === id).length;
+    const parts = [];
+    if (waypointCount > 0) parts.push(waypointCount + " waypoint" + (waypointCount === 1 ? "" : "s"));
+    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
     openConfirmModal(
       'Delete "' + folder.name + '"?',
-      "The " + waypoints.filter((w) => w.folderId === id).length + " waypoint(s) inside stay right where they are, just no longer grouped into this folder.",
+      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
       () => {
         waypoints.forEach((w) => { if (w.folderId === id) { w.folderId = null; w.updatedAt = Date.now(); } });
+        waypointFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
         waypointFolders = waypointFolders.filter((f) => f.id !== id);
         expandedFolderIds.delete(id);
         deletedIds.waypointFolders.push(id);
@@ -8963,21 +9048,38 @@
   // it's still in the DOM either way so bindCardEvents' single querySelectorAll
   // pass already covers nested cards without any special-casing).
   function folderAccordionHtml(folder) {
-    const items = waypoints.filter((w) => w.folderId === folder.id).sort((a, b) => compareSortNames(a.name, b.name));
+    const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
+    const items = waypoints.filter((w) => w.folderId === folder.id);
     const expanded = expandedFolderIds.has(folder.id);
+    const selectedForMove = selectedFolderIdsForMove.has(folder.id);
+    const totalCount = childFolders.length + items.length;
+    // Building the body -- recursively, for every nested folder and every
+    // waypoint card -- is real work (thumbnails, buttons, etc. per card).
+    // A collapsed folder's body isn't visible at all, so skip building it
+    // entirely rather than generating HTML nobody will see; this is what
+    // keeps expand/collapse fast even with hundreds of waypoints spread
+    // across many folders, since only the currently-open chain ever gets
+    // rendered.
+    const bodyHtml = expanded
+      ? (() => {
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, html: folderAccordionHtml(f) }))
+            .concat(items.map((w) => ({ name: w.name, html: cardHtml(w) })))
+            .sort((a, b) => compareSortNames(a.name, b.name));
+          return bodyEntries.length === 0
+            ? '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>'
+            : bodyEntries.map((e) => e.html).join("");
+        })()
+      : "";
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
-      '<div class="folder-accordion-header" data-action="folder-toggle" data-id="' + folder.id + '">' +
+      '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
         '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
-        '<span class="folder-accordion-count">' + items.length + "</span>" +
+        '<span class="folder-accordion-count">' + totalCount + "</span>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Rename folder">' + icon("edit", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-delete" data-id="' + folder.id + '" title="Delete folder">' + icon("x", 15) + "</button>" +
       "</div>" +
-      '<div class="folder-accordion-body">' +
-        (items.length === 0
-          ? '<div class="folder-accordion-empty">No waypoints in this folder yet.</div>'
-          : items.map((wp) => cardHtml(wp)).join("")) +
+      '<div class="folder-accordion-body">' + bodyHtml +
       "</div>" +
     "</div>";
   }
@@ -8987,7 +9089,7 @@
         if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return;
         const id = header.dataset.id;
         if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
-        if (expandedFolderIds.has(id)) setOnlyExpandedFolder(null); else setOnlyExpandedFolder(id);
+        if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
         renderList();
       });
     });
@@ -9026,7 +9128,7 @@
     // sorts normally beneath it.
     const ungrouped = waypoints.filter((w) => !w.folderId);
     const editingFolder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
-    const restFolders = waypointFolders.filter((f) => f.id !== editingFolderId);
+    const restFolders = waypointFolders.filter((f) => !f.parentFolderId && f.id !== editingFolderId);
     const restEntries = restFolders.map((f) => ({ name: f.name, html: folderAccordionHtml(f) }))
       .concat(ungrouped.map((w) => ({ name: w.name, html: cardHtml(w) })))
       .sort((a, b) => compareSortNames(a.name, b.name));
@@ -9225,31 +9327,35 @@
   // entry per effectively-visible row -- an ungrouped waypoint contributes
   // its own name directly; a CLOSED folder contributes its own name, since
   // only the folder's summary row is actually on screen, not what's inside
-  // it; an OPEN folder instead contributes each of its own visible
-  // waypoints, since those are what the person now sees instead of the
-  // folder's name. Only counts waypoints that are also currently visible
-  // per search/icon/favorite filtering (not hidden via inline display:none).
+  // it; an OPEN folder instead contributes the entries of whatever's
+  // visible inside it instead (recursively, since a folder can itself
+  // contain further nested folders at any depth) -- each level's own
+  // expand/collapse state is respected independently, so a collapsed
+  // subfolder inside an otherwise-open folder still only contributes its
+  // own name, not what's inside it. Only counts waypoints that are also
+  // currently visible per search/icon/favorite filtering (not hidden via
+  // inline display:none).
   function getAzVisibleEntries() {
     const entries = [];
-    Array.from(panelList.children).forEach((el) => {
-      if (el.classList.contains("card")) {
-        if (el.style.display === "none") return;
-        const wp = waypoints.find((w) => w.id === el.dataset.id);
-        if (wp) entries.push({ name: wp.name, el });
-      } else if (el.classList.contains("folder-accordion")) {
-        const folder = waypointFolders.find((f) => f.id === el.dataset.folderId);
-        if (!folder) return;
-        if (el.classList.contains("expanded")) {
-          el.querySelectorAll(".folder-accordion-body .card").forEach((cardEl) => {
-            if (cardEl.style.display === "none") return;
-            const wp = waypoints.find((w) => w.id === cardEl.dataset.id);
-            if (wp) entries.push({ name: wp.name, el: cardEl });
-          });
-        } else {
-          entries.push({ name: folder.name, el });
+    function walk(containerEl) {
+      Array.from(containerEl.children).forEach((el) => {
+        if (el.classList.contains("card")) {
+          if (el.style.display === "none") return;
+          const wp = waypoints.find((w) => w.id === el.dataset.id);
+          if (wp) entries.push({ name: wp.name, el });
+        } else if (el.classList.contains("folder-accordion")) {
+          const folder = waypointFolders.find((f) => f.id === el.dataset.folderId);
+          if (!folder) return;
+          if (el.classList.contains("expanded")) {
+            const body = Array.from(el.children).find((c) => c.classList.contains("folder-accordion-body"));
+            if (body) walk(body);
+          } else {
+            entries.push({ name: folder.name, el });
+          }
         }
-      }
-    });
+      });
+    }
+    walk(panelList);
     return entries;
   }
 
