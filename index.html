@@ -163,6 +163,8 @@
   .layers-accordion-toggle.open .layers-accordion-chevron{transform:rotate(180deg);}
   .layers-accordion-content{display:none; margin-top:10px;}
   .layers-accordion-content.open{display:block;}
+  .layers-two-col{display:flex; gap:20px;}
+  .layers-two-col > div{flex:1; min-width:0;}
   .weather-snapshot{border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:8px;}
   .weather-snapshot-toggle{padding:2px 0;}
   .weather-snapshot-summary{display:flex; align-items:center; gap:8px; color:var(--text);}
@@ -170,8 +172,6 @@
   .weather-snapshot-summary b{font-size:15px; font-weight:700;}
   .weather-snapshot-desc{font-size:13px; color:var(--text-dim); margin:0 0 2px;}
   .weather-snapshot-date{font-size:12px; color:var(--text-mute); margin:0;}
-  .layers-section.layers-section-accordion{border:1.5px solid rgba(226,232,240,.55) !important; border-radius:10px; padding:10px 12px;
-    background:rgba(255,255,255,.03);}
   .gist-sync-block{margin-top:12px; padding-top:12px; border-top:1px solid #1e293b;}
   .token-input-row{display:flex; align-items:center; gap:6px;}
   .token-input-row .field-input{flex:1; min-width:0;}
@@ -179,6 +179,7 @@
     border:1px solid var(--border); color:var(--text-mute); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
   .token-visibility-btn:hover{color:var(--text-dim); border-color:rgba(245,158,11,.4);}
   .layers-option{display:flex; align-items:center; gap:9px; padding:6px 2px; cursor:pointer; font-size:13px; color:#e2e8f0;}
+  .layers-option > span:last-child{flex:1; min-width:0;}
   .layers-option input{accent-color:var(--cyan); width:15px; height:15px; flex-shrink:0; cursor:pointer;}
   .layers-option .swatch{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
   .layers-option .live-dot{width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0;
@@ -449,6 +450,7 @@
     border-radius:8px; padding:5px 7px; cursor:pointer; color:var(--text-dim); flex-shrink:0;}
   .list-favorite-filter-btn:hover{color:var(--red);}
   .list-favorite-filter-btn.active{color:var(--red); border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.1);}
+  .list-favorite-filter-btn.hidden{display:none;}
   .panel-sync-status{font-size:12px; color:var(--cyan); margin:0; text-align:right; opacity:0; transition:opacity .2s;}
   .panel-sync-status.show{opacity:1;}
   .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
@@ -460,7 +462,7 @@
   .panel-search-clear{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; flex-shrink:0; padding:2px;}
   .panel-search-clear:hover{color:var(--text-dim);}
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
-  .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex;}
+  .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex; flex-direction:column;}
   .panel-list-wrap.hidden{display:none;}
   .panel-list{flex:1; min-width:0; overflow-y:auto; padding:12px; padding-right:34px; display:flex; flex-direction:column; gap:8px;}
   .az-picker{position:absolute; top:0; right:2px; bottom:0; width:24px; display:flex; flex-direction:column;
@@ -473,6 +475,57 @@
   .empty-state{text-align:center; margin-top:60px; padding:0 24px; color:var(--text-mute);}
   .empty-state .icon{color:#334155; margin-bottom:10px;}
   .empty-state p{font-size:13px; margin:0;}
+
+  .folder-create-panel{padding:12px; margin:0 12px 8px; background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.3);
+    border-radius:12px; flex-shrink:0;}
+  .folder-create-panel.hidden{display:none;}
+  .folder-create-panel .field-input{margin-bottom:10px;}
+  .folder-create-panel-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+  .folder-create-panel-row .home-action-btn.hidden{display:none;}
+  .folder-create-panel-row .home-action-btn{flex:1; text-align:center; padding:8px 10px; font-size:12.5px;}
+  .folder-create-panel-row .home-action-btn.active{background:rgba(34,211,238,.18); border-color:var(--cyan); color:var(--text);}
+  .folder-create-panel .btn-row{margin:0;}
+
+  .folder-accordion{margin-bottom:8px;}
+  .folder-accordion-header{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer;
+    background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;}
+  .folder-accordion.expanded .folder-accordion-header{border-radius:12px 12px 0 0; border-bottom-color:transparent;}
+  .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
+  .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
+  .folder-accordion.expanded .folder-accordion-chevron{transform:rotate(0deg);}
+  .folder-accordion-icon{color:var(--amber-light); flex-shrink:0; display:flex;}
+  .folder-accordion-name{flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .folder-accordion-count{flex-shrink:0; font-size:12px; color:var(--text-mute);}
+  .folder-accordion-action{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; padding:4px;}
+  .folder-accordion-action:hover{color:var(--text-dim);}
+  .folder-accordion-body{display:none; padding:10px; background:rgba(15,23,42,.5); border:1px solid var(--border); border-top:none;
+    border-radius:0 0 12px 12px;}
+  .folder-accordion.expanded .folder-accordion-body{display:block;}
+  .folder-accordion-body .card{margin-bottom:8px;}
+  .folder-accordion-body .card:last-child{margin-bottom:0;}
+  .folder-accordion-empty{font-size:12.5px; color:var(--text-mute); padding:6px 4px;}
+
+  .bulk-select-bar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px;
+    margin:0 12px 8px; background:rgba(34,211,238,.1); border:1px solid rgba(34,211,238,.35); border-radius:12px;
+    font-size:13px; color:var(--text-dim); flex-shrink:0;}
+  .bulk-select-bar.hidden{display:none;}
+  .bulk-select-actions{display:flex; gap:8px;}
+  .bulk-select-actions .home-action-btn{padding:6px 12px; font-size:12.5px;}
+  .card-select-checkbox{display:none; flex-shrink:0; width:20px; height:20px; accent-color:var(--cyan); cursor:pointer; margin-right:2px;}
+  .select-mode .card-select-checkbox{display:block;}
+  .select-mode .card-main{pointer-events:none;}
+  .folder-create-select-mode .card{cursor:pointer;}
+  .folder-remove-select-mode .folder-accordion-body .card{cursor:pointer;}
+  .card.bulk-selected{border-color:var(--cyan); box-shadow:0 0 0 2px rgba(34,211,238,.35);}
+
+  .folder-picker-list{display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto;}
+  .folder-picker-row{display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
+    background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13.5px;}
+  .folder-picker-row:hover{border-color:rgba(245,158,11,.35);}
+  .folder-picker-row .icon{flex-shrink:0; color:var(--amber-light); display:flex;}
+  .folder-picker-row span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .folder-picker-new{color:var(--cyan);}
+  .folder-picker-new .icon{color:var(--cyan);}
 
   .card{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:12px; transition:border-color .15s, box-shadow .15s;}
   .card.selected{border-color:var(--amber); box-shadow:0 0 0 2px rgba(245,158,11,.35);}
@@ -741,32 +794,18 @@
           <button class="icon-btn" id="layersPanelCloseBtn"></button>
         </div>
         <div class="layers-panel-body" id="layersViewMain">
-        <div class="layers-section">
-          <p class="layers-section-title">Base map</p>
-          <label class="layers-option"><input type="radio" name="baseLayer" value="street" /><span>Street</span></label>
-          <label class="layers-option"><input type="radio" name="baseLayer" value="satellite" /><span>Satellite</span></label>
-          <label class="layers-option"><input type="radio" name="baseLayer" value="terrain" /><span>Terrain</span></label>
-        </div>
-        <div class="layers-section layers-section-accordion">
-          <button type="button" class="layers-accordion-toggle" id="weatherAccordionToggle">
-            <span class="layers-section-title">Live weather</span>
-            <span class="layers-accordion-chevron" id="weatherAccordionChevron"></span>
-          </button>
-          <div class="layers-accordion-content" id="weatherAccordionContent">
-          <label class="layers-option"><input type="checkbox" id="wxPrecip" /><span class="live-dot"></span><span>Precipitation radar</span></label>
-          <label class="layers-option"><input type="checkbox" id="wxClouds" /><span class="swatch" style="background:#94a3b8"></span><span>Cloud cover</span></label>
-          <label class="layers-option"><input type="checkbox" id="wxTemp" /><span class="swatch" style="background:#f87171"></span><span>Temperature</span></label>
-          <div id="owmKeyPrompt">
-            <p class="layers-hint">Clouds &amp; temperature need a free API key from <a href="https://home.openweathermap.org/users/sign_up" target="_blank" rel="noopener">openweathermap.org</a> specifically — other weather services' keys (e.g. WeatherAPI.com) won't work here.</p>
-            <div class="owm-key-row">
-              <input id="owmKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
-              <button id="owmKeySaveBtn">Save</button>
-            </div>
+        <div class="layers-section layers-two-col">
+          <div>
+            <p class="layers-section-title">Base map</p>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="street" /><span>Street</span></label>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="satellite" /><span>Satellite</span></label>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="terrain" /><span>Terrain</span></label>
           </div>
-          <div id="owmKeySaved" class="owm-key-saved" style="display:none;">
-            <span>OpenWeatherMap key saved</span>
-            <button id="owmKeyForgetBtn">Remove</button>
-          </div>
+          <div>
+            <p class="layers-section-title">Live weather</p>
+            <label class="layers-option"><input type="checkbox" id="wxPrecip" /><span class="live-dot"></span><span>Precipitation radar</span></label>
+            <label class="layers-option"><input type="checkbox" id="wxClouds" /><span class="swatch" style="background:#94a3b8"></span><span>Cloud cover</span></label>
+            <label class="layers-option"><input type="checkbox" id="wxTemp" /><span class="swatch" style="background:#f87171"></span><span>Temperature</span></label>
           </div>
         </div>
         <div class="layers-section">
@@ -838,6 +877,21 @@
             <button class="home-action-btn" id="importAnchorsBtn">Import names</button>
           </div>
           <input type="file" id="importAnchorsFile" accept="application/json" style="display:none;" />
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">OpenWeatherMap API</p>
+          <div id="owmKeyPrompt">
+            <p class="layers-hint">Clouds &amp; temperature (in the main tab's Live weather section) and forecasts need a free API key from <a href="https://home.openweathermap.org/users/sign_up" target="_blank" rel="noopener">openweathermap.org</a> specifically — other weather services' keys (e.g. WeatherAPI.com) won't work here.</p>
+            <div class="owm-key-row">
+              <input id="owmKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
+              <button id="owmKeySaveBtn">Save</button>
+            </div>
+          </div>
+          <div id="owmKeySaved" class="owm-key-saved" style="display:none;">
+            <span>OpenWeatherMap key saved</span>
+            <button id="owmKeyForgetBtn">Remove</button>
+          </div>
         </div>
 
         <div class="layers-section">
@@ -1116,6 +1170,32 @@
     </div>
   </div>
 
+  <!-- text-prompt modal (reusable -- folder create/rename) -->
+  <div class="modal-overlay hidden" id="promptModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2 id="promptModalTitle">Name</h2>
+        <button class="icon-btn" id="promptModalCloseBtn"></button>
+      </div>
+      <input type="text" id="promptModalInput" class="field-input" style="margin-bottom:16px;" autocomplete="off" />
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="promptModalCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="promptModalConfirmBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- folder-picker modal (reusable -- bulk move) -->
+  <div class="modal-overlay hidden" id="folderPickerModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2 id="folderPickerModalTitle">Move to folder</h2>
+        <button class="icon-btn" id="folderPickerModalCloseBtn"></button>
+      </div>
+      <div class="folder-picker-list" id="folderPickerModalList"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="forecastModalOverlay">
     <div class="modal-card forecast-card">
       <div class="modal-header">
@@ -1182,6 +1262,12 @@
       <button type="button" class="list-favorite-filter-btn" id="listFavoriteFilterBtn" title="Show favorites only">
         <span class="icon"></span>
       </button>
+      <button type="button" class="list-favorite-filter-btn" id="waypointSelectModeBtn" title="Select multiple waypoints">
+        <span class="icon"></span>
+      </button>
+      <button type="button" class="list-favorite-filter-btn" id="waypointNewFolderBtn" title="New folder">
+        <span class="icon"></span>
+      </button>
       <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
       <p class="panel-sync-status" id="panelSyncStatus"></p>
     </div>
@@ -1191,6 +1277,25 @@
       <button class="panel-search-clear" id="panelSearchClearBtn" style="display:none;"></button>
     </div>
     <div class="panel-list-wrap" id="panelWaypointsView">
+      <div class="folder-create-panel hidden" id="waypointFolderCreatePanel">
+        <input type="text" id="folderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <div class="folder-create-panel-row">
+          <button type="button" class="home-action-btn" id="folderCreateSelectItemsBtn">Select items</button>
+          <button type="button" class="home-action-btn" id="folderCreateAddItemsBtn">Add items</button>
+          <button type="button" class="home-action-btn hidden" id="folderCreateRemoveItemsBtn">Remove items</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" id="folderCreateCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="folderCreateCreateBtn">Create</button>
+        </div>
+      </div>
+      <div class="bulk-select-bar hidden" id="waypointBulkBar">
+        <span id="waypointBulkCount">0 selected</span>
+        <div class="bulk-select-actions">
+          <button type="button" class="home-action-btn" id="waypointBulkMoveBtn">Move to folder</button>
+          <button type="button" class="home-action-btn" id="waypointBulkCancelBtn">Cancel</button>
+        </div>
+      </div>
       <div class="panel-list" id="panelList"></div>
       <div class="az-picker" id="azPicker"></div>
     </div>
@@ -1322,6 +1427,9 @@
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
     chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>',
     chevronRight: '<polyline points="9 18 15 12 9 6"></polyline>',
+    folder: '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>',
+    folderPlus: '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line>',
+    checkSquare: '<polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
     mapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
     check: '<polyline points="20 6 9 17 4 12"></polyline>',
@@ -1687,11 +1795,12 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "238";
+  const APP_VERSION = "246";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
   const MEASUREMENTS_KEY = "waypoint-saver:measurements";
+  const WAYPOINT_FOLDERS_KEY = "waypoint-saver:waypointFolders";
   const DELETED_IDS_KEY = "waypoint-saver:deletedIds";
 
   // All persisted data now lives in IndexedDB via localForage instead of
@@ -1704,7 +1813,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, weatherAccordionOpen: false, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -1745,7 +1854,8 @@
     return {
       waypoints: Array.isArray(p.waypoints) ? p.waypoints : [],
       rides: Array.isArray(p.rides) ? p.rides : [],
-      measurements: Array.isArray(p.measurements) ? p.measurements : []
+      measurements: Array.isArray(p.measurements) ? p.measurements : [],
+      waypointFolders: Array.isArray(p.waypointFolders) ? p.waypointFolders : []
     };
   }
 
@@ -1765,6 +1875,10 @@
   function saveWaypoints() {
     if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
     dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showErrorToast(describeStorageError(e, "your waypoints")));
+  }
+  function saveWaypointFolders() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your folders")); return; }
+    dataStore.setItem(WAYPOINT_FOLDERS_KEY, waypointFolders).catch((e) => showErrorToast(describeStorageError(e, "your folders")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -1790,7 +1904,7 @@
     try { alreadyMigrated = await dataStore.getItem(MIGRATION_FLAG_KEY); } catch (e) { /* proceed as if not migrated */ }
     if (alreadyMigrated) return;
 
-    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, SETTINGS_KEY, DELETED_IDS_KEY];
+    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, WAYPOINT_FOLDERS_KEY, SETTINGS_KEY, DELETED_IDS_KEY];
     const stringKeys = ["mapapp:githubToken", "mapapp:githubGistId"];
     for (const key of jsonKeys.concat(stringKeys)) {
       try {
@@ -1814,20 +1928,21 @@
 
   async function loadPersistedState() {
     if (!dataStore) {
-      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [] } };
     }
     try {
-      const [w, r, m, s, d] = await Promise.all([
+      const [w, r, m, s, d, wf] = await Promise.all([
         dataStore.getItem(STORAGE_KEY),
         dataStore.getItem(RIDES_KEY),
         dataStore.getItem(MEASUREMENTS_KEY),
         dataStore.getItem(SETTINGS_KEY),
-        dataStore.getItem(DELETED_IDS_KEY)
+        dataStore.getItem(DELETED_IDS_KEY),
+        dataStore.getItem(WAYPOINT_FOLDERS_KEY)
       ]);
-      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
     } catch (e) {
       console.error("[storage] failed to load from IndexedDB", e);
-      return { waypoints: [], rides: [], measurements: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [] } };
     }
   }
 
@@ -1840,6 +1955,7 @@
   let waypoints = _persisted.waypoints;
   let rides = _persisted.rides;
   let measurements = _persisted.measurements;
+  let waypointFolders = _persisted.waypointFolders;
   let settings = _persisted.settings;
   // Tombstones: IDs of waypoints/routes/measurements deliberately deleted on
   // this device. Sync payloads include these so a pull can tell "this ID
@@ -1854,6 +1970,27 @@
   let pendingPhotos = [];
   let selectedWaypointId = null;
   let activePanelTab = "waypoints";
+  // Folder accordion/bulk-select/creation state for the Waypoints tab.
+  // Folders render inline in the main list as expandable accordion rows,
+  // sorted alphabetically alongside ungrouped waypoints -- expandedFolderIds
+  // tracks which ones are currently open. waypointSelectMode is the
+  // standalone "Select" toolbar mode (checkbox-driven, for moving existing
+  // waypoints into a folder); folderCreateSelectMode is a separate,
+  // tap-anywhere-on-the-card mode specific to the inline creation panel
+  // below the search bar, for adding more items into whichever folder the
+  // panel currently concerns. Only one of these selection modes is ever
+  // active at a time. The same panel doubles as an editor for an existing
+  // folder: null means "creating a new folder"; a folder id means the panel
+  // is editing that folder instead (pre-filled name, pinned to the top of
+  // the list, forced expanded). folderRemoveSelectMode is edit-only --
+  // tapping an item already inside the folder being edited removes it
+  // immediately, rather than staging a change that needs confirming.
+  const expandedFolderIds = new Set();
+  let waypointSelectMode = false;
+  let folderCreateSelectMode = false;
+  let folderRemoveSelectMode = false;
+  let editingFolderId = null;
+  const selectedWaypointIdsForMove = new Set();
   // Icon filter: null means "show all"; a string key identifies a specific
   // icon (an activity type for routes, or "emoji:<char>"/"pin:<color>" for
   // waypoints). Measurements have no icon filter -- every measurement uses
@@ -2013,9 +2150,6 @@
   const wxPrecip = el("wxPrecip");
   const wxClouds = el("wxClouds");
   const wxTemp = el("wxTemp");
-  const weatherAccordionToggle = el("weatherAccordionToggle");
-  const weatherAccordionChevron = el("weatherAccordionChevron");
-  const weatherAccordionContent = el("weatherAccordionContent");
   const precisionHexToggle = el("precisionHexToggle");
   const precisionHexMaxZoomOnlyToggle = el("precisionHexMaxZoomOnlyToggle");
   const adminModeToggle = el("adminModeToggle");
@@ -2109,6 +2243,29 @@
   const confirmModalMessage = el("confirmModalMessage");
   const confirmModalCancelBtn = el("confirmModalCancelBtn");
   const confirmModalConfirmBtn = el("confirmModalConfirmBtn");
+  const promptModalOverlay = el("promptModalOverlay");
+  const promptModalCloseBtn = el("promptModalCloseBtn");
+  const promptModalTitle = el("promptModalTitle");
+  const promptModalInput = el("promptModalInput");
+  const promptModalCancelBtn = el("promptModalCancelBtn");
+  const promptModalConfirmBtn = el("promptModalConfirmBtn");
+  const folderPickerModalOverlay = el("folderPickerModalOverlay");
+  const folderPickerModalCloseBtn = el("folderPickerModalCloseBtn");
+  const folderPickerModalTitle = el("folderPickerModalTitle");
+  const folderPickerModalList = el("folderPickerModalList");
+  const waypointFolderCreatePanel = el("waypointFolderCreatePanel");
+  const folderCreateNameInput = el("folderCreateNameInput");
+  const folderCreateSelectItemsBtn = el("folderCreateSelectItemsBtn");
+  const folderCreateAddItemsBtn = el("folderCreateAddItemsBtn");
+  const folderCreateRemoveItemsBtn = el("folderCreateRemoveItemsBtn");
+  const folderCreateCancelBtn = el("folderCreateCancelBtn");
+  const folderCreateCreateBtn = el("folderCreateCreateBtn");
+  const waypointSelectModeBtn = el("waypointSelectModeBtn");
+  const waypointNewFolderBtn = el("waypointNewFolderBtn");
+  const waypointBulkBar = el("waypointBulkBar");
+  const waypointBulkCount = el("waypointBulkCount");
+  const waypointBulkMoveBtn = el("waypointBulkMoveBtn");
+  const waypointBulkCancelBtn = el("waypointBulkCancelBtn");
   const forecastModalOverlay = el("forecastModalOverlay");
   const forecastModalCloseBtn = el("forecastModalCloseBtn");
   const forecastModalTitle = el("forecastModalTitle");
@@ -2210,7 +2367,6 @@
   voiceCaptureIcon.innerHTML = icon("mic", 13);
   syncSuggestionIcon.innerHTML = icon("cloudDownload", 18);
   syncSuggestionDismissBtn.innerHTML = icon("x", 13);
-  weatherAccordionChevron.innerHTML = icon("chevronDown", 14);
   gistTokenVisibilityBtn.innerHTML = icon("eye", 15);
   homeBtn.innerHTML = icon("home", 18);
   layersToggleBtn.innerHTML = icon("layers", 18);
@@ -2221,6 +2377,10 @@
   modalCloseBtn.innerHTML = icon("x", 18);
   anchorModalCloseBtn.innerHTML = icon("x", 18);
   confirmModalCloseBtn.innerHTML = icon("x", 18);
+  promptModalCloseBtn.innerHTML = icon("x", 18);
+  folderPickerModalCloseBtn.innerHTML = icon("x", 18);
+  waypointSelectModeBtn.querySelector(".icon").innerHTML = icon("checkSquare", 15);
+  waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
   toastCloseBtn.innerHTML = icon("x", 15);
@@ -2308,6 +2468,76 @@
     closeConfirmModal();
     if (cb) cb();
   });
+
+  // Reusable single-text-field modal -- used for both "New folder" (empty
+  // initial value) and "Rename folder" (pre-filled with the current name).
+  // onConfirm receives the trimmed, non-empty text; a blank submission is
+  // treated the same as Cancel, since an unnamed folder isn't useful and
+  // silently falling back to a placeholder name would be more confusing
+  // than just not creating anything.
+  let promptModalCallback = null;
+  function openPromptModal(title, initialValue, confirmLabel, onConfirm) {
+    promptModalTitle.textContent = title;
+    promptModalInput.value = initialValue || "";
+    promptModalConfirmBtn.textContent = confirmLabel || "Save";
+    promptModalCallback = onConfirm;
+    promptModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => { promptModalInput.focus(); promptModalInput.select(); }, 30);
+  }
+  function closePromptModal() {
+    promptModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    promptModalCallback = null;
+  }
+  function submitPromptModal() {
+    const value = promptModalInput.value.trim();
+    const cb = promptModalCallback;
+    closePromptModal();
+    if (value && cb) cb(value);
+  }
+  promptModalCloseBtn.addEventListener("click", closePromptModal);
+  promptModalCancelBtn.addEventListener("click", closePromptModal);
+  promptModalConfirmBtn.addEventListener("click", submitPromptModal);
+  promptModalInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitPromptModal(); });
+  promptModalOverlay.addEventListener("click", (e) => { if (e.target === promptModalOverlay) closePromptModal(); });
+
+  // Reusable folder-picker modal -- lists every folder of the given kind as
+  // a tappable row, plus "No folder" (ungroup) and "+ New folder" (which
+  // opens the prompt modal, creates the folder, then immediately resolves
+  // to it -- so moving items into a brand-new folder is one continuous
+  // flow rather than "create it first, then come back and pick it").
+  // onChoose receives the chosen folder's id, or null for "No folder".
+  function openFolderPickerModal(title, folders, onChoose, createFn) {
+    folderPickerModalTitle.textContent = title;
+    const sorted = folders.slice().sort((a, b) => compareSortNames(a.name, b.name));
+    folderPickerModalList.innerHTML =
+      '<div class="folder-picker-row" data-action="pick-none"><span class="icon"></span><span>No folder</span></div>' +
+      sorted.map((f) => '<div class="folder-picker-row" data-action="pick-folder" data-id="' + f.id + '"><span class="icon">' + icon("folder", 16) + '</span><span>' + escapeHtml(f.name) + "</span></div>").join("") +
+      '<div class="folder-picker-row folder-picker-new" data-action="pick-new"><span class="icon">' + icon("plus", 16) + '</span><span>New folder…</span></div>';
+    folderPickerModalList.querySelectorAll("[data-action]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const action = row.dataset.action;
+        if (action === "pick-none") { closeFolderPickerModal(); onChoose(null); }
+        else if (action === "pick-folder") { closeFolderPickerModal(); onChoose(row.dataset.id); }
+        else if (action === "pick-new") {
+          closeFolderPickerModal();
+          openPromptModal("New folder", "", "Create", (name) => {
+            const newFolder = createFn(name);
+            onChoose(newFolder.id);
+          });
+        }
+      });
+    });
+    folderPickerModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeFolderPickerModal() {
+    folderPickerModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  folderPickerModalCloseBtn.addEventListener("click", closeFolderPickerModal);
+  folderPickerModalOverlay.addEventListener("click", (e) => { if (e.target === folderPickerModalOverlay) closeFolderPickerModal(); });
 
   // A plain location.reload() isn't fully reliable for actually fetching a
   // new deployment — the browser can still serve a cached copy of the exact
@@ -3200,17 +3430,6 @@
     }
   }
 
-  function setWeatherAccordionOpen(open) {
-    weatherAccordionToggle.classList.toggle("open", open);
-    weatherAccordionContent.classList.toggle("open", open);
-    settings.weatherAccordionOpen = open;
-    saveSettings();
-  }
-  weatherAccordionToggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    setWeatherAccordionOpen(!weatherAccordionContent.classList.contains("open"));
-  });
-
   /* ---------- Precision hexes: finer H3 grid for the current view ---------- */
   /* Resolution-13 cells (~3.6m, used for actual addressing) can't be drawn      */
   /* globally — there are billions. Instead this shows the same H3 hierarchy    */
@@ -3415,6 +3634,7 @@
       waypoints: JSON.parse(JSON.stringify(waypoints)),
       rides: JSON.parse(JSON.stringify(rides)),
       measurements: JSON.parse(JSON.stringify(measurements)),
+      waypointFolders: JSON.parse(JSON.stringify(waypointFolders)),
       deletedIds: JSON.parse(JSON.stringify(deletedIds)),
       settings: {
         home: settings.home || null,
@@ -3462,6 +3682,7 @@
     const deletedWaypointSet = new Set(deletedIds.waypoints);
     const deletedRideSet = new Set(deletedIds.rides);
     const deletedMeasurementSet = new Set(deletedIds.measurements);
+    const deletedWaypointFolderSet = new Set(deletedIds.waypointFolders);
 
     let remoteWaypointDeletions = 0;
     waypoints.forEach((w) => {
@@ -3485,6 +3706,14 @@
       remoteMeasurementDeletions++;
     });
     if (remoteMeasurementDeletions > 0) measurements = measurements.filter((m) => !deletedMeasurementSet.has(m.id));
+
+    let remoteWaypointFolderDeletions = 0;
+    waypointFolders.forEach((f) => {
+      if (!deletedWaypointFolderSet.has(f.id)) return;
+      waypoints.forEach((w) => { if (w.folderId === f.id) w.folderId = null; }); // ungroup rather than leave pointing at a folder that no longer exists
+      remoteWaypointFolderDeletions++;
+    });
+    if (remoteWaypointFolderDeletions > 0) waypointFolders = waypointFolders.filter((f) => !deletedWaypointFolderSet.has(f.id));
 
     let added = 0, updated = 0, skipped = 0, photosRecovered = 0;
     const toApply = [];
@@ -3592,7 +3821,37 @@
         updated++;
       }
     });
-    if (added > 0 || updated > 0 || photosRecovered > 0 || remoteWaypointDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
+
+    // Waypoint folders are lightweight metadata (id, name, timestamps) --
+    // same additive merge as the collections below, just without any map
+    // layer or visibility state to keep in sync. Runs before the waypoint
+    // save/render conditional just below, since that condition needs to
+    // know whether anything here changed too.
+    let waypointFoldersAdded = 0, waypointFoldersUpdated = 0, waypointFoldersSkipped = 0;
+    if (Array.isArray(payload.waypointFolders)) {
+      payload.waypointFolders.forEach((f) => {
+        if (!f || !f.id || typeof f.name !== "string") { waypointFoldersSkipped++; return; }
+        if (deletedWaypointFolderSet.has(f.id)) { waypointFoldersSkipped++; return; }
+        const existingIndex = waypointFolders.findIndex((existing) => existing.id === f.id);
+        if (existingIndex === -1) {
+          waypointFolders.push(f);
+          waypointFoldersAdded++;
+          return;
+        }
+        const incomingUpdatedAt = f.updatedAt || 0;
+        const existingUpdatedAt = waypointFolders[existingIndex].updatedAt || 0;
+        const bothLackTimestamp = !f.updatedAt && !waypointFolders[existingIndex].updatedAt;
+        if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          waypointFolders[existingIndex] = f;
+          waypointFoldersUpdated++;
+        } else {
+          waypointFoldersSkipped++;
+        }
+      });
+    }
+    if (waypointFoldersAdded > 0 || waypointFoldersUpdated > 0 || remoteWaypointFolderDeletions > 0) saveWaypointFolders();
+
+    if (added > 0 || updated > 0 || photosRecovered > 0 || remoteWaypointDeletions > 0 || waypointFoldersAdded > 0 || waypointFoldersUpdated > 0 || remoteWaypointFolderDeletions > 0) { saveWaypoints(); renderList(); updateCounters(); }
 
     // Older exports/gists predate route syncing, so payload.rides may not
     // exist at all — that's fine, just nothing to merge on that front.
@@ -4612,11 +4871,17 @@
       waypoints.forEach((wp) => addSavedMarker(wp));
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
+      waypointFolders = Array.isArray(payload.waypointFolders) ? payload.waypointFolders.filter((f) => f && f.id && typeof f.name === "string") : [];
       deletedIds = normalizeDeletedIds(payload.deletedIds);
+      // Prune any expanded-accordion state pointing at a folder that no
+      // longer exists after the replace above.
+      const survivingFolderIds = new Set(waypointFolders.map((f) => f.id));
+      Array.from(expandedFolderIds).forEach((id) => { if (!survivingFolderIds.has(id)) expandedFolderIds.delete(id); });
 
       saveWaypoints();
       saveRides();
       saveMeasurements();
+      saveWaypointFolders();
       saveDeletedIds();
       renderList();
       updateCounters();
@@ -4674,8 +4939,6 @@
     if (settings.weather.clouds) { wxClouds.checked = true; toggleOwmLayer("clouds", true); }
     if (settings.weather.temp) { wxTemp.checked = true; toggleOwmLayer("temp", true); }
   }
-  const anyWeatherActive = settings.weather.precip || settings.weather.clouds || settings.weather.temp;
-  setWeatherAccordionOpen(!!settings.weatherAccordionOpen || !!anyWeatherActive);
   precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
   if (settings.precisionHex) precisionHexToggle.checked = true;
   rebuildPrecisionHexes(); // re-evaluates the combined condition for both toggles, whichever is set
@@ -6321,7 +6584,17 @@
     clearMeasureVertexMarkers();
     mapEl.classList.add("measuring-active");
     if (map.doubleClickZoom) map.doubleClickZoom.disable();
-    showToast("Tap the map to start measuring — double-tap to finish.");
+    showMeasureEditBanner({
+      points: measurePoints,
+      hintText: "Tap the map to add points",
+      saveLabel: "Save & Hide",
+      showArea: true,
+      onSave: () => {
+        if (measurePoints.length < 2) { showToast("Tap at least 2 points to measure a distance."); return; }
+        finishMeasuring();
+      },
+      onCancel: cancelMeasuring
+    });
   }
 
   function clearMeasureVertexMarkers() {
@@ -6390,6 +6663,7 @@
     measureHitbox.addLatLng(latlng);
     const vm = L.marker(latlng, { icon: makeDistanceMarkerIcon(measurePoints.length, "#22d3ee") }).addTo(map);
     measureVertexMarkers.push(vm);
+    updateEditLiveTotal(measurePoints, true);
   }
 
   // Relying only on the browser's native dblclick event turned out to be
@@ -6426,6 +6700,7 @@
     if (measureHoverTooltip) { map.removeLayer(measureHoverTooltip); measureHoverTooltip = null; }
     clearMeasureVertexMarkers();
     measurePoints = [];
+    hideMeasureEditBanner();
   }
 
   function finishMeasuring() {
@@ -6444,6 +6719,7 @@
       if (measurePolyline) measurePolyline.setLatLngs(measurePoints.map((p) => [p.lat, p.lng]));
       if (measureHitbox) measureHitbox.setLatLngs(measurePoints.map((p) => [p.lat, p.lng]));
     }
+    hideMeasureEditBanner();
     showMeasureSummaryModal();
   }
 
@@ -6599,17 +6875,17 @@
   function makeMeasureVertexIcon(deletable) {
     return L.divIcon({ html: '<div class="measure-vertex' + (deletable ? " point-edit-vertex-deletable" : "") + '"></div>', className: "wp-div-icon", iconSize: [16, 16], iconAnchor: [8, 8] });
   }
-  function updateEditLiveTotal() {
+  function updateEditLiveTotal(points, showArea) {
     if (!measureEditBanner) return;
     let totalM = 0;
-    for (let i = 0; i < editLivePoints.length - 1; i++) {
-      totalM += haversineMeters(editLivePoints[i].lat, editLivePoints[i].lng, editLivePoints[i + 1].lat, editLivePoints[i + 1].lng);
+    for (let i = 0; i < points.length - 1; i++) {
+      totalM += haversineMeters(points[i].lat, points[i].lng, points[i + 1].lat, points[i + 1].lng);
     }
     measureEditBanner.querySelector(".measure-edit-total").textContent = formatDistance(totalM);
     const areaSpan = measureEditBanner.querySelector(".measure-edit-area");
     // Area only makes sense for a closed-loop measurement, not a route.
-    if (pointEditKind === "measurement" && isClosedLoop(editLivePoints)) {
-      const areaSqMeters = computePolygonAreaSqMeters(editLivePoints);
+    if (showArea && isClosedLoop(points)) {
+      const areaSqMeters = computePolygonAreaSqMeters(points);
       measureEditBanner.querySelector(".measure-edit-area-value").textContent =
         (areaSqMeters >= 100 ? Math.round(areaSqMeters).toLocaleString() : areaSqMeters.toFixed(1)) + " m²";
       areaSpan.classList.remove("hidden");
@@ -6647,7 +6923,7 @@
           editLivePoints[i] = { lat: ll.lat, lng: ll.lng };
           editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
           if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
-          updateEditLiveTotal();
+          updateEditLiveTotal(editLivePoints, pointEditKind === "measurement");
         });
       } else if (pointEditMode === "delete") {
         marker.on("click", (e) => {
@@ -6656,7 +6932,7 @@
           editLivePoints.splice(i, 1);
           editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
           if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
-          updateEditLiveTotal();
+          updateEditLiveTotal(editLivePoints, pointEditKind === "measurement");
           rebuildEditVertexMarkers();
         });
       }
@@ -6670,7 +6946,7 @@
     editLivePoints.splice(segIdx + 1, 0, { lat: latlng.lat, lng: latlng.lng });
     editLivePolyline.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
     if (editPolylineHitbox) editPolylineHitbox.setLatLngs(editLivePoints.map((pt) => [pt.lat, pt.lng]));
-    updateEditLiveTotal();
+    updateEditLiveTotal(editLivePoints, pointEditKind === "measurement");
     rebuildEditVertexMarkers();
   }
   function setPointEditMode(mode) {
@@ -6730,29 +7006,38 @@
 
     pointEditToolbar.classList.remove("hidden");
     setPointEditMode("drag");
-    showMeasureEditBanner();
+    showMeasureEditBanner({ points: editLivePoints, showArea: pointEditKind === "measurement" });
   }
   function startEditingMeasurementPoints(id) { startPointEdit("measurement", id); }
   function startEditingRoutePoints(id) {
     if (rideTracking) { showToast("Stop your current route before editing a saved one."); return; }
     startPointEdit("route", id);
   }
-  function showMeasureEditBanner() {
+  let measureEditBannerCallbacks = { onSave: null, onCancel: null };
+  function showMeasureEditBanner(options) {
+    options = options || {};
     if (!measureEditBanner) {
       measureEditBanner = document.createElement("div");
       measureEditBanner.className = "measure-edit-banner";
       measureEditBanner.innerHTML =
-        '<span>Drag the points to adjust — <b class="measure-edit-total">0.00 km</b><span class="measure-edit-area hidden"> · <b class="measure-edit-area-value"></b></span></span>' +
+        '<span><span class="measure-edit-hint"></span> — <b class="measure-edit-total">0.00 km</b><span class="measure-edit-area hidden"> · <b class="measure-edit-area-value"></b></span></span>' +
         '<div class="measure-edit-banner-actions">' +
           '<button class="btn btn-secondary" id="measureEditCancelBtn">Cancel</button>' +
-          '<button class="btn btn-primary" id="measureEditSaveBtn">Save &amp; Hide</button>' +
+          '<button class="btn btn-primary" id="measureEditSaveBtn"></button>' +
         "</div>";
       document.body.appendChild(measureEditBanner);
-      measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => finishPointEdit(false));
-      measureEditBanner.querySelector("#measureEditSaveBtn").addEventListener("click", () => finishPointEdit(true));
+      measureEditBanner.querySelector("#measureEditCancelBtn").addEventListener("click", () => { if (measureEditBannerCallbacks.onCancel) measureEditBannerCallbacks.onCancel(); });
+      measureEditBanner.querySelector("#measureEditSaveBtn").addEventListener("click", () => { if (measureEditBannerCallbacks.onSave) measureEditBannerCallbacks.onSave(); });
     }
+    measureEditBannerCallbacks.onSave = options.onSave || (() => finishPointEdit(true));
+    measureEditBannerCallbacks.onCancel = options.onCancel || (() => finishPointEdit(false));
+    measureEditBanner.querySelector(".measure-edit-hint").textContent = options.hintText || "Drag the points to adjust";
+    measureEditBanner.querySelector("#measureEditSaveBtn").textContent = options.saveLabel || "Save & Hide";
     measureEditBanner.classList.remove("hidden");
-    updateEditLiveTotal();
+    updateEditLiveTotal(options.points || editLivePoints, options.showArea !== false);
+  }
+  function hideMeasureEditBanner() {
+    if (measureEditBanner) measureEditBanner.classList.add("hidden");
   }
   // Tears down just the point-edit display/state (editable line, vertex
   // markers, toolbar, banner) without deciding whether to save first --
@@ -6880,9 +7165,12 @@
     panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
     routesSearchRow.classList.toggle("hidden", tab !== "routes");
     measurementsSearchRow.classList.toggle("hidden", tab !== "measurements");
+    waypointSelectModeBtn.classList.toggle("hidden", tab !== "waypoints");
+    waypointNewFolderBtn.classList.toggle("hidden", tab !== "waypoints");
     if (tab !== "waypoints") panelNoResults.style.display = "none";
     if (tab !== "routes") routesNoResults.style.display = "none";
     if (tab !== "measurements") measurementsNoResults.style.display = "none";
+    if (tab !== "waypoints" && waypointSelectMode) setWaypointSelectMode(false);
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
     if (tab === "measurements") renderMeasurementsList();
@@ -6891,6 +7179,188 @@
   panelTabWaypoints.addEventListener("click", () => switchPanelTab("waypoints"));
   panelTabRoutes.addEventListener("click", () => switchPanelTab("routes"));
   panelTabMeasurements.addEventListener("click", () => switchPanelTab("measurements"));
+
+  // Bulk-select mode for waypoints: shows a checkbox on every card (CSS-driven
+  // via the .select-mode class on panelList) and a bulk-action bar with a
+  // running count. Exiting (either explicitly via Cancel, or implicitly by
+  // leaving the tab) always clears the selection, since a stale selection
+  // silently carried into a later session would be confusing and easy to
+  // act on by accident.
+  function setWaypointSelectMode(on) {
+    waypointSelectMode = on;
+    waypointSelectModeBtn.classList.toggle("active", on);
+    if (on && !waypointFolderCreatePanel.classList.contains("hidden")) closeFolderCreatePanel();
+    if (!on) selectedWaypointIdsForMove.clear();
+    renderList();
+    updateWaypointBulkBar();
+  }
+  function updateWaypointBulkBar() {
+    const count = selectedWaypointIdsForMove.size;
+    waypointBulkBar.classList.toggle("hidden", !waypointSelectMode);
+    waypointBulkCount.textContent = count + (count === 1 ? " selected" : " selected");
+    waypointBulkMoveBtn.disabled = count === 0;
+  }
+  waypointSelectModeBtn.addEventListener("click", () => setWaypointSelectMode(!waypointSelectMode));
+
+  // Shared setup for both entry points below -- resets the panel to a
+  // clean state and shows it. Doesn't itself re-render the list (nothing
+  // about the list changes just by opening the panel to create a new,
+  // not-yet-existing folder); openFolderEditPanel re-renders separately
+  // once editingFolderId is set, since that's what pins the target folder.
+  function showFolderPanel(nameValue) {
+    if (waypointSelectMode) setWaypointSelectMode(false); // only one selection mode active at a time
+    waypointFolderCreatePanel.classList.remove("hidden");
+    folderCreateNameInput.value = nameValue;
+    selectedWaypointIdsForMove.clear();
+    folderCreateSelectMode = false;
+    folderRemoveSelectMode = false;
+    folderCreateSelectItemsBtn.classList.remove("active");
+    folderCreateRemoveItemsBtn.classList.remove("active");
+    folderCreateRemoveItemsBtn.classList.toggle("hidden", !editingFolderId); // nothing to remove from a folder that doesn't exist yet
+    folderCreateCreateBtn.textContent = editingFolderId ? "Save" : "Create";
+    setTimeout(() => { folderCreateNameInput.focus(); folderCreateNameInput.select(); }, 30);
+  }
+  function openFolderCreatePanel() {
+    editingFolderId = null;
+    showFolderPanel("");
+  }
+  function openFolderEditPanel(folderId) {
+    const folder = waypointFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    editingFolderId = folderId;
+    expandedFolderIds.add(folderId); // stays expanded for the duration of editing, so Remove items has something visible to act on
+    showFolderPanel(folder.name);
+    renderList(); // pins this folder to the top of the list, directly under the search bar/panel
+    panelList.scrollTop = 0; // in case the list was already scrolled down when Edit was clicked
+  }
+  function closeFolderCreatePanel() {
+    waypointFolderCreatePanel.classList.add("hidden");
+    folderCreateSelectMode = false;
+    folderRemoveSelectMode = false;
+    folderCreateSelectItemsBtn.classList.remove("active");
+    folderCreateRemoveItemsBtn.classList.remove("active");
+    selectedWaypointIdsForMove.clear();
+    editingFolderId = null;
+    renderList();
+  }
+  // The two panel-scoped selection modes are mutually exclusive -- turning
+  // one on turns the other off, same principle as the standalone Select
+  // mode excluding both of these (and vice versa) above.
+  function setFolderCreateSelectMode(on) {
+    folderCreateSelectMode = on;
+    if (on) folderRemoveSelectMode = false;
+    folderCreateSelectItemsBtn.classList.toggle("active", on);
+    folderCreateRemoveItemsBtn.classList.toggle("active", folderRemoveSelectMode);
+    renderList(); // refreshes each card's selection border and the .folder-create-select-mode class on panelList
+  }
+  function setFolderRemoveSelectMode(on) {
+    folderRemoveSelectMode = on;
+    if (on) folderCreateSelectMode = false;
+    folderCreateRemoveItemsBtn.classList.toggle("active", on);
+    folderCreateSelectItemsBtn.classList.toggle("active", folderCreateSelectMode);
+    renderList();
+  }
+  // Toggles a single card's membership in the pending-folder selection --
+  // shared by the capture-phase "click anywhere on the card" handler below.
+  function toggleFolderCreateSelection(id) {
+    if (selectedWaypointIdsForMove.has(id)) selectedWaypointIdsForMove.delete(id);
+    else selectedWaypointIdsForMove.add(id);
+    const card = panelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
+    if (card) card.classList.toggle("bulk-selected", selectedWaypointIdsForMove.has(id));
+  }
+  // Removes a waypoint from the folder currently being edited immediately
+  // on tap -- unlike Select items/Add items, there's no separate confirm
+  // step here, since removing something the person just pointed at is
+  // low-risk and easily reversible (Select items + Add items again).
+  function removeWaypointFromEditingFolder(id) {
+    const wp = waypoints.find((w) => w.id === id);
+    if (!wp) return;
+    wp.folderId = null;
+    wp.updatedAt = Date.now();
+    saveWaypoints();
+    renderList();
+  }
+  // "Add items" and "Create"/"Save" are intentionally the same action --
+  // both finalize the folder with whatever's currently selected (zero or
+  // more; an empty folder is still valid, since items can always be added
+  // or moved in later). Having both lets the person confirm right where
+  // they're already looking after selecting, without needing to find the
+  // Create/Save button specifically. When editing, this also renames the
+  // folder if the name field changed, folding the old standalone rename
+  // flow into this same panel.
+  function finalizeFolderCreate() {
+    const name = folderCreateNameInput.value.trim();
+    if (!name) { showToast("Give the folder a name first."); folderCreateNameInput.focus(); return; }
+    let folder;
+    const wasEditing = !!editingFolderId;
+    if (wasEditing) {
+      folder = waypointFolders.find((f) => f.id === editingFolderId);
+      if (!folder) { closeFolderCreatePanel(); return; } // deleted elsewhere mid-edit (e.g. synced from another device) -- nothing left to save
+      if (folder.name !== name) renameWaypointFolder(folder.id, name);
+    } else {
+      folder = createWaypointFolder(name);
+    }
+    const ids = Array.from(selectedWaypointIdsForMove);
+    ids.forEach((id) => {
+      const wp = waypoints.find((w) => w.id === id);
+      if (wp) { wp.folderId = folder.id; wp.updatedAt = Date.now(); }
+    });
+    if (ids.length > 0) saveWaypoints();
+    expandedFolderIds.add(folder.id); // show it expanded immediately so the newly-grouped items are visible right away
+    closeFolderCreatePanel();
+    showToast(wasEditing
+      ? 'Updated "' + name + '"' + (ids.length > 0 ? " — added " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") : "")
+      : 'Created "' + name + '"' + (ids.length > 0 ? " with " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") : ""));
+  }
+  waypointNewFolderBtn.addEventListener("click", openFolderCreatePanel);
+  folderCreateCancelBtn.addEventListener("click", closeFolderCreatePanel);
+  folderCreateSelectItemsBtn.addEventListener("click", () => setFolderCreateSelectMode(!folderCreateSelectMode));
+  folderCreateRemoveItemsBtn.addEventListener("click", () => setFolderRemoveSelectMode(!folderRemoveSelectMode));
+  folderCreateAddItemsBtn.addEventListener("click", finalizeFolderCreate);
+  folderCreateCreateBtn.addEventListener("click", finalizeFolderCreate);
+  // A single delegated, capture-phase listener (wired once, not re-wired on
+  // every render) covering both panel-scoped selection modes. While
+  // folderCreateSelectMode is active, clicking anywhere on any card toggles
+  // its (staged) selection, matching "clicking anywhere on an item toggles
+  // its selection state" exactly. While folderRemoveSelectMode is active,
+  // only cards inside the folder currently being edited are live --
+  // clicking one removes it from that folder immediately.
+  panelList.addEventListener("click", (e) => {
+    if (folderCreateSelectMode) {
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      toggleFolderCreateSelection(card.dataset.id);
+      return;
+    }
+    if (folderRemoveSelectMode && editingFolderId) {
+      const body = e.target.closest('.folder-accordion[data-folder-id="' + editingFolderId + '"] .folder-accordion-body');
+      if (!body) return;
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      removeWaypointFromEditingFolder(card.dataset.id);
+    }
+  }, true);
+
+  waypointBulkCancelBtn.addEventListener("click", () => setWaypointSelectMode(false));
+  waypointBulkMoveBtn.addEventListener("click", () => {
+    if (selectedWaypointIdsForMove.size === 0) return;
+    const count = selectedWaypointIdsForMove.size;
+    openFolderPickerModal("Move " + count + (count === 1 ? " waypoint" : " waypoints") + " to…", waypointFolders, (folderId) => {
+      const ids = Array.from(selectedWaypointIdsForMove);
+      ids.forEach((id) => {
+        const wp = waypoints.find((w) => w.id === id);
+        if (wp) { wp.folderId = folderId; wp.updatedAt = Date.now(); }
+      });
+      saveWaypoints();
+      setWaypointSelectMode(false);
+      const destFolder = folderId ? waypointFolders.find((f) => f.id === folderId) : null;
+      showToast("Moved " + ids.length + (ids.length === 1 ? " waypoint" : " waypoints") + (destFolder ? ' to "' + destFolder.name + '"' : " out of their folder"));
+    }, createWaypointFolder);
+  });
 
   function renderRoutesList() {
     updatePanelSubtitle();
@@ -8438,22 +8908,120 @@
     return getSortKey(a).localeCompare(getSortKey(b), undefined, { numeric: true });
   }
 
+  function createWaypointFolder(name) {
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, createdAt: Date.now(), updatedAt: Date.now() };
+    waypointFolders.push(folder);
+    saveWaypointFolders();
+    return folder;
+  }
+  function renameWaypointFolder(id, newName) {
+    const folder = waypointFolders.find((f) => f.id === id);
+    if (!folder) return;
+    folder.name = newName;
+    folder.updatedAt = Date.now();
+    saveWaypointFolders();
+  }
+  // Ungroups every waypoint that was in this folder rather than deleting
+  // them -- a folder is just an organizational grouping, so removing it
+  // should never take the waypoints themselves down with it.
+  function deleteWaypointFolder(id) {
+    const folder = waypointFolders.find((f) => f.id === id);
+    if (!folder) return;
+    openConfirmModal(
+      'Delete "' + folder.name + '"?',
+      "The " + waypoints.filter((w) => w.folderId === id).length + " waypoint(s) inside stay right where they are, just no longer grouped into this folder.",
+      () => {
+        waypoints.forEach((w) => { if (w.folderId === id) { w.folderId = null; w.updatedAt = Date.now(); } });
+        waypointFolders = waypointFolders.filter((f) => f.id !== id);
+        expandedFolderIds.delete(id);
+        deletedIds.waypointFolders.push(id);
+        saveDeletedIds();
+        saveWaypointFolders();
+        saveWaypoints();
+        if (editingFolderId === id) closeFolderCreatePanel(); else renderList();
+        showToast('Deleted "' + folder.name + '"');
+      },
+      { confirmLabel: "Delete" }
+    );
+  }
+
+  // Renders one folder as an accordion row: header (chevron, name, count,
+  // rename/delete) plus its body (that folder's waypoints, only actually
+  // shown once expanded -- CSS keeps the collapsed body out of view, but
+  // it's still in the DOM either way so bindCardEvents' single querySelectorAll
+  // pass already covers nested cards without any special-casing).
+  function folderAccordionHtml(folder) {
+    const items = waypoints.filter((w) => w.folderId === folder.id).sort((a, b) => compareSortNames(a.name, b.name));
+    const expanded = expandedFolderIds.has(folder.id);
+    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
+      '<div class="folder-accordion-header" data-action="folder-toggle" data-id="' + folder.id + '">' +
+        '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
+        '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
+        '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
+        '<span class="folder-accordion-count">' + items.length + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Rename folder">' + icon("edit", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-delete" data-id="' + folder.id + '" title="Delete folder">' + icon("x", 15) + "</button>" +
+      "</div>" +
+      '<div class="folder-accordion-body">' +
+        (items.length === 0
+          ? '<div class="folder-accordion-empty">No waypoints in this folder yet.</div>'
+          : items.map((wp) => cardHtml(wp)).join("")) +
+      "</div>" +
+    "</div>";
+  }
+  function bindFolderAccordionEvents() {
+    panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
+      header.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return;
+        const id = header.dataset.id;
+        if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
+        if (expandedFolderIds.has(id)) expandedFolderIds.delete(id); else expandedFolderIds.add(id);
+        renderList();
+      });
+    });
+    panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
+    });
+    panelList.querySelectorAll('[data-action="folder-delete"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); deleteWaypointFolder(btn.dataset.id); });
+    });
+  }
+
   function renderList() {
     // Safety net: if a drag-in-progress ghost is somehow still on screen
     // (e.g. an unrelated background render interrupted a drag between
     // pointer events), clear it before rebuilding the list so it can never
     // look like a duplicated photo.
     document.querySelectorAll(".thumb-drag-ghost").forEach((g) => g.remove());
-    if (waypoints.length === 0) {
+    updatePanelSubtitle();
+    panelList.classList.toggle("select-mode", waypointSelectMode);
+    panelList.classList.toggle("folder-create-select-mode", folderCreateSelectMode);
+    panelList.classList.toggle("folder-remove-select-mode", folderRemoveSelectMode);
+    if (waypoints.length === 0 && waypointFolders.length === 0) {
       panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
         "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
       panelNoResults.style.display = "none";
       refreshListFilterControls();
       return;
     }
-    const sorted = waypoints.slice().sort((a, b) => compareSortNames(a.name, b.name));
-    panelList.innerHTML = sorted.map((wp) => cardHtml(wp)).join("");
+    // A single, unified, alphabetically-sorted list -- a folder accordion
+    // and an ungrouped waypoint are sorted together by name, so a folder
+    // sits exactly where its name would put it among the waypoints
+    // themselves, rather than being pulled out into a separate section.
+    // Exception: the folder currently being edited (if any) is pinned to
+    // the very front, ahead of this sort, so it sits directly under the
+    // search bar/panel regardless of its name -- everything else still
+    // sorts normally beneath it.
+    const ungrouped = waypoints.filter((w) => !w.folderId);
+    const editingFolder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
+    const restFolders = waypointFolders.filter((f) => f.id !== editingFolderId);
+    const restEntries = restFolders.map((f) => ({ name: f.name, html: folderAccordionHtml(f) }))
+      .concat(ungrouped.map((w) => ({ name: w.name, html: cardHtml(w) })))
+      .sort((a, b) => compareSortNames(a.name, b.name));
+    const entries = editingFolder ? [{ name: editingFolder.name, html: folderAccordionHtml(editingFolder) }].concat(restEntries) : restEntries;
+    panelList.innerHTML = entries.map((e) => e.html).join("");
     bindCardEvents();
+    bindFolderAccordionEvents();
     refreshListFilterControls();
     applyWaypointSearchFilter();
     refreshAzPickerAvailability();
@@ -8698,8 +9266,9 @@
 
   function cardHtml(wp) {
     return (
-      '<div class="card" data-id="' + wp.id + '">' +
+      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + '" data-id="' + wp.id + '">' +
         '<div class="card-top">' +
+          '<input type="checkbox" class="card-select-checkbox" data-id="' + wp.id + '"' + (selectedWaypointIdsForMove.has(wp.id) ? " checked" : "") + " />" +
           '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
             cardIconHtml(wp) +
             '<div style="min-width:0; flex:1;">' +
@@ -8862,6 +9431,16 @@
       const stillCard = panelList.querySelector('.card[data-id="' + CSS.escape(selectedWaypointId) + '"]');
       if (stillCard) stillCard.classList.add("selected");
     }
+    panelList.querySelectorAll(".card-select-checkbox").forEach((cb) => {
+      cb.addEventListener("click", (e) => e.stopPropagation());
+      cb.addEventListener("change", () => {
+        const id = cb.dataset.id;
+        if (cb.checked) selectedWaypointIdsForMove.add(id);
+        else selectedWaypointIdsForMove.delete(id);
+        cb.closest(".card").classList.toggle("bulk-selected", cb.checked);
+        updateWaypointBulkBar();
+      });
+    });
   }
 
   // Mirrors how paste works in the New/Edit Waypoint modal: one document-level
