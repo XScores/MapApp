@@ -1800,7 +1800,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "253";
+  const APP_VERSION = "254";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -9119,12 +9119,24 @@
   // shown once expanded -- CSS keeps the collapsed body out of view, but
   // it's still in the DOM either way so bindCardEvents' single querySelectorAll
   // pass already covers nested cards without any special-casing).
+  // Total waypoints inside a folder, including everything nested inside
+  // any of its subfolders at any depth -- a folder's own count badge
+  // should reflect what's actually inside it, not just how many direct
+  // children (of either kind) it has.
+  function countWaypointsInFolder(folderId) {
+    let count = waypoints.filter((w) => w.folderId === folderId).length;
+    waypointFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => {
+      count += countWaypointsInFolder(child.id);
+    });
+    return count;
+  }
+
   function folderAccordionHtml(folder) {
     const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = waypoints.filter((w) => w.folderId === folder.id);
     const expanded = expandedFolderIds.has(folder.id);
     const selectedForMove = selectedFolderIdsForMove.has(folder.id);
-    const totalCount = childFolders.length + items.length;
+    const totalCount = countWaypointsInFolder(folder.id);
     // Building the body -- recursively, for every nested folder and every
     // waypoint card -- is real work (thumbnails, buttons, etc. per card).
     // A collapsed folder's body isn't visible at all, so skip building it
