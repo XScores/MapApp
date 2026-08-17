@@ -409,6 +409,7 @@
   .modal-card .btn-row{position:sticky; bottom:-20px; margin:16px -20px -20px; padding:12px 20px 20px;
     background:var(--surface); z-index:2;}
   .btn{flex:1; padding:11px; border-radius:10px; font-size:14px; text-align:center; cursor:pointer; border:1px solid transparent;}
+  .btn.hidden{display:none;}
   .btn-secondary{border-color:var(--border); color:#cbd5e1; background:transparent;}
   .btn-secondary:hover{background:var(--surface-2);}
   .btn-primary{background:var(--amber); color:#020617; font-weight:600; border:none;}
@@ -556,8 +557,6 @@
   .card-camera:hover{color:var(--cyan);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
-  .card-delete{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
-  .card-delete:hover{color:var(--red);}
   .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
   .card-codes .code-badge{font-size:10px; padding:3px 6px;}
   .card-copy-code{margin-left:auto; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
@@ -1053,6 +1052,7 @@
       <div id="modalWeatherContainer"></div>
 
       <div class="btn-row">
+        <button class="btn btn-danger hidden" id="deleteWaypointBtn">Delete</button>
         <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
         <button class="btn btn-primary" id="saveBtn">Save waypoint</button>
       </div>
@@ -1201,6 +1201,16 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="shareModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2>Share</h2>
+        <button class="icon-btn" id="shareModalCloseBtn"></button>
+      </div>
+      <div class="folder-picker-list" id="shareModalList"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="forecastModalOverlay">
     <div class="modal-card forecast-card">
       <div class="modal-header">
@@ -1290,6 +1300,7 @@
           <button type="button" class="home-action-btn hidden" id="folderCreateRemoveItemsBtn">Remove items</button>
         </div>
         <div class="btn-row">
+          <button type="button" class="btn btn-danger hidden" id="folderCreateDeleteBtn">Delete</button>
           <button type="button" class="btn btn-secondary" id="folderCreateCancelBtn">Cancel</button>
           <button type="button" class="btn btn-primary" id="folderCreateCreateBtn">Create</button>
         </div>
@@ -1452,6 +1463,8 @@
     boat: '<path d="M3 17h18l-2 4H5z"></path><path d="M12 17V3"></path><path d="M12 4l7 9-7 2z"></path>',
     expand: '<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>',
     camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>',
+    music: '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
+    message: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>',
     chevronDown: '<polyline points="6 9 12 15 18 9"></polyline>',
     eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
     eyeOff: '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
@@ -1800,7 +1813,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "254";
+  const APP_VERSION = "265";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2259,11 +2272,15 @@
   const folderPickerModalCloseBtn = el("folderPickerModalCloseBtn");
   const folderPickerModalTitle = el("folderPickerModalTitle");
   const folderPickerModalList = el("folderPickerModalList");
+  const shareModalOverlay = el("shareModalOverlay");
+  const shareModalCloseBtn = el("shareModalCloseBtn");
+  const shareModalList = el("shareModalList");
   const waypointFolderCreatePanel = el("waypointFolderCreatePanel");
   const folderCreateNameInput = el("folderCreateNameInput");
   const folderCreateSelectItemsBtn = el("folderCreateSelectItemsBtn");
   const folderCreateAddItemsBtn = el("folderCreateAddItemsBtn");
   const folderCreateRemoveItemsBtn = el("folderCreateRemoveItemsBtn");
+  const folderCreateDeleteBtn = el("folderCreateDeleteBtn");
   const folderCreateCancelBtn = el("folderCreateCancelBtn");
   const folderCreateCreateBtn = el("folderCreateCreateBtn");
   const waypointSelectModeBtn = el("waypointSelectModeBtn");
@@ -2300,6 +2317,7 @@
   const pointEditDeleteBtn = el("pointEditDeleteBtn");
   const measureViewCloseBtn = el("measureViewCloseBtn");
   const micBtn = el("micBtn");
+  const deleteWaypointBtn = el("deleteWaypointBtn");
   const cancelBtn = el("cancelBtn");
   const saveBtn = el("saveBtn");
   const modalCloseBtn = el("modalCloseBtn");
@@ -2385,6 +2403,7 @@
   confirmModalCloseBtn.innerHTML = icon("x", 18);
   promptModalCloseBtn.innerHTML = icon("x", 18);
   folderPickerModalCloseBtn.innerHTML = icon("x", 18);
+  shareModalCloseBtn.innerHTML = icon("x", 18);
   waypointSelectModeBtn.querySelector(".icon").innerHTML = icon("checkSquare", 15);
   waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
   measureModalCloseBtn.innerHTML = icon("x", 18);
@@ -2544,6 +2563,37 @@
   }
   folderPickerModalCloseBtn.addEventListener("click", closeFolderPickerModal);
   folderPickerModalOverlay.addEventListener("click", (e) => { if (e.target === folderPickerModalOverlay) closeFolderPickerModal(); });
+
+  // The "Share" button opens this list rather than going straight to the
+  // system share sheet -- Instagram and TikTok are called out explicitly so
+  // they're easy to find and get their own tailored follow-up toast (see
+  // shareWaypoint), while "More sharing options" is the plain system sheet
+  // with no platform-specific hint, same as the original Share behavior.
+  function openShareModal(wp) {
+    shareModalList.innerHTML =
+      '<div class="folder-picker-row" data-action="share-messages"><span class="icon">' + icon("message", 16) + '</span><span>Messages</span></div>' +
+      '<div class="folder-picker-row" data-action="share-instagram"><span class="icon">' + icon("camera", 16) + '</span><span>Instagram</span></div>' +
+      '<div class="folder-picker-row" data-action="share-tiktok"><span class="icon">' + icon("music", 16) + '</span><span>TikTok</span></div>' +
+      '<div class="folder-picker-row" data-action="share-more"><span class="icon">' + icon("share", 16) + '</span><span>More sharing options</span></div>';
+    shareModalList.querySelectorAll("[data-action]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const action = row.dataset.action;
+        closeShareModal();
+        if (action === "share-messages") shareWaypoint(wp, "Messages");
+        else if (action === "share-instagram") shareWaypoint(wp, "Instagram");
+        else if (action === "share-tiktok") shareWaypoint(wp, "TikTok");
+        else shareWaypoint(wp);
+      });
+    });
+    shareModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeShareModal() {
+    shareModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  shareModalCloseBtn.addEventListener("click", closeShareModal);
+  shareModalOverlay.addEventListener("click", (e) => { if (e.target === shareModalOverlay) closeShareModal(); });
 
   // A plain location.reload() isn't fully reliable for actually fetching a
   // new deployment — the browser can still serve a cached copy of the exact
@@ -3189,6 +3239,7 @@
   function openHomeEditModal(overrideLat, overrideLng) {
     editingHomeMode = true;
     editingWaypointId = null;
+    deleteWaypointBtn.classList.add("hidden");
     if (homeMarker) map.removeLayer(homeMarker); // avoid a duplicate marker while the live preview is shown
 
     const h = settings.home;
@@ -3677,7 +3728,7 @@
     // preventing that one device from resurrecting its own deletion.
     const incomingDeleted = payload.deletedIds && typeof payload.deletedIds === "object" ? payload.deletedIds : {};
     let tombstonesChanged = false;
-    ["waypoints", "rides", "measurements"].forEach((kind) => {
+    ["waypoints", "rides", "measurements", "waypointFolders"].forEach((kind) => {
       const incomingIds = Array.isArray(incomingDeleted[kind]) ? incomingDeleted[kind] : [];
       incomingIds.forEach((id) => {
         if (!deletedIds[kind].includes(id)) { deletedIds[kind].push(id); tombstonesChanged = true; }
@@ -3716,7 +3767,9 @@
     let remoteWaypointFolderDeletions = 0;
     waypointFolders.forEach((f) => {
       if (!deletedWaypointFolderSet.has(f.id)) return;
-      waypoints.forEach((w) => { if (w.folderId === f.id) w.folderId = null; }); // ungroup rather than leave pointing at a folder that no longer exists
+      waypoints.forEach((w) => { if (w.folderId === f.id) { w.folderId = null; w.updatedAt = Date.now(); } }); // ungroup rather than leave pointing at a folder that no longer exists
+      waypointFolders.forEach((child) => { if (child.parentFolderId === f.id) { child.parentFolderId = null; child.updatedAt = Date.now(); } }); // promote child folders too -- otherwise they're left with a dangling parent reference and become unreachable in the render tree entirely (neither top-level nor nested under anything real)
+      expandedFolderIds.delete(f.id);
       remoteWaypointFolderDeletions++;
     });
     if (remoteWaypointFolderDeletions > 0) waypointFolders = waypointFolders.filter((f) => !deletedWaypointFolderSet.has(f.id));
@@ -7224,6 +7277,7 @@
     folderCreateSelectItemsBtn.classList.remove("active");
     folderCreateRemoveItemsBtn.classList.remove("active");
     folderCreateRemoveItemsBtn.classList.toggle("hidden", !editingFolderId); // nothing to remove from a folder that doesn't exist yet
+    folderCreateDeleteBtn.classList.toggle("hidden", !editingFolderId); // same -- nothing to delete when creating a new folder
     folderCreateCreateBtn.textContent = editingFolderId ? "Save" : "Create";
     setTimeout(() => { folderCreateNameInput.focus(); folderCreateNameInput.select(); }, 30);
   }
@@ -7344,6 +7398,7 @@
   folderCreateRemoveItemsBtn.addEventListener("click", () => setFolderRemoveSelectMode(!folderRemoveSelectMode));
   folderCreateAddItemsBtn.addEventListener("click", finalizeFolderCreate);
   folderCreateCreateBtn.addEventListener("click", finalizeFolderCreate);
+  folderCreateDeleteBtn.addEventListener("click", () => { if (editingFolderId) deleteWaypointFolder(editingFolderId); });
   // A single delegated, capture-phase listener (wired once, not re-wired on
   // every render) covering both panel-scoped selection modes. While
   // folderCreateSelectMode is active, clicking anywhere on any card toggles
@@ -7355,7 +7410,7 @@
     if (folderCreateSelectMode) {
       const header = e.target.closest(".folder-accordion-header");
       if (header) {
-        if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return; // let those keep working normally even during select mode
+        if (e.target.closest("[data-action='folder-rename']")) return; // let that keep working normally even during select mode
         const folderId = header.dataset.id;
         if (folderIsAncestorOf(folderId, editingFolderId)) {
           e.stopPropagation();
@@ -8136,6 +8191,7 @@
   function openModal() {
     editingWaypointId = null;
     editingHomeMode = false;
+    deleteWaypointBtn.classList.add("hidden");
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
     homeLocationSection.style.display = "none";
@@ -8170,6 +8226,7 @@
   function openEditModal(wp) {
     editingWaypointId = wp.id;
     editingHomeMode = false;
+    deleteWaypointBtn.classList.remove("hidden");
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
     homeLocationSection.style.display = "none";
@@ -8244,6 +8301,18 @@
     closeModal();
   }
   cancelBtn.addEventListener("click", cancelPendingModal);
+  deleteWaypointBtn.addEventListener("click", () => {
+    if (!editingWaypointId) return;
+    const wp = waypoints.find((w) => w.id === editingWaypointId);
+    if (!wp) return;
+    openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => {
+      deleteWaypoint(editingWaypointId);
+      clearPendingMarker();
+      editingWaypointId = null;
+      pendingPoint = null;
+      closeModal();
+    });
+  });
   modalForecastBtn.addEventListener("click", () => {
     if (!pendingPoint) return;
     const label = nameInput.value.trim() || null;
@@ -8986,13 +9055,58 @@
     return Promise.reject(new Error("clipboard unavailable"));
   }
 
-  function shareWaypoint(wp) {
-    const mapLink = "https://www.openstreetmap.org/?mlat=" + wp.lat + "&mlon=" + wp.lng + "#map=17/" + wp.lat + "/" + wp.lng;
-    const text = [wp.name, wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6), wp.notes || null, mapLink].filter(Boolean).join("\n");
+  async function shareWaypoint(wp, platformHint) {
+    const appleLink = "https://maps.apple.com/?ll=" + wp.lat + "," + wp.lng + "&q=" + encodeURIComponent(wp.name || "Waypoint");
+    const googleLink = "https://www.google.com/maps/search/?api=1&query=" + wp.lat + "," + wp.lng;
+    const wazeLink = "https://waze.com/ul?ll=" + wp.lat + "," + wp.lng;
+    const osmLink = "https://www.openstreetmap.org/?mlat=" + wp.lat + "&mlon=" + wp.lng + "#map=17/" + wp.lat + "/" + wp.lng;
+    const infoBlock = [wp.name, wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6), wp.notes || null].filter(Boolean).join("\n");
+    const mapLinksBlock = [
+      "Apple Maps: " + appleLink,
+      "Google Maps: " + googleLink,
+      "Waze: " + wazeLink,
+      "OpenStreetMap: " + osmLink,
+    ].join("\n");
+    const text = infoBlock + "\n\n" + mapLinksBlock; // blank line between the waypoint info and the block of map links
+    const copyPromise = copyText(text); // kicked off early so it runs alongside any photo conversion below; awaited below only where its result actually matters
+
+    let files = [];
+    if (wp.photos && wp.photos.length > 0 && navigator.share) {
+      try {
+        const safeName = (wp.name || "waypoint").replace(/[^\w\-]+/g, "_").slice(0, 60) || "waypoint";
+        files = await Promise.all(wp.photos.slice(0, 10).map(async (src, i) => {
+          const blob = await (await fetch(src)).blob();
+          const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+          return new File([blob], safeName + "-" + (i + 1) + "." + ext, { type: blob.type || "image/jpeg" });
+        }));
+        if (navigator.canShare && !navigator.canShare({ files })) files = []; // this device/browser can't share files -- fall back to text-only below
+      } catch (e) {
+        files = []; // a photo failed to load (e.g. a stale/CORS-blocked URL) -- don't let that break sharing entirely, just drop back to text-only
+      }
+    }
+
     if (navigator.share) {
-      navigator.share({ title: wp.name, text }).catch(() => {});
+      copyPromise.catch(() => {}); // best-effort here -- the native share sheet is the primary action, so a clipboard failure isn't worth surfacing on its own
+      const shareData = files.length > 0 ? { text, files } : { text };
+      navigator.share(shareData).catch(() => {});
+      if (platformHint) {
+        // A web page can't tell the system share sheet which app to open, so
+        // the toast tells the person to pick it themselves. The "needs a
+        // photo" warning only applies to photo/video-first platforms --
+        // Messages works fine with text alone, so it gets a plain prompt.
+        const photoFirst = platformHint === "Instagram" || platformHint === "TikTok";
+        if (photoFirst && files.length === 0) {
+          showToast('Choose "' + platformHint + '" from the list — heads up, it usually needs a photo to post, and this waypoint doesn\'t have one yet.');
+        } else if (files.length > 0) {
+          showToast('Choose "' + platformHint + '" from the list — caption copied too, in case it doesn\'t carry over automatically.');
+        } else {
+          showToast('Choose "' + platformHint + '" from the list.');
+        }
+      } else if (files.length > 0) {
+        showToast("Caption copied too — paste it in if it doesn't carry over automatically.");
+      }
     } else {
-      copyText(text).then(() => showToast("Share text copied to clipboard")).catch(() => showErrorToast("Couldn't copy to clipboard."));
+      copyPromise.then(() => showToast("Share text copied to clipboard")).catch(() => showErrorToast("Couldn't copy to clipboard."));
     }
   }
 
@@ -9160,8 +9274,7 @@
         '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
-        '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Rename folder">' + icon("edit", 14) + "</button>" +
-        '<button type="button" class="folder-accordion-action" data-action="folder-delete" data-id="' + folder.id + '" title="Delete folder">' + icon("x", 15) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
       "</div>" +
@@ -9170,7 +9283,7 @@
   function bindFolderAccordionEvents() {
     panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename'], [data-action='folder-delete']")) return;
+        if (e.target.closest("[data-action='folder-rename']")) return;
         const id = header.dataset.id;
         if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
         if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
@@ -9179,9 +9292,6 @@
     });
     panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
-    });
-    panelList.querySelectorAll('[data-action="folder-delete"]').forEach((btn) => {
-      btn.addEventListener("click", (e) => { e.stopPropagation(); deleteWaypointFolder(btn.dataset.id); });
     });
   }
 
@@ -9506,7 +9616,6 @@
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
-            '<button class="card-delete" data-action="delete" data-id="' + wp.id + '">' + icon("x", 16) + "</button>" +
           "</div>" +
         "</div>" +
         '<div class="card-codes">' +
@@ -9567,10 +9676,6 @@
             cardPhotoTargetId = id;
             cameraCaptureInput.click();
             break;
-          case "delete":
-            e.stopPropagation();
-            openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => deleteWaypoint(id));
-            break;
           case "edit-name": e.stopPropagation(); startEditName(id); break;
           case "edit-url": e.stopPropagation(); startEditUrl(id); break;
           case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
@@ -9582,7 +9687,7 @@
               .then(() => flashCheck(node, "copy", " Copy coordinates"))
               .catch(() => showErrorToast("Couldn't copy to clipboard."));
             break;
-          case "share": shareWaypoint(wp); break;
+          case "share": openShareModal(wp); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
           case "view-photo": {
             e.stopPropagation();
