@@ -248,6 +248,8 @@
   .modal-header h2{margin:0; font-size:14px; font-weight:600;}
   .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;}
+  .modal-header-actions{display:flex; align-items:center; gap:8px;}
+  .modal-header .icon-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
   .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--surface); border-color:var(--border-soft);}
   @keyframes panel-sync-spin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
   #panelSyncBtn.syncing svg{animation:panel-sync-spin 1s linear infinite;}
@@ -961,7 +963,10 @@
     <div class="modal-card">
       <div class="modal-header">
         <h2 id="modalTitle">New waypoint</h2>
-        <button class="icon-btn" id="modalCloseBtn"></button>
+        <div class="modal-header-actions">
+          <button class="icon-btn" id="micBtn" title="Voice input — say &quot;name&quot; or &quot;note&quot; to dictate, &quot;stop&quot; to end"></button>
+          <button class="icon-btn" id="modalCloseBtn"></button>
+        </div>
       </div>
       <div class="modal-coords-row">
         <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
@@ -991,7 +996,6 @@
         <label class="field-label">Name</label>
         <div class="name-row">
           <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
-          <button id="micBtn" class="mic-btn" title="Name by voice"></button>
         </div>
       </div>
 
@@ -1796,7 +1800,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "252";
+  const APP_VERSION = "253";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -8322,33 +8326,101 @@
   nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBtn.click(); });
 
   /* ================================================================ */
-  /*  Voice naming (Web Speech API — Chrome/Edge/Safari support varies) */
+  /*  Voice input (Web Speech API — Chrome/Edge/Safari support varies)  */
+  /*  Click the mic, then say "name" or "note" to start dictating into  */
+  /*  that field (saying either again mid-dictation switches fields);   */
+  /*  say "stop", or click the mic again, to end the session. Notes are */
+  /*  appended to (not erased), since they're often built up in parts;  */
+  /*  the name field is cleared each time "name" is said, since it's    */
+  /*  meant to be replaced outright rather than added to.               */
   /* ================================================================ */
 
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let modalVoiceField = null; // null (listening, no field chosen yet) | "name" | "note"
+  let modalVoiceNameBuffer = "";
+  let modalVoiceNotesBuffer = "";
 
   micBtn.addEventListener("click", () => { listening ? stopVoice() : startVoice(); });
 
   function startVoice() {
     if (!SpeechRecognitionCtor) { showToast("Voice input isn't supported in this browser."); return; }
+    modalVoiceField = null;
+    modalVoiceNameBuffer = "";
+    modalVoiceNotesBuffer = notesInput.value; // seed so "note" appends to whatever's already there instead of clobbering it
     recognition = new SpeechRecognitionCtor();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      nameInput.value = transcript.replace(/^\w/, (c) => c.toUpperCase());
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        handleModalVoiceTranscript(result[0].transcript, result.isFinal);
+      }
     };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-    recognition.start();
+    recognition.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        showErrorToast("Microphone access was denied.");
+        stopVoice();
+      }
+      // other errors (no-speech, network, aborted) are transient -- onend below restarts automatically while still listening
+    };
+    recognition.onend = () => { if (listening) { try { recognition.start(); } catch (e) { /* already running */ } } };
+    try { recognition.start(); } catch (e) { showToast("Couldn't start voice input."); return; }
     setListening(true);
+    showToast('Listening — say "name" or "note" to start dictating.');
   }
-  function stopVoice() { if (recognition) recognition.stop(); setListening(false); }
+  function stopVoice() {
+    setListening(false); // set before calling recognition.stop(), since stop() can synchronously fire onend, which checks `listening` to decide whether to auto-restart -- must already be false by then or it'll undo the stop
+    if (recognition) { try { recognition.stop(); } catch (e) {} }
+  }
   function setListening(v) {
     listening = v;
     micBtn.classList.toggle("listening", v);
     micBtn.innerHTML = icon(v ? "micOff" : "mic", 16);
+  }
+
+  // Finds whichever of "name" / "note" / "stop" appears earliest in the
+  // transcript, as a whole word (so it doesn't false-trigger inside
+  // "named", "notebook", "nonstop", etc.).
+  function findVoiceCommand(lowerText) {
+    const patterns = [{ cmd: "stop", re: /\bstop\b/ }, { cmd: "name", re: /\bname\b/ }, { cmd: "note", re: /\bnote\b/ }];
+    let best = null;
+    patterns.forEach((p) => {
+      const m = lowerText.match(p.re);
+      if (m && (!best || m.index < best.idx)) best = { cmd: p.cmd, idx: m.index, len: m[0].length };
+    });
+    return best;
+  }
+  function commitModalVoiceText(text) {
+    if (!text) return;
+    if (modalVoiceField === "name") {
+      modalVoiceNameBuffer = (modalVoiceNameBuffer + " " + text).trim();
+      nameInput.value = modalVoiceNameBuffer.replace(/^\w/, (c) => c.toUpperCase());
+    } else if (modalVoiceField === "note") {
+      modalVoiceNotesBuffer = (modalVoiceNotesBuffer + " " + text).trim();
+      notesInput.value = modalVoiceNotesBuffer;
+    }
+    // no field chosen yet -- stray words before the first "name"/"note" have nowhere to go, so they're dropped
+  }
+  function previewModalVoiceText(text) {
+    if (modalVoiceField === "name") nameInput.value = (modalVoiceNameBuffer + " " + text).trim().replace(/^\w/, (c) => c.toUpperCase());
+    else if (modalVoiceField === "note") notesInput.value = (modalVoiceNotesBuffer + " " + text).trim();
+  }
+  function handleModalVoiceTranscript(transcript, isFinal) {
+    const command = findVoiceCommand(transcript.toLowerCase());
+    if (!command) {
+      if (isFinal) commitModalVoiceText(transcript.trim());
+      else previewModalVoiceText(transcript.trim());
+      return;
+    }
+    const before = transcript.slice(0, command.idx).trim();
+    if (!isFinal) { previewModalVoiceText(before); return; } // don't act on commands until the browser is confident it heard them correctly
+    if (before) commitModalVoiceText(before);
+    if (command.cmd === "stop") { stopVoice(); showToast("Voice input stopped."); return; }
+    if (command.cmd === "name") { nameInput.value = ""; modalVoiceNameBuffer = ""; modalVoiceField = "name"; }
+    if (command.cmd === "note") { modalVoiceField = "note"; }
+    const after = transcript.slice(command.idx + command.len).trim();
+    if (after) handleModalVoiceTranscript(after, true); // handles multiple commands said in one breath, e.g. "name moose landing note great fishing spot stop"
   }
 
   /* ================================================================ */
