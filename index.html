@@ -276,6 +276,7 @@
   input[type="search"].field-input{-webkit-appearance:none; appearance:none;}
   textarea{resize:none;}
   #notesInput{margin-bottom:16px;}
+  #urlFieldSection{margin-bottom:16px;}
   .mic-btn{width:44px; height:44px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
   .mic-btn:hover{border-color:rgba(245,158,11,.5);}
@@ -548,13 +549,11 @@
   .card-main{display:flex; gap:8px; flex:1; min-width:0; cursor:pointer; background:none; border:none; padding:0; text-align:left;}
   .card-main .icon{margin-top:2px; flex-shrink:0;}
   .card-name{font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden;
-    text-overflow:ellipsis; cursor:text; margin:0;}
-  .card-name:hover{text-decoration:underline dotted;}
+    text-overflow:ellipsis; margin:0;}
   .ride-card-name-editable{cursor:text;}
   .ride-card-name-editable:hover{text-decoration:underline dotted;}
   .card-name-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
     padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
-  .card-coords{font-size:11px; color:var(--text-mute); margin:2px 0 0;}
   .card-meta{display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-mute); margin:2px 0 0;}
   .card-meta-weather{display:flex; align-items:center; gap:2px;}
   .card-meta-weather .icon{display:flex;}
@@ -563,6 +562,8 @@
   .card-favorite:hover{color:var(--red);}
   .card-favorite.favorited{color:var(--red);}
   .card-favorite.favorited svg{fill:currentColor;}
+  .card-rating-badge{flex-shrink:0; display:inline-flex; align-items:center; padding:2px 6px; margin:0 2px;
+    border-radius:6px; background:#d32323; color:#fff; font-weight:700; font-size:11px; white-space:nowrap;}
   .card-camera{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-camera:hover{color:var(--cyan);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
@@ -572,6 +573,11 @@
   .card-copy-code{margin-left:auto; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-copy-code:hover{color:var(--text-dim);}
   .card-notes{margin-left:24px; margin-top:6px;}
+  .card-notes-tab-row{display:flex; gap:14px; margin-bottom:4px;}
+  .card-notes-tab-btn{background:none; border:none; padding:0 0 2px; margin:0; font-size:11px; font-weight:600;
+    color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
+  .card-notes-tab-btn.active{color:var(--text-dim); border-bottom-color:var(--amber-light);}
+  .card-notes-tab-btn.has-review{color:#d32323;}
   .card-url{margin-left:24px; margin-top:6px; display:flex; align-items:center; gap:6px;}
   .card-url-link{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--cyan); text-decoration:none;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
@@ -595,18 +601,42 @@
 
   /* ---------- notes toolbar / journal entry ---------- */
   .field-label-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
-  .notes-toolbar-group{display:flex; align-items:center; gap:10px;}
-  .notes-toolbar-group .rte-toolbar{margin-bottom:0;}
-  .expand-journal-btn{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex;
-    align-items:center; gap:4px; font-size:11px; padding:2px 4px;}
-  .expand-journal-btn:hover{color:var(--amber-light);}
   .rte-toolbar{display:flex; justify-content:flex-end; gap:6px; margin-bottom:6px;}
+  .field-label-row .rte-toolbar{margin-bottom:0;}
   .rte-btn{width:32px; height:28px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border);
     color:#cbd5e1; cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
   .rte-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5); color:var(--amber-light);}
   .journal-modal-card{max-width:min(560px, 94vw);}
+  #journalNotesPanel.hidden, #journalReviewsPanel.hidden{display:none;}
   .journal-textarea{width:100%; min-height:48vh; min-height:48dvh; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px;}
+  .journal-tab-row{display:flex; gap:18px; margin-bottom:14px;}
+  .journal-tab-btn{background:none; border:none; padding:0 0 4px; margin:0; font-size:14px; font-weight:600;
+    color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
+  .journal-tab-btn.active{color:var(--text); border-bottom-color:var(--amber-light);}
+  #journalReviewsPanel .field-label{margin-top:16px;}
+  #journalReviewsPanel .field-label:first-child{margin-top:0;}
+  .review-rating-price-row{display:flex; gap:24px; row-gap:20px; flex-wrap:wrap; margin-top:18px; margin-bottom:18px;}
+  .review-rating-block, .review-price-block{display:flex; flex-direction:column; flex:0 0 auto;}
+  .review-rating-row, .review-price-row{display:flex; align-items:center; height:40px; margin-bottom:10px;}
+  .review-rating-input{width:110px; margin-bottom:0;}
+  .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
+  .no-spinner{-moz-appearance:textfield; appearance:textfield;}
+  .review-rating-badge{display:inline-flex; align-items:center; justify-content:center; width:70px; padding:6px 4px; margin-left:10px;
+    border-radius:8px; background:#d32323; color:#fff; font-weight:700; font-size:13px; letter-spacing:.2px;}
+  .review-rating-slider{width:190px; accent-color:#d32323; height:20px; display:block;}
+  .review-price-badge{display:inline-flex; align-items:center; justify-content:center; width:90px; padding:6px 4px;
+    border-radius:8px; background:#16a34a; color:#fff; font-weight:700; font-size:14px; letter-spacing:1px;}
+  .review-price-slider{width:90px; accent-color:#16a34a; height:20px; display:block;}
+  .review-notes-textarea{width:100%; min-height:100px; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px; margin-top:6px;}
+  .review-tags-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; margin-top:6px;}
+  .review-tags-row:empty{margin-bottom:0; margin-top:0;}
+  .review-tag-chip{display:inline-flex; align-items:center; gap:4px; padding:5px 5px 5px 12px; border-radius:999px;
+    background:var(--surface-2); border:1px solid var(--border); font-size:12.5px; color:var(--text);}
+  .review-tag-chip button{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; align-items:center;
+    justify-content:center; width:18px; height:18px; border-radius:50%; padding:0; font-size:14px; line-height:1;}
+  .review-tag-chip button:hover{background:rgba(248,113,113,.15); color:var(--red);}
   .card-actions{display:flex; gap:6px; margin-top:8px; margin-left:24px;}
   .card-action-btn{flex:1; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;
     color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
@@ -826,7 +856,9 @@
           <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
           <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
           <label class="layers-option"><input type="checkbox" id="res1HexToggle" /><span class="swatch" style="background:#a78bfa"></span><span>Resolution 1 hexes</span></label>
-          <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide, labeled with their actual H3 cell index (e.g. 81a8fffffffffff) rather than a region name.</p>
+          <label class="layers-option"><input type="checkbox" id="res1ShowIndexToggle" /><span>Show H3 index names</span></label>
+          <label class="layers-option"><input type="checkbox" id="res1ShowWordToggle" /><span>Show 3 word names</span></label>
+          <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide. Mousing over one shows its raw H3 cell index (e.g. 81a8fffffffffff) and/or its curated 3-word name, depending on which options above are on. "Show 3 word names" also labels Precision hexes on hover with their derived 3-word address.</p>
         </div>
         </div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
@@ -931,7 +963,7 @@
             <button class="home-action-btn" id="exportBackupBtn">Download backup</button>
             <button class="home-action-btn" id="importBackupBtn">Restore backup</button>
           </div>
-          <div class="home-actions">
+          <div class="home-actions" style="margin-top:10px;">
             <button class="home-action-btn" id="layersImportTextBtn">Import waypoints from text</button>
           </div>
           <input type="file" id="importBackupFile" accept="application/json" style="display:none;" />
@@ -1025,26 +1057,24 @@
         </div>
       </div>
 
+      <div class="field-label-row">
+        <div class="journal-tab-row" id="notesReviewTabRow">
+          <button type="button" class="journal-tab-btn active" id="notesFieldLabelBtn">Notes</button>
+          <button type="button" class="journal-tab-btn" id="reviewFieldLabelBtn">Review</button>
+        </div>
+        <div class="rte-toolbar" id="notesToolbar">
+          <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
+          <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
+          <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
+          <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
+        </div>
+      </div>
+      <textarea id="notesInput" rows="3" placeholder="Add a travel journal entry, description, directions, or anything worth remembering…"></textarea>
+
       <div id="urlFieldSection">
         <label class="field-label">Link</label>
         <input id="urlInput" class="field-input" type="url" placeholder="Paste a link related to this waypoint…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
       </div>
-
-      <div class="field-label-row">
-        <label class="field-label">Notes</label>
-        <div class="notes-toolbar-group">
-          <div class="rte-toolbar" id="notesToolbar">
-            <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
-            <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
-            <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
-            <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
-          </div>
-          <button type="button" class="expand-journal-btn" id="expandJournalBtn" title="Expand to full journal entry">
-            <span id="expandJournalIcon"></span><span>Expand</span>
-          </button>
-        </div>
-      </div>
-      <textarea id="notesInput" rows="3" placeholder="Add a travel journal entry, description, directions, or anything worth remembering…"></textarea>
 
       <label class="field-label">Marker style</label>
       <div class="style-toggle-row">
@@ -1154,19 +1184,69 @@
   <div class="modal-overlay hidden" id="journalModalOverlay" style="z-index:35;">
     <div class="modal-card journal-modal-card">
       <div class="modal-header">
-        <h2>Journal entry</h2>
+        <div class="journal-tab-row" id="journalTabRow">
+          <button type="button" class="journal-tab-btn active" id="journalTabNotesBtn" data-tab="notes">Notes</button>
+          <button type="button" class="journal-tab-btn" id="journalTabReviewsBtn" data-tab="reviews">Reviews</button>
+        </div>
         <button class="icon-btn" id="journalCloseBtn"></button>
       </div>
-      <div class="rte-toolbar" id="journalToolbar">
-        <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
-        <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
-        <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
-        <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
+
+      <div id="journalNotesPanel">
+        <div class="rte-toolbar" id="journalToolbar">
+          <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
+          <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
+          <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
+          <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
+        </div>
+        <textarea id="journalTextarea" class="journal-textarea" placeholder="Write your journal entry…"></textarea>
       </div>
-      <textarea id="journalTextarea" class="journal-textarea" placeholder="Write your journal entry…"></textarea>
+
+      <div id="journalReviewsPanel" class="hidden">
+        <label class="field-label">Review for:</label>
+        <input id="reviewNameInput" class="field-input" type="text" placeholder="e.g. Schwartz's Deli" autocomplete="off" />
+
+        <div class="review-rating-price-row">
+          <div class="review-rating-block">
+            <label class="field-label">Food Rating</label>
+            <div class="review-rating-row">
+              <input id="reviewRatingInput" class="field-input review-rating-input no-spinner" type="number" min="1" max="5" step="0.1" placeholder="1–5" />
+              <span class="review-rating-badge" id="reviewRatingBadge" style="display:none;"></span>
+            </div>
+            <input id="reviewRatingSlider" class="review-rating-slider" type="range" min="1" max="5" step="0.1" value="1" />
+          </div>
+          <div class="review-rating-block">
+            <label class="field-label">Ambiance</label>
+            <div class="review-rating-row">
+              <input id="reviewAmbianceInput" class="field-input review-rating-input no-spinner" type="number" min="1" max="5" step="0.1" placeholder="1–5" />
+              <span class="review-rating-badge" id="reviewAmbianceBadge" style="display:none;"></span>
+            </div>
+            <input id="reviewAmbianceSlider" class="review-rating-slider" type="range" min="1" max="5" step="0.1" value="1" />
+          </div>
+          <div class="review-price-block">
+            <label class="field-label">Price</label>
+            <div class="review-price-row">
+              <span class="review-price-badge" id="reviewPriceBadge"></span>
+            </div>
+            <input id="reviewPriceSlider" class="review-price-slider" type="range" min="1" max="5" step="1" value="1" />
+          </div>
+        </div>
+
+        <label class="field-label">Location</label>
+        <input id="reviewLocationInput" class="field-input" type="text" placeholder="e.g. 123 Rue Notre-Dame, Montreal, QC, CA" autocomplete="off" />
+
+        <label class="field-label">Hours of operation</label>
+        <input id="reviewHoursInput" class="field-input" type="text" placeholder="e.g. Mon–Fri 11am–10pm" autocomplete="off" />
+
+        <label class="field-label">Notes</label>
+        <textarea id="reviewMainNotesMirror" class="review-notes-textarea" rows="4" placeholder="Add a travel journal entry, description, directions, or anything worth remembering…"></textarea>
+
+        <label class="field-label">Tags</label>
+        <div class="review-tags-row" id="reviewTagsList"></div>
+        <input id="reviewTagInput" class="field-input" type="text" placeholder="Type a tag and press Enter (e.g. Korean, BBQ, Seafood)" autocomplete="off" />
+      </div>
+
       <div class="btn-row">
-        <button class="btn btn-secondary" id="journalCancelBtn">Cancel</button>
-        <button class="btn btn-primary" id="journalDoneBtn">Done</button>
+        <button class="btn btn-primary" id="journalDoneBtn" style="flex:1;">Done</button>
       </div>
     </div>
   </div>
@@ -1897,7 +1977,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "265";
+  const APP_VERSION = "283";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -1917,7 +1997,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -2086,6 +2166,13 @@
   let markers = {};
   let pendingMarker = null;
   let pendingPhotos = [];
+  let pendingReview = null; // {name, rating, locationTag, priceLevel, hours, tags} or null -- edited live from the Notes/Review labels' modal, autosaved into this on every change, committed onto the waypoint at Save
+  function emptyReview() { return { name: "", rating: null, ambianceRating: null, locationTag: "", priceLevel: 1, hours: "", tags: [] }; }
+  // priceLevel is deliberately left out here -- it now always defaults to 1
+  // (never an "unset" state, since the $ slider can't represent that), so
+  // including it would make every visit to Review mode register as "has
+  // content" even with nothing else touched.
+  function reviewHasContent(r) { return !!(r && (r.name || r.rating || r.ambianceRating || r.locationTag || r.hours || (r.tags && r.tags.length))); }
   let selectedWaypointId = null;
   let activePanelTab = "waypoints";
   // Folder accordion/bulk-select/creation state for the Waypoints tab.
@@ -2292,6 +2379,8 @@
   const precisionHexToggle = el("precisionHexToggle");
   const precisionHexMaxZoomOnlyToggle = el("precisionHexMaxZoomOnlyToggle");
   const res1HexToggle = el("res1HexToggle");
+  const res1ShowIndexToggle = el("res1ShowIndexToggle");
+  const res1ShowWordToggle = el("res1ShowWordToggle");
   const adminModeToggle = el("adminModeToggle");
   const curatedCountHint = el("curatedCountHint");
   const anchorAdminActions = el("anchorAdminActions");
@@ -2366,15 +2455,32 @@
   const importFileInput = el("importFileInput");
   const importStatus = el("importStatus");
   const importCancelBtn = el("importCancelBtn");
-  const expandJournalBtn = el("expandJournalBtn");
-  const expandJournalIcon = el("expandJournalIcon");
+  const notesFieldLabelBtn = el("notesFieldLabelBtn");
+  const reviewFieldLabelBtn = el("reviewFieldLabelBtn");
   const notesToolbar = el("notesToolbar");
   const journalModalOverlay = el("journalModalOverlay");
   const journalCloseBtn = el("journalCloseBtn");
   const journalToolbar = el("journalToolbar");
   const journalTextarea = el("journalTextarea");
-  const journalCancelBtn = el("journalCancelBtn");
   const journalDoneBtn = el("journalDoneBtn");
+  const journalTabNotesBtn = el("journalTabNotesBtn");
+  const journalTabReviewsBtn = el("journalTabReviewsBtn");
+  const journalNotesPanel = el("journalNotesPanel");
+  const journalReviewsPanel = el("journalReviewsPanel");
+  const reviewNameInput = el("reviewNameInput");
+  const reviewRatingInput = el("reviewRatingInput");
+  const reviewRatingSlider = el("reviewRatingSlider");
+  const reviewRatingBadge = el("reviewRatingBadge");
+  const reviewAmbianceInput = el("reviewAmbianceInput");
+  const reviewAmbianceSlider = el("reviewAmbianceSlider");
+  const reviewAmbianceBadge = el("reviewAmbianceBadge");
+  const reviewLocationInput = el("reviewLocationInput");
+  const reviewPriceSlider = el("reviewPriceSlider");
+  const reviewPriceBadge = el("reviewPriceBadge");
+  const reviewHoursInput = el("reviewHoursInput");
+  const reviewMainNotesMirror = el("reviewMainNotesMirror");
+  const reviewTagsList = el("reviewTagsList");
+  const reviewTagInput = el("reviewTagInput");
   const photoViewModalOverlay = el("photoViewModalOverlay");
   const photoViewCloseBtn = el("photoViewCloseBtn");
   const photoViewTitle = el("photoViewTitle");
@@ -2572,7 +2678,6 @@
   panelSyncBtn.innerHTML = icon("sync", 16);
   importModalCloseBtn.innerHTML = icon("x", 18);
   importDropzoneEmpty.querySelector(".icon").innerHTML = icon("upload", 22);
-  expandJournalIcon.innerHTML = icon("expand", 12);
   journalCloseBtn.innerHTML = icon("x", 18);
   layersPanelCloseBtn.innerHTML = icon("x", 16);
   homeAddressSearchBtn.innerHTML = icon("search", 16);
@@ -2898,6 +3003,7 @@
   zoomOutBtn.addEventListener("click", () => map.zoomOut());
   zoomInBtn.addEventListener("click", () => map.zoomIn());
   map.on("zoomend", () => { zoomSliderInput.value = map.getZoom(); });
+  map.on("zoomend", refreshWaypointMarkerDraggability);
   function refreshZoomSlider() {
     zoomSliderInput.min = map.getMinZoom();
     zoomSliderInput.max = map.getMaxZoom();
@@ -2948,6 +3054,7 @@
     // higher max (19), requesting tiles that don't exist and rendering black.
     map.setMaxZoom(activeBaseLayer.options.maxZoom);
     refreshZoomSlider();
+    refreshWaypointMarkerDraggability(); // "maximum zoom" varies by base layer, so switching layers can change whether markers are currently draggable
   }
   const BASE_LAYER_NAMES = { street: "Street", satellite: "Satellite", terrain: "Terrain" };
   Object.keys(baseLayers).forEach((name) => {
@@ -3707,12 +3814,20 @@
     }
   }
 
-  /* ---------- Resolution 1 hexes: same 842-cell grid, labeled with the ---------- */
-  /* ---------- actual H3 cell index instead of its word-address name.  ---------- */
+  /* ---------- Resolution 1 hexes: same 842-cell grid, labeled on hover ---------- */
+  /* ---------- with the H3 cell index and/or its curated 3-word name,  ---------- */
+  /* ---------- per the two checkboxes below the layer toggle.          ---------- */
   let res1HexLayer = null;
+  function res1TooltipContent(cell, word) {
+    const parts = [];
+    if (res1ShowIndexToggle.checked) parts.push(cell);
+    if (res1ShowWordToggle.checked) parts.push(word);
+    return parts.join(" — ");
+  }
   function buildRes1HexLayer() {
     if (!h3Ready) return null;
     const group = L.layerGroup();
+    const showTooltip = res1ShowIndexToggle.checked || res1ShowWordToggle.checked;
     anchorCellToWord.forEach((word, cell) => {
       try {
         const boundary = window.h3.cellToBoundary(cell); // [[lat,lng], ...]
@@ -3721,7 +3836,7 @@
         const poly = L.polygon(boundary, {
           interactive: true, color: "#a78bfa", weight: 1, opacity: 0.5, fillColor: "#a78bfa", fillOpacity: 0.03
         });
-        poly.bindTooltip(cell, { sticky: true, direction: "top", className: "mono" });
+        if (showTooltip) poly.bindTooltip(res1TooltipContent(cell, word), { sticky: true, direction: "top", className: "mono" });
         poly.on("mouseover", () => poly.setStyle({ opacity: 1, fillOpacity: 0.14 }));
         poly.on("mouseout", () => poly.setStyle({ opacity: 0.5, fillOpacity: 0.03 }));
         poly.on("click", (e) => {
@@ -3745,10 +3860,30 @@
       if (res1HexLayer) map.removeLayer(res1HexLayer);
     }
   }
+  // The tooltip content (and whether precision hexes are interactive at
+  // all) is baked in when each layer is built, so changing either "show
+  // names" checkbox has to throw away the cached layer and rebuild it --
+  // otherwise the old tooltip text (or lack of one) would stick around
+  // until the next full page reload.
+  function rebuildRes1HexLayer() {
+    if (res1HexLayer) { map.removeLayer(res1HexLayer); res1HexLayer = null; }
+    if (res1HexToggle.checked) toggleRes1Hex(true);
+  }
   res1HexToggle.addEventListener("change", () => {
     settings.res1Hex = res1HexToggle.checked;
     saveSettings();
     toggleRes1Hex(res1HexToggle.checked);
+  });
+  res1ShowIndexToggle.addEventListener("change", () => {
+    settings.res1ShowH3Index = res1ShowIndexToggle.checked;
+    saveSettings();
+    rebuildRes1HexLayer();
+  });
+  res1ShowWordToggle.addEventListener("change", () => {
+    settings.res1ShowWords = res1ShowWordToggle.checked;
+    saveSettings();
+    rebuildRes1HexLayer();
+    rebuildPrecisionHexes(); // precision hexes' word-name tooltip is driven by this same checkbox
   });
 
   /* ---------- Precision hexes: finer H3 grid for the current view ---------- */
@@ -3806,15 +3941,25 @@
     // language already used for the anchor-region grid.
     const isLargestPossible = res === ANCHOR_RES + 1;
     const strokeColor = isLargestPossible ? "#ef4444" : "#3b82f6";
+    const showWords = res1ShowWordToggle.checked; // same checkbox as the Resolution 1 hex layer -- see its comment above
     const group = L.layerGroup();
     cells.forEach((cell) => {
       try {
         const boundary = window.h3.cellToBoundary(cell);
         const lngs = boundary.map((p) => p[1]);
         if (Math.max(...lngs) - Math.min(...lngs) > 180) return;
-        L.polygon(boundary, {
-          color: strokeColor, weight: 1, opacity: 0.6, fillColor: strokeColor, fillOpacity: 0.04, interactive: false
-        }).addTo(group);
+        const poly = L.polygon(boundary, {
+          color: strokeColor, weight: 1, opacity: 0.6, fillColor: strokeColor, fillOpacity: 0.04, interactive: showWords
+        });
+        if (showWords) {
+          try {
+            const [clat, clng] = window.h3.cellToLatLng(cell);
+            poly.bindTooltip(generateWordCode(clat, clng), { sticky: true, direction: "top", className: "mono" });
+          } catch (err) { /* skip tooltip for this one cell rather than the whole layer */ }
+          poly.on("mouseover", () => poly.setStyle({ opacity: 1, fillOpacity: 0.16 }));
+          poly.on("mouseout", () => poly.setStyle({ opacity: 0.6, fillOpacity: 0.04 }));
+        }
+        poly.addTo(group);
       } catch (e) { /* skip malformed cell */ }
     });
     if (precisionHexLayer) map.removeLayer(precisionHexLayer);
@@ -5348,6 +5493,8 @@
   }
   precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
   if (settings.precisionHex) precisionHexToggle.checked = true;
+  res1ShowIndexToggle.checked = !!settings.res1ShowH3Index;
+  res1ShowWordToggle.checked = !!settings.res1ShowWords;
   rebuildPrecisionHexes(); // re-evaluates the combined condition for both toggles, whichever is set
   if (settings.res1Hex) { res1HexToggle.checked = true; toggleRes1Hex(true); }
 
@@ -5386,8 +5533,23 @@
     return (activeBaseLayer && activeBaseLayer.options && activeBaseLayer.options.maxZoom) || 19;
   }
 
+  // Dragging a saved waypoint marker to reposition it is only allowed at
+  // maximum zoom -- at anything looser, a small on-screen drag covers a
+  // lot of real-world distance, making it too easy to nudge a waypoint by
+  // accident while just trying to pan or tap it.
+  function isAtMaxZoomForDragging() {
+    return map.getZoom() >= getMaxZoomForCurrentBaseLayer();
+  }
+  function refreshWaypointMarkerDraggability() {
+    const atMax = isAtMaxZoomForDragging();
+    Object.values(markers).forEach((marker) => {
+      if (!marker.dragging) return; // defensive -- every waypoint marker below is created with the drag handler, but just in case
+      if (atMax) marker.dragging.enable(); else marker.dragging.disable();
+    });
+  }
+
   function addSavedMarker(wp) {
-    const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)) }).addTo(map);
+    const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)), draggable: isAtMaxZoomForDragging(), autoPan: true }).addTo(map);
     marker.on("click", (e) => {
       // A marker's click doesn't bubble up to the map's own click handler
       // in Leaflet, so measuring has to be checked here too -- otherwise
@@ -5397,6 +5559,16 @@
       flyTo(wp.lat, wp.lng, getMaxZoomForCurrentBaseLayer());
       openPanel();
       setSelectedWaypointMarker(wp.id);
+    });
+    marker.on("dragend", () => {
+      const { lat, lng } = marker.getLatLng();
+      wp.lat = lat;
+      wp.lng = lng;
+      wp.code = generateWordCode(lat, lng);
+      wp.updatedAt = Date.now();
+      saveWaypoints();
+      renderList(); // refreshes the card's shown coordinates/code
+      showToast('Moved "' + wp.name + '"');
     });
     const tooltipOffset = wp.markerStyle === "emoji" ? [0, -46] : [0, -38];
     marker.bindTooltip(escapeHtml(wp.name), { direction: "top", offset: tooltipOffset });
@@ -5571,7 +5743,7 @@
     // everything else from the previous full list, restored after the curated set
     "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
     "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊",
-    "🏕️", "🔥", "🧭", "⛰️", "🏔️", "🌲", "🎣",
+    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣",
     "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰",
     "🚒", "🚑", "🚨", "🆘",
     "📍", "❤️", "🚩", "🎯"
@@ -8962,22 +9134,170 @@
     return html;
   }
 
-  expandJournalBtn.addEventListener("click", () => {
+  function setJournalTab(tab) {
+    journalTabNotesBtn.classList.toggle("active", tab === "notes");
+    journalTabReviewsBtn.classList.toggle("active", tab === "reviews");
+    journalNotesPanel.classList.toggle("hidden", tab !== "notes");
+    journalReviewsPanel.classList.toggle("hidden", tab !== "reviews");
+  }
+  journalTabNotesBtn.addEventListener("click", () => setJournalTab("notes"));
+  journalTabReviewsBtn.addEventListener("click", () => { setJournalTab("reviews"); autofillReviewLocation(); });
+
+  // Shared wiring for both star-rating fields (Food and Ambiance) -- same
+  // number-input-plus-slider-plus-badge behavior, just parameterized by
+  // which pendingReview property and which DOM elements each one uses.
+  function makeStarRatingField(inputEl, sliderEl, badgeEl, propName) {
+    function updateBadge() {
+      const raw = inputEl.value;
+      if (raw === "") { badgeEl.style.display = "none"; return; }
+      const val = Math.max(1, Math.min(5, parseFloat(raw)));
+      if (isNaN(val)) { badgeEl.style.display = "none"; return; }
+      badgeEl.textContent = val.toFixed(1) + " \u2605";
+      badgeEl.style.display = "inline-flex";
+    }
+    // Every field below writes straight into pendingReview (or notesInput,
+    // for the Notes tab) as the user types/clicks -- there's no separate
+    // "commit" step anymore. That's so switching between Notes mode and
+    // Review mode, or just closing this modal, never loses anything typed;
+    // the only save step left is the outer Edit Waypoint modal's own Save
+    // button, same as every other field on a waypoint.
+    function commit() {
+      const raw = inputEl.value;
+      pendingReview[propName] = raw !== "" ? Math.round(Math.max(1, Math.min(5, parseFloat(raw))) * 10) / 10 : null;
+    }
+    inputEl.addEventListener("input", () => {
+      updateBadge();
+      if (inputEl.value !== "") sliderEl.value = inputEl.value;
+      commit();
+    });
+    sliderEl.addEventListener("input", () => {
+      inputEl.value = sliderEl.value;
+      updateBadge();
+      commit();
+    });
+    return function populate() {
+      const val = pendingReview[propName];
+      inputEl.value = val != null ? val : "";
+      sliderEl.value = val != null ? val : 1;
+      updateBadge();
+    };
+  }
+  const populateFoodRating = makeStarRatingField(reviewRatingInput, reviewRatingSlider, reviewRatingBadge, "rating");
+  const populateAmbianceRating = makeStarRatingField(reviewAmbianceInput, reviewAmbianceSlider, reviewAmbianceBadge, "ambianceRating");
+
+  reviewNameInput.addEventListener("input", () => { pendingReview.name = reviewNameInput.value.trim(); });
+  reviewLocationInput.addEventListener("input", () => { pendingReview.locationTag = reviewLocationInput.value.trim(); });
+  reviewHoursInput.addEventListener("input", () => { pendingReview.hours = reviewHoursInput.value.trim(); });
+
+  function updateReviewPriceUI() {
+    const level = pendingReview.priceLevel || 1; // the $ slider always shows at least one $, never an empty/unset state
+    reviewPriceSlider.value = level;
+    reviewPriceBadge.textContent = "$".repeat(level);
+  }
+  reviewPriceSlider.addEventListener("input", () => {
+    pendingReview.priceLevel = parseInt(reviewPriceSlider.value, 10);
+    updateReviewPriceUI();
+  });
+
+  function renderReviewTagChips() {
+    reviewTagsList.innerHTML = pendingReview.tags.map((t, i) =>
+      '<span class="review-tag-chip">' + escapeHtml(t) + '<button type="button" data-idx="' + i + '" title="Remove">&times;</button></span>'
+    ).join("");
+    reviewTagsList.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        pendingReview.tags.splice(parseInt(btn.dataset.idx, 10), 1);
+        renderReviewTagChips();
+      });
+    });
+  }
+  function addReviewTagFromInput() {
+    const val = reviewTagInput.value.trim().replace(/,+$/, "");
+    if (!val) return;
+    if (!pendingReview.tags.some((t) => t.toLowerCase() === val.toLowerCase())) pendingReview.tags.push(val);
+    reviewTagInput.value = "";
+    renderReviewTagChips();
+  }
+  reviewTagInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addReviewTagFromInput(); }
+  });
+  reviewTagInput.addEventListener("blur", addReviewTagFromInput); // catches a tag typed but not yet committed with Enter/comma
+
+  // The Reviews tab's Notes field isn't a separate note -- it's the same
+  // main waypoint notes (journalTextarea, which itself mirrors notesInput),
+  // just also editable from this tab so switching to Notes isn't required
+  // for a quick edit. Kept in sync both directions, live, while open.
+  journalTextarea.addEventListener("input", () => { reviewMainNotesMirror.value = journalTextarea.value; notesInput.value = journalTextarea.value; });
+  reviewMainNotesMirror.addEventListener("input", () => { journalTextarea.value = reviewMainNotesMirror.value; notesInput.value = reviewMainNotesMirror.value; });
+
+  // Reverse geocoding (Nominatim, same free OSM geocoder already used for
+  // forward address search) -- looks up the nearest street address for the
+  // waypoint's coordinates, plus city, province/state, and country code,
+  // to suggest a Location value like "123 Rue Notre-Dame, Montreal, QC, CA".
+  // Only fills the field if it's still blank, and never overwrites something
+  // the user already typed or a slower/superseded lookup that resolved
+  // after a newer one.
+  let reviewLocationLookupToken = 0;
+  async function reverseGeocodeNominatim(lat, lng) {
+    const url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + lat + "&lon=" + lng + "&zoom=18&addressdetails=1";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const a = (data && data.address) || {};
+    const street = [a.house_number, a.road].filter(Boolean).join(" ");
+    const streetPart = street || a.road || a.neighbourhood || a.suburb || (data && data.display_name ? data.display_name.split(",")[0].trim() : "") || "";
+    const city = a.city || a.town || a.village || a.municipality || a.hamlet || "";
+    const province = a.state_code || a.state || a.province || "";
+    const countryCode = a.country_code ? a.country_code.toUpperCase() : "";
+    return [streetPart, city, province, countryCode].filter(Boolean).join(", ");
+  }
+  function autofillReviewLocation() {
+    if (pendingReview.locationTag || !pendingPoint) return; // already set, or nothing to look up yet
+    const lookupId = ++reviewLocationLookupToken;
+    const { lat, lng } = pendingPoint;
+    reviewLocationInput.placeholder = "Looking up nearest address\u2026";
+    reverseGeocodeNominatim(lat, lng).then((address) => {
+      if (lookupId !== reviewLocationLookupToken) return; // superseded by a newer lookup
+      reviewLocationInput.placeholder = "e.g. 123 Rue Notre-Dame, Montreal, QC, CA";
+      if (!address || pendingReview.locationTag) return; // typed into meanwhile, or nothing usable came back
+      reviewLocationInput.value = address;
+      pendingReview.locationTag = address;
+    }).catch(() => {
+      if (lookupId !== reviewLocationLookupToken) return;
+      reviewLocationInput.placeholder = "e.g. 123 Rue Notre-Dame, Montreal, QC, CA";
+    });
+  }
+
+  function openJournalModal(tab) {
     journalTextarea.value = notesInput.value;
+    reviewMainNotesMirror.value = notesInput.value;
+    // Restaurant name autopopulates from the waypoint's own name the first
+    // time Review mode is opened for it (i.e. only while still blank) --
+    // typing something else in this field, or clearing it on purpose, is
+    // always respected afterward rather than being overwritten again.
+    if (!pendingReview.name) {
+      pendingReview.name = nameInput.value.trim();
+    }
+    reviewNameInput.value = pendingReview.name || "";
+    populateFoodRating();
+    populateAmbianceRating();
+    reviewLocationInput.value = pendingReview.locationTag || "";
+    updateReviewPriceUI();
+    reviewHoursInput.value = pendingReview.hours || "";
+    renderReviewTagChips();
+    setJournalTab(tab);
     journalModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
-    setTimeout(() => journalTextarea.focus(), 30);
-  });
+    if (tab === "reviews") autofillReviewLocation();
+    setTimeout(() => { if (tab === "notes") journalTextarea.focus(); else reviewNameInput.focus(); }, 30);
+  }
+  notesFieldLabelBtn.addEventListener("click", () => openJournalModal("notes"));
+  reviewFieldLabelBtn.addEventListener("click", () => openJournalModal("reviews"));
   function closeJournalModal() {
     journalModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
   }
   journalCloseBtn.addEventListener("click", closeJournalModal);
-  journalCancelBtn.addEventListener("click", closeJournalModal);
-  journalDoneBtn.addEventListener("click", () => {
-    notesInput.value = journalTextarea.value;
-    closeJournalModal();
-  });
+  journalDoneBtn.addEventListener("click", closeJournalModal); // everything already autosaved into pendingReview/notesInput as it was typed
 
   function openModal() {
     editingWaypointId = null;
@@ -9006,6 +9326,7 @@
     markerEmojiInput.value = "";
     setMarkerStyleUI("pin");
     pendingPhotos = [];
+    pendingReview = emptyReview();
     photoStatus.style.display = "none";
     renderPhotoThumbs();
     modalWeatherContainer.innerHTML = "";
@@ -9031,7 +9352,7 @@
     placePendingMarker(wp.lat, wp.lng, { style, color, emoji });
     pendingPoint = { lat: wp.lat, lng: wp.lng, isCurrentLocation: !!wp.isCurrentLocation };
 
-    saveBtn.textContent = "Save changes";
+    saveBtn.textContent = "Save";
     modalTitle.textContent = "Edit waypoint";
     modalCoords.textContent = wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6);
     modalWordCode.textContent = wp.code;
@@ -9043,6 +9364,8 @@
     markerEmojiInput.value = wp.markerStyle === "emoji" ? emoji : "";
     setMarkerStyleUI(style);
     pendingPhotos = (wp.photos || []).slice();
+    pendingReview = wp.review ? Object.assign(emptyReview(), JSON.parse(JSON.stringify(wp.review))) : emptyReview();
+    if (!Array.isArray(pendingReview.tags)) pendingReview.tags = []; // defensive, in case of older/partial saved data
     photoStatus.style.display = "none";
     renderPhotoThumbs();
     modalWeatherContainer.innerHTML = buildWeatherAccordionHtml(wp.weather, wp.createdAt);
@@ -9139,6 +9462,7 @@
         wp.name = name;
         wp.notes = notes;
         wp.url = url;
+        wp.review = reviewHasContent(pendingReview) ? pendingReview : null;
         wp.markerStyle = markerStyle;
         wp.markerColor = markerColor;
         wp.markerEmoji = markerEmoji;
@@ -9162,6 +9486,7 @@
     const wp = {
       id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(), folderId: getOpenFolderId(),
+      review: reviewHasContent(pendingReview) ? pendingReview : null,
       createdAt: Date.now(), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
@@ -10836,13 +11161,13 @@
           '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
             cardIconHtml(wp) +
             '<div style="min-width:0; flex:1;">' +
-              '<p class="card-name" data-action="edit-name" data-id="' + wp.id + '" title="Click to rename">' + escapeHtml(wp.name) + "</p>" +
-              '<p class="card-coords mono">' + wp.lat.toFixed(5) + ", " + wp.lng.toFixed(5) + "</p>" +
+              '<p class="card-name" data-id="' + wp.id + '">' + escapeHtml(wp.name) + "</p>" +
               formatCardMeta(wp.createdAt, wp.weather) +
             "</div>" +
           "</button>" +
           '<div class="card-top-actions">' +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+            (wp.review && wp.review.rating ? '<span class="card-rating-badge" title="Review rating">' + wp.review.rating.toFixed(1) + " \u2605</span>" : "") +
             '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>" +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
           "</div>" +
@@ -10858,6 +11183,10 @@
             : '<button class="card-url-btn placeholder" data-action="edit-url" data-id="' + wp.id + '">' + icon("link", 12) + "<span>Add a link</span></button>") +
         "</div>" +
         '<div class="card-notes">' +
+          '<div class="card-notes-tab-row">' +
+            '<button type="button" class="card-notes-tab-btn active" data-action="edit-notes" data-id="' + wp.id + '">Notes</button>' +
+            '<button type="button" class="card-notes-tab-btn' + (wp.review && wp.review.rating ? " has-review" : "") + '" data-action="edit-reviews" data-id="' + wp.id + '">Reviews</button>' +
+          "</div>" +
           '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
             icon("note", 12) + '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
           "</button>" +
@@ -10904,9 +11233,9 @@
             cardPhotoTargetId = id;
             cameraCaptureInput.click();
             break;
-          case "edit-name": e.stopPropagation(); startEditName(id); break;
           case "edit-url": e.stopPropagation(); startEditUrl(id); break;
           case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
+          case "edit-reviews": e.stopPropagation(); openEditModalToReviews(wp); break;
           case "copy-code":
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
             break;
@@ -11095,25 +11424,6 @@
     setTimeout(() => { node.innerHTML = original; node.style.color = ""; }, 1500);
   }
 
-  function startEditName(id) {
-    const nameEl = panelList.querySelector('.card-name[data-id="' + id + '"]');
-    if (!nameEl) return;
-    const wp = waypoints.find((w) => w.id === id);
-    const input = document.createElement("input");
-    input.className = "card-name-input";
-    input.value = wp.name;
-    nameEl.replaceWith(input);
-    input.focus(); input.select();
-    const commit = () => {
-      wp.name = input.value.trim() || wp.name;
-      wp.updatedAt = Date.now();
-      saveWaypoints();
-      renderList();
-    };
-    input.addEventListener("blur", commit);
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
-  }
-
   function startEditUrl(id) {
     const urlEl = panelList.querySelector('.card-url[data-id="' + id + '"]');
     if (!urlEl) return;
@@ -11162,7 +11472,11 @@
 
   function openEditModalToNotes(wp) {
     openEditModal(wp);
-    expandJournalBtn.click();
+    openJournalModal("notes");
+  }
+  function openEditModalToReviews(wp) {
+    openEditModal(wp);
+    openJournalModal("reviews");
   }
 
   /* ================================================================ */
