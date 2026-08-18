@@ -163,6 +163,14 @@
   .layers-accordion-toggle.open .layers-accordion-chevron{transform:rotate(180deg);}
   .layers-accordion-content{display:none; margin-top:10px;}
   .layers-accordion-content.open{display:block;}
+  .check-photo-failures-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:10px; margin-top:10px;}
+  .check-photo-failures-grid.hidden{display:none;}
+  .check-photo-fail-item{display:flex; flex-direction:column; gap:4px; background:none; border:none; padding:0; cursor:pointer; text-align:left;}
+  .check-photo-fail-thumb{width:72px; height:72px; border-radius:8px; object-fit:cover; border:2px solid rgba(248,113,113,.6); display:block;}
+  .check-photo-fail-label{font-size:10px; color:var(--text-dim); line-height:1.3; overflow:hidden; text-overflow:ellipsis;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .check-photo-fail-item:hover .check-photo-fail-thumb{border-color:var(--red);}
+  .check-photo-fail-item:hover .check-photo-fail-label{color:var(--text);}
   .layers-two-col{display:flex; gap:20px;}
   .layers-two-col > div{flex:1; min-width:0;}
   .weather-snapshot{border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:8px;}
@@ -616,18 +624,15 @@
   .journal-tab-btn.active{color:var(--text); border-bottom-color:var(--amber-light);}
   #journalReviewsPanel .field-label{margin-top:16px;}
   #journalReviewsPanel .field-label:first-child{margin-top:0;}
-  .review-rating-price-row{display:flex; gap:24px; row-gap:20px; flex-wrap:wrap; margin-top:18px; margin-bottom:18px;}
+  .review-rating-price-row{display:flex; gap:10px; row-gap:16px; flex-wrap:wrap; margin-top:18px; margin-bottom:18px;}
   .review-rating-block, .review-price-block{display:flex; flex-direction:column; flex:0 0 auto;}
-  .review-rating-row, .review-price-row{display:flex; align-items:center; height:40px; margin-bottom:10px;}
-  .review-rating-input{width:110px; margin-bottom:0;}
-  .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
-  .no-spinner{-moz-appearance:textfield; appearance:textfield;}
-  .review-rating-badge{display:inline-flex; align-items:center; justify-content:center; width:70px; padding:6px 4px; margin-left:10px;
-    border-radius:8px; background:#d32323; color:#fff; font-weight:700; font-size:13px; letter-spacing:.2px;}
-  .review-rating-slider{width:190px; accent-color:#d32323; height:20px; display:block;}
-  .review-price-badge{display:inline-flex; align-items:center; justify-content:center; width:90px; padding:6px 4px;
-    border-radius:8px; background:#16a34a; color:#fff; font-weight:700; font-size:14px; letter-spacing:1px;}
-  .review-price-slider{width:90px; accent-color:#16a34a; height:20px; display:block;}
+  .review-rating-row, .review-price-row{display:flex; align-items:center; justify-content:center; height:30px; margin-bottom:8px;}
+  .review-rating-badge{display:inline-flex; align-items:center; justify-content:center; width:64px; padding:6px 4px;
+    border-radius:8px; background:#d32323; color:#fff; font-weight:700; font-size:12px; letter-spacing:.2px;}
+  .review-rating-slider{width:64px; accent-color:#d32323; height:20px; display:block;}
+  .review-price-badge{display:inline-flex; align-items:center; justify-content:center; width:64px; padding:6px 4px;
+    border-radius:8px; background:#16a34a; color:#fff; font-weight:700; font-size:12px; letter-spacing:.5px;}
+  .review-price-slider{width:64px; accent-color:#16a34a; height:20px; display:block;}
   .review-notes-textarea{width:100%; min-height:100px; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px; margin-top:6px;}
   .review-tags-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; margin-top:6px;}
@@ -987,6 +992,7 @@
               <button class="home-action-btn danger" id="gistForcePushBtn">Push (overwrite)</button>
               <button class="home-action-btn danger" id="gistForcePullBtn">Pull (overwrite)</button>
             </div>
+            <div class="check-photo-failures-grid hidden" id="gistCheckPhotoFailuresGrid"></div>
             <p class="layers-hint" id="gistCheckDetail" style="margin-top:6px; white-space:pre-line;"></p>
           </div>
         </div>
@@ -1207,9 +1213,8 @@
 
         <div class="review-rating-price-row">
           <div class="review-rating-block">
-            <label class="field-label">Food Rating</label>
+            <label class="field-label">Food</label>
             <div class="review-rating-row">
-              <input id="reviewRatingInput" class="field-input review-rating-input no-spinner" type="number" min="1" max="5" step="0.1" placeholder="1–5" />
               <span class="review-rating-badge" id="reviewRatingBadge" style="display:none;"></span>
             </div>
             <input id="reviewRatingSlider" class="review-rating-slider" type="range" min="1" max="5" step="0.1" value="1" />
@@ -1217,10 +1222,16 @@
           <div class="review-rating-block">
             <label class="field-label">Ambiance</label>
             <div class="review-rating-row">
-              <input id="reviewAmbianceInput" class="field-input review-rating-input no-spinner" type="number" min="1" max="5" step="0.1" placeholder="1–5" />
               <span class="review-rating-badge" id="reviewAmbianceBadge" style="display:none;"></span>
             </div>
             <input id="reviewAmbianceSlider" class="review-rating-slider" type="range" min="1" max="5" step="0.1" value="1" />
+          </div>
+          <div class="review-rating-block">
+            <label class="field-label">Cleanliness</label>
+            <div class="review-rating-row">
+              <span class="review-rating-badge" id="reviewCleanlinessBadge" style="display:none;"></span>
+            </div>
+            <input id="reviewCleanlinessSlider" class="review-rating-slider" type="range" min="1" max="5" step="0.1" value="1" />
           </div>
           <div class="review-price-block">
             <label class="field-label">Price</label>
@@ -1977,7 +1988,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "284";
+  const APP_VERSION = "286";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2167,12 +2178,12 @@
   let pendingMarker = null;
   let pendingPhotos = [];
   let pendingReview = null; // {name, rating, locationTag, priceLevel, hours, tags} or null -- edited live from the Notes/Review labels' modal, autosaved into this on every change, committed onto the waypoint at Save
-  function emptyReview() { return { name: "", rating: null, ambianceRating: null, locationTag: "", priceLevel: 1, hours: "", tags: [] }; }
+  function emptyReview() { return { name: "", rating: null, ambianceRating: null, cleanlinessRating: null, locationTag: "", priceLevel: 1, hours: "", tags: [] }; }
   // priceLevel is deliberately left out here -- it now always defaults to 1
   // (never an "unset" state, since the $ slider can't represent that), so
   // including it would make every visit to Review mode register as "has
   // content" even with nothing else touched.
-  function reviewHasContent(r) { return !!(r && (r.name || r.rating || r.ambianceRating || r.locationTag || r.hours || (r.tags && r.tags.length))); }
+  function reviewHasContent(r) { return !!(r && (r.name || r.rating || r.ambianceRating || r.cleanlinessRating || r.locationTag || r.hours || (r.tags && r.tags.length))); }
   let selectedWaypointId = null;
   let activePanelTab = "waypoints";
   // Folder accordion/bulk-select/creation state for the Waypoints tab.
@@ -2399,6 +2410,7 @@
   const gistCheckLocalBtn = el("gistCheckLocalBtn");
   const gistCheckPhotosBtn = el("gistCheckPhotosBtn");
   const gistCheckDetail = el("gistCheckDetail");
+  const gistCheckPhotoFailuresGrid = el("gistCheckPhotoFailuresGrid");
   const gistForcePushBtn = el("gistForcePushBtn");
   const gistForcePullBtn = el("gistForcePullBtn");
   const anchorModalOverlay = el("anchorModalOverlay");
@@ -2468,12 +2480,12 @@
   const journalNotesPanel = el("journalNotesPanel");
   const journalReviewsPanel = el("journalReviewsPanel");
   const reviewNameInput = el("reviewNameInput");
-  const reviewRatingInput = el("reviewRatingInput");
   const reviewRatingSlider = el("reviewRatingSlider");
   const reviewRatingBadge = el("reviewRatingBadge");
-  const reviewAmbianceInput = el("reviewAmbianceInput");
   const reviewAmbianceSlider = el("reviewAmbianceSlider");
   const reviewAmbianceBadge = el("reviewAmbianceBadge");
+  const reviewCleanlinessSlider = el("reviewCleanlinessSlider");
+  const reviewCleanlinessBadge = el("reviewCleanlinessBadge");
   const reviewLocationInput = el("reviewLocationInput");
   const reviewPriceSlider = el("reviewPriceSlider");
   const reviewPriceBadge = el("reviewPriceBadge");
@@ -4992,7 +5004,7 @@
         if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
         seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id, waypointName: wp.name });
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id, waypointName: wp.name, dataUrl: src });
       }
     }
     let anyUploaded = false;
@@ -5006,7 +5018,7 @@
       } catch (e) {
         console.error("[repo sync] failed to upload photo " + item.path, e);
         anyFailed = true;
-        failures.push({ waypointId: item.waypointId, waypointName: item.waypointName, hash: item.hash, path: item.path, message: (e && e.message) || "Unknown error" });
+        failures.push({ waypointId: item.waypointId, waypointName: item.waypointName, hash: item.hash, path: item.path, message: (e && e.message) || "Unknown error", dataUrl: item.dataUrl });
       }
     });
     if (anyUploaded) await savePhotoUploadCache(cache);
@@ -5199,6 +5211,8 @@
     if (!token) { showToast("Paste a GitHub access token first.", false, true); return; }
     if (!parsed) { showToast("Enter a repository as owner/repo, e.g. yourname/mapapp-data.", false, true); return; }
     gistCheckRepoBtn.disabled = true;
+    gistCheckPhotoFailuresGrid.classList.add("hidden");
+    gistCheckPhotoFailuresGrid.innerHTML = "";
     gistCheckDetail.textContent = "Checking…";
     try {
       const [file, imageEntries] = await Promise.all([
@@ -5272,6 +5286,8 @@
   // sync mismatch is: a stale push (repo is behind), a stale pull (this
   // device is behind), or something else entirely.
   function checkLocalDataStatus() {
+    gistCheckPhotoFailuresGrid.classList.add("hidden");
+    gistCheckPhotoFailuresGrid.innerHTML = "";
     gistCheckDetail.textContent = summarizeWaypointDataset(waypoints) + ", " + rides.length + " route" + (rides.length === 1 ? "" : "s") + ", " + measurements.length + " measurement" + (measurements.length === 1 ? "" : "s") + " on this device.";
   }
   gistCheckLocalBtn.addEventListener("click", (e) => { e.stopPropagation(); checkLocalDataStatus(); });
@@ -5311,11 +5327,30 @@
 
     const lines = [];
     if (lastPhotoUploadFailures.length > 0) {
-      lines.push("Last sync: " + lastPhotoUploadFailures.length + " photo" + (lastPhotoUploadFailures.length === 1 ? "" : "s") + " failed to upload:");
-      lastPhotoUploadFailures.forEach((f) => {
-        lines.push("  \u2022 \"" + (f.waypointName || "Unnamed waypoint") + "\" \u2014 " + f.message);
+      lines.push(
+        "Last sync: " + lastPhotoUploadFailures.length + " photo" + (lastPhotoUploadFailures.length === 1 ? "" : "s") + " failed to upload (thumbnails below) —",
+        "still saved in full on this device (nothing was lost); they'll retry automatically on your next sync.",
+        ""
+      );
+      gistCheckPhotoFailuresGrid.classList.remove("hidden");
+      gistCheckPhotoFailuresGrid.innerHTML = lastPhotoUploadFailures.map((f, i) =>
+        '<button type="button" class="check-photo-fail-item" data-fail-idx="' + i + '" title="' + escapeHtml((f.waypointName || "Unnamed waypoint") + " \u2014 " + f.message) + '">' +
+          '<img class="check-photo-fail-thumb" src="' + f.dataUrl + '" alt="Failed upload" loading="lazy" />' +
+          '<span class="check-photo-fail-label">' + escapeHtml(f.waypointName || "Unnamed waypoint") + "</span>" +
+        "</button>"
+      ).join("");
+      gistCheckPhotoFailuresGrid.querySelectorAll("[data-fail-idx]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const f = lastPhotoUploadFailures[Number(btn.dataset.failIdx)];
+          const wp = f && waypoints.find((w) => w.id === f.waypointId);
+          if (!wp) { showToast("That waypoint no longer exists."); return; }
+          layersPanel.classList.remove("show");
+          openEditModal(wp); // its photo thumbnails are right there to delete/replace the problem one
+        });
       });
-      lines.push("These are still saved in full on this device (nothing was lost) — they'll retry automatically on your next sync.", "");
+    } else {
+      gistCheckPhotoFailuresGrid.classList.add("hidden");
+      gistCheckPhotoFailuresGrid.innerHTML = "";
     }
     lines.push(
       totalPhotos + " total photo" + (totalPhotos === 1 ? "" : "s") + " on this device:",
@@ -9165,15 +9200,14 @@
   journalTabNotesBtn.addEventListener("click", () => setJournalTab("notes"));
   journalTabReviewsBtn.addEventListener("click", () => { setJournalTab("reviews"); autofillReviewLocation(); });
 
-  // Shared wiring for both star-rating fields (Food and Ambiance) -- same
-  // number-input-plus-slider-plus-badge behavior, just parameterized by
-  // which pendingReview property and which DOM elements each one uses.
-  function makeStarRatingField(inputEl, sliderEl, badgeEl, propName) {
+  // Shared wiring for all three star-rating fields (Food, Ambiance,
+  // Cleanliness) -- slider-plus-badge, no numeric entry field, all
+  // parameterized by which pendingReview property and DOM elements each
+  // one uses.
+  function makeStarRatingField(sliderEl, badgeEl, propName) {
     function updateBadge() {
-      const raw = inputEl.value;
-      if (raw === "") { badgeEl.style.display = "none"; return; }
-      const val = Math.max(1, Math.min(5, parseFloat(raw)));
-      if (isNaN(val)) { badgeEl.style.display = "none"; return; }
+      const val = pendingReview[propName];
+      if (val == null) { badgeEl.style.display = "none"; return; }
       badgeEl.textContent = val.toFixed(1) + " \u2605";
       badgeEl.style.display = "inline-flex";
     }
@@ -9183,29 +9217,19 @@
     // Review mode, or just closing this modal, never loses anything typed;
     // the only save step left is the outer Edit Waypoint modal's own Save
     // button, same as every other field on a waypoint.
-    function commit() {
-      const raw = inputEl.value;
-      pendingReview[propName] = raw !== "" ? Math.round(Math.max(1, Math.min(5, parseFloat(raw))) * 10) / 10 : null;
-    }
-    inputEl.addEventListener("input", () => {
-      updateBadge();
-      if (inputEl.value !== "") sliderEl.value = inputEl.value;
-      commit();
-    });
     sliderEl.addEventListener("input", () => {
-      inputEl.value = sliderEl.value;
+      pendingReview[propName] = Math.round(parseFloat(sliderEl.value) * 10) / 10;
       updateBadge();
-      commit();
     });
     return function populate() {
       const val = pendingReview[propName];
-      inputEl.value = val != null ? val : "";
       sliderEl.value = val != null ? val : 1;
       updateBadge();
     };
   }
-  const populateFoodRating = makeStarRatingField(reviewRatingInput, reviewRatingSlider, reviewRatingBadge, "rating");
-  const populateAmbianceRating = makeStarRatingField(reviewAmbianceInput, reviewAmbianceSlider, reviewAmbianceBadge, "ambianceRating");
+  const populateFoodRating = makeStarRatingField(reviewRatingSlider, reviewRatingBadge, "rating");
+  const populateAmbianceRating = makeStarRatingField(reviewAmbianceSlider, reviewAmbianceBadge, "ambianceRating");
+  const populateCleanlinessRating = makeStarRatingField(reviewCleanlinessSlider, reviewCleanlinessBadge, "cleanlinessRating");
 
   reviewNameInput.addEventListener("input", () => { pendingReview.name = reviewNameInput.value.trim(); });
   reviewLocationInput.addEventListener("input", () => { pendingReview.locationTag = reviewLocationInput.value.trim(); });
@@ -9302,6 +9326,7 @@
     reviewNameInput.value = pendingReview.name || "";
     populateFoodRating();
     populateAmbianceRating();
+    populateCleanlinessRating();
     reviewLocationInput.value = pendingReview.locationTag || "";
     updateReviewPriceUI();
     reviewHoursInput.value = pendingReview.hours || "";
