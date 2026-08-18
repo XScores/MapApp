@@ -1977,7 +1977,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "283";
+  const APP_VERSION = "284";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4967,6 +4967,15 @@
   // as its own file under images/, named by a hash of its content. Skips
   // anything already in the cache (uploaded in a previous sync) or that
   // isn't a data: URL at all (already a remote reference from a prior pull).
+  // The specifics of any photo that failed to upload during the most recent
+  // push -- which waypoint, which file, and why -- so a person seeing the
+  // "some photos couldn't be uploaded" toast has somewhere to actually look
+  // instead of just a generic warning. Cleared/replaced at the start of
+  // every push attempt (see uploadWaypointPhotosIfNeeded below), so it only
+  // ever reflects the most recent sync, not some indefinitely-accumulating
+  // history.
+  let lastPhotoUploadFailures = [];
+
   async function uploadWaypointPhotosIfNeeded(owner, repo) {
     const cache = await loadPhotoUploadCache();
     const needsUpload = [];
@@ -4983,11 +4992,12 @@
         if (cache[hash] || seenHashes.has(hash)) continue; // already uploaded in a previous sync, or a duplicate within this batch
         seenHashes.add(hash);
         const ext = mime.indexOf("png") !== -1 ? "png" : mime.indexOf("webp") !== -1 ? "webp" : "jpg";
-        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id });
+        needsUpload.push({ hash, base64Data, path: "images/" + hash + "." + ext, waypointId: wp.id, waypointName: wp.name });
       }
     }
     let anyUploaded = false;
     let anyFailed = false;
+    const failures = []; // {waypointId, waypointName, hash, path, message}
     await runWithConcurrencyLimit(needsUpload, PHOTO_FETCH_CONCURRENCY, async (item) => {
       try {
         await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
@@ -4996,10 +5006,12 @@
       } catch (e) {
         console.error("[repo sync] failed to upload photo " + item.path, e);
         anyFailed = true;
+        failures.push({ waypointId: item.waypointId, waypointName: item.waypointName, hash: item.hash, path: item.path, message: (e && e.message) || "Unknown error" });
       }
     });
     if (anyUploaded) await savePhotoUploadCache(cache);
-    return { anyUploaded, anyFailed, cache };
+    lastPhotoUploadFailures = failures;
+    return { anyUploaded, anyFailed, cache, failures };
   }
 
   // Leaner than buildBackupPayload's full local export: any photo already
@@ -5092,7 +5104,9 @@
       gistStatusText.textContent = "Uploading photos…";
       const photoResult = await uploadWaypointPhotosIfNeeded(parsed.owner, parsed.repo);
       if (photoResult.anyFailed) {
-        showErrorToast("Some photos couldn't be uploaded — they'll retry on the next sync. Continuing with the rest.", true);
+        const names = Array.from(new Set(photoResult.failures.map((f) => f.waypointName || "Unnamed waypoint")));
+        const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ", +" + (names.length - 3) + " more" : "");
+        showErrorToast("Photo upload failed for: " + shown + ". They'll retry on the next sync — see Settings \u2192 Check Photos for details.", true);
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
@@ -5295,12 +5309,20 @@
       });
     });
 
-    const lines = [
+    const lines = [];
+    if (lastPhotoUploadFailures.length > 0) {
+      lines.push("Last sync: " + lastPhotoUploadFailures.length + " photo" + (lastPhotoUploadFailures.length === 1 ? "" : "s") + " failed to upload:");
+      lastPhotoUploadFailures.forEach((f) => {
+        lines.push("  \u2022 \"" + (f.waypointName || "Unnamed waypoint") + "\" \u2014 " + f.message);
+      });
+      lines.push("These are still saved in full on this device (nothing was lost) — they'll retry automatically on your next sync.", "");
+    }
+    lines.push(
       totalPhotos + " total photo" + (totalPhotos === 1 ? "" : "s") + " on this device:",
       "  " + dataUrlCount + " already working",
       "  " + unrehydratedCount + " never fetched from the repo",
-      "  " + rawUrlCount + " stuck as a broken link from an earlier version",
-    ];
+      "  " + rawUrlCount + " stuck as a broken link from an earlier version"
+    );
     if (otherCount) lines.push("  " + otherCount + " in an unrecognized format");
 
     const sample = sampleObject || sampleRawUrl;
