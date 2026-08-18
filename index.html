@@ -454,6 +454,8 @@
   .list-favorite-filter-btn:hover{color:var(--red);}
   .list-favorite-filter-btn.active{color:var(--red); border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.1);}
   .list-favorite-filter-btn.hidden{display:none;}
+  #waypointNewTripBtn{color:#a78bfa;}
+  #waypointNewTripBtn:hover{color:#c4b5fd;}
   .panel-sync-status{font-size:12px; color:var(--cyan); margin:0; text-align:right; opacity:0; transition:opacity .2s;}
   .panel-sync-status.show{opacity:1;}
   .panel-search-row{display:flex; align-items:center; gap:8px; margin:12px 16px 0; padding:8px 12px;
@@ -502,6 +504,13 @@
   .folder-accordion-count{flex-shrink:0; font-size:12px; color:var(--text-mute);}
   .folder-accordion-action{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; padding:4px;}
   .folder-accordion-action:hover{color:var(--text-dim);}
+  .trip-folder > .folder-accordion-header .folder-accordion-icon{color:#a78bfa;}
+  .folder-accordion-story-btn{color:#a78bfa;}
+  .folder-accordion-story-btn:hover{color:#c4b5fd;}
+  .folder-accordion-story-btn.generating{color:#c4b5fd; cursor:default; animation:story-generating-pulse 1.1s ease-in-out infinite;}
+  @keyframes story-generating-pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  .card.story-card{border-color:rgba(167,139,250,.45); background:rgba(167,139,250,.06);}
+  .card.story-card .card-name, .card.story-card .card-notes-content{color:#e9e4ff;}
   .folder-accordion-body{display:none; padding:10px; background:rgba(15,23,42,.5); border:1px solid var(--border); border-top:none;
     border-radius:0 0 12px 12px;}
   .folder-accordion.expanded > .folder-accordion-body{display:block; border-color:var(--cyan);}
@@ -529,6 +538,7 @@
   .folder-picker-row span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .folder-picker-new{color:var(--cyan);}
   .folder-picker-new .icon{color:var(--cyan);}
+  .story-format-saved{flex:0 0 auto !important; display:flex; color:var(--green);}
 
   .card{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:12px; transition:border-color .15s, box-shadow .15s;}
   .card:hover{border-color:rgba(245,158,11,.35);}
@@ -899,6 +909,21 @@
         </div>
 
         <div class="layers-section">
+          <p class="layers-section-title">Gemini API</p>
+          <div id="geminiKeyPrompt">
+            <p class="layers-hint">A.I. Story (Waypoints tab → Trip folders) needs a free API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Google's free tier has no ongoing cost, but is rate-limited and may use your prompts to improve their products.</p>
+            <div class="owm-key-row">
+              <input id="geminiKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
+              <button id="geminiKeySaveBtn">Save</button>
+            </div>
+          </div>
+          <div id="geminiKeySaved" class="owm-key-saved" style="display:none;">
+            <span>Gemini key saved</span>
+            <button id="geminiKeyForgetBtn">Remove</button>
+          </div>
+        </div>
+
+        <div class="layers-section">
           <p class="layers-section-title">Backup &amp; sync</p>
           <p class="layers-hint" id="storageStatusText">Storage status: checking…</p>
           <p class="layers-hint">Download or restore everything — waypoints, photos, notes, and app settings — as one file.</p>
@@ -965,7 +990,7 @@
       <div class="modal-header">
         <h2 id="modalTitle">New waypoint</h2>
         <div class="modal-header-actions">
-          <button class="icon-btn" id="micBtn" title="Voice input — say &quot;name&quot; or &quot;note&quot; to dictate, &quot;stop&quot; to end"></button>
+          <button class="icon-btn" id="micBtn" title="Voice input — say &quot;name&quot; or &quot;note&quot; to dictate, &quot;done&quot; to end"></button>
           <button class="icon-btn" id="modalCloseBtn"></button>
         </div>
       </div>
@@ -1203,6 +1228,17 @@
     </div>
   </div>
 
+  <!-- A.I. Story format picker (Trip folders) -->
+  <div class="modal-overlay hidden" id="storyFormatModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2 id="storyFormatModalTitle">Generate A.I. Story</h2>
+        <button class="icon-btn" id="storyFormatModalCloseBtn"></button>
+      </div>
+      <div class="folder-picker-list" id="storyFormatModalList"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="shareModalOverlay">
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
@@ -1285,6 +1321,9 @@
       <button type="button" class="list-favorite-filter-btn" id="waypointNewFolderBtn" title="New folder">
         <span class="icon"></span>
       </button>
+      <button type="button" class="list-favorite-filter-btn" id="waypointNewTripBtn" title="New Trip folder">
+        <span class="icon"></span>
+      </button>
       <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
       <p class="panel-sync-status" id="panelSyncStatus"></p>
     </div>
@@ -1295,6 +1334,7 @@
     </div>
     <div class="panel-list-wrap" id="panelWaypointsView">
       <div class="folder-create-panel hidden" id="waypointFolderCreatePanel">
+        <p class="layers-hint hidden" id="folderCreatePanelTripLabel">Creating a Trip folder — waypoints saved while it's open will land here automatically.</p>
         <input type="text" id="folderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
         <div class="folder-create-panel-row">
           <button type="button" class="home-action-btn" id="folderCreateSelectItemsBtn">Select items</button>
@@ -1324,6 +1364,26 @@
       <button class="panel-search-clear" id="routesSearchClearBtn" style="display:none;"></button>
     </div>
     <div class="panel-list-wrap hidden" id="panelRoutesView">
+      <div class="folder-create-panel hidden" id="routeFolderCreatePanel">
+        <input type="text" id="routeFolderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <div class="folder-create-panel-row">
+          <button type="button" class="home-action-btn" id="routeFolderCreateSelectItemsBtn">Select items</button>
+          <button type="button" class="home-action-btn" id="routeFolderCreateAddItemsBtn">Add items</button>
+          <button type="button" class="home-action-btn hidden" id="routeFolderCreateRemoveItemsBtn">Remove items</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-danger hidden" id="routeFolderCreateDeleteBtn">Delete</button>
+          <button type="button" class="btn btn-secondary" id="routeFolderCreateCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="routeFolderCreateCreateBtn">Create</button>
+        </div>
+      </div>
+      <div class="bulk-select-bar hidden" id="routesBulkBar">
+        <span id="routesBulkCount">0 selected</span>
+        <div class="bulk-select-actions">
+          <button type="button" class="home-action-btn" id="routesBulkMoveBtn">Move to folder</button>
+          <button type="button" class="home-action-btn" id="routesBulkCancelBtn">Cancel</button>
+        </div>
+      </div>
       <div class="panel-list" id="routesPanelList"></div>
       <div class="az-picker" id="routesAzPicker"></div>
     </div>
@@ -1334,6 +1394,26 @@
       <button class="panel-search-clear" id="measurementsSearchClearBtn" style="display:none;"></button>
     </div>
     <div class="panel-list-wrap hidden" id="panelMeasurementsView">
+      <div class="folder-create-panel hidden" id="measurementFolderCreatePanel">
+        <input type="text" id="measurementFolderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <div class="folder-create-panel-row">
+          <button type="button" class="home-action-btn" id="measurementFolderCreateSelectItemsBtn">Select items</button>
+          <button type="button" class="home-action-btn" id="measurementFolderCreateAddItemsBtn">Add items</button>
+          <button type="button" class="home-action-btn hidden" id="measurementFolderCreateRemoveItemsBtn">Remove items</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-danger hidden" id="measurementFolderCreateDeleteBtn">Delete</button>
+          <button type="button" class="btn btn-secondary" id="measurementFolderCreateCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="measurementFolderCreateCreateBtn">Create</button>
+        </div>
+      </div>
+      <div class="bulk-select-bar hidden" id="measurementsBulkBar">
+        <span id="measurementsBulkCount">0 selected</span>
+        <div class="bulk-select-actions">
+          <button type="button" class="home-action-btn" id="measurementsBulkMoveBtn">Move to folder</button>
+          <button type="button" class="home-action-btn" id="measurementsBulkCancelBtn">Cancel</button>
+        </div>
+      </div>
       <div class="panel-list" id="measurementsPanelList"></div>
       <div class="az-picker" id="measurementsAzPicker"></div>
     </div>
@@ -1471,7 +1551,9 @@
     eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
     eyeOff: '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
     layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>',
-    home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>'
+    home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+    sparkles: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"></path><path d="M12 8l1.6 3.4L17 13l-3.4 1.6L12 18l-1.6-3.4L7 13l3.4-1.6z"></path>',
+    play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
   };
 
   function icon(name, size) {
@@ -1821,6 +1903,8 @@
   const RIDES_KEY = "waypoint-saver:rides";
   const MEASUREMENTS_KEY = "waypoint-saver:measurements";
   const WAYPOINT_FOLDERS_KEY = "waypoint-saver:waypointFolders";
+  const RIDE_FOLDERS_KEY = "waypoint-saver:rideFolders";
+  const MEASUREMENT_FOLDERS_KEY = "waypoint-saver:measurementFolders";
   const DELETED_IDS_KEY = "waypoint-saver:deletedIds";
 
   // All persisted data now lives in IndexedDB via localForage instead of
@@ -1833,7 +1917,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -1875,7 +1959,9 @@
       waypoints: Array.isArray(p.waypoints) ? p.waypoints : [],
       rides: Array.isArray(p.rides) ? p.rides : [],
       measurements: Array.isArray(p.measurements) ? p.measurements : [],
-      waypointFolders: Array.isArray(p.waypointFolders) ? p.waypointFolders : []
+      waypointFolders: Array.isArray(p.waypointFolders) ? p.waypointFolders : [],
+      rideFolders: Array.isArray(p.rideFolders) ? p.rideFolders : [],
+      measurementFolders: Array.isArray(p.measurementFolders) ? p.measurementFolders : []
     };
   }
 
@@ -1899,6 +1985,14 @@
   function saveWaypointFolders() {
     if (!dataStore) { showErrorToast(describeStorageError(null, "your folders")); return; }
     dataStore.setItem(WAYPOINT_FOLDERS_KEY, waypointFolders).catch((e) => showErrorToast(describeStorageError(e, "your folders")));
+  }
+  function saveRideFolders() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your route folders")); return; }
+    dataStore.setItem(RIDE_FOLDERS_KEY, rideFolders).catch((e) => showErrorToast(describeStorageError(e, "your route folders")));
+  }
+  function saveMeasurementFolders() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your measurement folders")); return; }
+    dataStore.setItem(MEASUREMENT_FOLDERS_KEY, measurementFolders).catch((e) => showErrorToast(describeStorageError(e, "your measurement folders")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -1924,7 +2018,7 @@
     try { alreadyMigrated = await dataStore.getItem(MIGRATION_FLAG_KEY); } catch (e) { /* proceed as if not migrated */ }
     if (alreadyMigrated) return;
 
-    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, WAYPOINT_FOLDERS_KEY, SETTINGS_KEY, DELETED_IDS_KEY];
+    const jsonKeys = [STORAGE_KEY, RIDES_KEY, MEASUREMENTS_KEY, WAYPOINT_FOLDERS_KEY, RIDE_FOLDERS_KEY, MEASUREMENT_FOLDERS_KEY, SETTINGS_KEY, DELETED_IDS_KEY];
     const stringKeys = ["mapapp:githubToken", "mapapp:githubGistId"];
     for (const key of jsonKeys.concat(stringKeys)) {
       try {
@@ -1948,21 +2042,23 @@
 
   async function loadPersistedState() {
     if (!dataStore) {
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
     try {
-      const [w, r, m, s, d, wf] = await Promise.all([
+      const [w, r, m, s, d, wf, rf, mf] = await Promise.all([
         dataStore.getItem(STORAGE_KEY),
         dataStore.getItem(RIDES_KEY),
         dataStore.getItem(MEASUREMENTS_KEY),
         dataStore.getItem(SETTINGS_KEY),
         dataStore.getItem(DELETED_IDS_KEY),
-        dataStore.getItem(WAYPOINT_FOLDERS_KEY)
+        dataStore.getItem(WAYPOINT_FOLDERS_KEY),
+        dataStore.getItem(RIDE_FOLDERS_KEY),
+        dataStore.getItem(MEASUREMENT_FOLDERS_KEY)
       ]);
-      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), rideFolders: normalizeArray(rf), measurementFolders: normalizeArray(mf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
     } catch (e) {
       console.error("[storage] failed to load from IndexedDB", e);
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
   }
 
@@ -1976,6 +2072,8 @@
   let rides = _persisted.rides;
   let measurements = _persisted.measurements;
   let waypointFolders = _persisted.waypointFolders;
+  let rideFolders = _persisted.rideFolders;
+  let measurementFolders = _persisted.measurementFolders;
   let settings = _persisted.settings;
   // Tombstones: IDs of waypoints/routes/measurements deliberately deleted on
   // this device. Sync payloads include these so a pull can tell "this ID
@@ -2010,8 +2108,28 @@
   let folderCreateSelectMode = false;
   let folderRemoveSelectMode = false;
   let editingFolderId = null;
+  let creatingTripFolder = false; // true while the folder-create panel is set up via the Trip button, so the folder it produces gets isTrip:true
+  const aiStoryGeneratingFolderIds = new Set(); // Trip folder ids currently mid-generation, so the button can show a busy state and can't be double-clicked
   const selectedWaypointIdsForMove = new Set();
   const selectedFolderIdsForMove = new Set();
+  // Same folder feature, independently instantiated for the Routes and
+  // Measurements tabs (own storage, own state) -- see the block of
+  // route-/measurement-folder functions below (mirroring the waypoint
+  // versions above) for the full behavior.
+  const expandedRouteFolderIds = new Set();
+  let routeSelectMode = false;
+  let routeFolderCreateSelectMode = false;
+  let routeFolderRemoveSelectMode = false;
+  let editingRouteFolderId = null;
+  const selectedRouteIdsForMove = new Set();
+  const selectedRouteFolderIdsForMove = new Set();
+  const expandedMeasurementFolderIds = new Set();
+  let measurementSelectMode = false;
+  let measurementFolderCreateSelectMode = false;
+  let measurementFolderRemoveSelectMode = false;
+  let editingMeasurementFolderId = null;
+  const selectedMeasurementIdsForMove = new Set();
+  const selectedMeasurementFolderIdsForMove = new Set();
   // Icon filter: null means "show all"; a string key identifies a specific
   // icon (an activity type for routes, or "emoji:<char>"/"pin:<color>" for
   // waypoints). Measurements have no icon filter -- every measurement uses
@@ -2207,6 +2325,11 @@
   const owmKeySaveBtn = el("owmKeySaveBtn");
   const owmKeySaved = el("owmKeySaved");
   const owmKeyForgetBtn = el("owmKeyForgetBtn");
+  const geminiKeyPrompt = el("geminiKeyPrompt");
+  const geminiKeyInput = el("geminiKeyInput");
+  const geminiKeySaveBtn = el("geminiKeySaveBtn");
+  const geminiKeySaved = el("geminiKeySaved");
+  const geminiKeyForgetBtn = el("geminiKeyForgetBtn");
   const panelToggleBtn = el("panelToggleBtn");
   const countBadge = el("countBadge");
   const counterNumber = el("counterNumber");
@@ -2275,6 +2398,10 @@
   const folderPickerModalCloseBtn = el("folderPickerModalCloseBtn");
   const folderPickerModalTitle = el("folderPickerModalTitle");
   const folderPickerModalList = el("folderPickerModalList");
+  const storyFormatModalOverlay = el("storyFormatModalOverlay");
+  const storyFormatModalCloseBtn = el("storyFormatModalCloseBtn");
+  const storyFormatModalTitle = el("storyFormatModalTitle");
+  const storyFormatModalList = el("storyFormatModalList");
   const shareModalOverlay = el("shareModalOverlay");
   const shareModalCloseBtn = el("shareModalCloseBtn");
   const shareModalList = el("shareModalList");
@@ -2288,10 +2415,36 @@
   const folderCreateCreateBtn = el("folderCreateCreateBtn");
   const waypointSelectModeBtn = el("waypointSelectModeBtn");
   const waypointNewFolderBtn = el("waypointNewFolderBtn");
+  const waypointNewTripBtn = el("waypointNewTripBtn");
+  const folderCreatePanelTripLabel = el("folderCreatePanelTripLabel");
   const waypointBulkBar = el("waypointBulkBar");
   const waypointBulkCount = el("waypointBulkCount");
   const waypointBulkMoveBtn = el("waypointBulkMoveBtn");
   const waypointBulkCancelBtn = el("waypointBulkCancelBtn");
+  const routeFolderCreatePanel = el("routeFolderCreatePanel");
+  const routeFolderCreateNameInput = el("routeFolderCreateNameInput");
+  const routeFolderCreateSelectItemsBtn = el("routeFolderCreateSelectItemsBtn");
+  const routeFolderCreateAddItemsBtn = el("routeFolderCreateAddItemsBtn");
+  const routeFolderCreateRemoveItemsBtn = el("routeFolderCreateRemoveItemsBtn");
+  const routeFolderCreateDeleteBtn = el("routeFolderCreateDeleteBtn");
+  const routeFolderCreateCancelBtn = el("routeFolderCreateCancelBtn");
+  const routeFolderCreateCreateBtn = el("routeFolderCreateCreateBtn");
+  const routesBulkBar = el("routesBulkBar");
+  const routesBulkCount = el("routesBulkCount");
+  const routesBulkMoveBtn = el("routesBulkMoveBtn");
+  const routesBulkCancelBtn = el("routesBulkCancelBtn");
+  const measurementFolderCreatePanel = el("measurementFolderCreatePanel");
+  const measurementFolderCreateNameInput = el("measurementFolderCreateNameInput");
+  const measurementFolderCreateSelectItemsBtn = el("measurementFolderCreateSelectItemsBtn");
+  const measurementFolderCreateAddItemsBtn = el("measurementFolderCreateAddItemsBtn");
+  const measurementFolderCreateRemoveItemsBtn = el("measurementFolderCreateRemoveItemsBtn");
+  const measurementFolderCreateDeleteBtn = el("measurementFolderCreateDeleteBtn");
+  const measurementFolderCreateCancelBtn = el("measurementFolderCreateCancelBtn");
+  const measurementFolderCreateCreateBtn = el("measurementFolderCreateCreateBtn");
+  const measurementsBulkBar = el("measurementsBulkBar");
+  const measurementsBulkCount = el("measurementsBulkCount");
+  const measurementsBulkMoveBtn = el("measurementsBulkMoveBtn");
+  const measurementsBulkCancelBtn = el("measurementsBulkCancelBtn");
   const forecastModalOverlay = el("forecastModalOverlay");
   const forecastModalCloseBtn = el("forecastModalCloseBtn");
   const forecastModalTitle = el("forecastModalTitle");
@@ -2409,6 +2562,7 @@
   shareModalCloseBtn.innerHTML = icon("x", 18);
   waypointSelectModeBtn.querySelector(".icon").innerHTML = icon("checkSquare", 15);
   waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
+  waypointNewTripBtn.querySelector(".icon").innerHTML = icon("plane", 15);
   measureModalCloseBtn.innerHTML = icon("x", 18);
   photoViewCloseBtn.innerHTML = icon("x", 18);
   toastCloseBtn.innerHTML = icon("x", 15);
@@ -2566,6 +2720,47 @@
   }
   folderPickerModalCloseBtn.addEventListener("click", closeFolderPickerModal);
   folderPickerModalOverlay.addEventListener("click", (e) => { if (e.target === folderPickerModalOverlay) closeFolderPickerModal(); });
+
+  // A.I. Story format picker -- lists each of the five story formats a Trip
+  // folder can generate, marking whichever ones already have a saved story
+  // so it's clear which picks will regenerate vs. create fresh. Picking one
+  // closes the modal and hands off straight to generateTripStory.
+  const STORY_FORMATS = [
+    { id: "narrative", label: "Narrative Story", icon: "sparkles" },
+    { id: "blog", label: "Blog Post", icon: "note" },
+    { id: "instagram", label: "Instagram Caption", icon: "camera" },
+    { id: "tiktok", label: "TikTok Description", icon: "music" },
+    { id: "youtube", label: "YouTube Description", icon: "play" }
+  ];
+  function storyNameForFormat(folderName, formatId) {
+    return formatId === "narrative" ? (folderName + "-Story") : (folderName + "-Story (" + STORY_FORMATS.find((f) => f.id === formatId).label + ")");
+  }
+  function openStoryFormatModal(folderId) {
+    const folder = waypointFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    storyFormatModalTitle.textContent = 'Generate story for "' + folder.name + '"';
+    const existingFormats = new Set(waypoints.filter((w) => w.folderId === folderId && w.isStoryEntry).map((w) => w.storyFormat || "narrative"));
+    storyFormatModalList.innerHTML = STORY_FORMATS.map((f) =>
+      '<div class="folder-picker-row" data-action="pick-story-format" data-format="' + f.id + '">' +
+        '<span class="icon">' + icon(f.icon, 16) + "</span><span>" + escapeHtml(f.label) + "</span>" +
+        (existingFormats.has(f.id) ? '<span class="story-format-saved" title="Already generated \u2014 picking this regenerates it">' + icon("check", 14) + "</span>" : "") +
+      "</div>"
+    ).join("");
+    storyFormatModalList.querySelectorAll("[data-action='pick-story-format']").forEach((row) => {
+      row.addEventListener("click", () => {
+        closeStoryFormatModal();
+        generateTripStory(folderId, row.dataset.format);
+      });
+    });
+    storyFormatModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeStoryFormatModal() {
+    storyFormatModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  storyFormatModalCloseBtn.addEventListener("click", closeStoryFormatModal);
+  storyFormatModalOverlay.addEventListener("click", (e) => { if (e.target === storyFormatModalOverlay) closeStoryFormatModal(); });
 
   // The "Share" button opens this list rather than going straight to the
   // system share sheet -- Instagram and TikTok are called out explicitly so
@@ -2899,6 +3094,12 @@
     wxClouds.disabled = !hasKey; wxTemp.disabled = !hasKey;
   }
 
+  function refreshGeminiUi() {
+    const hasKey = !!settings.geminiApiKey;
+    geminiKeyPrompt.style.display = hasKey ? "none" : "block";
+    geminiKeySaved.style.display = hasKey ? "flex" : "none";
+  }
+
   // Maps OpenWeatherMap's icon codes (e.g. "01d", "10n") to one of our own
   // weather icons by their 2-digit condition prefix — day/night suffix is
   // ignored since we're showing a single representative icon per day anyway.
@@ -3118,6 +3319,22 @@
     settings.weather.clouds = false; settings.weather.temp = false;
     saveSettings();
     refreshOwmUi();
+    showToast("API key removed");
+  });
+
+  geminiKeySaveBtn.addEventListener("click", () => {
+    const key = geminiKeyInput.value.trim();
+    if (!key) { showToast("Enter a valid API key first."); return; }
+    settings.geminiApiKey = key;
+    saveSettings();
+    geminiKeyInput.value = "";
+    refreshGeminiUi();
+    showToast("Gemini key saved");
+  });
+  geminiKeyForgetBtn.addEventListener("click", () => {
+    settings.geminiApiKey = "";
+    saveSettings();
+    refreshGeminiUi();
     showToast("API key removed");
   });
 
@@ -3739,6 +3956,8 @@
       rides: JSON.parse(JSON.stringify(rides)),
       measurements: JSON.parse(JSON.stringify(measurements)),
       waypointFolders: JSON.parse(JSON.stringify(waypointFolders)),
+      rideFolders: JSON.parse(JSON.stringify(rideFolders)),
+      measurementFolders: JSON.parse(JSON.stringify(measurementFolders)),
       deletedIds: JSON.parse(JSON.stringify(deletedIds)),
       settings: {
         home: settings.home || null,
@@ -3787,6 +4006,8 @@
     const deletedRideSet = new Set(deletedIds.rides);
     const deletedMeasurementSet = new Set(deletedIds.measurements);
     const deletedWaypointFolderSet = new Set(deletedIds.waypointFolders);
+    const deletedRideFolderSet = new Set(deletedIds.rideFolders);
+    const deletedMeasurementFolderSet = new Set(deletedIds.measurementFolders);
 
     let remoteWaypointDeletions = 0;
     waypoints.forEach((w) => {
@@ -3820,6 +4041,26 @@
       remoteWaypointFolderDeletions++;
     });
     if (remoteWaypointFolderDeletions > 0) waypointFolders = waypointFolders.filter((f) => !deletedWaypointFolderSet.has(f.id));
+
+    let remoteRideFolderDeletions = 0;
+    rideFolders.forEach((f) => {
+      if (!deletedRideFolderSet.has(f.id)) return;
+      rides.forEach((r) => { if (r.folderId === f.id) { r.folderId = null; r.updatedAt = Date.now(); } });
+      rideFolders.forEach((child) => { if (child.parentFolderId === f.id) { child.parentFolderId = null; child.updatedAt = Date.now(); } });
+      expandedRouteFolderIds.delete(f.id);
+      remoteRideFolderDeletions++;
+    });
+    if (remoteRideFolderDeletions > 0) rideFolders = rideFolders.filter((f) => !deletedRideFolderSet.has(f.id));
+
+    let remoteMeasurementFolderDeletions = 0;
+    measurementFolders.forEach((f) => {
+      if (!deletedMeasurementFolderSet.has(f.id)) return;
+      measurements.forEach((m) => { if (m.folderId === f.id) { m.folderId = null; m.updatedAt = Date.now(); } });
+      measurementFolders.forEach((child) => { if (child.parentFolderId === f.id) { child.parentFolderId = null; child.updatedAt = Date.now(); } });
+      expandedMeasurementFolderIds.delete(f.id);
+      remoteMeasurementFolderDeletions++;
+    });
+    if (remoteMeasurementFolderDeletions > 0) measurementFolders = measurementFolders.filter((f) => !deletedMeasurementFolderSet.has(f.id));
 
     let added = 0, updated = 0, skipped = 0, photosRecovered = 0;
     const toApply = [];
@@ -3985,6 +4226,31 @@
     }
     if (routesAdded > 0 || routesUpdated > 0 || remoteRideDeletions > 0) { saveRides(); renderRoutesList(); }
 
+    // Route folders: same additive merge as waypoint folders above.
+    let rideFoldersAdded = 0, rideFoldersUpdated = 0, rideFoldersSkipped = 0;
+    if (Array.isArray(payload.rideFolders)) {
+      payload.rideFolders.forEach((f) => {
+        if (!f || !f.id || typeof f.name !== "string") { rideFoldersSkipped++; return; }
+        if (deletedRideFolderSet.has(f.id)) { rideFoldersSkipped++; return; }
+        const existingIndex = rideFolders.findIndex((existing) => existing.id === f.id);
+        if (existingIndex === -1) {
+          rideFolders.push(f);
+          rideFoldersAdded++;
+          return;
+        }
+        const incomingUpdatedAt = f.updatedAt || 0;
+        const existingUpdatedAt = rideFolders[existingIndex].updatedAt || 0;
+        const bothLackTimestamp = !f.updatedAt && !rideFolders[existingIndex].updatedAt;
+        if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          rideFolders[existingIndex] = f;
+          rideFoldersUpdated++;
+        } else {
+          rideFoldersSkipped++;
+        }
+      });
+    }
+    if (rideFoldersAdded > 0 || rideFoldersUpdated > 0 || remoteRideFolderDeletions > 0) { saveRideFolders(); renderRoutesList(); }
+
     // Same story — older exports predate measurement syncing entirely.
     let measurementsAdded = 0, measurementsUpdated = 0, measurementsSkipped = 0;
     if (Array.isArray(payload.measurements)) {
@@ -4011,6 +4277,31 @@
       });
     }
     if (measurementsAdded > 0 || measurementsUpdated > 0 || remoteMeasurementDeletions > 0) { saveMeasurements(); renderMeasurementsList(); }
+
+    // Measurement folders: same additive merge again.
+    let measurementFoldersAdded = 0, measurementFoldersUpdated = 0, measurementFoldersSkipped = 0;
+    if (Array.isArray(payload.measurementFolders)) {
+      payload.measurementFolders.forEach((f) => {
+        if (!f || !f.id || typeof f.name !== "string") { measurementFoldersSkipped++; return; }
+        if (deletedMeasurementFolderSet.has(f.id)) { measurementFoldersSkipped++; return; }
+        const existingIndex = measurementFolders.findIndex((existing) => existing.id === f.id);
+        if (existingIndex === -1) {
+          measurementFolders.push(f);
+          measurementFoldersAdded++;
+          return;
+        }
+        const incomingUpdatedAt = f.updatedAt || 0;
+        const existingUpdatedAt = measurementFolders[existingIndex].updatedAt || 0;
+        const bothLackTimestamp = !f.updatedAt && !measurementFolders[existingIndex].updatedAt;
+        if (incomingUpdatedAt > existingUpdatedAt || bothLackTimestamp) {
+          measurementFolders[existingIndex] = f;
+          measurementFoldersUpdated++;
+        } else {
+          measurementFoldersSkipped++;
+        }
+      });
+    }
+    if (measurementFoldersAdded > 0 || measurementFoldersUpdated > 0 || remoteMeasurementFolderDeletions > 0) { saveMeasurementFolders(); renderMeasurementsList(); }
 
     let anchorsApplied = 0;
     if (payload.settings && payload.settings.anchorOverrides) {
@@ -4978,16 +5269,24 @@
       rides = Array.isArray(payload.rides) ? payload.rides.filter((r) => r && r.id && Array.isArray(r.points)) : [];
       measurements = Array.isArray(payload.measurements) ? payload.measurements.filter((m) => m && m.id && Array.isArray(m.points)) : [];
       waypointFolders = Array.isArray(payload.waypointFolders) ? payload.waypointFolders.filter((f) => f && f.id && typeof f.name === "string") : [];
+      rideFolders = Array.isArray(payload.rideFolders) ? payload.rideFolders.filter((f) => f && f.id && typeof f.name === "string") : [];
+      measurementFolders = Array.isArray(payload.measurementFolders) ? payload.measurementFolders.filter((f) => f && f.id && typeof f.name === "string") : [];
       deletedIds = normalizeDeletedIds(payload.deletedIds);
       // Prune any expanded-accordion state pointing at a folder that no
       // longer exists after the replace above.
       const survivingFolderIds = new Set(waypointFolders.map((f) => f.id));
       Array.from(expandedFolderIds).forEach((id) => { if (!survivingFolderIds.has(id)) expandedFolderIds.delete(id); });
+      const survivingRideFolderIds = new Set(rideFolders.map((f) => f.id));
+      Array.from(expandedRouteFolderIds).forEach((id) => { if (!survivingRideFolderIds.has(id)) expandedRouteFolderIds.delete(id); });
+      const survivingMeasurementFolderIds = new Set(measurementFolders.map((f) => f.id));
+      Array.from(expandedMeasurementFolderIds).forEach((id) => { if (!survivingMeasurementFolderIds.has(id)) expandedMeasurementFolderIds.delete(id); });
 
       saveWaypoints();
       saveRides();
       saveMeasurements();
       saveWaypointFolders();
+      saveRideFolders();
+      saveMeasurementFolders();
       saveDeletedIds();
       renderList();
       updateCounters();
@@ -5036,6 +5335,8 @@
   setBaseLayer(settings.baseLayer);
   owmKeyInput.value = "";
   refreshOwmUi();
+  geminiKeyInput.value = "";
+  refreshGeminiUi();
   refreshHomeUi();
   if (settings.home) {
     placeHomeMarker(settings.home.lat, settings.home.lng);
@@ -6402,6 +6703,7 @@
       distanceMeters: rideDistanceMeters,
       durationMs: currentElapsedMs(), // moving time, excludes any paused segments
       weather: null,
+      folderId: getOpenRouteFolderId(),
       updatedAt: Date.now()
     };
     rides.push(ride);
@@ -6889,7 +7191,7 @@
 
   function saveMeasurement() {
     const name = measureNameInput.value.trim() || "Measurement";
-    const m = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, points: measurePoints.slice(), createdAt: Date.now(), updatedAt: Date.now() };
+    const m = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, points: measurePoints.slice(), folderId: getOpenMeasurementFolderId(), createdAt: Date.now(), updatedAt: Date.now() };
     measurements.push(m);
     saveMeasurements();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
@@ -7272,12 +7574,20 @@
     panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
     routesSearchRow.classList.toggle("hidden", tab !== "routes");
     measurementsSearchRow.classList.toggle("hidden", tab !== "measurements");
-    waypointSelectModeBtn.classList.toggle("hidden", tab !== "waypoints");
-    waypointNewFolderBtn.classList.toggle("hidden", tab !== "waypoints");
+    // The New folder / Select buttons are shared across all three tabs (like
+    // the icon/favorite filters above them) -- their click handlers below
+    // dispatch to whichever tab's folder feature is currently active.
+    waypointSelectModeBtn.title = "Select multiple " + (tab === "waypoints" ? "waypoints" : tab === "routes" ? "routes" : "measurements");
+    waypointNewTripBtn.classList.toggle("hidden", tab !== "waypoints"); // Trip folders are a Waypoints-tab-only concept
     if (tab !== "waypoints") panelNoResults.style.display = "none";
     if (tab !== "routes") routesNoResults.style.display = "none";
     if (tab !== "measurements") measurementsNoResults.style.display = "none";
     if (tab !== "waypoints" && waypointSelectMode) setWaypointSelectMode(false);
+    if (tab !== "routes" && routeSelectMode) setRouteSelectMode(false);
+    if (tab !== "measurements" && measurementSelectMode) setMeasurementSelectMode(false);
+    if (tab !== "waypoints" && !waypointFolderCreatePanel.classList.contains("hidden")) closeFolderCreatePanel();
+    if (tab !== "routes" && !routeFolderCreatePanel.classList.contains("hidden")) closeRouteFolderCreatePanel();
+    if (tab !== "measurements" && !measurementFolderCreatePanel.classList.contains("hidden")) closeMeasurementFolderCreatePanel();
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
     if (tab === "measurements") renderMeasurementsList();
@@ -7307,7 +7617,11 @@
     waypointBulkCount.textContent = count + (count === 1 ? " selected" : " selected");
     waypointBulkMoveBtn.disabled = count === 0;
   }
-  waypointSelectModeBtn.addEventListener("click", () => setWaypointSelectMode(!waypointSelectMode));
+  waypointSelectModeBtn.addEventListener("click", () => {
+    if (activePanelTab === "waypoints") setWaypointSelectMode(!waypointSelectMode);
+    else if (activePanelTab === "routes") setRouteSelectMode(!routeSelectMode);
+    else setMeasurementSelectMode(!measurementSelectMode);
+  });
 
   // Shared setup for both entry points below -- resets the panel to a
   // clean state and shows it. Doesn't itself re-render the list (nothing
@@ -7318,6 +7632,8 @@
     if (waypointSelectMode) setWaypointSelectMode(false); // only one selection mode active at a time
     waypointFolderCreatePanel.classList.remove("hidden");
     folderCreateNameInput.value = nameValue;
+    folderCreateNameInput.placeholder = creatingTripFolder ? "Trip name" : "Folder name";
+    folderCreatePanelTripLabel.classList.toggle("hidden", !creatingTripFolder);
     selectedWaypointIdsForMove.clear();
     selectedFolderIdsForMove.clear();
     folderCreateSelectMode = false;
@@ -7329,14 +7645,16 @@
     folderCreateCreateBtn.textContent = editingFolderId ? "Save" : "Create";
     setTimeout(() => { folderCreateNameInput.focus(); folderCreateNameInput.select(); }, 30);
   }
-  function openFolderCreatePanel() {
+  function openFolderCreatePanel(isTrip) {
     editingFolderId = null;
+    creatingTripFolder = !!isTrip;
     showFolderPanel("");
   }
   function openFolderEditPanel(folderId) {
     const folder = waypointFolders.find((f) => f.id === folderId);
     if (!folder) return;
     editingFolderId = folderId;
+    creatingTripFolder = false; // a folder's Trip status is fixed at creation, not editable here
     setOnlyExpandedFolder(folderId); // stays expanded for the duration of editing, so Remove items has something visible to act on; also collapses whichever other folder was open
     showFolderPanel(folder.name);
     renderList(); // pins this folder to the top of the list, directly under the search bar/panel
@@ -7351,6 +7669,7 @@
     selectedWaypointIdsForMove.clear();
     selectedFolderIdsForMove.clear();
     editingFolderId = null;
+    creatingTripFolder = false;
     renderList();
   }
   // The two panel-scoped selection modes are mutually exclusive -- turning
@@ -7417,7 +7736,7 @@
       if (!folder) { closeFolderCreatePanel(); return; } // deleted elsewhere mid-edit (e.g. synced from another device) -- nothing left to save
       if (folder.name !== name) renameWaypointFolder(folder.id, name);
     } else {
-      folder = createWaypointFolder(name);
+      folder = createWaypointFolder(name, creatingTripFolder);
     }
     const ids = Array.from(selectedWaypointIdsForMove);
     ids.forEach((id) => {
@@ -7440,7 +7759,12 @@
       ? 'Updated "' + name + '"' + (addedParts.length > 0 ? " — added " + addedParts.join(" and ") : "")
       : 'Created "' + name + '"' + (addedParts.length > 0 ? " with " + addedParts.join(" and ") : ""));
   }
-  waypointNewFolderBtn.addEventListener("click", openFolderCreatePanel);
+  waypointNewFolderBtn.addEventListener("click", () => {
+    if (activePanelTab === "waypoints") openFolderCreatePanel();
+    else if (activePanelTab === "routes") openRouteFolderCreatePanel();
+    else openMeasurementFolderCreatePanel();
+  });
+  waypointNewTripBtn.addEventListener("click", () => openFolderCreatePanel(true));
   folderCreateCancelBtn.addEventListener("click", closeFolderCreatePanel);
   folderCreateSelectItemsBtn.addEventListener("click", () => setFolderCreateSelectMode(!folderCreateSelectMode));
   folderCreateRemoveItemsBtn.addEventListener("click", () => setFolderRemoveSelectMode(!folderRemoveSelectMode));
@@ -7458,7 +7782,7 @@
     if (folderCreateSelectMode) {
       const header = e.target.closest(".folder-accordion-header");
       if (header) {
-        if (e.target.closest("[data-action='folder-rename']")) return; // let that keep working normally even during select mode
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']")) return; // let those keep working normally even during select mode
         const folderId = header.dataset.id;
         if (folderIsAncestorOf(folderId, editingFolderId)) {
           e.stopPropagation();
@@ -7506,30 +7830,405 @@
     }, createWaypointFolder);
   });
 
+  /* ================================================================ */
+  /*  Route folders (Routes tab) -- same nested-folder feature as       */
+  /*  Waypoints above, independently instantiated against rides/        */
+  /*  rideFolders. See the Waypoints block above for the full rationale  */
+  /*  behind each piece; comments here only call out where this differs. */
+  /* ================================================================ */
+  function setRouteSelectMode(on) {
+    routeSelectMode = on;
+    waypointSelectModeBtn.classList.toggle("active", on);
+    if (on && !routeFolderCreatePanel.classList.contains("hidden")) closeRouteFolderCreatePanel();
+    if (!on) selectedRouteIdsForMove.clear();
+    renderRoutesList();
+    updateRouteBulkBar();
+  }
+  function updateRouteBulkBar() {
+    const count = selectedRouteIdsForMove.size;
+    routesBulkBar.classList.toggle("hidden", !routeSelectMode);
+    routesBulkCount.textContent = count + (count === 1 ? " selected" : " selected");
+    routesBulkMoveBtn.disabled = count === 0;
+  }
+  function showRouteFolderPanel(nameValue) {
+    if (routeSelectMode) setRouteSelectMode(false);
+    routeFolderCreatePanel.classList.remove("hidden");
+    routeFolderCreateNameInput.value = nameValue;
+    selectedRouteIdsForMove.clear();
+    selectedRouteFolderIdsForMove.clear();
+    routeFolderCreateSelectMode = false;
+    routeFolderRemoveSelectMode = false;
+    routeFolderCreateSelectItemsBtn.classList.remove("active");
+    routeFolderCreateRemoveItemsBtn.classList.remove("active");
+    routeFolderCreateRemoveItemsBtn.classList.toggle("hidden", !editingRouteFolderId);
+    routeFolderCreateDeleteBtn.classList.toggle("hidden", !editingRouteFolderId);
+    routeFolderCreateCreateBtn.textContent = editingRouteFolderId ? "Save" : "Create";
+    setTimeout(() => { routeFolderCreateNameInput.focus(); routeFolderCreateNameInput.select(); }, 30);
+  }
+  function openRouteFolderCreatePanel() {
+    editingRouteFolderId = null;
+    showRouteFolderPanel("");
+  }
+  function openRouteFolderEditPanel(folderId) {
+    const folder = rideFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    editingRouteFolderId = folderId;
+    setOnlyExpandedRouteFolder(folderId);
+    showRouteFolderPanel(folder.name);
+    renderRoutesList();
+    routesPanelList.scrollTop = 0;
+  }
+  function closeRouteFolderCreatePanel() {
+    routeFolderCreatePanel.classList.add("hidden");
+    routeFolderCreateSelectMode = false;
+    routeFolderRemoveSelectMode = false;
+    routeFolderCreateSelectItemsBtn.classList.remove("active");
+    routeFolderCreateRemoveItemsBtn.classList.remove("active");
+    selectedRouteIdsForMove.clear();
+    selectedRouteFolderIdsForMove.clear();
+    editingRouteFolderId = null;
+    renderRoutesList();
+  }
+  function setRouteFolderCreateSelectMode(on) {
+    routeFolderCreateSelectMode = on;
+    if (on) routeFolderRemoveSelectMode = false;
+    routeFolderCreateSelectItemsBtn.classList.toggle("active", on);
+    routeFolderCreateRemoveItemsBtn.classList.toggle("active", routeFolderRemoveSelectMode);
+    renderRoutesList();
+  }
+  function setRouteFolderRemoveSelectMode(on) {
+    routeFolderRemoveSelectMode = on;
+    if (on) routeFolderCreateSelectMode = false;
+    routeFolderCreateRemoveItemsBtn.classList.toggle("active", on);
+    routeFolderCreateSelectItemsBtn.classList.toggle("active", routeFolderCreateSelectMode);
+    renderRoutesList();
+  }
+  function toggleRouteFolderCreateSelection(id) {
+    if (selectedRouteIdsForMove.has(id)) selectedRouteIdsForMove.delete(id);
+    else selectedRouteIdsForMove.add(id);
+    const card = routesPanelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
+    if (card) card.classList.toggle("bulk-selected", selectedRouteIdsForMove.has(id));
+  }
+  function toggleRouteFolderSelectionForNesting(id) {
+    if (selectedRouteFolderIdsForMove.has(id)) selectedRouteFolderIdsForMove.delete(id);
+    else selectedRouteFolderIdsForMove.add(id);
+    const header = routesPanelList.querySelector('.folder-accordion-header[data-id="' + CSS.escape(id) + '"]');
+    if (header) header.classList.toggle("selected-for-move", selectedRouteFolderIdsForMove.has(id));
+  }
+  function removeRouteFromEditingFolder(id) {
+    const ride = rides.find((r) => r.id === id);
+    if (!ride) return;
+    ride.folderId = null;
+    ride.updatedAt = Date.now();
+    saveRides();
+    renderRoutesList();
+  }
+  function finalizeRouteFolderCreate() {
+    const name = routeFolderCreateNameInput.value.trim();
+    if (!name) { showToast("Give the folder a name first."); routeFolderCreateNameInput.focus(); return; }
+    let folder;
+    const wasEditing = !!editingRouteFolderId;
+    if (wasEditing) {
+      folder = rideFolders.find((f) => f.id === editingRouteFolderId);
+      if (!folder) { closeRouteFolderCreatePanel(); return; }
+      if (folder.name !== name) renameRouteFolder(folder.id, name);
+    } else {
+      folder = createRouteFolder(name);
+    }
+    const ids = Array.from(selectedRouteIdsForMove);
+    ids.forEach((id) => {
+      const ride = rides.find((r) => r.id === id);
+      if (ride) { ride.folderId = folder.id; ride.updatedAt = Date.now(); }
+    });
+    if (ids.length > 0) saveRides();
+    const folderIds = Array.from(selectedRouteFolderIdsForMove).filter((id) => id !== folder.id && !routeFolderIsAncestorOf(id, folder.id));
+    folderIds.forEach((id) => {
+      const f = rideFolders.find((ff) => ff.id === id);
+      if (f) { f.parentFolderId = folder.id; f.updatedAt = Date.now(); }
+    });
+    if (folderIds.length > 0) saveRideFolders();
+    setOnlyExpandedRouteFolder(folder.id);
+    closeRouteFolderCreatePanel();
+    const addedParts = [];
+    if (ids.length > 0) addedParts.push(ids.length + (ids.length === 1 ? " route" : " routes"));
+    if (folderIds.length > 0) addedParts.push(folderIds.length + (folderIds.length === 1 ? " folder" : " folders"));
+    showToast(wasEditing
+      ? 'Updated "' + name + '"' + (addedParts.length > 0 ? " — added " + addedParts.join(" and ") : "")
+      : 'Created "' + name + '"' + (addedParts.length > 0 ? " with " + addedParts.join(" and ") : ""));
+  }
+  routeFolderCreateCancelBtn.addEventListener("click", closeRouteFolderCreatePanel);
+  routeFolderCreateSelectItemsBtn.addEventListener("click", () => setRouteFolderCreateSelectMode(!routeFolderCreateSelectMode));
+  routeFolderCreateRemoveItemsBtn.addEventListener("click", () => setRouteFolderRemoveSelectMode(!routeFolderRemoveSelectMode));
+  routeFolderCreateAddItemsBtn.addEventListener("click", finalizeRouteFolderCreate);
+  routeFolderCreateCreateBtn.addEventListener("click", finalizeRouteFolderCreate);
+  routeFolderCreateDeleteBtn.addEventListener("click", () => { if (editingRouteFolderId) deleteRouteFolder(editingRouteFolderId); });
+  routesPanelList.addEventListener("click", (e) => {
+    if (routeFolderCreateSelectMode) {
+      const header = e.target.closest(".folder-accordion-header");
+      if (header) {
+        if (e.target.closest("[data-action='folder-rename']")) return;
+        const folderId = header.dataset.id;
+        if (routeFolderIsAncestorOf(folderId, editingRouteFolderId)) {
+          e.stopPropagation();
+          e.preventDefault();
+          showToast(folderId === editingRouteFolderId ? "A folder can't be nested inside itself." : "Can't nest a folder inside one of its own subfolders.");
+          return;
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        toggleRouteFolderSelectionForNesting(folderId);
+        return;
+      }
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      toggleRouteFolderCreateSelection(card.dataset.id);
+      return;
+    }
+    if (routeFolderRemoveSelectMode && editingRouteFolderId) {
+      const body = e.target.closest('.folder-accordion[data-folder-id="' + editingRouteFolderId + '"] .folder-accordion-body');
+      if (!body) return;
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      removeRouteFromEditingFolder(card.dataset.id);
+    }
+  }, true);
+  routesBulkCancelBtn.addEventListener("click", () => setRouteSelectMode(false));
+  routesBulkMoveBtn.addEventListener("click", () => {
+    if (selectedRouteIdsForMove.size === 0) return;
+    const count = selectedRouteIdsForMove.size;
+    openFolderPickerModal("Move " + count + (count === 1 ? " route" : " routes") + " to…", rideFolders, (folderId) => {
+      const ids = Array.from(selectedRouteIdsForMove);
+      ids.forEach((id) => {
+        const ride = rides.find((r) => r.id === id);
+        if (ride) { ride.folderId = folderId; ride.updatedAt = Date.now(); }
+      });
+      saveRides();
+      setRouteSelectMode(false);
+      const destFolder = folderId ? rideFolders.find((f) => f.id === folderId) : null;
+      showToast("Moved " + ids.length + (ids.length === 1 ? " route" : " routes") + (destFolder ? ' to "' + destFolder.name + '"' : " out of their folder"));
+    }, createRouteFolder);
+  });
+
+  /* ================================================================ */
+  /*  Measurement folders (Measurements tab) -- same feature again,     */
+  /*  against measurements/measurementFolders.                          */
+  /* ================================================================ */
+  function setMeasurementSelectMode(on) {
+    measurementSelectMode = on;
+    waypointSelectModeBtn.classList.toggle("active", on);
+    if (on && !measurementFolderCreatePanel.classList.contains("hidden")) closeMeasurementFolderCreatePanel();
+    if (!on) selectedMeasurementIdsForMove.clear();
+    renderMeasurementsList();
+    updateMeasurementBulkBar();
+  }
+  function updateMeasurementBulkBar() {
+    const count = selectedMeasurementIdsForMove.size;
+    measurementsBulkBar.classList.toggle("hidden", !measurementSelectMode);
+    measurementsBulkCount.textContent = count + (count === 1 ? " selected" : " selected");
+    measurementsBulkMoveBtn.disabled = count === 0;
+  }
+  function showMeasurementFolderPanel(nameValue) {
+    if (measurementSelectMode) setMeasurementSelectMode(false);
+    measurementFolderCreatePanel.classList.remove("hidden");
+    measurementFolderCreateNameInput.value = nameValue;
+    selectedMeasurementIdsForMove.clear();
+    selectedMeasurementFolderIdsForMove.clear();
+    measurementFolderCreateSelectMode = false;
+    measurementFolderRemoveSelectMode = false;
+    measurementFolderCreateSelectItemsBtn.classList.remove("active");
+    measurementFolderCreateRemoveItemsBtn.classList.remove("active");
+    measurementFolderCreateRemoveItemsBtn.classList.toggle("hidden", !editingMeasurementFolderId);
+    measurementFolderCreateDeleteBtn.classList.toggle("hidden", !editingMeasurementFolderId);
+    measurementFolderCreateCreateBtn.textContent = editingMeasurementFolderId ? "Save" : "Create";
+    setTimeout(() => { measurementFolderCreateNameInput.focus(); measurementFolderCreateNameInput.select(); }, 30);
+  }
+  function openMeasurementFolderCreatePanel() {
+    editingMeasurementFolderId = null;
+    showMeasurementFolderPanel("");
+  }
+  function openMeasurementFolderEditPanel(folderId) {
+    const folder = measurementFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    editingMeasurementFolderId = folderId;
+    setOnlyExpandedMeasurementFolder(folderId);
+    showMeasurementFolderPanel(folder.name);
+    renderMeasurementsList();
+    measurementsPanelList.scrollTop = 0;
+  }
+  function closeMeasurementFolderCreatePanel() {
+    measurementFolderCreatePanel.classList.add("hidden");
+    measurementFolderCreateSelectMode = false;
+    measurementFolderRemoveSelectMode = false;
+    measurementFolderCreateSelectItemsBtn.classList.remove("active");
+    measurementFolderCreateRemoveItemsBtn.classList.remove("active");
+    selectedMeasurementIdsForMove.clear();
+    selectedMeasurementFolderIdsForMove.clear();
+    editingMeasurementFolderId = null;
+    renderMeasurementsList();
+  }
+  function setMeasurementFolderCreateSelectMode(on) {
+    measurementFolderCreateSelectMode = on;
+    if (on) measurementFolderRemoveSelectMode = false;
+    measurementFolderCreateSelectItemsBtn.classList.toggle("active", on);
+    measurementFolderCreateRemoveItemsBtn.classList.toggle("active", measurementFolderRemoveSelectMode);
+    renderMeasurementsList();
+  }
+  function setMeasurementFolderRemoveSelectMode(on) {
+    measurementFolderRemoveSelectMode = on;
+    if (on) measurementFolderCreateSelectMode = false;
+    measurementFolderCreateRemoveItemsBtn.classList.toggle("active", on);
+    measurementFolderCreateSelectItemsBtn.classList.toggle("active", measurementFolderCreateSelectMode);
+    renderMeasurementsList();
+  }
+  function toggleMeasurementFolderCreateSelection(id) {
+    if (selectedMeasurementIdsForMove.has(id)) selectedMeasurementIdsForMove.delete(id);
+    else selectedMeasurementIdsForMove.add(id);
+    const card = measurementsPanelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
+    if (card) card.classList.toggle("bulk-selected", selectedMeasurementIdsForMove.has(id));
+  }
+  function toggleMeasurementFolderSelectionForNesting(id) {
+    if (selectedMeasurementFolderIdsForMove.has(id)) selectedMeasurementFolderIdsForMove.delete(id);
+    else selectedMeasurementFolderIdsForMove.add(id);
+    const header = measurementsPanelList.querySelector('.folder-accordion-header[data-id="' + CSS.escape(id) + '"]');
+    if (header) header.classList.toggle("selected-for-move", selectedMeasurementFolderIdsForMove.has(id));
+  }
+  function removeMeasurementFromEditingFolder(id) {
+    const m = measurements.find((mm) => mm.id === id);
+    if (!m) return;
+    m.folderId = null;
+    m.updatedAt = Date.now();
+    saveMeasurements();
+    renderMeasurementsList();
+  }
+  function finalizeMeasurementFolderCreate() {
+    const name = measurementFolderCreateNameInput.value.trim();
+    if (!name) { showToast("Give the folder a name first."); measurementFolderCreateNameInput.focus(); return; }
+    let folder;
+    const wasEditing = !!editingMeasurementFolderId;
+    if (wasEditing) {
+      folder = measurementFolders.find((f) => f.id === editingMeasurementFolderId);
+      if (!folder) { closeMeasurementFolderCreatePanel(); return; }
+      if (folder.name !== name) renameMeasurementFolder(folder.id, name);
+    } else {
+      folder = createMeasurementFolder(name);
+    }
+    const ids = Array.from(selectedMeasurementIdsForMove);
+    ids.forEach((id) => {
+      const m = measurements.find((mm) => mm.id === id);
+      if (m) { m.folderId = folder.id; m.updatedAt = Date.now(); }
+    });
+    if (ids.length > 0) saveMeasurements();
+    const folderIds = Array.from(selectedMeasurementFolderIdsForMove).filter((id) => id !== folder.id && !measurementFolderIsAncestorOf(id, folder.id));
+    folderIds.forEach((id) => {
+      const f = measurementFolders.find((ff) => ff.id === id);
+      if (f) { f.parentFolderId = folder.id; f.updatedAt = Date.now(); }
+    });
+    if (folderIds.length > 0) saveMeasurementFolders();
+    setOnlyExpandedMeasurementFolder(folder.id);
+    closeMeasurementFolderCreatePanel();
+    const addedParts = [];
+    if (ids.length > 0) addedParts.push(ids.length + (ids.length === 1 ? " measurement" : " measurements"));
+    if (folderIds.length > 0) addedParts.push(folderIds.length + (folderIds.length === 1 ? " folder" : " folders"));
+    showToast(wasEditing
+      ? 'Updated "' + name + '"' + (addedParts.length > 0 ? " — added " + addedParts.join(" and ") : "")
+      : 'Created "' + name + '"' + (addedParts.length > 0 ? " with " + addedParts.join(" and ") : ""));
+  }
+  measurementFolderCreateCancelBtn.addEventListener("click", closeMeasurementFolderCreatePanel);
+  measurementFolderCreateSelectItemsBtn.addEventListener("click", () => setMeasurementFolderCreateSelectMode(!measurementFolderCreateSelectMode));
+  measurementFolderCreateRemoveItemsBtn.addEventListener("click", () => setMeasurementFolderRemoveSelectMode(!measurementFolderRemoveSelectMode));
+  measurementFolderCreateAddItemsBtn.addEventListener("click", finalizeMeasurementFolderCreate);
+  measurementFolderCreateCreateBtn.addEventListener("click", finalizeMeasurementFolderCreate);
+  measurementFolderCreateDeleteBtn.addEventListener("click", () => { if (editingMeasurementFolderId) deleteMeasurementFolder(editingMeasurementFolderId); });
+  measurementsPanelList.addEventListener("click", (e) => {
+    if (measurementFolderCreateSelectMode) {
+      const header = e.target.closest(".folder-accordion-header");
+      if (header) {
+        if (e.target.closest("[data-action='folder-rename']")) return;
+        const folderId = header.dataset.id;
+        if (measurementFolderIsAncestorOf(folderId, editingMeasurementFolderId)) {
+          e.stopPropagation();
+          e.preventDefault();
+          showToast(folderId === editingMeasurementFolderId ? "A folder can't be nested inside itself." : "Can't nest a folder inside one of its own subfolders.");
+          return;
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        toggleMeasurementFolderSelectionForNesting(folderId);
+        return;
+      }
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      toggleMeasurementFolderCreateSelection(card.dataset.id);
+      return;
+    }
+    if (measurementFolderRemoveSelectMode && editingMeasurementFolderId) {
+      const body = e.target.closest('.folder-accordion[data-folder-id="' + editingMeasurementFolderId + '"] .folder-accordion-body');
+      if (!body) return;
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.stopPropagation();
+      e.preventDefault();
+      removeMeasurementFromEditingFolder(card.dataset.id);
+    }
+  }, true);
+  measurementsBulkCancelBtn.addEventListener("click", () => setMeasurementSelectMode(false));
+  measurementsBulkMoveBtn.addEventListener("click", () => {
+    if (selectedMeasurementIdsForMove.size === 0) return;
+    const count = selectedMeasurementIdsForMove.size;
+    openFolderPickerModal("Move " + count + (count === 1 ? " measurement" : " measurements") + " to…", measurementFolders, (folderId) => {
+      const ids = Array.from(selectedMeasurementIdsForMove);
+      ids.forEach((id) => {
+        const m = measurements.find((mm) => mm.id === id);
+        if (m) { m.folderId = folderId; m.updatedAt = Date.now(); }
+      });
+      saveMeasurements();
+      setMeasurementSelectMode(false);
+      const destFolder = folderId ? measurementFolders.find((f) => f.id === folderId) : null;
+      showToast("Moved " + ids.length + (ids.length === 1 ? " measurement" : " measurements") + (destFolder ? ' to "' + destFolder.name + '"' : " out of their folder"));
+    }, createMeasurementFolder);
+  });
+
+  function rideCardHtml(r) {
+    const info = activityInfo(r.activityType);
+    const dateStr = new Date(r.startTime).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
+    const isVisible = !!visibleRouteLayers[r.id];
+    const weatherBadge = r.weather ? '<span class="card-meta">' + formatWeatherBadge(r.weather) + "</span>" : "";
+    return '<div class="card ride-card" data-id="' + r.id + '">' +
+      '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
+      '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + weatherBadge + notesPreview + "</div>" +
+      '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
+      '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
+      '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
+    "</div>";
+  }
   function renderRoutesList() {
     updatePanelSubtitle();
-    if (rides.length === 0) {
+    routesPanelList.classList.toggle("select-mode", routeSelectMode);
+    routesPanelList.classList.toggle("folder-create-select-mode", routeFolderCreateSelectMode);
+    routesPanelList.classList.toggle("folder-remove-select-mode", routeFolderRemoveSelectMode);
+    if (rides.length === 0 && rideFolders.length === 0) {
       routesPanelList.innerHTML = '<div class="empty-state">' + icon("bike", 28) +
         "<p>No routes saved yet. Track a ride, hike, drive, or paddle, then tap Save Route when you're done.</p></div>";
       refreshRoutesAzPickerAvailability();
+      refreshListFilterControls();
       return;
     }
-    const sortedRides = rides.slice().sort((a, b) => compareSortNames(a.name, b.name));
-    routesPanelList.innerHTML = sortedRides.map((r) => {
-      const info = activityInfo(r.activityType);
-      const dateStr = new Date(r.startTime).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-      const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
-      const isVisible = !!visibleRouteLayers[r.id];
-      const weatherBadge = r.weather ? '<span class="card-meta">' + formatWeatherBadge(r.weather) + "</span>" : "";
-      return '<div class="card ride-card" data-id="' + r.id + '">' +
-        '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-        '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + weatherBadge + notesPreview + "</div>" +
-        '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
-        '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
-        '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
-        '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
-      "</div>";
-    }).join("");
+    const ungrouped = rides.filter((r) => !r.folderId);
+    const editingFolder = editingRouteFolderId ? rideFolders.find((f) => f.id === editingRouteFolderId) : null;
+    const restFolders = rideFolders.filter((f) => !f.parentFolderId && f.id !== editingRouteFolderId);
+    const restEntries = restFolders.map((f) => ({ name: f.name, html: routeFolderAccordionHtml(f) }))
+      .concat(ungrouped.map((r) => ({ name: r.name, html: rideCardHtml(r) })))
+      .sort((a, b) => compareSortNames(a.name, b.name));
+    const entries = editingFolder ? [{ name: editingFolder.name, html: routeFolderAccordionHtml(editingFolder) }].concat(restEntries) : restEntries;
+    routesPanelList.innerHTML = entries.map((e) => e.html).join("");
     routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
@@ -7569,6 +8268,7 @@
         applyActiveTabFilter(); // hides it immediately if the favorites-only filter is active
       });
     });
+    bindRouteFolderAccordionEvents();
     refreshRoutesAzPickerAvailability();
     refreshListFilterControls();
     applyRoutesSearchFilter();
@@ -7576,34 +8276,45 @@
   renderRoutesList();
 
   // Same pattern as renderRoutesList, for the dedicated Measurements tab.
+  function measurementCardHtml(m) {
+    const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    let totalM = 0;
+    for (let i = 0; i < m.points.length - 1; i++) {
+      totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
+    }
+    const summary = isClosedLoop(m.points)
+      ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
+      : formatDistance(totalM) + " · " + dateStr;
+    const isVisible = !!savedMeasurementLayers[m.id];
+    return '<div class="card ride-card" data-id="' + m.id + '">' +
+      '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
+      '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
+      '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
+      '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
+      '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
+    "</div>";
+  }
   function renderMeasurementsList() {
     updatePanelSubtitle();
-    if (measurements.length === 0) {
+    measurementsPanelList.classList.toggle("select-mode", measurementSelectMode);
+    measurementsPanelList.classList.toggle("folder-create-select-mode", measurementFolderCreateSelectMode);
+    measurementsPanelList.classList.toggle("folder-remove-select-mode", measurementFolderRemoveSelectMode);
+    if (measurements.length === 0 && measurementFolders.length === 0) {
       measurementsPanelList.innerHTML = '<div class="empty-state">' + icon("ruler", 28) +
         "<p>No measurements saved yet. Tap the ruler icon in the Route menu to measure a distance or area, then save it.</p></div>";
       refreshMeasurementsAzPickerAvailability();
+      refreshListFilterControls();
       return;
     }
-    const sortedMeasurements = measurements.slice().sort((a, b) => compareSortNames(a.name, b.name));
-    measurementsPanelList.innerHTML = sortedMeasurements.map((m) => {
-      const dateStr = new Date(m.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      let totalM = 0;
-      for (let i = 0; i < m.points.length - 1; i++) {
-        totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
-      }
-      const summary = isClosedLoop(m.points)
-        ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
-        : formatDistance(totalM) + " · " + dateStr;
-      const isVisible = !!savedMeasurementLayers[m.id];
-      return '<div class="card ride-card" data-id="' + m.id + '">' +
-        '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
-        '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
-        '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
-        '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
-        '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
-        '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
-      "</div>";
-    }).join("");
+    const ungrouped = measurements.filter((m) => !m.folderId);
+    const editingFolder = editingMeasurementFolderId ? measurementFolders.find((f) => f.id === editingMeasurementFolderId) : null;
+    const restFolders = measurementFolders.filter((f) => !f.parentFolderId && f.id !== editingMeasurementFolderId);
+    const restEntries = restFolders.map((f) => ({ name: f.name, html: measurementFolderAccordionHtml(f) }))
+      .concat(ungrouped.map((m) => ({ name: m.name, html: measurementCardHtml(m) })))
+      .sort((a, b) => compareSortNames(a.name, b.name));
+    const entries = editingFolder ? [{ name: editingFolder.name, html: measurementFolderAccordionHtml(editingFolder) }].concat(restEntries) : restEntries;
+    measurementsPanelList.innerHTML = entries.map((e) => e.html).join("");
     measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
@@ -7649,6 +8360,7 @@
         startEditingMeasurementPoints(btn.dataset.id);
       });
     });
+    bindMeasurementFolderAccordionEvents();
     refreshMeasurementsAzPickerAvailability();
     refreshListFilterControls();
     applyMeasurementsSearchFilter();
@@ -7657,7 +8369,33 @@
 
   // Same vertical A-Z index used for saved waypoints, applied to routes —
   // jumps to the first route (alphabetically) starting with the tapped
-  // letter, scrolling it into view rather than filtering the list.
+  // letter, scrolling it into view rather than filtering the list. Folder-
+  // aware the same way the Waypoints tab's index is: a collapsed folder
+  // contributes its own name as a jump target, an expanded one contributes
+  // what's visible inside it.
+  function getRoutesAzVisibleEntries() {
+    const entries = [];
+    function walk(containerEl) {
+      Array.from(containerEl.children).forEach((el) => {
+        if (el.classList.contains("card")) {
+          if (el.style.display === "none") return;
+          const r = rides.find((ride) => ride.id === el.dataset.id);
+          if (r) entries.push({ name: r.name, el });
+        } else if (el.classList.contains("folder-accordion")) {
+          const folder = rideFolders.find((f) => f.id === el.dataset.folderId);
+          if (!folder) return;
+          if (el.classList.contains("expanded")) {
+            const body = Array.from(el.children).find((c) => c.classList.contains("folder-accordion-body"));
+            if (body) walk(body);
+          } else {
+            entries.push({ name: folder.name, el });
+          }
+        }
+      });
+    }
+    walk(routesPanelList);
+    return entries;
+  }
   function renderRoutesAzPicker() {
     routesAzPicker.innerHTML = AZ_LETTERS.map((l) =>
       '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
@@ -7666,13 +8404,9 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(routesPanelList.querySelectorAll(".ride-card")).filter((c) => c.style.display !== "none");
-        const targetCard = cards.find((cardEl) => {
-          const r = rides.find((ride) => ride.id === cardEl.dataset.id);
-          return r && getIndexLetter(r.name) === letter;
-        });
-        if (!targetCard) return;
-        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        const target = getRoutesAzVisibleEntries().find((entry) => getIndexLetter(entry.name) === letter);
+        if (!target) return;
+        target.el.scrollIntoView({ block: "start", behavior: "smooth" });
         btn.classList.add("active");
         setTimeout(() => btn.classList.remove("active"), 500);
       });
@@ -7680,12 +8414,7 @@
     refreshRoutesAzPickerAvailability();
   }
   function refreshRoutesAzPickerAvailability() {
-    const available = new Set();
-    routesPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
-      if (cardEl.style.display === "none") return;
-      const r = rides.find((ride) => ride.id === cardEl.dataset.id);
-      if (r) available.add(getIndexLetter(r.name));
-    });
+    const available = new Set(getRoutesAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -7693,6 +8422,29 @@
   renderRoutesAzPicker();
 
   // Same pattern for the Measurements tab.
+  function getMeasurementsAzVisibleEntries() {
+    const entries = [];
+    function walk(containerEl) {
+      Array.from(containerEl.children).forEach((el) => {
+        if (el.classList.contains("card")) {
+          if (el.style.display === "none") return;
+          const m = measurements.find((mm) => mm.id === el.dataset.id);
+          if (m) entries.push({ name: m.name, el });
+        } else if (el.classList.contains("folder-accordion")) {
+          const folder = measurementFolders.find((f) => f.id === el.dataset.folderId);
+          if (!folder) return;
+          if (el.classList.contains("expanded")) {
+            const body = Array.from(el.children).find((c) => c.classList.contains("folder-accordion-body"));
+            if (body) walk(body);
+          } else {
+            entries.push({ name: folder.name, el });
+          }
+        }
+      });
+    }
+    walk(measurementsPanelList);
+    return entries;
+  }
   function renderMeasurementsAzPicker() {
     measurementsAzPicker.innerHTML = AZ_LETTERS.map((l) =>
       '<button type="button" class="az-letter-btn" data-letter="' + l + '" title="Jump to ' + l + '">' + l + "</button>"
@@ -7701,13 +8453,9 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const letter = btn.dataset.letter;
-        const cards = Array.from(measurementsPanelList.querySelectorAll(".ride-card")).filter((c) => c.style.display !== "none");
-        const targetCard = cards.find((cardEl) => {
-          const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
-          return m && getIndexLetter(m.name) === letter;
-        });
-        if (!targetCard) return;
-        targetCard.scrollIntoView({ block: "start", behavior: "smooth" });
+        const target = getMeasurementsAzVisibleEntries().find((entry) => getIndexLetter(entry.name) === letter);
+        if (!target) return;
+        target.el.scrollIntoView({ block: "start", behavior: "smooth" });
         btn.classList.add("active");
         setTimeout(() => btn.classList.remove("active"), 500);
       });
@@ -7715,12 +8463,7 @@
     refreshMeasurementsAzPickerAvailability();
   }
   function refreshMeasurementsAzPickerAvailability() {
-    const available = new Set();
-    measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
-      if (cardEl.style.display === "none") return;
-      const m = measurements.find((mm) => mm.id === cardEl.dataset.id);
-      if (m) available.add(getIndexLetter(m.name));
-    });
+    const available = new Set(getMeasurementsAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     measurementsAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
       btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
     });
@@ -8446,7 +9189,7 @@
   /*  Voice input (Web Speech API — Chrome/Edge/Safari support varies)  */
   /*  Click the mic, then say "name" or "note" to start dictating into  */
   /*  that field (saying either again mid-dictation switches fields);   */
-  /*  say "stop", or click the mic again, to end the session. Notes are */
+  /*  say "done", or click the mic again, to end the session. Notes are */
   /*  appended to (not erased), since they're often built up in parts;  */
   /*  the name field is cleared each time "name" is said, since it's    */
   /*  meant to be replaced outright rather than added to.               */
@@ -8496,11 +9239,11 @@
     micBtn.innerHTML = icon(v ? "micOff" : "mic", 16);
   }
 
-  // Finds whichever of "name" / "note" / "stop" appears earliest in the
+  // Finds whichever of "name" / "note" / "done" appears earliest in the
   // transcript, as a whole word (so it doesn't false-trigger inside
-  // "named", "notebook", "nonstop", etc.).
+  // "named", "notebook", "condone", etc.).
   function findVoiceCommand(lowerText) {
-    const patterns = [{ cmd: "stop", re: /\bstop\b/ }, { cmd: "name", re: /\bname\b/ }, { cmd: "note", re: /\bnote\b/ }];
+    const patterns = [{ cmd: "stop", re: /\bdone\b/ }, { cmd: "name", re: /\bname\b/ }, { cmd: "note", re: /\bnote\b/ }];
     let best = null;
     patterns.forEach((p) => {
       const m = lowerText.match(p.re);
@@ -8533,11 +9276,11 @@
     const before = transcript.slice(0, command.idx).trim();
     if (!isFinal) { previewModalVoiceText(before); return; } // don't act on commands until the browser is confident it heard them correctly
     if (before) commitModalVoiceText(before);
-    if (command.cmd === "stop") { stopVoice(); showToast("Voice input stopped."); return; }
+    if (command.cmd === "stop") { stopVoice(); showToast("Voice input finished."); return; }
     if (command.cmd === "name") { nameInput.value = ""; modalVoiceNameBuffer = ""; modalVoiceField = "name"; }
     if (command.cmd === "note") { modalVoiceField = "note"; }
     const after = transcript.slice(command.idx + command.len).trim();
-    if (after) handleModalVoiceTranscript(after, true); // handles multiple commands said in one breath, e.g. "name moose landing note great fishing spot stop"
+    if (after) handleModalVoiceTranscript(after, true); // handles multiple commands said in one breath, e.g. "name moose landing note great fishing spot done"
   }
 
   /* ================================================================ */
@@ -8577,7 +9320,7 @@
   // --- Voice capture state machine: idle -> creating -> naming -> noting -> idle ---
   // "waypoint" creates and saves a point immediately (so it's never lost even if
   // the rest of the dictation is interrupted), then whatever's said next becomes
-  // the name, until "note" switches to notes, until "stop" finalizes. Every step
+  // the name, until "note" switches to notes, until "done" finalizes. Every step
   // is written to storage as it's captured, not just at the end.
   let voiceCaptureState = "idle"; // idle | creating | naming | noting
   let voiceCaptureWaypointId = null;
@@ -8605,7 +9348,7 @@
     voiceCaptureStatusText.textContent = naming
       ? 'Say the waypoint name… then say "note"'
       : noting
-      ? 'Say your note… then say "stop"'
+      ? 'Say your note… then say "done"'
       : "";
   }
   function updateVoiceCapturePreview(name, notes) {
@@ -8746,7 +9489,7 @@
     }
 
     if (voiceCaptureState === "noting") {
-      const stopIdx = lower.indexOf("stop");
+      const stopIdx = lower.indexOf("done");
       if (stopIdx !== -1) {
         const notePart = transcript.slice(0, stopIdx).trim();
         if (isFinal) {
@@ -9220,8 +9963,8 @@
     return deepest || null;
   }
 
-  function createWaypointFolder(name) {
-    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, createdAt: Date.now(), updatedAt: Date.now() };
+  function createWaypointFolder(name, isTrip) {
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, isTrip: !!isTrip, createdAt: Date.now(), updatedAt: Date.now() };
     waypointFolders.push(folder);
     saveWaypointFolders();
     return folder;
@@ -9299,6 +10042,18 @@
     const expanded = expandedFolderIds.has(folder.id);
     const selectedForMove = selectedFolderIdsForMove.has(folder.id);
     const totalCount = countWaypointsInFolder(folder.id);
+    // A Trip folder's generated story waypoints (if any -- one per format)
+    // are pinned first in the body, ahead of the normal alphabetical merge,
+    // in a fixed format order -- they're a summary of everything else in
+    // the folder, so they belong at the top regardless of what they're named.
+    const storyWps = folder.isTrip
+      ? items.filter((w) => w.isStoryEntry).sort((a, b) => {
+          const ai = STORY_FORMATS.findIndex((f) => f.id === (a.storyFormat || "narrative"));
+          const bi = STORY_FORMATS.findIndex((f) => f.id === (b.storyFormat || "narrative"));
+          return ai - bi;
+        })
+      : [];
+    const regularItems = storyWps.length ? items.filter((w) => !w.isStoryEntry) : items;
     // Building the body -- recursively, for every nested folder and every
     // waypoint card -- is real work (thumbnails, buttons, etc. per card).
     // A collapsed folder's body isn't visible at all, so skip building it
@@ -9309,10 +10064,313 @@
     const bodyHtml = expanded
       ? (() => {
           const bodyEntries = childFolders.map((f) => ({ name: f.name, html: folderAccordionHtml(f) }))
-            .concat(items.map((w) => ({ name: w.name, html: cardHtml(w) })))
+            .concat(regularItems.map((w) => ({ name: w.name, html: cardHtml(w) })))
+            .sort((a, b) => compareSortNames(a.name, b.name));
+          const storyHtml = storyWps.map((w) => cardHtml(w)).join("");
+          return (bodyEntries.length === 0 && storyWps.length === 0)
+            ? '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>'
+            : storyHtml + bodyEntries.map((e) => e.html).join("");
+        })()
+      : "";
+    const tripStoryBtn = folder.isTrip
+      ? '<button type="button" class="folder-accordion-action folder-accordion-story-btn' + (aiStoryGeneratingFolderIds.has(folder.id) ? " generating" : "") + '" data-action="ai-story" data-id="' + folder.id + '" title="' +
+          (aiStoryGeneratingFolderIds.has(folder.id) ? "Generating…" : "A.I. Story") + '"' +
+          (aiStoryGeneratingFolderIds.has(folder.id) ? " disabled" : "") + '>' + icon("sparkles", 14) + "</button>"
+      : "";
+    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + '" data-folder-id="' + folder.id + '">' +
+      '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
+        '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
+        '<span class="folder-accordion-icon">' + icon(folder.isTrip ? "plane" : "folder", 16) + "</span>" +
+        '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
+        '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        tripStoryBtn +
+        '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
+      "</div>" +
+      '<div class="folder-accordion-body">' + bodyHtml +
+      "</div>" +
+    "</div>";
+  }
+  function bindFolderAccordionEvents() {
+    panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
+      header.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']")) return;
+        const id = header.dataset.id;
+        if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
+        if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
+        renderList();
+      });
+    });
+    panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
+    });
+    panelList.querySelectorAll('[data-action="ai-story"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openStoryFormatModal(btn.dataset.id); });
+    });
+  }
+
+  /* ================================================================ */
+  /*  A.I. Story generation (Trip folders) -- calls Google's Gemini API */
+  /*  directly from the browser with the user's own key (Settings ->    */
+  /*  Gemini API), same client-side pattern already used for weather.   */
+  /*  Supports five output formats (see STORY_FORMATS above); each one   */
+  /*  is written back as its own special waypoint inside the same Trip   */
+  /*  folder, pinned first, named per storyNameForFormat() -- so every   */
+  /*  format persists, syncs, and displays through the exact same         */
+  /*  waypoint machinery as everything else, with no separate storage.   */
+  /* ================================================================ */
+  const GEMINI_MODEL = "gemini-2.5-flash";
+
+  function formatStoryDuration(ms) {
+    if (ms == null || ms < 0) return null;
+    const mins = Math.round(ms / 60000);
+    if (mins < 1) return "under a minute";
+    if (mins < 60) return mins + " min";
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return h + "h" + (m ? " " + m + "m" : "");
+  }
+
+  // Builds the JSON-ish trip summary fed to the model: each real (non-story)
+  // waypoint in visit order, with an estimated dwell time derived from the
+  // gap to the next waypoint's timestamp (the app doesn't track an explicit
+  // departure time, so this is the closest available proxy), plus whatever
+  // weather snapshot was captured for that waypoint at creation time.
+  function buildTripStoryPayload(folder, sortedWps) {
+    let totalMeters = 0;
+    for (let i = 0; i < sortedWps.length - 1; i++) {
+      totalMeters += haversineMeters(sortedWps[i].lat, sortedWps[i].lng, sortedWps[i + 1].lat, sortedWps[i + 1].lng);
+    }
+    const totalPhotos = sortedWps.reduce((sum, w) => sum + (Array.isArray(w.photos) ? w.photos.length : 0), 0);
+    const locations = sortedWps.map((w, i) => {
+      const next = sortedWps[i + 1];
+      const duration = next && w.createdAt && next.createdAt ? formatStoryDuration(next.createdAt - w.createdAt) : null;
+      return {
+        name: w.name,
+        arrival: w.createdAt ? new Date(w.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null,
+        duration,
+        notes: w.notes || null,
+        weather: w.weather ? (formatWeatherTemp(w.weather.tempC) + ", " + w.weather.description) : null
+      };
+    });
+    return {
+      trip: folder.name,
+      locations,
+      distance_walked: totalMeters > 0 ? formatDistance(totalMeters) : null,
+      photos: totalPhotos
+    };
+  }
+
+  function buildTripStoryPrompt(payload, formatId) {
+    const header = "Using the trip data below (JSON), ";
+    const footer = "\n\nTrip data:\n" + JSON.stringify(payload, null, 2);
+    const instructions = {
+      narrative: "you are a warm, engaging travel writer. Write a short narrative recap of the day (roughly 150-300 " +
+        "words), in first-person plural (\"we\"), moving through the locations in the order given. Naturally weave in " +
+        "any notes and weather mentioned, and the total distance walked if given. Write flowing prose only -- no " +
+        "headings, no bullet points, no repeating the raw JSON back.",
+      blog: "you are a travel blogger. Write an engaging first-person-plural travel blog post recapping the day, " +
+        "roughly 500-800 words, with a catchy opening line, a few short paragraphs moving through the locations in " +
+        "order, and a warm closing line. Weave in notes and weather naturally. Plain prose paragraphs only -- no " +
+        "markdown headers, no bullet lists, no repeating the raw JSON back.",
+      instagram: "write a short, punchy Instagram caption recapping the day (2-4 sentences), warm and personal in " +
+        "tone, mentioning a couple of the standout locations. End with 4-6 relevant, lowercase hashtags on their own " +
+        "line. No emoji overload -- a few tasteful ones at most. No repeating the raw JSON back.",
+      tiktok: "write a short, hook-driven TikTok video description (1-3 sentences, under 150 characters if possible), " +
+        "in a punchy listicle style like \"X places you need to visit in <city/area>\" if a location name suggests " +
+        "one, otherwise a strong curiosity-driven hook about the day. End with 3-5 relevant hashtags. No repeating " +
+        "the raw JSON back.",
+      youtube: "write a YouTube video description (roughly 80-150 words) summarizing what the video covers -- the " +
+        "locations visited, in order, and anything notable (food, views, weather). Keyword-rich but natural-sounding, " +
+        "written for viewers deciding whether to watch. Plain paragraph, no headers, no repeating the raw JSON back."
+    };
+    return header + (instructions[formatId] || instructions.narrative) + footer;
+  }
+
+  async function callGeminiForStory(prompt) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": settings.geminiApiKey },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* fall through to generic error below */ }
+    if (!res.ok) {
+      const msg = data && data.error && data.error.message ? data.error.message : ("HTTP " + res.status);
+      throw new Error(msg);
+    }
+    const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
+      data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+    if (!text) throw new Error("Gemini returned an empty response.");
+    return text.trim();
+  }
+
+  // Each format gets its own emoji/color so the pinned story cards (and
+  // their map markers) are visually distinguishable from one another at a
+  // glance, not just by name.
+  const STORY_FORMAT_MARKERS = {
+    narrative: { emoji: "\u2728", color: "#a78bfa" },
+    blog: { emoji: "\uD83D\uDCDD", color: "#a78bfa" },
+    instagram: { emoji: "\uD83D\uDCF7", color: "#f472b6" },
+    tiktok: { emoji: "\uD83C\uDFB5", color: "#38bdf8" },
+    youtube: { emoji: "\u25B6\uFE0F", color: "#f87171" }
+  };
+
+  async function generateTripStory(folderId, formatId) {
+    formatId = STORY_FORMATS.some((f) => f.id === formatId) ? formatId : "narrative";
+    const folder = waypointFolders.find((f) => f.id === folderId);
+    if (!folder || !folder.isTrip) return;
+    if (aiStoryGeneratingFolderIds.has(folderId)) return; // already in flight (one generation at a time per folder)
+    if (!settings.geminiApiKey) {
+      showErrorToast("Add a free Gemini API key in Settings \u2192 Gemini API first.");
+      return;
+    }
+    const sortedWps = waypoints
+      .filter((w) => w.folderId === folderId && !w.isStoryEntry)
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    if (sortedWps.length === 0) {
+      showToast("Add some waypoints to this Trip first.");
+      return;
+    }
+    aiStoryGeneratingFolderIds.add(folderId);
+    renderList();
+    try {
+      const payload = buildTripStoryPayload(folder, sortedWps);
+      const storyText = await callGeminiForStory(buildTripStoryPrompt(payload, formatId));
+      const centroidLat = sortedWps.reduce((s, w) => s + w.lat, 0) / sortedWps.length;
+      const centroidLng = sortedWps.reduce((s, w) => s + w.lng, 0) / sortedWps.length;
+      const storyName = storyNameForFormat(folder.name, formatId);
+      const marker = STORY_FORMAT_MARKERS[formatId] || STORY_FORMAT_MARKERS.narrative;
+      const existing = waypoints.find((w) => w.folderId === folderId && w.isStoryEntry && (w.storyFormat || "narrative") === formatId);
+      if (existing) {
+        existing.name = storyName;
+        existing.notes = storyText;
+        existing.lat = centroidLat;
+        existing.lng = centroidLng;
+        existing.updatedAt = Date.now();
+        const oldMarker = markers[existing.id];
+        if (oldMarker) map.removeLayer(oldMarker);
+        delete markers[existing.id];
+        addSavedMarker(existing);
+      } else {
+        const storyWp = {
+          id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          lat: centroidLat, lng: centroidLng,
+          name: storyName, notes: storyText,
+          code: generateWordCode(centroidLat, centroidLng),
+          folderId: folderId, isStoryEntry: true, storyFormat: formatId,
+          markerStyle: "emoji", markerColor: marker.color, markerEmoji: marker.emoji,
+          photos: [],
+          createdAt: Date.now(), updatedAt: Date.now()
+        };
+        addSavedMarker(storyWp);
+        waypoints.push(storyWp);
+      }
+      saveWaypoints();
+      setOnlyExpandedFolder(folderId);
+      aiStoryGeneratingFolderIds.delete(folderId);
+      renderList();
+      updateCounters();
+      showToast('Generated "' + storyName + '"');
+    } catch (e) {
+      aiStoryGeneratingFolderIds.delete(folderId);
+      renderList();
+      showErrorToast("Couldn't generate the story: " + (e && e.message ? e.message : "unknown error"));
+    }
+  }
+
+  /* ---------- Same folder-CRUD/accordion functions, for Routes ---------- */
+  function setOnlyExpandedRouteFolder(id) {
+    if (!id) return;
+    const folder = rideFolders.find((f) => f.id === id);
+    const parentId = folder ? folder.parentFolderId || null : null;
+    rideFolders.forEach((f) => {
+      if ((f.parentFolderId || null) === parentId && f.id !== id) collapseRouteFolderAndDescendants(f.id);
+    });
+    expandedRouteFolderIds.add(id);
+    let current = parentId ? rideFolders.find((f) => f.id === parentId) : null;
+    while (current) {
+      expandedRouteFolderIds.add(current.id);
+      current = current.parentFolderId ? rideFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+  }
+  function collapseRouteFolderAndDescendants(id) {
+    expandedRouteFolderIds.delete(id);
+    rideFolders.filter((f) => f.parentFolderId === id).forEach((child) => collapseRouteFolderAndDescendants(child.id));
+  }
+  function getOpenRouteFolderId() {
+    const ids = Array.from(expandedRouteFolderIds);
+    if (ids.length === 0) return null;
+    const deepest = ids.find((id) => !ids.some((otherId) => {
+      const other = rideFolders.find((f) => f.id === otherId);
+      return other && other.parentFolderId === id;
+    }));
+    return deepest || null;
+  }
+  function createRouteFolder(name) {
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, createdAt: Date.now(), updatedAt: Date.now() };
+    rideFolders.push(folder);
+    saveRideFolders();
+    return folder;
+  }
+  function routeFolderIsAncestorOf(candidateAncestorId, folderId) {
+    let current = rideFolders.find((f) => f.id === folderId);
+    while (current) {
+      if (current.id === candidateAncestorId) return true;
+      current = current.parentFolderId ? rideFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+    return false;
+  }
+  function renameRouteFolder(id, newName) {
+    const folder = rideFolders.find((f) => f.id === id);
+    if (!folder) return;
+    folder.name = newName;
+    folder.updatedAt = Date.now();
+    saveRideFolders();
+  }
+  function deleteRouteFolder(id) {
+    const folder = rideFolders.find((f) => f.id === id);
+    if (!folder) return;
+    const childFolderCount = rideFolders.filter((f) => f.parentFolderId === id).length;
+    const routeCount = rides.filter((r) => r.folderId === id).length;
+    const parts = [];
+    if (routeCount > 0) parts.push(routeCount + " route" + (routeCount === 1 ? "" : "s"));
+    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
+    openConfirmModal(
+      'Delete "' + folder.name + '"?',
+      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
+      () => {
+        rides.forEach((r) => { if (r.folderId === id) { r.folderId = null; r.updatedAt = Date.now(); } });
+        rideFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
+        rideFolders = rideFolders.filter((f) => f.id !== id);
+        expandedRouteFolderIds.delete(id);
+        deletedIds.rideFolders.push(id);
+        saveDeletedIds();
+        saveRideFolders();
+        saveRides();
+        if (editingRouteFolderId === id) closeRouteFolderCreatePanel(); else renderRoutesList();
+        showToast('Deleted "' + folder.name + '"');
+      },
+      { confirmLabel: "Delete" }
+    );
+  }
+  function countRoutesInFolder(folderId) {
+    let count = rides.filter((r) => r.folderId === folderId).length;
+    rideFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { count += countRoutesInFolder(child.id); });
+    return count;
+  }
+  function routeFolderAccordionHtml(folder) {
+    const childFolders = rideFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingRouteFolderId).sort((a, b) => compareSortNames(a.name, b.name));
+    const items = rides.filter((r) => r.folderId === folder.id);
+    const expanded = expandedRouteFolderIds.has(folder.id);
+    const selectedForMove = selectedRouteFolderIdsForMove.has(folder.id);
+    const totalCount = countRoutesInFolder(folder.id);
+    const bodyHtml = expanded
+      ? (() => {
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, html: routeFolderAccordionHtml(f) }))
+            .concat(items.map((r) => ({ name: r.name, html: rideCardHtml(r) })))
             .sort((a, b) => compareSortNames(a.name, b.name));
           return bodyEntries.length === 0
-            ? '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>'
+            ? '<div class="folder-accordion-empty">Empty — no routes or subfolders yet.</div>'
             : bodyEntries.map((e) => e.html).join("");
         })()
       : "";
@@ -9328,18 +10386,141 @@
       "</div>" +
     "</div>";
   }
-  function bindFolderAccordionEvents() {
-    panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
+  function bindRouteFolderAccordionEvents() {
+    routesPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
         if (e.target.closest("[data-action='folder-rename']")) return;
         const id = header.dataset.id;
-        if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
-        if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
-        renderList();
+        if (id === editingRouteFolderId) return;
+        if (expandedRouteFolderIds.has(id)) collapseRouteFolderAndDescendants(id); else setOnlyExpandedRouteFolder(id);
+        renderRoutesList();
       });
     });
-    panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
-      btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
+    routesPanelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openRouteFolderEditPanel(btn.dataset.id); });
+    });
+  }
+
+  /* ---------- Same folder-CRUD/accordion functions, for Measurements ---------- */
+  function setOnlyExpandedMeasurementFolder(id) {
+    if (!id) return;
+    const folder = measurementFolders.find((f) => f.id === id);
+    const parentId = folder ? folder.parentFolderId || null : null;
+    measurementFolders.forEach((f) => {
+      if ((f.parentFolderId || null) === parentId && f.id !== id) collapseMeasurementFolderAndDescendants(f.id);
+    });
+    expandedMeasurementFolderIds.add(id);
+    let current = parentId ? measurementFolders.find((f) => f.id === parentId) : null;
+    while (current) {
+      expandedMeasurementFolderIds.add(current.id);
+      current = current.parentFolderId ? measurementFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+  }
+  function collapseMeasurementFolderAndDescendants(id) {
+    expandedMeasurementFolderIds.delete(id);
+    measurementFolders.filter((f) => f.parentFolderId === id).forEach((child) => collapseMeasurementFolderAndDescendants(child.id));
+  }
+  function getOpenMeasurementFolderId() {
+    const ids = Array.from(expandedMeasurementFolderIds);
+    if (ids.length === 0) return null;
+    const deepest = ids.find((id) => !ids.some((otherId) => {
+      const other = measurementFolders.find((f) => f.id === otherId);
+      return other && other.parentFolderId === id;
+    }));
+    return deepest || null;
+  }
+  function createMeasurementFolder(name) {
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, createdAt: Date.now(), updatedAt: Date.now() };
+    measurementFolders.push(folder);
+    saveMeasurementFolders();
+    return folder;
+  }
+  function measurementFolderIsAncestorOf(candidateAncestorId, folderId) {
+    let current = measurementFolders.find((f) => f.id === folderId);
+    while (current) {
+      if (current.id === candidateAncestorId) return true;
+      current = current.parentFolderId ? measurementFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+    return false;
+  }
+  function renameMeasurementFolder(id, newName) {
+    const folder = measurementFolders.find((f) => f.id === id);
+    if (!folder) return;
+    folder.name = newName;
+    folder.updatedAt = Date.now();
+    saveMeasurementFolders();
+  }
+  function deleteMeasurementFolder(id) {
+    const folder = measurementFolders.find((f) => f.id === id);
+    if (!folder) return;
+    const childFolderCount = measurementFolders.filter((f) => f.parentFolderId === id).length;
+    const measurementCount = measurements.filter((m) => m.folderId === id).length;
+    const parts = [];
+    if (measurementCount > 0) parts.push(measurementCount + " measurement" + (measurementCount === 1 ? "" : "s"));
+    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
+    openConfirmModal(
+      'Delete "' + folder.name + '"?',
+      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
+      () => {
+        measurements.forEach((m) => { if (m.folderId === id) { m.folderId = null; m.updatedAt = Date.now(); } });
+        measurementFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
+        measurementFolders = measurementFolders.filter((f) => f.id !== id);
+        expandedMeasurementFolderIds.delete(id);
+        deletedIds.measurementFolders.push(id);
+        saveDeletedIds();
+        saveMeasurementFolders();
+        saveMeasurements();
+        if (editingMeasurementFolderId === id) closeMeasurementFolderCreatePanel(); else renderMeasurementsList();
+        showToast('Deleted "' + folder.name + '"');
+      },
+      { confirmLabel: "Delete" }
+    );
+  }
+  function countMeasurementsInFolder(folderId) {
+    let count = measurements.filter((m) => m.folderId === folderId).length;
+    measurementFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { count += countMeasurementsInFolder(child.id); });
+    return count;
+  }
+  function measurementFolderAccordionHtml(folder) {
+    const childFolders = measurementFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingMeasurementFolderId).sort((a, b) => compareSortNames(a.name, b.name));
+    const items = measurements.filter((m) => m.folderId === folder.id);
+    const expanded = expandedMeasurementFolderIds.has(folder.id);
+    const selectedForMove = selectedMeasurementFolderIdsForMove.has(folder.id);
+    const totalCount = countMeasurementsInFolder(folder.id);
+    const bodyHtml = expanded
+      ? (() => {
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, html: measurementFolderAccordionHtml(f) }))
+            .concat(items.map((m) => ({ name: m.name, html: measurementCardHtml(m) })))
+            .sort((a, b) => compareSortNames(a.name, b.name));
+          return bodyEntries.length === 0
+            ? '<div class="folder-accordion-empty">Empty — no measurements or subfolders yet.</div>'
+            : bodyEntries.map((e) => e.html).join("");
+        })()
+      : "";
+    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
+      '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
+        '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
+        '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
+        '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
+        '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
+      "</div>" +
+      '<div class="folder-accordion-body">' + bodyHtml +
+      "</div>" +
+    "</div>";
+  }
+  function bindMeasurementFolderAccordionEvents() {
+    measurementsPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
+      header.addEventListener("click", (e) => {
+        if (e.target.closest("[data-action='folder-rename']")) return;
+        const id = header.dataset.id;
+        if (id === editingMeasurementFolderId) return;
+        if (expandedMeasurementFolderIds.has(id)) collapseMeasurementFolderAndDescendants(id); else setOnlyExpandedMeasurementFolder(id);
+        renderMeasurementsList();
+      });
+    });
+    measurementsPanelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openMeasurementFolderEditPanel(btn.dataset.id); });
     });
   }
 
@@ -9649,7 +10830,7 @@
 
   function cardHtml(wp) {
     return (
-      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + '" data-id="' + wp.id + '">' +
+      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (wp.isStoryEntry ? " story-card" : "") + '" data-id="' + wp.id + '">' +
         '<div class="card-top">' +
           '<input type="checkbox" class="card-select-checkbox" data-id="' + wp.id + '"' + (selectedWaypointIdsForMove.has(wp.id) ? " checked" : "") + " />" +
           '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
