@@ -815,6 +815,8 @@
           <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
           <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
           <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
+          <label class="layers-option"><input type="checkbox" id="res1HexToggle" /><span class="swatch" style="background:#a78bfa"></span><span>Resolution 1 hexes</span></label>
+          <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide, labeled with their actual H3 cell index (e.g. 81a8fffffffffff) rather than a region name.</p>
         </div>
         </div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
@@ -1831,7 +1833,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -2171,6 +2173,7 @@
   const wxTemp = el("wxTemp");
   const precisionHexToggle = el("precisionHexToggle");
   const precisionHexMaxZoomOnlyToggle = el("precisionHexMaxZoomOnlyToggle");
+  const res1HexToggle = el("res1HexToggle");
   const adminModeToggle = el("adminModeToggle");
   const curatedCountHint = el("curatedCountHint");
   const anchorAdminActions = el("anchorAdminActions");
@@ -3486,6 +3489,50 @@
       if (hexGridLayer) map.removeLayer(hexGridLayer);
     }
   }
+
+  /* ---------- Resolution 1 hexes: same 842-cell grid, labeled with the ---------- */
+  /* ---------- actual H3 cell index instead of its word-address name.  ---------- */
+  let res1HexLayer = null;
+  function buildRes1HexLayer() {
+    if (!h3Ready) return null;
+    const group = L.layerGroup();
+    anchorCellToWord.forEach((word, cell) => {
+      try {
+        const boundary = window.h3.cellToBoundary(cell); // [[lat,lng], ...]
+        const lngs = boundary.map((p) => p[1]);
+        if (Math.max(...lngs) - Math.min(...lngs) > 180) return;
+        const poly = L.polygon(boundary, {
+          interactive: true, color: "#a78bfa", weight: 1, opacity: 0.5, fillColor: "#a78bfa", fillOpacity: 0.03
+        });
+        poly.bindTooltip(cell, { sticky: true, direction: "top", className: "mono" });
+        poly.on("mouseover", () => poly.setStyle({ opacity: 1, fillOpacity: 0.14 }));
+        poly.on("mouseout", () => poly.setStyle({ opacity: 0.5, fillOpacity: 0.03 }));
+        poly.on("click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          try {
+            const [clat, clng] = window.h3.cellToLatLng(cell);
+            map.panTo([clat, clng]);
+          } catch (err) { /* ignore */ }
+        });
+        group.addLayer(poly);
+      } catch (e) { /* skip malformed cell */ }
+    });
+    return group;
+  }
+  function toggleRes1Hex(on) {
+    if (on) {
+      if (!h3Ready) { showToast("Resolution 1 hexes need the H3 library, which hasn't finished loading."); res1HexToggle.checked = false; return; }
+      if (!res1HexLayer) res1HexLayer = buildRes1HexLayer();
+      if (res1HexLayer) res1HexLayer.addTo(map);
+    } else {
+      if (res1HexLayer) map.removeLayer(res1HexLayer);
+    }
+  }
+  res1HexToggle.addEventListener("change", () => {
+    settings.res1Hex = res1HexToggle.checked;
+    saveSettings();
+    toggleRes1Hex(res1HexToggle.checked);
+  });
 
   /* ---------- Precision hexes: finer H3 grid for the current view ---------- */
   /* Resolution-13 cells (~3.6m, used for actual addressing) can't be drawn      */
@@ -5001,6 +5048,7 @@
   precisionHexMaxZoomOnlyToggle.checked = !!settings.precisionHexMaxZoomOnly;
   if (settings.precisionHex) precisionHexToggle.checked = true;
   rebuildPrecisionHexes(); // re-evaluates the combined condition for both toggles, whichever is set
+  if (settings.res1Hex) { res1HexToggle.checked = true; toggleRes1Hex(true); }
 
   function pinSvg(color) {
     return '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
@@ -9644,7 +9692,6 @@
           '<div class="card-photo-drop-empty" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
             icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
         '<div class="card-actions">' +
-          '<button class="card-action-btn" data-action="copy-coords" data-id="' + wp.id + '">' + icon("copy", 14) + " Copy coordinates</button>" +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
           '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>" +
         "</div>" +
@@ -9681,11 +9728,6 @@
           case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
           case "copy-code":
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
-            break;
-          case "copy-coords":
-            copyText(wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6))
-              .then(() => flashCheck(node, "copy", " Copy coordinates"))
-              .catch(() => showErrorToast("Couldn't copy to clipboard."));
             break;
           case "share": openShareModal(wp); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
