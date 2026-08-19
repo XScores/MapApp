@@ -47,7 +47,7 @@
   /* ---------- top bar ---------- */
   .topbar{position:absolute; top:0; left:0; right:0; z-index:25; display:flex; gap:10px; padding:14px; padding-top:calc(env(safe-area-inset-top) + 14px); align-items:flex-start;}
   .search-wrap{position:relative; flex:1; max-width:420px; min-width:0;}
-  .search-box{display:flex; align-items:center; gap:8px; background:var(--panel-bg); backdrop-filter:blur(8px);
+  .search-box{display:flex; align-items:center; gap:8px; background:var(--panel-bg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
     border:1px solid var(--border); border-radius:12px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.3);}
   .search-box input{flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-size:14px;}
   .search-box input::placeholder{color:var(--text-mute);}
@@ -55,7 +55,7 @@
   .search-clear{cursor:pointer; color:var(--text-mute); flex-shrink:0; display:flex;}
   .search-clear:hover{color:var(--text-dim);}
   .search-results{position:absolute; top:calc(100% + 6px); left:0; right:0; background:rgba(15,23,42,.98);
-    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; overflow:hidden;
     max-height:260px; overflow-y:auto; box-shadow:0 12px 28px rgba(0,0,0,.4); display:none;}
   .search-results.show{display:block;}
   .search-result-row{display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid #1e293b; cursor:pointer; font-size:13px;}
@@ -84,7 +84,7 @@
     .search-wrap.expanded .search-collapse-btn{display:flex;}
   }
 
-  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--panel-bg); backdrop-filter:blur(8px);
+  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--panel-bg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
     border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;
     position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:border-color .15s;}
   .btn-icon.locate{color:var(--cyan);}
@@ -109,7 +109,7 @@
   }
   .ride-wrap{position:relative;}
   .ride-dropdown{position:absolute; top:calc(100% + 6px); left:0; z-index:26; background:rgba(15,23,42,.98);
-    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; padding:6px;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; padding:6px;
     box-shadow:0 12px 28px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:2px; min-width:120px;}
   .ride-dropdown.hidden{display:none;}
   .ride-dropdown-option{display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px;
@@ -125,7 +125,7 @@
     font-weight:700; border-radius:9px; min-width:18px; height:18px; display:none; align-items:center; justify-content:center; padding:0 4px;}
   .count-badge.show{display:flex;}
 
-  .counter-pill{flex-shrink:0; display:flex; align-items:center; gap:6px; height:44px; background:var(--panel-bg); backdrop-filter:blur(8px);
+  .counter-pill{flex-shrink:0; display:flex; align-items:center; gap:6px; height:44px; background:var(--panel-bg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
     border:1px solid var(--border); border-radius:12px; padding:0 12px; box-shadow:0 8px 24px rgba(0,0,0,.3); box-sizing:border-box; order:8;}
   .counter-pill .icon{color:var(--amber);}
   .counter-pill b{font-size:14px; font-weight:700;}
@@ -142,7 +142,7 @@
   .btn-icon.layers-toggle.active{border-color:rgba(34,211,238,.6); background:rgba(34,211,238,.1);}
   .layers-panel{position:fixed; top:calc(76px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:440px; max-width:calc(100vw - 20px);
     max-height:calc(100vh - 100px); max-height:calc(100dvh - 100px); overflow-y:auto; background:rgba(15,23,42,.98);
-    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:14px; padding:14px;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:14px; padding:14px;
     box-shadow:0 12px 28px rgba(0,0,0,.4); display:none; z-index:26;}
   .layers-panel.show{display:block;}
   .layers-panel-header{position:sticky; top:-14px; margin:-14px -14px 12px; padding:14px 14px 12px;
@@ -243,7 +243,7 @@
   .hud-coords{font-size:12px; color:#cbd5e1;}
 
   /* ---------- modal ---------- */
-  .modal-overlay{position:fixed; inset:0; z-index:30; background:rgba(2,6,23,.65); backdrop-filter:blur(4px);
+  .modal-overlay{position:fixed; inset:0; z-index:30; background:rgba(2,6,23,.65); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
     display:flex; align-items:center; justify-content:center; padding:16px;}
   .modal-overlay.hidden{display:none;}
   body.modal-open .live-dot,
@@ -450,7 +450,7 @@
   .list-filter-chevron::before{content:""; display:block; width:0; height:0; margin:3px 1px;
     border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid currentColor;}
   .list-filter-dropdown{position:absolute; top:calc(100% + 6px); left:0; z-index:26; background:rgba(15,23,42,.98);
-    backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; padding:6px;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:12px; padding:6px;
     box-shadow:0 12px 28px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:2px; min-width:160px; max-height:280px; overflow-y:auto;}
   .list-filter-dropdown.hidden{display:none;}
   .list-filter-option{display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:8px;
@@ -479,7 +479,9 @@
   .panel-no-results{text-align:center; color:var(--text-mute); font-size:13px; padding:24px 20px; margin:0;}
   .panel-list-wrap{position:relative; flex:1; min-height:0; display:flex; flex-direction:column;}
   .panel-list-wrap.hidden{display:none;}
-  .panel-list{flex:1; width:calc(100% - 26px); min-width:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .panel-list{flex:1; width:calc(100% - 26px); min-width:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;
+    scrollbar-width:none; -ms-overflow-style:none;}
+  .panel-list::-webkit-scrollbar{display:none;}
   .az-picker{position:absolute; top:0; right:2px; bottom:0; width:24px; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:8px 0; z-index:5;}
   .az-letter-btn{flex:1; width:24px; display:flex; align-items:center; justify-content:center; background:none; border:none;
@@ -495,6 +497,7 @@
     border-radius:12px; flex-shrink:0;}
   .folder-create-panel.hidden{display:none;}
   .folder-create-panel .field-input{margin-bottom:10px;}
+  .folder-create-panel .color-swatches{margin-bottom:12px;}
   .folder-create-panel-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
   .folder-create-panel-row .home-action-btn.hidden{display:none;}
   .folder-create-panel-row .home-action-btn{flex:1; text-align:center; padding:8px 10px; font-size:12.5px;}
@@ -544,11 +547,20 @@
   .folder-picker-row{display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13.5px;}
   .folder-picker-row:hover{border-color:rgba(245,158,11,.35);}
-  .folder-picker-row .icon{flex-shrink:0; color:var(--amber-light); display:flex;}
-  .folder-picker-row span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .folder-picker-row .icon{flex:0 0 auto !important; color:var(--amber-light); display:flex;}
+  .folder-picker-row span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;}
   .folder-picker-new{color:var(--cyan);}
   .folder-picker-new .icon{color:var(--cyan);}
-  .story-format-saved{flex:0 0 auto !important; display:flex; color:var(--green);}
+  .story-format-checkbox{flex:0 0 auto !important; width:18px; height:18px; border-radius:5px; border:2px solid var(--border-soft);
+    display:flex; align-items:center; justify-content:center; color:transparent;}
+  .folder-picker-row .story-format-checkbox.icon, .folder-picker-row .story-format-checkbox .icon{color:transparent;}
+  .folder-picker-row.selected{border-color:rgba(167,139,250,.6); background:rgba(167,139,250,.08);}
+  .folder-picker-row.selected .story-format-checkbox{background:#a78bfa; border-color:#a78bfa; color:#fff;}
+  .folder-picker-row.selected .story-format-checkbox.icon, .folder-picker-row.selected .story-format-checkbox .icon{color:#fff;}
+  .story-format-regenerate-btn{flex:0 0 auto !important; display:flex; align-items:center; gap:4px; padding:5px 9px; border-radius:8px;
+    background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.4); color:#a78bfa; font-size:11px; font-weight:600; cursor:pointer;}
+  .story-format-regenerate-btn:hover{background:rgba(167,139,250,.2); border-color:#a78bfa;}
+  .story-format-regenerate-btn .icon{color:#a78bfa;}
 
   .card{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:12px; transition:border-color .15s, box-shadow .15s;}
   .card:hover{border-color:rgba(245,158,11,.35);}
@@ -587,6 +599,7 @@
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
   .card-notes-tab-btn.active{color:var(--text-dim); border-bottom-color:var(--amber-light);}
   .card-notes-tab-btn.has-review{color:var(--text);}
+  .story-title-label{cursor:pointer; color:#a78bfa; border-bottom-color:#a78bfa;}
   .card-url{margin-left:24px; margin-top:6px; display:flex; align-items:center; gap:6px;}
   .card-url-link{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--cyan); text-decoration:none;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
@@ -623,6 +636,7 @@
   .journal-tab-btn{background:none; border:none; padding:0 0 4px; margin:0; font-size:14px; font-weight:600;
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
   .journal-tab-btn.active{color:var(--text); border-bottom-color:var(--amber-light);}
+  .journal-tab-btn.hidden{display:none;}
   #journalReviewsPanel .field-label{margin-top:16px;}
   #journalReviewsPanel .field-label:first-child{margin-top:0;}
   .review-rating-price-row{display:flex; gap:10px; row-gap:16px; flex-wrap:wrap; justify-content:space-between; margin-top:18px; margin-bottom:18px;}
@@ -850,7 +864,7 @@
             <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
             <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
           </div>
-          <button class="icon-btn" id="layersPanelCloseBtn"></button>
+          <button class="icon-btn" id="layersPanelCloseBtn" data-icon="x" data-icon-size="16"></button>
         </div>
         <div class="layers-panel-body" id="layersViewMain">
         <div class="layers-section layers-two-col">
@@ -1041,7 +1055,7 @@
         <h2 id="modalTitle">New waypoint</h2>
         <div class="modal-header-actions">
           <button class="icon-btn" id="micBtn" title="Voice input — say &quot;name&quot; or &quot;note&quot; to dictate, &quot;done&quot; to end"></button>
-          <button class="icon-btn" id="modalCloseBtn"></button>
+          <button class="icon-btn" id="modalCloseBtn" data-icon="x"></button>
         </div>
       </div>
       <div class="modal-coords-row">
@@ -1144,7 +1158,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <h2>Curate region name</h2>
-        <button class="icon-btn" id="anchorModalCloseBtn"></button>
+        <button class="icon-btn" id="anchorModalCloseBtn" data-icon="x"></button>
       </div>
       <p class="modal-coords mono" id="anchorModalCellId">cell</p>
 
@@ -1170,7 +1184,7 @@
     <div class="modal-card import-modal-card">
       <div class="modal-header">
         <h2>Import waypoints</h2>
-        <button class="icon-btn" id="importModalCloseBtn"></button>
+        <button class="icon-btn" id="importModalCloseBtn" data-icon="x"></button>
       </div>
       <p class="layers-hint">
         Imports one waypoint per record from a plain <code>.txt</code> file, all marked with the ⛺ tent emoji.
@@ -1211,7 +1225,7 @@
           <button type="button" class="journal-tab-btn active" id="journalTabNotesBtn" data-tab="notes">Notes</button>
           <button type="button" class="journal-tab-btn" id="journalTabReviewsBtn" data-tab="reviews">Reviews</button>
         </div>
-        <button class="icon-btn" id="journalCloseBtn"></button>
+        <button class="icon-btn" id="journalCloseBtn" data-icon="x"></button>
       </div>
 
       <div id="journalNotesPanel">
@@ -1304,7 +1318,7 @@
     <div class="modal-card photo-view-card">
       <div class="modal-header">
         <h2 id="photoViewTitle">Photo</h2>
-        <button class="icon-btn" id="photoViewCloseBtn"></button>
+        <button class="icon-btn" id="photoViewCloseBtn" data-icon="x"></button>
       </div>
       <div class="photo-view-img-wrap">
         <button type="button" class="photo-view-nav-btn photo-view-prev hidden" id="photoViewPrevBtn" aria-label="Previous photo"></button>
@@ -1320,7 +1334,7 @@
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
         <h2 id="confirmModalTitle">Are you sure?</h2>
-        <button class="icon-btn" id="confirmModalCloseBtn"></button>
+        <button class="icon-btn" id="confirmModalCloseBtn" data-icon="x"></button>
       </div>
       <p class="modal-coords" id="confirmModalMessage" style="margin-bottom:16px;"></p>
       <div class="btn-row">
@@ -1335,7 +1349,7 @@
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
         <h2 id="promptModalTitle">Name</h2>
-        <button class="icon-btn" id="promptModalCloseBtn"></button>
+        <button class="icon-btn" id="promptModalCloseBtn" data-icon="x"></button>
       </div>
       <input type="text" id="promptModalInput" class="field-input" style="margin-bottom:16px;" autocomplete="off" />
       <div class="btn-row">
@@ -1350,7 +1364,7 @@
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
         <h2 id="folderPickerModalTitle">Move to folder</h2>
-        <button class="icon-btn" id="folderPickerModalCloseBtn"></button>
+        <button class="icon-btn" id="folderPickerModalCloseBtn" data-icon="x"></button>
       </div>
       <div class="folder-picker-list" id="folderPickerModalList"></div>
     </div>
@@ -1361,9 +1375,13 @@
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
         <h2 id="storyFormatModalTitle">Generate A.I. Story</h2>
-        <button class="icon-btn" id="storyFormatModalCloseBtn"></button>
+        <button class="icon-btn" id="storyFormatModalCloseBtn" data-icon="x"></button>
       </div>
+      <p class="layers-hint">Pick one or more formats — they're each generated separately and added as their own item in the Trip folder.</p>
       <div class="folder-picker-list" id="storyFormatModalList"></div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-primary" id="storyFormatModalGenerateBtn">Generate</button>
+      </div>
     </div>
   </div>
 
@@ -1371,7 +1389,7 @@
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
         <h2>Share</h2>
-        <button class="icon-btn" id="shareModalCloseBtn"></button>
+        <button class="icon-btn" id="shareModalCloseBtn" data-icon="x"></button>
       </div>
       <div class="folder-picker-list" id="shareModalList"></div>
     </div>
@@ -1381,7 +1399,7 @@
     <div class="modal-card forecast-card">
       <div class="modal-header">
         <h2 id="forecastModalTitle">Forecast</h2>
-        <button class="icon-btn" id="forecastModalCloseBtn"></button>
+        <button class="icon-btn" id="forecastModalCloseBtn" data-icon="x"></button>
       </div>
       <p class="modal-coords" id="forecastModalCoords"></p>
       <div id="forecastLoadingState" class="forecast-status">Loading forecast…</div>
@@ -1394,7 +1412,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <h2 id="measureModalTitle">Measurement</h2>
-        <button class="icon-btn" id="measureModalCloseBtn"></button>
+        <button class="icon-btn" id="measureModalCloseBtn" data-icon="x"></button>
       </div>
       <input type="text" id="measureNameInput" class="field-input" placeholder="Name this measurement" style="margin-bottom:12px;" />
       <div class="measure-total-row">
@@ -1428,8 +1446,8 @@
         <button class="panel-tab" id="panelTabMeasurements" data-tab="measurements">Measurements</button>
       </div>
       <div class="panel-header-actions">
-        <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with GitHub (pull, then push)"></button>
-        <button class="panel-close" id="panelCloseBtn"></button>
+        <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with GitHub (pull, then push)" data-icon="sync" data-icon-size="16"></button>
+        <button class="panel-close" id="panelCloseBtn" data-icon="x"></button>
       </div>
     </div>
     <div class="panel-subtitle-row">
@@ -1464,6 +1482,8 @@
       <div class="folder-create-panel hidden" id="waypointFolderCreatePanel">
         <p class="layers-hint hidden" id="folderCreatePanelTripLabel">Creating a Trip folder — waypoints saved while it's open will land here automatically.</p>
         <input type="text" id="folderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <input type="color" id="folderCreateColorInput" value="#fbbf24" title="Folder icon color" style="display:none;" />
+        <div class="color-swatches" id="folderCreateColorSwatches"></div>
         <div class="folder-create-panel-row">
           <button type="button" class="home-action-btn" id="folderCreateSelectItemsBtn">Select items</button>
           <button type="button" class="home-action-btn" id="folderCreateAddItemsBtn">Add items</button>
@@ -1494,6 +1514,8 @@
     <div class="panel-list-wrap hidden" id="panelRoutesView">
       <div class="folder-create-panel hidden" id="routeFolderCreatePanel">
         <input type="text" id="routeFolderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <input type="color" id="routeFolderCreateColorInput" value="#fbbf24" title="Folder icon color" style="display:none;" />
+        <div class="color-swatches" id="routeFolderCreateColorSwatches"></div>
         <div class="folder-create-panel-row">
           <button type="button" class="home-action-btn" id="routeFolderCreateSelectItemsBtn">Select items</button>
           <button type="button" class="home-action-btn" id="routeFolderCreateAddItemsBtn">Add items</button>
@@ -1524,6 +1546,8 @@
     <div class="panel-list-wrap hidden" id="panelMeasurementsView">
       <div class="folder-create-panel hidden" id="measurementFolderCreatePanel">
         <input type="text" id="measurementFolderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <input type="color" id="measurementFolderCreateColorInput" value="#fbbf24" title="Folder icon color" style="display:none;" />
+        <div class="color-swatches" id="measurementFolderCreateColorSwatches"></div>
         <div class="folder-create-panel-row">
           <button type="button" class="home-action-btn" id="measurementFolderCreateSelectItemsBtn">Select items</button>
           <button type="button" class="home-action-btn" id="measurementFolderCreateAddItemsBtn">Add items</button>
@@ -1551,7 +1575,7 @@
 
   <div class="toast" id="toast">
     <span class="toast-message" id="toastMessage"></span>
-    <button type="button" class="toast-close-btn hidden" id="toastCloseBtn" aria-label="Close"></button>
+    <button type="button" class="toast-close-btn hidden" id="toastCloseBtn" aria-label="Close" data-icon="x" data-icon-size="15"></button>
   </div>
 
   <div class="sync-suggestion-banner hidden" id="syncSuggestionBanner">
@@ -2044,7 +2068,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "295";
+  const APP_VERSION = "306";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2582,11 +2606,14 @@
   const storyFormatModalCloseBtn = el("storyFormatModalCloseBtn");
   const storyFormatModalTitle = el("storyFormatModalTitle");
   const storyFormatModalList = el("storyFormatModalList");
+  const storyFormatModalGenerateBtn = el("storyFormatModalGenerateBtn");
   const shareModalOverlay = el("shareModalOverlay");
   const shareModalCloseBtn = el("shareModalCloseBtn");
   const shareModalList = el("shareModalList");
   const waypointFolderCreatePanel = el("waypointFolderCreatePanel");
   const folderCreateNameInput = el("folderCreateNameInput");
+  const folderCreateColorInput = el("folderCreateColorInput");
+  const folderCreateColorSwatches = el("folderCreateColorSwatches");
   const folderCreateSelectItemsBtn = el("folderCreateSelectItemsBtn");
   const folderCreateAddItemsBtn = el("folderCreateAddItemsBtn");
   const folderCreateRemoveItemsBtn = el("folderCreateRemoveItemsBtn");
@@ -2603,6 +2630,8 @@
   const waypointBulkCancelBtn = el("waypointBulkCancelBtn");
   const routeFolderCreatePanel = el("routeFolderCreatePanel");
   const routeFolderCreateNameInput = el("routeFolderCreateNameInput");
+  const routeFolderCreateColorInput = el("routeFolderCreateColorInput");
+  const routeFolderCreateColorSwatches = el("routeFolderCreateColorSwatches");
   const routeFolderCreateSelectItemsBtn = el("routeFolderCreateSelectItemsBtn");
   const routeFolderCreateAddItemsBtn = el("routeFolderCreateAddItemsBtn");
   const routeFolderCreateRemoveItemsBtn = el("routeFolderCreateRemoveItemsBtn");
@@ -2615,6 +2644,8 @@
   const routesBulkCancelBtn = el("routesBulkCancelBtn");
   const measurementFolderCreatePanel = el("measurementFolderCreatePanel");
   const measurementFolderCreateNameInput = el("measurementFolderCreateNameInput");
+  const measurementFolderCreateColorInput = el("measurementFolderCreateColorInput");
+  const measurementFolderCreateColorSwatches = el("measurementFolderCreateColorSwatches");
   const measurementFolderCreateSelectItemsBtn = el("measurementFolderCreateSelectItemsBtn");
   const measurementFolderCreateAddItemsBtn = el("measurementFolderCreateAddItemsBtn");
   const measurementFolderCreateRemoveItemsBtn = el("measurementFolderCreateRemoveItemsBtn");
@@ -2735,32 +2766,27 @@
   document.querySelector(".counter-pill .icon").innerHTML = icon("mapPin", 14);
   searchClearBtn.innerHTML = icon("x", 16);
   searchCollapseBtn.innerHTML = icon("x", 16);
-  modalCloseBtn.innerHTML = icon("x", 18);
-  anchorModalCloseBtn.innerHTML = icon("x", 18);
-  confirmModalCloseBtn.innerHTML = icon("x", 18);
-  promptModalCloseBtn.innerHTML = icon("x", 18);
-  folderPickerModalCloseBtn.innerHTML = icon("x", 18);
-  shareModalCloseBtn.innerHTML = icon("x", 18);
   waypointSelectModeBtn.querySelector(".icon").innerHTML = icon("checkSquare", 15);
   waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
   waypointNewTripBtn.querySelector(".icon").innerHTML = icon("plane", 15);
   reviewPhoneCallBtn.querySelector(".icon").innerHTML = icon("phone", 15);
   reviewEmailMailBtn.querySelector(".icon").innerHTML = icon("mail", 15);
-  measureModalCloseBtn.innerHTML = icon("x", 18);
-  photoViewCloseBtn.innerHTML = icon("x", 18);
-  toastCloseBtn.innerHTML = icon("x", 15);
   photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
   photoViewNextBtn.innerHTML = icon("chevronRight", 22);
   photoDropzoneEmpty.querySelector(".icon").innerHTML = icon("image", 16);
-  panelSyncBtn.innerHTML = icon("sync", 16);
-  importModalCloseBtn.innerHTML = icon("x", 18);
   importDropzoneEmpty.querySelector(".icon").innerHTML = icon("upload", 22);
-  journalCloseBtn.innerHTML = icon("x", 18);
-  layersPanelCloseBtn.innerHTML = icon("x", 16);
   homeAddressSearchBtn.innerHTML = icon("search", 16);
   micBtn.innerHTML = icon("mic", 16);
-  panelCloseBtn.innerHTML = icon("x", 18);
-  forecastModalCloseBtn.innerHTML = icon("x", 18);
+  // Declarative icon wiring for every close/utility button above: put
+  // data-icon (and optionally data-icon-size) directly on the button in
+  // HTML, and it fills in automatically here -- no per-button JS line to
+  // remember and no risk of forgetting one (that's exactly how
+  // storyFormatModalCloseBtn ended up with a blank circle: a hand-written
+  // list of individual assignments, missing one entry). Every close
+  // button converted to this pattern; new ones just need the attribute.
+  document.querySelectorAll("[data-icon]").forEach((el) => {
+    el.innerHTML = icon(el.dataset.icon, Number(el.dataset.iconSize) || 18);
+  });
   rideHudCloseXBtn.innerHTML = icon("x", 16);
   rideHudEditBtn.innerHTML = icon("edit", 16);
 
@@ -2914,26 +2940,57 @@
     { id: "tiktok", label: "TikTok Description", icon: "music" },
     { id: "youtube", label: "YouTube Description", icon: "play" }
   ];
-  function storyNameForFormat(folderName, formatId) {
-    return formatId === "narrative" ? (folderName + "-Story") : (folderName + "-Story (" + STORY_FORMATS.find((f) => f.id === formatId).label + ")");
+  // Short prefixes for each format's generated-content title, e.g.
+  // "Story - Montreal Trip" or "Insta - Montreal Trip". Regenerating an
+  // already-generated format doesn't overwrite it -- it adds a new,
+  // separately-numbered version ("Blog 2 - ...", "Blog 3 - ...") so the
+  // person can compare and keep whichever they like best.
+  const STORY_FORMAT_PREFIXES = { narrative: "Story", blog: "Blog", instagram: "Insta", tiktok: "TikTok", youtube: "YouTube" };
+  function countStoryVersionsForFormat(folderId, formatId) {
+    return waypoints.filter((w) => w.folderId === folderId && w.isStoryEntry && (w.storyFormat || "narrative") === formatId).length;
+  }
+  function storyNameForFormat(folderName, formatId, version) {
+    const prefix = STORY_FORMAT_PREFIXES[formatId] || "Story";
+    return prefix + (version > 1 ? " " + version : "") + " - " + folderName;
+  }
+  let storyFormatModalFolderId = null;
+  const selectedStoryFormatIds = new Set(); // reset each time the modal opens
+  function renderStoryFormatModalList(folderId) {
+    const existingCounts = {};
+    STORY_FORMATS.forEach((f) => { existingCounts[f.id] = countStoryVersionsForFormat(folderId, f.id); });
+    storyFormatModalList.innerHTML = STORY_FORMATS.map((f) => {
+      const already = existingCounts[f.id] > 0;
+      return '<div class="folder-picker-row' + (selectedStoryFormatIds.has(f.id) ? " selected" : "") + '" data-format="' + f.id + '">' +
+        '<span class="icon">' + icon(f.icon, 16) + "</span><span>" + escapeHtml(f.label) + "</span>" +
+        (already
+          ? '<button type="button" class="story-format-regenerate-btn" data-action="regenerate-story-format" data-format="' + f.id + '" title="Already generated ' + existingCounts[f.id] + ' time' + (existingCounts[f.id] === 1 ? "" : "s") + ' \u2014 adds a new version instead of replacing it">' + icon("sync", 12) + " Regenerate</button>"
+          : '<button type="button" class="story-format-checkbox" data-action="toggle-story-format" data-format="' + f.id + '">' + icon("check", 12) + "</button>") +
+      "</div>";
+    }).join("");
+    storyFormatModalList.querySelectorAll("[data-action='toggle-story-format']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const fmt = btn.dataset.format;
+        if (selectedStoryFormatIds.has(fmt)) selectedStoryFormatIds.delete(fmt); else selectedStoryFormatIds.add(fmt);
+        btn.closest(".folder-picker-row").classList.toggle("selected", selectedStoryFormatIds.has(fmt));
+        storyFormatModalGenerateBtn.textContent = selectedStoryFormatIds.size > 1 ? "Generate (" + selectedStoryFormatIds.size + ")" : "Generate";
+      });
+    });
+    storyFormatModalList.querySelectorAll("[data-action='regenerate-story-format']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const fmt = btn.dataset.format;
+        closeStoryFormatModal();
+        generateTripStory(folderId, fmt);
+      });
+    });
   }
   function openStoryFormatModal(folderId) {
     const folder = waypointFolders.find((f) => f.id === folderId);
     if (!folder) return;
+    storyFormatModalFolderId = folderId;
+    selectedStoryFormatIds.clear();
+    storyFormatModalGenerateBtn.textContent = "Generate";
     storyFormatModalTitle.textContent = 'Generate story for "' + folder.name + '"';
-    const existingFormats = new Set(waypoints.filter((w) => w.folderId === folderId && w.isStoryEntry).map((w) => w.storyFormat || "narrative"));
-    storyFormatModalList.innerHTML = STORY_FORMATS.map((f) =>
-      '<div class="folder-picker-row" data-action="pick-story-format" data-format="' + f.id + '">' +
-        '<span class="icon">' + icon(f.icon, 16) + "</span><span>" + escapeHtml(f.label) + "</span>" +
-        (existingFormats.has(f.id) ? '<span class="story-format-saved" title="Already generated \u2014 picking this regenerates it">' + icon("check", 14) + "</span>" : "") +
-      "</div>"
-    ).join("");
-    storyFormatModalList.querySelectorAll("[data-action='pick-story-format']").forEach((row) => {
-      row.addEventListener("click", () => {
-        closeStoryFormatModal();
-        generateTripStory(folderId, row.dataset.format);
-      });
-    });
+    renderStoryFormatModalList(folderId);
     storyFormatModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
   }
@@ -2943,6 +3000,20 @@
   }
   storyFormatModalCloseBtn.addEventListener("click", closeStoryFormatModal);
   storyFormatModalOverlay.addEventListener("click", (e) => { if (e.target === storyFormatModalOverlay) closeStoryFormatModal(); });
+  storyFormatModalGenerateBtn.addEventListener("click", async () => {
+    if (selectedStoryFormatIds.size === 0) { showToast("Pick at least one format first."); return; }
+    const folderId = storyFormatModalFolderId;
+    const formats = Array.from(selectedStoryFormatIds);
+    closeStoryFormatModal();
+    // Generated one at a time rather than in parallel -- each already has
+    // its own retry/fallback chain (see callGeminiForStory), and running
+    // several of those concurrently against a free-tier key is exactly the
+    // kind of burst that trips the rate limits that chain exists to work
+    // around.
+    for (const formatId of formats) {
+      await generateTripStory(folderId, formatId);
+    }
+  });
 
   // The "Share" button opens this list rather than going straight to the
   // system share sheet -- Instagram and TikTok are called out explicitly so
@@ -5900,6 +5971,16 @@
     });
   }
   renderColorSwatches(markerColorSwatches, markerColorInput, MARKER_COLOR_PRESETS);
+  renderColorSwatches(folderCreateColorSwatches, folderCreateColorInput, MARKER_COLOR_PRESETS);
+  renderColorSwatches(routeFolderCreateColorSwatches, routeFolderCreateColorInput, MARKER_COLOR_PRESETS);
+  renderColorSwatches(measurementFolderCreateColorSwatches, measurementFolderCreateColorInput, MARKER_COLOR_PRESETS);
+  folderCreateColorInput.addEventListener("input", () => markSwatchSelected(folderCreateColorSwatches, folderCreateColorInput.value));
+  routeFolderCreateColorInput.addEventListener("input", () => markSwatchSelected(routeFolderCreateColorSwatches, routeFolderCreateColorInput.value));
+  measurementFolderCreateColorInput.addEventListener("input", () => markSwatchSelected(measurementFolderCreateColorSwatches, measurementFolderCreateColorInput.value));
+  // New folders start amber (or violet for a Trip folder) to match what
+  // they'd otherwise render as via CSS alone -- picking a swatch overrides
+  // that per-folder from here on.
+  function defaultFolderColor(isTrip) { return isTrip ? "#a78bfa" : "#fbbf24"; }
 
   /* ---------- draggable icon quick-pick (Pointer Events: works for mouse   */
   /*  AND touch in one implementation — native HTML5 drag-and-drop does      */
@@ -7930,6 +8011,10 @@
     folderCreateNameInput.value = nameValue;
     folderCreateNameInput.placeholder = creatingTripFolder ? "Trip name" : "Folder name";
     folderCreatePanelTripLabel.classList.toggle("hidden", !creatingTripFolder);
+    const editingFolder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
+    const color = (editingFolder && editingFolder.color) || defaultFolderColor(editingFolder ? editingFolder.isTrip : creatingTripFolder);
+    folderCreateColorInput.value = color;
+    markSwatchSelected(folderCreateColorSwatches, color);
     selectedWaypointIdsForMove.clear();
     selectedFolderIdsForMove.clear();
     folderCreateSelectMode = false;
@@ -8033,6 +8118,11 @@
       if (folder.name !== name) renameWaypointFolder(folder.id, name);
     } else {
       folder = createWaypointFolder(name, creatingTripFolder);
+    }
+    if (folder.color !== folderCreateColorInput.value) {
+      folder.color = folderCreateColorInput.value;
+      folder.updatedAt = Date.now();
+      saveWaypointFolders();
     }
     const ids = Array.from(selectedWaypointIdsForMove);
     ids.forEach((id) => {
@@ -8150,6 +8240,10 @@
     if (routeSelectMode) setRouteSelectMode(false);
     routeFolderCreatePanel.classList.remove("hidden");
     routeFolderCreateNameInput.value = nameValue;
+    const editingFolder = editingRouteFolderId ? rideFolders.find((f) => f.id === editingRouteFolderId) : null;
+    const color = (editingFolder && editingFolder.color) || defaultFolderColor(false);
+    routeFolderCreateColorInput.value = color;
+    markSwatchSelected(routeFolderCreateColorSwatches, color);
     selectedRouteIdsForMove.clear();
     selectedRouteFolderIdsForMove.clear();
     routeFolderCreateSelectMode = false;
@@ -8230,6 +8324,11 @@
       if (folder.name !== name) renameRouteFolder(folder.id, name);
     } else {
       folder = createRouteFolder(name);
+    }
+    if (folder.color !== routeFolderCreateColorInput.value) {
+      folder.color = routeFolderCreateColorInput.value;
+      folder.updatedAt = Date.now();
+      saveRideFolders();
     }
     const ids = Array.from(selectedRouteIdsForMove);
     ids.forEach((id) => {
@@ -8331,6 +8430,10 @@
     if (measurementSelectMode) setMeasurementSelectMode(false);
     measurementFolderCreatePanel.classList.remove("hidden");
     measurementFolderCreateNameInput.value = nameValue;
+    const editingFolder = editingMeasurementFolderId ? measurementFolders.find((f) => f.id === editingMeasurementFolderId) : null;
+    const color = (editingFolder && editingFolder.color) || defaultFolderColor(false);
+    measurementFolderCreateColorInput.value = color;
+    markSwatchSelected(measurementFolderCreateColorSwatches, color);
     selectedMeasurementIdsForMove.clear();
     selectedMeasurementFolderIdsForMove.clear();
     measurementFolderCreateSelectMode = false;
@@ -8411,6 +8514,11 @@
       if (folder.name !== name) renameMeasurementFolder(folder.id, name);
     } else {
       folder = createMeasurementFolder(name);
+    }
+    if (folder.color !== measurementFolderCreateColorInput.value) {
+      folder.color = measurementFolderCreateColorInput.value;
+      folder.updatedAt = Date.now();
+      saveMeasurementFolders();
     }
     const ids = Array.from(selectedMeasurementIdsForMove);
     ids.forEach((id) => {
@@ -9425,6 +9533,15 @@
   }
 
   function openJournalModal(tab) {
+    // A generated story doesn't have Review data of its own -- the Reviews
+    // tab is hidden entirely, and the Notes tab's label becomes the
+    // content's own title (e.g. "Narrative Story") instead of "Notes", so
+    // it's clear what's being viewed/edited.
+    const editingWp = editingWaypointId ? waypoints.find((w) => w.id === editingWaypointId) : null;
+    const isStoryWp = !!(editingWp && editingWp.isStoryEntry);
+    journalTabReviewsBtn.classList.toggle("hidden", isStoryWp);
+    journalTabNotesBtn.textContent = isStoryWp ? storyEntryTitle(editingWp) : "Notes";
+    if (isStoryWp) tab = "notes"; // there's no Reviews tab to land on for a generated story
     journalTextarea.value = notesInput.value;
     reviewMainNotesMirror.value = notesInput.value;
     reviewLinkMirror.value = urlInput.value;
@@ -9469,6 +9586,8 @@
     waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
     urlFieldSection.style.display = "block";
+    reviewFieldLabelBtn.classList.remove("hidden");
+    notesFieldLabelBtn.textContent = "Notes";
     saveBtn.textContent = "Save waypoint";
     modalTitle.textContent = pendingPoint.isCurrentLocation ? "Save current location" : "New waypoint";
     modalCoords.textContent = pendingPoint.lat.toFixed(6) + ", " + pendingPoint.lng.toFixed(6);
@@ -9502,11 +9621,18 @@
     editingWaypointId = wp.id;
     editingHomeMode = false;
     deleteWaypointBtn.classList.remove("hidden");
-    wordCodeSection.style.display = "block";
+    const isStoryWp = !!wp.isStoryEntry;
+    // A generated story isn't a real place -- its word code and coordinates
+    // are a centroid, it has no link of its own, and there's no weather to
+    // fetch for it. Hide those sections rather than show data that doesn't
+    // mean anything here, matching how the card already treats these.
+    wordCodeSection.style.display = isStoryWp ? "none" : "block";
     nameFieldSection.style.display = "block";
     waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
-    urlFieldSection.style.display = "block";
+    urlFieldSection.style.display = isStoryWp ? "none" : "block";
+    reviewFieldLabelBtn.classList.toggle("hidden", isStoryWp);
+    notesFieldLabelBtn.textContent = isStoryWp ? storyEntryTitle(wp) : "Notes";
     const existingMarker = markers[wp.id];
     if (existingMarker) { map.removeLayer(existingMarker); delete markers[wp.id]; }
 
@@ -9517,7 +9643,7 @@
     pendingPoint = { lat: wp.lat, lng: wp.lng, isCurrentLocation: !!wp.isCurrentLocation };
 
     saveBtn.textContent = "Save";
-    modalTitle.textContent = "Edit waypoint";
+    modalTitle.textContent = isStoryWp ? "Edit " + storyEntryTitle(wp) : "Edit waypoint";
     modalCoords.textContent = wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6);
     modalWordCode.textContent = wp.code;
     waypointDateTimeInput.value = msToDatetimeLocalValue(wp.createdAt || Date.now());
@@ -9533,7 +9659,7 @@
     if (!Array.isArray(pendingReview.tags)) pendingReview.tags = []; // defensive, in case of older/partial saved data
     photoStatus.style.display = "none";
     renderPhotoThumbs();
-    modalWeatherContainer.innerHTML = buildWeatherAccordionHtml(wp.weather, wp.createdAt);
+    modalWeatherContainer.innerHTML = isStoryWp ? "" : buildWeatherAccordionHtml(wp.weather, wp.createdAt);
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => nameInput.focus(), 30);
@@ -10643,7 +10769,7 @@
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
-        '<span class="folder-accordion-icon">' + icon(folder.isTrip ? "plane" : "folder", 16) + "</span>" +
+        '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon(folder.isTrip ? "plane" : "folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripStoryBtn +
@@ -10685,7 +10811,11 @@
   /*  format persists, syncs, and displays through the exact same         */
   /*  waypoint machinery as everything else, with no separate storage.   */
   /* ================================================================ */
-  const GEMINI_MODEL = "gemini-2.5-flash";
+  const GEMINI_MODEL = "gemini-3.7-flash";
+  // Progressively older/more available fallback tiers if the primary model
+  // is rate-limited or overloaded -- see callGeminiForStory below.
+  const GEMINI_FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash"];
+  const GEMINI_RETRY_DELAYS_MS = [500, 1000]; // up to 2 quick retries per model on a transient error, before moving on
 
   function formatStoryDuration(ms) {
     if (ms == null || ms < 0) return null;
@@ -10754,23 +10884,87 @@
     return header + (instructions[formatId] || instructions.narrative) + timeGuardrail + footer;
   }
 
-  async function callGeminiForStory(prompt) {
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
+  function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+  // Makes a single attempt against one model. Throws an Error carrying
+  // `.status` (the HTTP status, when there is one) so the retry/fallback
+  // logic below can act on it -- a 429 (rate limited) or 503 (overloaded)
+  // is worth retrying/falling back on; a bad API key or a blocked prompt
+  // is not, and should surface immediately instead of being masked by
+  // several seconds of pointless retries.
+  async function callGeminiModel(model, prompt) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      // Low thinking effort -- this is a short creative-writing task, not
+      // something that benefits from deep reasoning, and it keeps latency
+      // (and load on a possibly already-strained model) down. Supported by
+      // every model in the fallback chain (all Gemini 3.x).
+      generationConfig: { thinkingConfig: { thinkingLevel: "low" } }
+    };
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": settings.geminiApiKey },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify(body)
     });
     let data = null;
     try { data = await res.json(); } catch (e) { /* fall through to generic error below */ }
     if (!res.ok) {
       const msg = data && data.error && data.error.message ? data.error.message : ("HTTP " + res.status);
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
     }
     const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
       data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
     if (!text) throw new Error("Gemini returned an empty response.");
     return text.trim();
+  }
+
+  // Retries a single model up to GEMINI_RETRY_DELAYS_MS.length times, but
+  // only on a transient 429/503 -- anything else (bad key, blocked
+  // content, network failure) is re-thrown immediately since retrying
+  // wouldn't change the outcome.
+  async function callGeminiModelWithRetry(model, prompt) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await callGeminiModel(model, prompt);
+      } catch (e) {
+        const isTransient = e && (e.status === 429 || e.status === 503);
+        if (!isTransient || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
+        console.warn("[gemini] " + model + " returned " + e.status + " (attempt " + (attempt + 1) + "). Retrying in " + GEMINI_RETRY_DELAYS_MS[attempt] + "ms\u2026");
+        await sleep(GEMINI_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  }
+
+  // Full resilience chain for the AI Story feature: the primary model
+  // (GEMINI_MODEL) gets a couple of quick retries on rate-limit/overload
+  // errors via callGeminiModelWithRetry above, then progressively older
+  // fallback models are tried (one attempt each, since by the time we're
+  // falling back, the priority is getting *a* result quickly rather than
+  // waiting through more retries) if the primary is still unavailable.
+  // Only once every model in the chain has failed does this throw --  with
+  // one clean, user-facing message rather than a raw HTTP status -- and
+  // generateTripStory's own try/catch turns that into a toast, so a person
+  // never sees a stack trace or a broken folder UI, just a plain "try
+  // again" message.
+  async function callGeminiForStory(prompt) {
+    const models = [GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS];
+    let lastErr = null;
+    for (let i = 0; i < models.length; i++) {
+      try {
+        return await callGeminiModelWithRetry(models[i], prompt);
+      } catch (e) {
+        lastErr = e;
+        if (i < models.length - 1) {
+          console.warn("[gemini] Primary model " + models[i] + " failed with status [" + (e.status || "n/a") + "]: " + e.message + ". Initiating fallback to secondary model " + models[i + 1] + "\u2026");
+        } else {
+          console.warn("[gemini] All models exhausted. Last failure from " + models[i] + " with status [" + (e.status || "n/a") + "]: " + e.message);
+        }
+      }
+    }
+    throw new Error("The AI story service is temporarily unavailable. Please try again in a few minutes.");
   }
 
   // Each format gets its own emoji/color so the pinned story cards (and
@@ -10805,35 +10999,30 @@
     try {
       const payload = buildTripStoryPayload(folder, sortedWps);
       const storyText = await callGeminiForStory(buildTripStoryPrompt(payload, formatId));
+      // Every photo from the trip's own waypoints rides along on the story
+      // entry too, so they're all in one place -- capped at the same limit
+      // used everywhere else a waypoint's photos are added.
+      const aggregatedPhotos = sortedWps.reduce((acc, w) => acc.concat(Array.isArray(w.photos) ? w.photos : []), []).slice(0, MAX_PHOTOS_PER_WAYPOINT);
       const centroidLat = sortedWps.reduce((s, w) => s + w.lat, 0) / sortedWps.length;
       const centroidLng = sortedWps.reduce((s, w) => s + w.lng, 0) / sortedWps.length;
-      const storyName = storyNameForFormat(folder.name, formatId);
+      const version = countStoryVersionsForFormat(folderId, formatId) + 1;
+      const storyName = storyNameForFormat(folder.name, formatId, version);
       const marker = STORY_FORMAT_MARKERS[formatId] || STORY_FORMAT_MARKERS.narrative;
-      const existing = waypoints.find((w) => w.folderId === folderId && w.isStoryEntry && (w.storyFormat || "narrative") === formatId);
-      if (existing) {
-        existing.name = storyName;
-        existing.notes = storyText;
-        existing.lat = centroidLat;
-        existing.lng = centroidLng;
-        existing.updatedAt = Date.now();
-        const oldMarker = markers[existing.id];
-        if (oldMarker) map.removeLayer(oldMarker);
-        delete markers[existing.id];
-        addSavedMarker(existing);
-      } else {
-        const storyWp = {
-          id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
-          lat: centroidLat, lng: centroidLng,
-          name: storyName, notes: storyText,
-          code: generateWordCode(centroidLat, centroidLng),
-          folderId: folderId, isStoryEntry: true, storyFormat: formatId,
-          markerStyle: "emoji", markerColor: marker.color, markerEmoji: marker.emoji,
-          photos: [],
-          createdAt: Date.now(), updatedAt: Date.now()
-        };
-        addSavedMarker(storyWp);
-        waypoints.push(storyWp);
-      }
+      // Regenerating never overwrites a previous version -- it always adds
+      // a new, separately-numbered one, so the person can compare them
+      // side by side and delete whichever they don't want to keep.
+      const storyWp = {
+        id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+        lat: centroidLat, lng: centroidLng,
+        name: storyName, notes: storyText,
+        code: generateWordCode(centroidLat, centroidLng),
+        folderId: folderId, isStoryEntry: true, storyFormat: formatId,
+        markerStyle: "emoji", markerColor: marker.color, markerEmoji: marker.emoji,
+        photos: aggregatedPhotos,
+        createdAt: Date.now(), updatedAt: Date.now()
+      };
+      addSavedMarker(storyWp);
+      waypoints.push(storyWp);
       saveWaypoints();
       setOnlyExpandedFolder(folderId);
       aiStoryGeneratingFolderIds.delete(folderId);
@@ -10976,7 +11165,7 @@
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
-        '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
+        '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
@@ -11128,7 +11317,7 @@
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
-        '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
+        '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
@@ -11461,9 +11650,14 @@
     return "pin:" + pinColor;
   }
 
+  function storyEntryTitle(wp) {
+    const fmt = STORY_FORMATS.find((f) => f.id === (wp.storyFormat || "narrative"));
+    return fmt ? fmt.label : "Story";
+  }
   function cardHtml(wp) {
+    const isStory = !!wp.isStoryEntry;
     return (
-      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (wp.isStoryEntry ? " story-card" : "") + '" data-id="' + wp.id + '">' +
+      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (isStory ? " story-card" : "") + '" data-id="' + wp.id + '">' +
         '<div class="card-top">' +
           '<input type="checkbox" class="card-select-checkbox" data-id="' + wp.id + '"' + (selectedWaypointIdsForMove.has(wp.id) ? " checked" : "") + " />" +
           '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
@@ -11476,25 +11670,29 @@
           '<div class="card-top-actions">' +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             (wp.review && wp.review.rating ? '<span class="card-rating-badge" title="Review rating">' + wp.review.rating.toFixed(1) + " \u2605</span>" : "") +
-            '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>" +
+            (isStory ? "" : '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>") +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
           "</div>" +
         "</div>" +
+        (isStory ? "" :
         '<div class="card-codes">' +
           '<span class="code-badge amber mono">' + escapeHtml(wp.code) + "</span>" +
           '<button class="card-copy-code" data-action="copy-code" data-id="' + wp.id + '">' + icon("copy", 14) + "</button>" +
-        "</div>" +
+        "</div>") +
+        (isStory ? "" :
         '<div class="card-url" data-id="' + wp.id + '">' +
           (wp.url
             ? '<a class="card-url-link" href="' + escapeHtml(wp.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(wp.url) + '">' + icon("link", 12) + '<span>' + escapeHtml(formatUrlDisplay(wp.url)) + "</span></a>" +
               '<button class="card-url-edit-btn" data-action="edit-url" data-id="' + wp.id + '" title="Edit link">' + icon("edit", 12) + "</button>"
             : '<button class="card-url-btn placeholder" data-action="edit-url" data-id="' + wp.id + '">' + icon("link", 12) + "<span>Add a link</span></button>") +
-        "</div>" +
+        "</div>") +
         '<div class="card-notes">' +
-          '<div class="card-notes-tab-row">' +
-            '<button type="button" class="card-notes-tab-btn active" data-action="edit-notes" data-id="' + wp.id + '">Notes</button>' +
-            '<button type="button" class="card-notes-tab-btn' + (wp.review && wp.review.rating ? " has-review" : "") + '" data-action="edit-reviews" data-id="' + wp.id + '">Reviews</button>' +
-          "</div>" +
+          (isStory
+            ? '<div class="card-notes-tab-row"><button type="button" class="card-notes-tab-btn active story-title-label" data-action="edit-notes" data-id="' + wp.id + '">' + escapeHtml(storyEntryTitle(wp)) + "</button></div>"
+            : '<div class="card-notes-tab-row">' +
+                '<button type="button" class="card-notes-tab-btn active" data-action="edit-notes" data-id="' + wp.id + '">Notes</button>' +
+                '<button type="button" class="card-notes-tab-btn' + (wp.review && wp.review.rating ? " has-review" : "") + '" data-action="edit-reviews" data-id="' + wp.id + '">Reviews</button>' +
+              "</div>") +
           '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
             icon("note", 12) + '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
           "</button>" +
@@ -11511,7 +11709,7 @@
             icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
-          '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>" +
+          (isStory ? "" : '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>") +
         "</div>" +
       "</div>"
     );
