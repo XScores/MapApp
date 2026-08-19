@@ -285,6 +285,7 @@
   textarea{resize:none;}
   #notesInput{margin-bottom:16px;}
   #urlFieldSection{margin-bottom:16px;}
+  #waypointDateTimeSection{margin-bottom:16px;}
   .mic-btn{width:44px; height:44px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
   .mic-btn:hover{border-color:rgba(245,158,11,.5);}
@@ -1072,6 +1073,11 @@
         <div class="name-row">
           <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
         </div>
+      </div>
+
+      <div id="waypointDateTimeSection">
+        <label class="field-label">Date &amp; time</label>
+        <input id="waypointDateTimeInput" class="field-input" type="datetime-local" />
       </div>
 
       <div class="field-label-row">
@@ -1963,6 +1969,23 @@
     return idxs[0] * s * s + idxs[1] * s + idxs[2];
   }
 
+  // <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in the viewer's
+  // own local time -- toISOString() gives UTC, which would silently shift
+  // the displayed time by the timezone offset, so this does the conversion
+  // by hand instead. Parsing back just feeds that same local-time string to
+  // `new Date(...)`, which JS already interprets as local time by default.
+  function msToDatetimeLocalValue(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  function datetimeLocalValueToMs(value, fallbackMs) {
+    if (!value) return fallbackMs;
+    const ms = new Date(value).getTime();
+    return isNaN(ms) ? fallbackMs : ms;
+  }
+
   function generateWordCode(lat, lng) {
     if (!h3Ready) return fallbackWordCode(lat, lng);
     try {
@@ -2021,7 +2044,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "288";
+  const APP_VERSION = "295";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2475,6 +2498,7 @@
   const modalForecastBtn = el("modalForecastBtn");
   const modalWordCode = el("modalWordCode");
   const nameInput = el("nameInput");
+  const waypointDateTimeInput = el("waypointDateTimeInput");
   const notesInput = el("notesInput");
   const markerStylePinBtn = el("markerStylePinBtn");
   const markerStyleEmojiBtn = el("markerStyleEmojiBtn");
@@ -2635,6 +2659,7 @@
   const modalCloseBtn = el("modalCloseBtn");
   const homeLocationSection = el("homeLocationSection");
   const nameFieldSection = el("nameFieldSection");
+  const waypointDateTimeSection = el("waypointDateTimeSection");
   const wordCodeSection = el("wordCodeSection");
   const urlFieldSection = el("urlFieldSection");
   const urlInput = el("urlInput");
@@ -3637,6 +3662,7 @@
 
     wordCodeSection.style.display = "none";
     nameFieldSection.style.display = "block";
+    waypointDateTimeSection.style.display = "none";
     homeLocationSection.style.display = "block";
     urlFieldSection.style.display = "none";
 
@@ -5225,7 +5251,7 @@
     gistSyncBtn.disabled = false;
     panelSyncBtn.disabled = false;
     panelSyncBtn.classList.remove("syncing");
-    setPanelSyncStatus("Synced just now", 4000);
+    setPanelSyncStatus("Synced!", 4000);
   }
   gistSyncBtn.addEventListener("click", (e) => { e.stopPropagation(); performRepoSync(); });
 
@@ -5725,6 +5751,7 @@
 
   // restore persisted waypoints
   waypoints.forEach((wp) => { addSavedMarker(wp); });
+  refreshAllWaypointMarkerVisibility(); // in case a folder was already hidden from a previous session
 
   // Current location takes priority over Home/last-known bounds for the initial
   // view — falls back to the previous priority chain (home > waypoints bounds
@@ -8051,7 +8078,7 @@
     if (folderCreateSelectMode) {
       const header = e.target.closest(".folder-accordion-header");
       if (header) {
-        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']")) return; // let those keep working normally even during select mode
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']") || e.target.closest("[data-action='folder-toggle-visibility']")) return; // let those keep working normally even during select mode
         const folderId = header.dataset.id;
         if (folderIsAncestorOf(folderId, editingFolderId)) {
           e.stopPropagation();
@@ -8235,7 +8262,7 @@
     if (routeFolderCreateSelectMode) {
       const header = e.target.closest(".folder-accordion-header");
       if (header) {
-        if (e.target.closest("[data-action='folder-rename']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
         const folderId = header.dataset.id;
         if (routeFolderIsAncestorOf(folderId, editingRouteFolderId)) {
           e.stopPropagation();
@@ -8416,7 +8443,7 @@
     if (measurementFolderCreateSelectMode) {
       const header = e.target.closest(".folder-accordion-header");
       if (header) {
-        if (e.target.closest("[data-action='folder-rename']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
         const folderId = header.dataset.id;
         if (measurementFolderIsAncestorOf(folderId, editingMeasurementFolderId)) {
           e.stopPropagation();
@@ -9439,12 +9466,14 @@
     deleteWaypointBtn.classList.add("hidden");
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
+    waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
     urlFieldSection.style.display = "block";
     saveBtn.textContent = "Save waypoint";
     modalTitle.textContent = pendingPoint.isCurrentLocation ? "Save current location" : "New waypoint";
     modalCoords.textContent = pendingPoint.lat.toFixed(6) + ", " + pendingPoint.lng.toFixed(6);
     modalWordCode.textContent = generateWordCode(pendingPoint.lat, pendingPoint.lng);
+    waypointDateTimeInput.value = msToDatetimeLocalValue(Date.now());
     if (pendingPoint.isCurrentLocation) {
       nameInput.value = "";
       nameInput.placeholder = "My Location";
@@ -9475,6 +9504,7 @@
     deleteWaypointBtn.classList.remove("hidden");
     wordCodeSection.style.display = "block";
     nameFieldSection.style.display = "block";
+    waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
     urlFieldSection.style.display = "block";
     const existingMarker = markers[wp.id];
@@ -9490,6 +9520,7 @@
     modalTitle.textContent = "Edit waypoint";
     modalCoords.textContent = wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6);
     modalWordCode.textContent = wp.code;
+    waypointDateTimeInput.value = msToDatetimeLocalValue(wp.createdAt || Date.now());
     nameInput.value = wp.name;
     notesInput.value = wp.notes || "";
     urlInput.value = wp.url || "";
@@ -9597,6 +9628,7 @@
         wp.notes = notes;
         wp.url = url;
         wp.review = reviewHasContent(pendingReview) ? pendingReview : null;
+        wp.createdAt = datetimeLocalValueToMs(waypointDateTimeInput.value, wp.createdAt || Date.now());
         wp.markerStyle = markerStyle;
         wp.markerColor = markerColor;
         wp.markerEmoji = markerEmoji;
@@ -9621,7 +9653,7 @@
       id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(), folderId: getOpenFolderId(),
       review: reviewHasContent(pendingReview) ? pendingReview : null,
-      createdAt: Date.now(), updatedAt: Date.now(), weather: null
+      createdAt: datetimeLocalValueToMs(waypointDateTimeInput.value, Date.now()), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
     waypoints.push(wp);
@@ -9763,6 +9795,17 @@
 
   let handsFreeRecognition = null;
   let handsFreeListening = false;
+  // A fresh GPS fix (which is what getCurrentPosition demands) can easily
+  // take several seconds on a phone -- that's the entire source of the lag
+  // between saying "waypoint" and hearing the confirmation. Instead, while
+  // hands-free mode is on, keep a location "warm" in the background via
+  // watchPosition, continuously updated as fixes come in. Saying "waypoint"
+  // then almost always uses an already-known position instantly, only
+  // falling back to a fresh on-demand fix for the rare case where no watch
+  // update has arrived yet (e.g. right at the start of a session).
+  let handsFreeWatchId = null;
+  let handsFreeLastPosition = null;
+  const HANDS_FREE_POSITION_MAX_AGE_MS = 30000;
   let lastVoiceWaypointTime = 0;
   const VOICE_WAYPOINT_COOLDOWN_MS = 4000;
 
@@ -9873,6 +9916,31 @@
     showToast('Saved "' + finalName + '" (hands-free)');
   }
 
+  function createVoiceWaypointAt(latitude, longitude) {
+    const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const name = "Waypoint " + (waypoints.length + 1);
+    const wp = {
+      id, lat: latitude, lng: longitude, name, notes: "",
+      code: generateWordCode(latitude, longitude), isCurrentLocation: true,
+      markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍", folderId: getOpenFolderId(),
+      photos: [], createdAt: Date.now(), updatedAt: Date.now(), weather: null
+    };
+    addSavedMarker(wp);
+    waypoints.push(wp);
+    saveWaypoints();
+    renderList();
+    updateCounters();
+
+    voiceCaptureWaypointId = id;
+    voiceCaptureState = "naming";
+    voiceCaptureNameBuffer = "";
+    voiceCaptureNotesBuffer = "";
+    showVoiceCapturePanel();
+    updateVoiceCapturePreview("", "");
+    resetVoiceCaptureIdleTimer();
+    speak("Waypoint saved. Say the name.");
+  }
+
   function startVoiceCapture() {
     if (!navigator.geolocation) {
       voiceCaptureState = "idle";
@@ -9880,32 +9948,16 @@
       showToast("Geolocation isn't available in this browser.");
       return;
     }
+    // Use the background watch's last fix if it's still fresh -- this is
+    // what actually kills the multi-second lag, since it skips waiting on
+    // a brand-new GPS fix entirely for the common case.
+    const warm = handsFreeLastPosition;
+    if (warm && Date.now() - warm.timestamp < HANDS_FREE_POSITION_MAX_AGE_MS) {
+      createVoiceWaypointAt(warm.coords.latitude, warm.coords.longitude);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-        const name = "Waypoint " + (waypoints.length + 1);
-        const wp = {
-          id, lat: latitude, lng: longitude, name, notes: "",
-          code: generateWordCode(latitude, longitude), isCurrentLocation: true,
-          markerStyle: "pin", markerColor: "#f59e0b", markerEmoji: "📍", folderId: getOpenFolderId(),
-          photos: []
-        };
-        addSavedMarker(wp);
-        waypoints.push(wp);
-        saveWaypoints();
-        renderList();
-        updateCounters();
-
-        voiceCaptureWaypointId = id;
-        voiceCaptureState = "naming";
-        voiceCaptureNameBuffer = "";
-        voiceCaptureNotesBuffer = "";
-        showVoiceCapturePanel();
-        updateVoiceCapturePreview("", "");
-        resetVoiceCaptureIdleTimer();
-        speak("Waypoint saved. Say the name.");
-      },
+      (pos) => createVoiceWaypointAt(pos.coords.latitude, pos.coords.longitude),
       () => {
         voiceCaptureState = "idle";
         speak("Couldn't get your location.");
@@ -10004,6 +10056,13 @@
       handsFreeRecognition.start();
       showToast('Listening — say "waypoint" to save your location, hands-free.');
       speak("Hands-free waypoints on.");
+      if (navigator.geolocation && navigator.geolocation.watchPosition) {
+        handsFreeWatchId = navigator.geolocation.watchPosition(
+          (pos) => { handsFreeLastPosition = pos; },
+          () => { /* a watch error just means we fall back to getCurrentPosition when "waypoint" is heard -- nothing to surface here */ },
+          { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+      }
     } catch (e) {
       showErrorToast("Couldn't start voice recognition.");
       handsFreeListening = false;
@@ -10022,6 +10081,11 @@
       try { handsFreeRecognition.stop(); } catch (e) { /* ignore */ }
       handsFreeRecognition = null;
     }
+    if (handsFreeWatchId != null) {
+      navigator.geolocation.clearWatch(handsFreeWatchId);
+      handsFreeWatchId = null;
+    }
+    handsFreeLastPosition = null;
   }
 
   voiceWaypointBtn.addEventListener("click", () => {
@@ -10495,6 +10559,44 @@
     return count;
   }
 
+  // Waypoints have no per-item visibility toggle of their own (unlike
+  // routes/measurements below) -- they're always on the map by default, so
+  // a hidden folder is a new, independent concept: walk up a waypoint's
+  // folder chain and check whether any ancestor (including its direct
+  // folder) is hidden. A hidden parent folder hides everything nested
+  // under it, including subfolders, without needing to touch their own
+  // hidden flags individually.
+  function isWaypointHiddenByFolder(wp) {
+    let current = wp.folderId ? waypointFolders.find((f) => f.id === wp.folderId) : null;
+    while (current) {
+      if (current.hidden) return true;
+      current = current.parentFolderId ? waypointFolders.find((f) => f.id === current.parentFolderId) : null;
+    }
+    return false;
+  }
+  // Recomputes every waypoint's marker against the rule above and adds/
+  // removes markers to match -- called after any folder-visibility change,
+  // and after render/list refreshes in general, so it self-corrects
+  // regardless of which code path caused a waypoint's effective folder
+  // membership or a folder's hidden flag to change.
+  function refreshAllWaypointMarkerVisibility() {
+    waypoints.forEach((wp) => {
+      const shouldHide = isWaypointHiddenByFolder(wp);
+      const hasMarker = !!markers[wp.id];
+      if (shouldHide && hasMarker) { map.removeLayer(markers[wp.id]); delete markers[wp.id]; }
+      else if (!shouldHide && !hasMarker) { addSavedMarker(wp); }
+    });
+  }
+  function setWaypointFolderVisibility(folderId, hidden) {
+    const folder = waypointFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    folder.hidden = hidden;
+    saveWaypointFolders();
+    refreshAllWaypointMarkerVisibility();
+    renderList();
+    showToast(hidden ? 'Hid "' + folder.name + '" from the map' : 'Showing "' + folder.name + '" on the map');
+  }
+
   function folderAccordionHtml(folder) {
     const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = waypoints.filter((w) => w.folderId === folder.id);
@@ -10536,6 +10638,8 @@
           (aiStoryGeneratingFolderIds.has(folder.id) ? "Generating…" : "A.I. Story") + '"' +
           (aiStoryGeneratingFolderIds.has(folder.id) ? " disabled" : "") + '>' + icon("sparkles", 14) + "</button>"
       : "";
+    const visibilityBtn = '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' +
+      (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>";
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
@@ -10543,6 +10647,7 @@
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripStoryBtn +
+        visibilityBtn +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -10552,7 +10657,7 @@
   function bindFolderAccordionEvents() {
     panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
         const id = header.dataset.id;
         if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
         if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
@@ -10564,6 +10669,9 @@
     });
     panelList.querySelectorAll('[data-action="ai-story"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openStoryFormatModal(btn.dataset.id); });
+    });
+    panelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); setWaypointFolderVisibility(btn.dataset.id, !waypointFolders.find((f) => f.id === btn.dataset.id).hidden); });
     });
   }
 
@@ -10620,6 +10728,8 @@
 
   function buildTripStoryPrompt(payload, formatId) {
     const header = "Using the trip data below (JSON), ";
+    const timeGuardrail = " If a location's \"arrival\" is null, don't invent a specific time for it or reuse another " +
+      "location's time -- just describe it without a clock time.";
     const footer = "\n\nTrip data:\n" + JSON.stringify(payload, null, 2);
     const instructions = {
       narrative: "you are a warm, engaging travel writer. Write a short narrative recap of the day (roughly 150-300 " +
@@ -10641,7 +10751,7 @@
         "locations visited, in order, and anything notable (food, views, weather). Keyword-rich but natural-sounding, " +
         "written for viewers deciding whether to watch. Plain paragraph, no headers, no repeating the raw JSON back."
     };
-    return header + (instructions[formatId] || instructions.narrative) + footer;
+    return header + (instructions[formatId] || instructions.narrative) + timeGuardrail + footer;
   }
 
   async function callGeminiForStory(prompt) {
@@ -10817,6 +10927,36 @@
     rideFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { count += countRoutesInFolder(child.id); });
     return count;
   }
+  function gatherRouteIdsInFolder(folderId) {
+    let ids = rides.filter((r) => r.folderId === folderId).map((r) => r.id);
+    rideFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { ids = ids.concat(gatherRouteIdsInFolder(child.id)); });
+    return ids;
+  }
+  // Routes are normally hidden by default and shown one at a time via their
+  // own eyeball toggle (visibleRouteLayers), unlike waypoints -- so a
+  // folder-level hide/show here works as a remembered bulk action on top
+  // of that: hiding snapshots exactly which routes in the folder (and its
+  // subfolders) were currently shown and turns those off; showing again
+  // restores exactly that same set, rather than force-showing everything
+  // in the folder regardless of what the person had individually chosen.
+  function setRouteFolderVisibility(folderId, hidden) {
+    const folder = rideFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const ids = gatherRouteIdsInFolder(folderId);
+    if (hidden) {
+      folder.hiddenSnapshot = ids.filter((id) => visibleRouteLayers[id]);
+      folder.hiddenSnapshot.forEach((id) => toggleRouteVisibility(id));
+    } else {
+      (folder.hiddenSnapshot || []).forEach((id) => {
+        if (rides.some((r) => r.id === id) && !visibleRouteLayers[id]) toggleRouteVisibility(id);
+      });
+      folder.hiddenSnapshot = [];
+    }
+    folder.hidden = hidden;
+    saveRideFolders();
+    renderRoutesList();
+    showToast(hidden ? 'Hid "' + folder.name + '" from the map' : 'Showing "' + folder.name + '" on the map');
+  }
   function routeFolderAccordionHtml(folder) {
     const childFolders = rideFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingRouteFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = rides.filter((r) => r.folderId === folder.id);
@@ -10839,6 +10979,7 @@
         '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -10848,7 +10989,7 @@
   function bindRouteFolderAccordionEvents() {
     routesPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
         const id = header.dataset.id;
         if (id === editingRouteFolderId) return;
         if (expandedRouteFolderIds.has(id)) collapseRouteFolderAndDescendants(id); else setOnlyExpandedRouteFolder(id);
@@ -10857,6 +10998,9 @@
     });
     routesPanelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openRouteFolderEditPanel(btn.dataset.id); });
+    });
+    routesPanelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); setRouteFolderVisibility(btn.dataset.id, !rideFolders.find((f) => f.id === btn.dataset.id).hidden); });
     });
   }
 
@@ -10940,6 +11084,31 @@
     measurementFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { count += countMeasurementsInFolder(child.id); });
     return count;
   }
+  function gatherMeasurementIdsInFolder(folderId) {
+    let ids = measurements.filter((m) => m.folderId === folderId).map((m) => m.id);
+    measurementFolders.filter((f) => f.parentFolderId === folderId).forEach((child) => { ids = ids.concat(gatherMeasurementIdsInFolder(child.id)); });
+    return ids;
+  }
+  // Same remembered-snapshot bulk toggle as setRouteFolderVisibility above,
+  // for measurements/savedMeasurementLayers/toggleMeasurementVisibility.
+  function setMeasurementFolderVisibility(folderId, hidden) {
+    const folder = measurementFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const ids = gatherMeasurementIdsInFolder(folderId);
+    if (hidden) {
+      folder.hiddenSnapshot = ids.filter((id) => savedMeasurementLayers[id]);
+      folder.hiddenSnapshot.forEach((id) => toggleMeasurementVisibility(id));
+    } else {
+      (folder.hiddenSnapshot || []).forEach((id) => {
+        if (measurements.some((m) => m.id === id) && !savedMeasurementLayers[id]) toggleMeasurementVisibility(id);
+      });
+      folder.hiddenSnapshot = [];
+    }
+    folder.hidden = hidden;
+    saveMeasurementFolders();
+    renderMeasurementsList();
+    showToast(hidden ? 'Hid "' + folder.name + '" from the map' : 'Showing "' + folder.name + '" on the map');
+  }
   function measurementFolderAccordionHtml(folder) {
     const childFolders = measurementFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingMeasurementFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = measurements.filter((m) => m.folderId === folder.id);
@@ -10962,6 +11131,7 @@
         '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -10971,7 +11141,7 @@
   function bindMeasurementFolderAccordionEvents() {
     measurementsPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
         const id = header.dataset.id;
         if (id === editingMeasurementFolderId) return;
         if (expandedMeasurementFolderIds.has(id)) collapseMeasurementFolderAndDescendants(id); else setOnlyExpandedMeasurementFolder(id);
@@ -10980,6 +11150,9 @@
     });
     measurementsPanelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openMeasurementFolderEditPanel(btn.dataset.id); });
+    });
+    measurementsPanelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); setMeasurementFolderVisibility(btn.dataset.id, !measurementFolders.find((f) => f.id === btn.dataset.id).hidden); });
     });
   }
 
@@ -11021,6 +11194,7 @@
     refreshListFilterControls();
     applyWaypointSearchFilter();
     refreshAzPickerAvailability();
+    refreshAllWaypointMarkerVisibility(); // self-corrects marker show/hide for any folder-membership or hidden-flag change that led here
   }
 
   function applyWaypointSearchFilter() {
