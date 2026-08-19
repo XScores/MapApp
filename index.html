@@ -628,6 +628,8 @@
   .rte-btn{width:32px; height:28px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border);
     color:#cbd5e1; cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
   .rte-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5); color:var(--amber-light);}
+  .rte-mic-btn{color:#f472b6;}
+  .rte-mic-btn.listening{color:#fff; background:var(--red); border-color:var(--red); animation:voice-pulse 1.6s ease-in-out infinite;}
   .journal-modal-card{max-width:min(560px, 94vw);}
   #journalNotesPanel.hidden, #journalReviewsPanel.hidden{display:none;}
   .journal-textarea{width:100%; min-height:48vh; min-height:48dvh; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
@@ -838,7 +840,7 @@
 
     <button id="locateBtn" class="btn-icon locate" title="Use current location"></button>
     <button id="cameraBtn" class="btn-icon camera-btn" title="Add waypoint from photo"></button>
-    <button id="voiceWaypointBtn" class="btn-icon voice-waypoint-btn" title="Hands-free voice waypoints — say &quot;waypoint&quot; to save your location"></button>
+    <button id="voiceWaypointBtn" class="btn-icon voice-waypoint-btn" title="Hands-free voice waypoints — say &quot;waypoint&quot; to save your location, or &quot;add to [name]&quot; to continue notes on an existing one"></button>
     <div class="ride-wrap">
       <button id="rideBtn" class="btn-icon ride-btn" title="Track a route"></button>
       <div class="ride-dropdown hidden" id="rideDropdown">
@@ -1100,6 +1102,7 @@
           <button type="button" class="journal-tab-btn" id="reviewFieldLabelBtn">Review</button>
         </div>
         <div class="rte-toolbar" id="notesToolbar">
+          <button type="button" class="rte-btn rte-mic-btn" id="notesToolbarMicBtn" title="Dictate at cursor — or at the end if nothing's selected"><span class="icon"></span></button>
           <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
           <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
           <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
@@ -1230,6 +1233,7 @@
 
       <div id="journalNotesPanel">
         <div class="rte-toolbar" id="journalToolbar">
+          <button type="button" class="rte-btn rte-mic-btn" id="journalToolbarMicBtn" title="Dictate at cursor — or at the end if nothing's selected"><span class="icon"></span></button>
           <button type="button" class="rte-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
           <button type="button" class="rte-btn" data-cmd="italic" title="Italic"><em>I</em></button>
           <button type="button" class="rte-btn" data-cmd="ul" title="Bullet list">•≡</button>
@@ -2068,7 +2072,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "306";
+  const APP_VERSION = "309";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2551,9 +2555,11 @@
   const notesFieldLabelBtn = el("notesFieldLabelBtn");
   const reviewFieldLabelBtn = el("reviewFieldLabelBtn");
   const notesToolbar = el("notesToolbar");
+  const notesToolbarMicBtn = el("notesToolbarMicBtn");
   const journalModalOverlay = el("journalModalOverlay");
   const journalCloseBtn = el("journalCloseBtn");
   const journalToolbar = el("journalToolbar");
+  const journalToolbarMicBtn = el("journalToolbarMicBtn");
   const journalTextarea = el("journalTextarea");
   const journalDoneBtn = el("journalDoneBtn");
   const journalTabNotesBtn = el("journalTabNotesBtn");
@@ -9566,13 +9572,28 @@
     journalModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     if (tab === "reviews") autofillReviewLocation();
-    setTimeout(() => { if (tab === "notes") journalTextarea.focus(); else reviewNameInput.focus(); }, 30);
+    setTimeout(() => {
+      if (tab === "notes") {
+        journalTextarea.focus();
+        // Setting .value= earlier left the cursor at the end of the text in
+        // most browsers, and focus() just scrolled the view to follow it --
+        // undoing the scrollTop reset in setJournalTab, which ran while the
+        // modal was still hidden (display:none) and had no visible box to
+        // actually scroll yet. Doing both *after* focus, once the modal is
+        // genuinely visible and laid out, is what actually sticks.
+        journalTextarea.setSelectionRange(0, 0);
+        journalTextarea.scrollTop = 0;
+      } else {
+        reviewNameInput.focus();
+      }
+    }, 30);
   }
   notesFieldLabelBtn.addEventListener("click", () => openJournalModal("notes"));
   reviewFieldLabelBtn.addEventListener("click", () => openJournalModal("reviews"));
   function closeJournalModal() {
     journalModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
+    stopJournalToolbarDictation();
   }
   journalCloseBtn.addEventListener("click", closeJournalModal);
   journalDoneBtn.addEventListener("click", closeJournalModal); // everything already autosaved into pendingReview/notesInput as it was typed
@@ -9669,6 +9690,7 @@
     modalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
     stopVoice();
+    stopNotesToolbarDictation();
   }
 
   locateBtn.addEventListener("click", () => {
@@ -9817,6 +9839,75 @@
   let modalVoiceNameBuffer = "";
   let modalVoiceNotesBuffer = "";
 
+  // Toolbar dictation mic (Bold/Italic/etc. row) -- separate from the
+  // "name"/"note" field-switching mic above. Click, speak, click again to
+  // stop; text lands at wherever the cursor was in that specific textarea
+  // when dictation started, or at the very end if the textarea wasn't
+  // focused at that moment (i.e. no insertion point was actually chosen).
+  function setupToolbarDictation(btn, textarea) {
+    let recognition = null;
+    let listening = false;
+    let insertPos = null;
+
+    function updateBtn() {
+      btn.classList.toggle("listening", listening);
+      btn.querySelector(".icon").innerHTML = icon(listening ? "micOff" : "mic", 13);
+    }
+    function insertAtPoint(text) {
+      if (!text) return;
+      const val = textarea.value;
+      const start = insertPos.start, end = insertPos.end;
+      const before = val.slice(0, start);
+      const needsLeadingSpace = before.length > 0 && !/\s$/.test(before);
+      const insertion = (needsLeadingSpace ? " " : "") + text;
+      textarea.value = before + insertion + val.slice(end);
+      const newPos = start + insertion.length;
+      insertPos = { start: newPos, end: newPos }; // advances so the next spoken chunk continues right after this one
+      textarea.setSelectionRange(newPos, newPos);
+      textarea.dispatchEvent(new Event("input", { bubbles: true })); // keeps any live-sync listeners on this textarea in step (e.g. the journal/notes mirrors)
+    }
+    function stopDictation() {
+      listening = false;
+      updateBtn();
+      if (recognition) {
+        recognition.onend = null; // a deliberate stop shouldn't trigger the auto-restart below
+        try { recognition.stop(); } catch (e) { /* ignore */ }
+        recognition = null;
+      }
+    }
+    function startDictation() {
+      if (!SpeechRecognitionCtor) { showToast("Voice recognition isn't supported in this browser — try Chrome or Safari."); return; }
+      const hasInsertionPoint = document.activeElement === textarea;
+      insertPos = hasInsertionPoint
+        ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+        : { start: textarea.value.length, end: textarea.value.length }; // no insertion point chosen -- append to the end
+      recognition = new SpeechRecognitionCtor();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false; // only commit finished phrases -- a textarea has nowhere sensible to show a live in-progress preview
+      recognition.onresult = (e) => {
+        let finalText = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        }
+        if (finalText.trim()) insertAtPoint(finalText.trim());
+      };
+      recognition.onerror = (e) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") showErrorToast("Microphone access was blocked.");
+        stopDictation();
+      };
+      recognition.onend = () => { if (listening) { try { recognition.start(); } catch (e) { /* already running -- ignore */ } } };
+      listening = true;
+      updateBtn();
+      try { recognition.start(); } catch (e) { listening = false; updateBtn(); }
+    }
+    btn.addEventListener("click", () => { listening ? stopDictation() : startDictation(); });
+    updateBtn();
+    return stopDictation;
+  }
+  const stopNotesToolbarDictation = setupToolbarDictation(notesToolbarMicBtn, notesInput);
+  const stopJournalToolbarDictation = setupToolbarDictation(journalToolbarMicBtn, journalTextarea);
+
   micBtn.addEventListener("click", () => { listening ? stopVoice() : startVoice(); });
 
   function startVoice() {
@@ -9905,7 +9996,9 @@
   /*  location without touching the screen. Built for use while         */
   /*  driving: no modal, no required interaction to confirm — a saved   */
   /*  waypoint is confirmed by spoken feedback (speechSynthesis), not    */
-  /*  by anything the driver has to look at.                            */
+  /*  by anything the driver has to look at. Saying "add to [name]"     */
+  /*  instead jumps straight into appending notes onto an *existing*     */
+  /*  waypoint, picked up right where its notes left off.                */
   /*                                                                     */
   /*  Real limitations, stated plainly rather than glossed over:         */
   /*   - Web Speech API support varies: solid in Chrome, workable in     */
@@ -9956,6 +10049,34 @@
   let voiceCaptureNotesBuffer = "";
   let voiceCaptureIdleTimer = null;
   const VOICE_CAPTURE_IDLE_TIMEOUT_MS = 15000; // auto-finalize if the driver goes quiet mid-dictation
+
+  function normalizeVoiceName(s) {
+    return s.toLowerCase().replace(/[.,!?]+$/, "").trim();
+  }
+  // Speech-to-text won't reliably match a waypoint's stored name word for
+  // word, so this tries an exact match first, then falls back to either
+  // name containing the other (spoken name a bit longer or shorter than
+  // what's stored) -- picking the closest length match among ties, then
+  // the most recently touched waypoint as a last tiebreaker, since that's
+  // the one most likely meant while out and about.
+  function findWaypointByVoiceName(spokenName) {
+    const target = normalizeVoiceName(spokenName);
+    if (!target) return null;
+    const exact = waypoints.find((w) => normalizeVoiceName(w.name) === target);
+    if (exact) return exact;
+    const candidates = waypoints.filter((w) => {
+      const n = normalizeVoiceName(w.name);
+      return n && (n.includes(target) || target.includes(n));
+    });
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => {
+      const diffA = Math.abs(normalizeVoiceName(a.name).length - target.length);
+      const diffB = Math.abs(normalizeVoiceName(b.name).length - target.length);
+      if (diffA !== diffB) return diffA - diffB;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+    return candidates[0];
+  }
 
   function capitalizeFirst(s) {
     return s.replace(/^\w/, (c) => c.toUpperCase());
@@ -10098,6 +10219,30 @@
 
     if (voiceCaptureState === "idle") {
       const now = Date.now();
+      // "Add to [waypoint name]" jumps straight into note-taking for an
+      // *existing* waypoint, preloaded with its current notes so whatever
+      // gets said next is appended to the end rather than replacing them --
+      // checked first since it's the more specific of the two triggers.
+      const addToMatch = isFinal && transcript.match(/\badd to\s+(.+)/i);
+      if (addToMatch) {
+        const spokenName = addToMatch[1].trim();
+        const matchedWp = findWaypointByVoiceName(spokenName);
+        if (matchedWp) {
+          voiceCaptureState = "noting";
+          voiceCaptureWaypointId = matchedWp.id;
+          voiceCaptureNameBuffer = matchedWp.name;
+          voiceCaptureNotesBuffer = matchedWp.notes || "";
+          showVoiceCapturePanel();
+          updateVoiceCapturePanelMode();
+          updateVoiceCapturePreview(voiceCaptureNameBuffer, voiceCaptureNotesBuffer);
+          resetVoiceCaptureIdleTimer();
+          speak("Continue adding notes to " + matchedWp.name + ".");
+        } else {
+          speak("I couldn't find a waypoint called " + spokenName + ".");
+          showToast('No waypoint found matching "' + spokenName + '"');
+        }
+        return;
+      }
       if (isFinal && lower.includes("waypoint") && now - lastVoiceWaypointTime >= VOICE_WAYPOINT_COOLDOWN_MS) {
         voiceCaptureState = "creating"; // block re-triggering while GPS lookup is in flight
         startVoiceCapture();
@@ -10750,9 +10895,13 @@
     // rendered.
     const bodyHtml = expanded
       ? (() => {
-          const bodyEntries = childFolders.map((f) => ({ name: f.name, html: folderAccordionHtml(f) }))
-            .concat(regularItems.map((w) => ({ name: w.name, html: cardHtml(w) })))
-            .sort((a, b) => compareSortNames(a.name, b.name));
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, createdAt: f.createdAt || 0, html: folderAccordionHtml(f) }))
+            .concat(regularItems.map((w) => ({ name: w.name, createdAt: w.createdAt || 0, html: cardHtml(w) })))
+            // Trip folders order their contents by capture time, newest
+            // first -- that's the natural order you'd want while
+            // retracing a trip. Every other folder keeps the normal
+            // alphabetical sort.
+            .sort(folder.isTrip ? (a, b) => b.createdAt - a.createdAt : (a, b) => compareSortNames(a.name, b.name));
           const storyHtml = storyWps.map((w) => cardHtml(w)).join("");
           return (bodyEntries.length === 0 && storyWps.length === 0)
             ? '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>'
