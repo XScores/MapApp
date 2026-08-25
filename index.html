@@ -674,6 +674,10 @@
   .card-action-btn{flex:1; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;
     color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
   .card-action-btn:hover{background:var(--surface);}
+  .card-action-btn.listening{color:#a78bfa; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.1);}
+  #journalListenBtn{color:#a78bfa;}
+  #journalListenBtn.listening{color:#fff; background:rgba(167,139,250,.25); border-color:#a78bfa;}
+  #journalListenBtn.hidden{display:none;}
 
   /* ---------- toast ---------- */
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:40; background:var(--surface);
@@ -840,7 +844,7 @@
 
     <button id="locateBtn" class="btn-icon locate" title="Use current location"></button>
     <button id="cameraBtn" class="btn-icon camera-btn" title="Add waypoint from photo"></button>
-    <button id="voiceWaypointBtn" class="btn-icon voice-waypoint-btn" title="Hands-free voice waypoints — say &quot;waypoint&quot; to save your location, or &quot;add to [name]&quot; to continue notes on an existing one"></button>
+    <button id="voiceWaypointBtn" class="btn-icon voice-waypoint-btn" title="Hands-free voice waypoints — say &quot;waypoint&quot; to save your location, &quot;add to [name]&quot; to continue notes on an existing one, or &quot;cancel&quot; mid-dictation to undo"></button>
     <div class="ride-wrap">
       <button id="rideBtn" class="btn-icon ride-btn" title="Track a route"></button>
       <div class="ride-dropdown hidden" id="rideDropdown">
@@ -1227,6 +1231,7 @@
         <div class="journal-tab-row" id="journalTabRow">
           <button type="button" class="journal-tab-btn active" id="journalTabNotesBtn" data-tab="notes">Notes</button>
           <button type="button" class="journal-tab-btn" id="journalTabReviewsBtn" data-tab="reviews">Reviews</button>
+          <button type="button" class="icon-btn hidden" id="journalListenBtn" title="Listen to this story" data-icon="play" data-icon-size="15"></button>
         </div>
         <button class="icon-btn" id="journalCloseBtn" data-icon="x"></button>
       </div>
@@ -1711,7 +1716,8 @@
     sparkles: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"></path><path d="M12 8l1.6 3.4L17 13l-3.4 1.6L12 18l-1.6-3.4L7 13l3.4-1.6z"></path>',
     phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>',
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 6 10 7 10-7"></path>',
-    play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
+    play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+    stop: '<rect x="5" y="5" width="14" height="14" rx="1.5"></rect>'
   };
 
   function icon(name, size) {
@@ -2072,7 +2078,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "309";
+  const APP_VERSION = "313";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2564,6 +2570,7 @@
   const journalDoneBtn = el("journalDoneBtn");
   const journalTabNotesBtn = el("journalTabNotesBtn");
   const journalTabReviewsBtn = el("journalTabReviewsBtn");
+  const journalListenBtn = el("journalListenBtn");
   const journalNotesPanel = el("journalNotesPanel");
   const journalReviewsPanel = el("journalReviewsPanel");
   const reviewNameInput = el("reviewNameInput");
@@ -5749,6 +5756,12 @@
   }
 
   function addSavedMarker(wp) {
+    // Generated stories (AI Story) aren't real places -- their coordinates
+    // are just a centroid of the trip that produced them, not somewhere
+    // worth a pin. Skip the marker entirely; the waypoint record itself
+    // still exists for the list/folder UI, editing, etc. -- it's only the
+    // map presence being suppressed here.
+    if (wp.isStoryEntry) return null;
     const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)), draggable: isAtMaxZoomForDragging(), autoPan: true }).addTo(map);
     marker.on("click", (e) => {
       // A marker's click doesn't bubble up to the map's own click handler
@@ -9547,6 +9560,8 @@
     const isStoryWp = !!(editingWp && editingWp.isStoryEntry);
     journalTabReviewsBtn.classList.toggle("hidden", isStoryWp);
     journalTabNotesBtn.textContent = isStoryWp ? storyEntryTitle(editingWp) : "Notes";
+    journalListenBtn.classList.toggle("hidden", !isStoryWp);
+    updateListenButtons();
     if (isStoryWp) tab = "notes"; // there's no Reviews tab to land on for a generated story
     journalTextarea.value = notesInput.value;
     reviewMainNotesMirror.value = notesInput.value;
@@ -10038,6 +10053,47 @@
     } catch (e) { /* non-fatal — toast still covers it */ }
   }
 
+  // "Listen" on an A.I.-generated story -- reads wp.notes aloud via the
+  // browser's own text-to-speech, independent of the short-confirmation
+  // speak() above (a normal reading pace, not the quicker one used for
+  // "Waypoint saved"-style confirmations, and a real play/stop toggle
+  // rather than a fire-and-forget utterance). One shared player: starting
+  // a new one stops whatever was already playing, and both the card
+  // button and the modal button (when open on that same story) stay in
+  // sync with whichever one is actually playing.
+  let currentStorySpeechId = null;
+  function updateListenButtons() {
+    document.querySelectorAll('[data-action="listen-story"]').forEach((btn) => {
+      const isPlaying = btn.dataset.id === currentStorySpeechId;
+      btn.classList.toggle("listening", isPlaying);
+      btn.innerHTML = icon(isPlaying ? "stop" : "play", 14) + (isPlaying ? " Stop" : " Listen");
+    });
+    const isModalPlaying = !!editingWaypointId && editingWaypointId === currentStorySpeechId;
+    journalListenBtn.classList.toggle("listening", isModalPlaying);
+    journalListenBtn.innerHTML = icon(isModalPlaying ? "stop" : "play", 15);
+    journalListenBtn.title = isModalPlaying ? "Stop reading" : "Listen to this story";
+  }
+  function stopStorySpeech() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    currentStorySpeechId = null;
+    updateListenButtons();
+  }
+  function toggleStorySpeech(id) {
+    if (currentStorySpeechId === id) { stopStorySpeech(); return; }
+    const wp = waypoints.find((w) => w.id === id);
+    if (!wp || !wp.notes) { showToast("Nothing to read yet."); return; }
+    if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); return; }
+    window.speechSynthesis.cancel(); // stop anything else currently talking (another story, a hands-free confirmation, etc.)
+    const utter = new SpeechSynthesisUtterance(wp.notes);
+    utter.rate = 1.0;
+    utter.onend = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
+    utter.onerror = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
+    currentStorySpeechId = id;
+    updateListenButtons();
+    window.speechSynthesis.speak(utter);
+  }
+  journalListenBtn.addEventListener("click", () => { if (editingWaypointId) toggleStorySpeech(editingWaypointId); });
+
   // --- Voice capture state machine: idle -> creating -> naming -> noting -> idle ---
   // "waypoint" creates and saves a point immediately (so it's never lost even if
   // the rest of the dictation is interrupted), then whatever's said next becomes
@@ -10048,6 +10104,14 @@
   let voiceCaptureNameBuffer = "";
   let voiceCaptureNotesBuffer = "";
   let voiceCaptureIdleTimer = null;
+  // Distinguishes "waypoint" (a brand-new point, created fresh this
+  // session) from "add to [name]" (an existing one, just picking its notes
+  // back up) -- cancelling means something different for each: delete the
+  // point outright vs. just undo this session's additions. Captured
+  // alongside whatever the notes looked like before this session touched
+  // them, so a cancelled "add to" can revert to exactly that.
+  let voiceCaptureIsNewWaypoint = false;
+  let voiceCaptureOriginalNotes = "";
   const VOICE_CAPTURE_IDLE_TIMEOUT_MS = 15000; // auto-finalize if the driver goes quiet mid-dictation
 
   function normalizeVoiceName(s) {
@@ -10095,9 +10159,9 @@
     voiceCaptureNameField.classList.toggle("active", naming);
     voiceCaptureNotesField.classList.toggle("active", noting);
     voiceCaptureStatusText.textContent = naming
-      ? 'Say the waypoint name… then say "note"'
+      ? 'Say the waypoint name… then say "note", or "done" to save just the name ("cancel" to discard)'
       : noting
-      ? 'Say your note… then say "done"'
+      ? 'Say your note… then say "done" ("cancel" to discard)'
       : "";
   }
   function updateVoiceCapturePreview(name, notes) {
@@ -10163,6 +10227,46 @@
     showToast('Saved "' + finalName + '" (hands-free)');
   }
 
+  // "Cancel" mid-dictation -- what it undoes depends on how this session
+  // started. A waypoint created fresh via "waypoint" this session was
+  // almost certainly said by accident (that's the whole point of the
+  // command), so it gets deleted outright rather than left behind as a
+  // stray, unnamed pin. An existing waypoint being added to via "add to
+  // [name]" is never deleted here -- only this session's additions are
+  // undone, reverting its notes to what they were before "add to" was said.
+  function cancelVoiceCapture() {
+    clearTimeout(voiceCaptureIdleTimer);
+    const wp = waypoints.find((w) => w.id === voiceCaptureWaypointId);
+    if (voiceCaptureIsNewWaypoint) {
+      if (wp) {
+        const m = markers[wp.id];
+        if (m) map.removeLayer(m);
+        delete markers[wp.id];
+        waypoints = waypoints.filter((w) => w.id !== wp.id);
+        saveWaypoints();
+        renderList();
+        updateCounters();
+      }
+      speak("Cancelled. Waypoint deleted.");
+      showToast("Hands-free waypoint cancelled and deleted");
+    } else {
+      if (wp) {
+        wp.notes = voiceCaptureOriginalNotes;
+        wp.updatedAt = Date.now();
+        saveWaypoints();
+        renderList();
+      }
+      speak("Cancelled.");
+      showToast("Cancelled — notes weren't changed");
+    }
+    voiceCaptureState = "idle";
+    voiceCaptureWaypointId = null;
+    voiceCaptureNameBuffer = "";
+    voiceCaptureNotesBuffer = "";
+    hideVoiceCapturePanel();
+    lastVoiceWaypointTime = Date.now(); // same cooldown as a normal finish, so "waypoint" can't immediately re-fire on the tail of this utterance
+  }
+
   function createVoiceWaypointAt(latitude, longitude) {
     const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const name = "Waypoint " + (waypoints.length + 1);
@@ -10182,6 +10286,8 @@
     voiceCaptureState = "naming";
     voiceCaptureNameBuffer = "";
     voiceCaptureNotesBuffer = "";
+    voiceCaptureIsNewWaypoint = true;
+    voiceCaptureOriginalNotes = "";
     showVoiceCapturePanel();
     updateVoiceCapturePreview("", "");
     resetVoiceCaptureIdleTimer();
@@ -10232,6 +10338,8 @@
           voiceCaptureWaypointId = matchedWp.id;
           voiceCaptureNameBuffer = matchedWp.name;
           voiceCaptureNotesBuffer = matchedWp.notes || "";
+          voiceCaptureIsNewWaypoint = false;
+          voiceCaptureOriginalNotes = matchedWp.notes || "";
           showVoiceCapturePanel();
           updateVoiceCapturePanelMode();
           updateVoiceCapturePreview(voiceCaptureNameBuffer, voiceCaptureNotesBuffer);
@@ -10251,13 +10359,28 @@
     }
     if (voiceCaptureState === "creating") return;
 
+    // "Cancel" mid-dictation is checked before the naming/noting logic
+    // below, so it's never accidentally captured as literal name/note text.
+    if (isFinal && lower.includes("cancel") && (voiceCaptureState === "naming" || voiceCaptureState === "noting")) {
+      cancelVoiceCapture();
+      return;
+    }
+
     if (voiceCaptureState === "naming") {
       const noteIdx = lower.indexOf("note");
-      if (noteIdx !== -1) {
-        const namePart = transcript.slice(0, noteIdx).trim();
+      const doneIdx = lower.indexOf("done");
+      // "done" said right after the name -- with no "note" in between --
+      // finishes the capture immediately with an empty note, the same way
+      // it does from the noting stage. Whichever keyword appears earliest
+      // in the utterance wins, matching how "note"/"name"/"done" are
+      // resolved everywhere else in this app's voice commands.
+      const cutIdx = noteIdx === -1 ? doneIdx : (doneIdx === -1 ? noteIdx : Math.min(noteIdx, doneIdx));
+      if (cutIdx !== -1) {
+        const namePart = transcript.slice(0, cutIdx).trim();
+        const isDone = cutIdx === doneIdx;
         if (isFinal) {
           if (namePart) appendToVoiceName(namePart);
-          finishNamingStartNoting();
+          if (isDone) finishVoiceCapture(); else finishNamingStartNoting();
         } else {
           updateVoiceCapturePreview((voiceCaptureNameBuffer + " " + namePart).trim(), voiceCaptureNotesBuffer);
         }
@@ -10852,6 +10975,7 @@
   // membership or a folder's hidden flag to change.
   function refreshAllWaypointMarkerVisibility() {
     waypoints.forEach((wp) => {
+      if (wp.isStoryEntry) return; // never has a marker to begin with -- see addSavedMarker
       const shouldHide = isWaypointHiddenByFolder(wp);
       const hasMarker = !!markers[wp.id];
       if (shouldHide && hasMarker) { map.removeLayer(markers[wp.id]); delete markers[wp.id]; }
@@ -11533,6 +11657,7 @@
     applyWaypointSearchFilter();
     refreshAzPickerAvailability();
     refreshAllWaypointMarkerVisibility(); // self-corrects marker show/hide for any folder-membership or hidden-flag change that led here
+    updateListenButtons(); // keeps the Listen/Stop state correct on freshly-rendered cards if a story is currently playing
   }
 
   function applyWaypointSearchFilter() {
@@ -11858,6 +11983,7 @@
             icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
+          (isStory ? '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" : "") +
           (isStory ? "" : '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>") +
         "</div>" +
       "</div>"
@@ -11895,6 +12021,7 @@
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
             break;
           case "share": openShareModal(wp); break;
+          case "listen-story": e.stopPropagation(); toggleStorySpeech(wp.id); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
           case "view-photo": {
             e.stopPropagation();
