@@ -522,6 +522,11 @@
   .folder-accordion-story-btn:hover{color:#c4b5fd;}
   .folder-accordion-story-btn.generating{color:#c4b5fd; cursor:default; animation:story-generating-pulse 1.1s ease-in-out infinite;}
   @keyframes story-generating-pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  .voice-test-row{display:flex; align-items:center; gap:10px; margin-top:4px;}
+  .voice-test-status{flex:1; min-width:0; font-size:12px; color:var(--text-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .voice-test-status.loading{color:#a78bfa; animation:story-generating-pulse 1.1s ease-in-out infinite;}
+  .voice-test-status.error{color:var(--red); white-space:normal;}
+  .voice-test-row .btn{flex:0 0 auto;}
   .card.story-card{border-color:rgba(167,139,250,.45); background:rgba(167,139,250,.06);}
   .card.story-card .card-name, .card.story-card .card-notes-content{color:#e9e4ff;}
   .folder-accordion-body{display:none; padding:10px; background:rgba(15,23,42,.5); border:1px solid var(--border); border-top:none;
@@ -632,6 +637,15 @@
   .rte-mic-btn.listening{color:#fff; background:var(--red); border-color:var(--red); animation:voice-pulse 1.6s ease-in-out infinite;}
   .journal-modal-card{max-width:min(560px, 94vw);}
   #journalNotesPanel.hidden, #journalReviewsPanel.hidden{display:none;}
+  #ttsGeminiOptions.hidden{display:none;}
+  #ttsGeminiOptions{margin-top:10px;}
+  #ttsGeminiOptions .field-label{margin-top:10px;}
+  #ttsGeminiOptions .field-label:first-child{margin-top:0;}
+  #voiceSettingsModalOverlay .layers-hint{margin-top:8px; margin-bottom:2px;}
+  #voiceSettingsGeminiOptions{margin-top:14px;}
+  #voiceSettingsGeminiOptions .field-label{margin-top:14px; margin-bottom:6px;}
+  #voiceSettingsGeminiOptions .field-label:first-child{margin-top:0;}
+  #voiceSettingsGeminiOptions select.field-input{margin-bottom:2px;}
   .journal-textarea{width:100%; min-height:48vh; min-height:48dvh; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px;}
   .journal-tab-row{display:flex; gap:18px; margin-bottom:14px;}
@@ -675,6 +689,12 @@
     color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
   .card-action-btn:hover{background:var(--surface);}
   .card-action-btn.listening{color:#a78bfa; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.1);}
+  .card-action-btn.loading{color:#a78bfa; animation:story-generating-pulse 1.1s ease-in-out infinite;}
+  .card-action-split{flex:1; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+  .card-action-split .card-action-btn{border:none; border-radius:0;}
+  .card-action-split .card-action-gear{flex:0 0 auto; padding:7px 10px; border-left:1px solid var(--border);}
+  .card-action-split .card-action-gear:hover{color:var(--amber-light);}
+  #journalListenBtn.loading{color:#a78bfa; animation:story-generating-pulse 1.1s ease-in-out infinite;}
   #journalListenBtn{color:#a78bfa;}
   #journalListenBtn.listening{color:#fff; background:rgba(167,139,250,.25); border-color:#a78bfa;}
   #journalListenBtn.hidden{display:none;}
@@ -989,6 +1009,18 @@
           <div id="geminiKeySaved" class="owm-key-saved" style="display:none;">
             <span>Gemini key saved</span>
             <button id="geminiKeyForgetBtn">Remove</button>
+          </div>
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">Story Narration</p>
+          <label class="layers-option"><input type="checkbox" id="ttsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Listen"</span></label>
+          <p class="layers-hint">On by default for a natural A.I. voice — needs your Gemini key above (free tier works) and takes a few seconds to generate each time. Turn this off to use your device's own voice instead (free, instant, no setup).</p>
+          <div id="ttsGeminiOptions" class="hidden">
+            <label class="field-label">Voice style</label>
+            <select id="ttsVoiceStyleSelect" class="field-input"></select>
+            <label class="field-label">Voice</label>
+            <select id="ttsVoiceNameSelect" class="field-input"></select>
           </div>
         </div>
 
@@ -1317,7 +1349,8 @@
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-primary" id="journalDoneBtn" style="flex:1;">Done</button>
+        <button class="btn btn-secondary" id="journalCancelBtn" style="flex:1;">Cancel</button>
+        <button class="btn btn-primary" id="journalDoneBtn" style="flex:1;">Save</button>
       </div>
     </div>
   </div>
@@ -1390,6 +1423,33 @@
       <div class="folder-picker-list" id="storyFormatModalList"></div>
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary" id="storyFormatModalGenerateBtn">Generate</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="voiceSettingsModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2>A.I. Voice Settings</h2>
+        <button class="icon-btn" id="voiceSettingsModalCloseBtn" data-icon="x"></button>
+      </div>
+      <label class="layers-option"><input type="checkbox" id="voiceSettingsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Listen"</span></label>
+      <p class="layers-hint">On by default for a natural A.I. voice — needs your Gemini key (Settings → Gemini API, free tier works) and takes a few seconds to generate each time. Turn this off to use your device's own voice instead (free, instant, no setup).</p>
+      <div id="voiceSettingsGeminiOptions" class="hidden">
+        <label class="field-label">Voice style</label>
+        <select id="voiceSettingsStyleSelect" class="field-input"></select>
+        <label class="field-label">Choose Voice</label>
+        <select id="voiceSettingsNameSelect" class="field-input"></select>
+        <label class="field-label">Test Narration</label>
+        <textarea id="voiceSettingsTestText" class="review-notes-textarea" rows="4">As the sun dipped below the horizon, painting the sky in brilliant shades of orange and pink, we arrived at the quiet lakeside clearing — the perfect place to make camp for the night, with the scent of pine drifting through the crisp evening air.</textarea>
+        <div class="voice-test-row">
+          <span class="voice-test-status" id="voiceSettingsTestStatus"></span>
+          <button type="button" class="btn btn-secondary" id="voiceSettingsTestBtn"></button>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-secondary" id="voiceSettingsSetDefaultBtn">Set as Default</button>
+        <button type="button" class="btn btn-primary" id="voiceSettingsDoneBtn">Done</button>
       </div>
     </div>
   </div>
@@ -1717,7 +1777,8 @@
     phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>',
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 6 10 7 10-7"></path>',
     play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
-    stop: '<rect x="5" y="5" width="14" height="14" rx="1.5"></rect>'
+    stop: '<rect x="5" y="5" width="14" height="14" rx="1.5"></rect>',
+    gear: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
   };
 
   function icon(name, size) {
@@ -2078,7 +2139,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "313";
+  const APP_VERSION = "322";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2098,7 +2159,41 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+
+  // Gemini's dedicated text-to-speech model -- same generateContent REST
+  // endpoint as the text models used elsewhere in this file, just with
+  // responseModalities: ["AUDIO"] and a speechConfig. Returns raw PCM
+  // (24kHz/16-bit/mono, no WAV header) rather than a ready-to-play file --
+  // see pcmBase64ToWavBlob further down for why that matters. Declared up
+  // here (rather than alongside the other Gemini constants later in this
+  // file) specifically so the Settings-restore code below, which runs
+  // early, can safely reference TTS_VOICE_STYLES/TTS_VOICES to populate
+  // its dropdowns without a temporal-dead-zone error.
+  const GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview";
+  const TTS_VOICE_STYLES = [
+    { id: "narrator", label: "Documentary Narrator", instruction: "Read in a calm, measured documentary-narrator voice, with clear articulation and a steady, informative pace" },
+    { id: "guide", label: "Enthusiastic Tour Guide", instruction: "Read in a warm, enthusiastic tour-guide tone, full of energy, slowing down slightly for emphasis on scenic details" },
+    { id: "mysterious", label: "Mysterious Storyteller", instruction: "Read in a low, hushed, mysterious storytelling voice that builds intrigue and suspense" },
+    { id: "calm", label: "Calm Travel Companion", instruction: "Read in a warm, calm, reassuring voice, like a close friend recounting a favorite memory" }
+  ];
+  // A curated subset of Gemini's ~30 prebuilt voices -- enough variety
+  // (gender, pitch) without turning the settings dropdown into a wall of
+  // unfamiliar names. Any of the other prebuilt voice names would also
+  // work here if this list gets expanded later.
+  const TTS_VOICES = ["Kore", "Puck", "Fenrir", "Aoede", "Charon", "Leda", "Orus", "Zephyr"];
+  // "Listen" playback state -- declared up here (rather than next to the
+  // toggleStorySpeech/updateListenButtons functions that use them, further
+  // down this file) because renderList() calls updateListenButtons() as
+  // part of the very first render on page load, well before this file's
+  // later sections have run -- these need to already exist by then.
+  let currentStorySpeechId = null;
+  let currentStorySpeechState = "idle"; // idle | loading | playing
+  let currentStoryUsesGemini = false; // which cleanup path stopStorySpeech should take
+  let currentStoryAudioEl = null; // the <audio> element currently playing Gemini TTS output, if any
+  const geminiTtsCache = new Map(); // cacheKey -> object URL, so replaying the same text/voice/style doesn't re-call the API
+  let testNarrationPlaying = false; // the Voice Settings modal's own "Test Narration" preview, kept separate from currentStorySpeechId since it isn't tied to any real waypoint
+  let testNarrationAudioEl = null;
 
   // A setItem failure can happen for more than one reason, and they need
   // different explanations. A genuine quota error means this app's own
@@ -2521,6 +2616,10 @@
   const geminiKeySaveBtn = el("geminiKeySaveBtn");
   const geminiKeySaved = el("geminiKeySaved");
   const geminiKeyForgetBtn = el("geminiKeyForgetBtn");
+  const ttsUseGeminiToggle = el("ttsUseGeminiToggle");
+  const ttsGeminiOptions = el("ttsGeminiOptions");
+  const ttsVoiceStyleSelect = el("ttsVoiceStyleSelect");
+  const ttsVoiceNameSelect = el("ttsVoiceNameSelect");
   const panelToggleBtn = el("panelToggleBtn");
   const countBadge = el("countBadge");
   const counterNumber = el("counterNumber");
@@ -2568,6 +2667,7 @@
   const journalToolbarMicBtn = el("journalToolbarMicBtn");
   const journalTextarea = el("journalTextarea");
   const journalDoneBtn = el("journalDoneBtn");
+  const journalCancelBtn = el("journalCancelBtn");
   const journalTabNotesBtn = el("journalTabNotesBtn");
   const journalTabReviewsBtn = el("journalTabReviewsBtn");
   const journalListenBtn = el("journalListenBtn");
@@ -3036,6 +3136,7 @@
   function openShareModal(wp) {
     shareModalList.innerHTML =
       '<div class="folder-picker-row" data-action="share-messages"><span class="icon">' + icon("message", 16) + '</span><span>Messages</span></div>' +
+      '<div class="folder-picker-row" data-action="share-email"><span class="icon">' + icon("mail", 16) + '</span><span>Email</span></div>' +
       '<div class="folder-picker-row" data-action="share-instagram"><span class="icon">' + icon("camera", 16) + '</span><span>Instagram</span></div>' +
       '<div class="folder-picker-row" data-action="share-tiktok"><span class="icon">' + icon("music", 16) + '</span><span>TikTok</span></div>' +
       '<div class="folder-picker-row" data-action="share-more"><span class="icon">' + icon("share", 16) + '</span><span>More sharing options</span></div>';
@@ -3044,6 +3145,7 @@
         const action = row.dataset.action;
         closeShareModal();
         if (action === "share-messages") shareWaypoint(wp, "Messages");
+        else if (action === "share-email") shareWaypointByEmail(wp);
         else if (action === "share-instagram") shareWaypoint(wp, "Instagram");
         else if (action === "share-tiktok") shareWaypoint(wp, "TikTok");
         else shareWaypoint(wp);
@@ -3367,6 +3469,98 @@
     geminiKeyPrompt.style.display = hasKey ? "none" : "block";
     geminiKeySaved.style.display = hasKey ? "flex" : "none";
   }
+
+  const voiceSettingsModalOverlay = el("voiceSettingsModalOverlay");
+  const voiceSettingsModalCloseBtn = el("voiceSettingsModalCloseBtn");
+  const voiceSettingsUseGeminiToggle = el("voiceSettingsUseGeminiToggle");
+  const voiceSettingsGeminiOptions = el("voiceSettingsGeminiOptions");
+  const voiceSettingsStyleSelect = el("voiceSettingsStyleSelect");
+  const voiceSettingsNameSelect = el("voiceSettingsNameSelect");
+  const voiceSettingsTestText = el("voiceSettingsTestText");
+  const voiceSettingsTestBtn = el("voiceSettingsTestBtn");
+  const voiceSettingsTestStatus = el("voiceSettingsTestStatus");
+  const voiceSettingsSetDefaultBtn = el("voiceSettingsSetDefaultBtn");
+  const voiceSettingsDoneBtn = el("voiceSettingsDoneBtn");
+
+  // Two surfaces edit the exact same three settings (ttsProvider,
+  // ttsVoiceStyle, ttsVoiceName): the Settings panel's own Story Narration
+  // section, and this quick-access modal opened via the gear icon next to
+  // "Listen" on any story card -- no need to leave what you're looking at
+  // to go find Settings. Both call refreshTtsUi() on every change so
+  // they're always showing the same thing, whichever one you touch.
+  function populateTtsSelects() {
+    const optionsHtml = (select, items, valueOf, labelOf) => {
+      select.innerHTML = items.map((item) => '<option value="' + valueOf(item) + '">' + escapeHtml(labelOf(item)) + "</option>").join("");
+    };
+    optionsHtml(ttsVoiceStyleSelect, TTS_VOICE_STYLES, (s) => s.id, (s) => s.label);
+    optionsHtml(ttsVoiceNameSelect, TTS_VOICES, (v) => v, (v) => v);
+    optionsHtml(voiceSettingsStyleSelect, TTS_VOICE_STYLES, (s) => s.id, (s) => s.label);
+    optionsHtml(voiceSettingsNameSelect, TTS_VOICES, (v) => v, (v) => v);
+  }
+  function refreshTtsUi() {
+    const useGemini = settings.ttsProvider === "gemini";
+    ttsUseGeminiToggle.checked = useGemini;
+    ttsGeminiOptions.classList.toggle("hidden", !useGemini);
+    ttsVoiceStyleSelect.value = settings.ttsVoiceStyle;
+    ttsVoiceNameSelect.value = settings.ttsVoiceName;
+  }
+  populateTtsSelects();
+  ttsUseGeminiToggle.addEventListener("change", () => {
+    settings.ttsProvider = ttsUseGeminiToggle.checked ? "gemini" : "device";
+    saveSettings();
+    refreshTtsUi();
+  });
+  ttsVoiceStyleSelect.addEventListener("change", () => { settings.ttsVoiceStyle = ttsVoiceStyleSelect.value; saveSettings(); refreshTtsUi(); });
+  ttsVoiceNameSelect.addEventListener("change", () => { settings.ttsVoiceName = ttsVoiceNameSelect.value; saveSettings(); refreshTtsUi(); });
+
+  // The Voice Settings modal's own toggle/selects are a *draft* --
+  // deliberately not auto-saved on every change, unlike the Settings
+  // panel's copies above -- so Test Narration can freely preview different
+  // combinations without any of them becoming the real default until
+  // "Set as Default" is actually clicked. Closing the modal any other way
+  // (Done, the header x, tapping outside) discards the draft.
+  let voiceSettingsDraftProvider = settings.ttsProvider;
+  let voiceSettingsDraftStyle = settings.ttsVoiceStyle;
+  let voiceSettingsDraftVoice = settings.ttsVoiceName;
+  function applyVoiceSettingsDraftToUI() {
+    const useGemini = voiceSettingsDraftProvider === "gemini";
+    voiceSettingsUseGeminiToggle.checked = useGemini;
+    voiceSettingsGeminiOptions.classList.toggle("hidden", !useGemini);
+    voiceSettingsStyleSelect.value = voiceSettingsDraftStyle;
+    voiceSettingsNameSelect.value = voiceSettingsDraftVoice;
+  }
+  voiceSettingsUseGeminiToggle.addEventListener("change", () => {
+    voiceSettingsDraftProvider = voiceSettingsUseGeminiToggle.checked ? "gemini" : "device";
+    voiceSettingsGeminiOptions.classList.toggle("hidden", !voiceSettingsUseGeminiToggle.checked);
+  });
+  voiceSettingsStyleSelect.addEventListener("change", () => { voiceSettingsDraftStyle = voiceSettingsStyleSelect.value; });
+  voiceSettingsNameSelect.addEventListener("change", () => { voiceSettingsDraftVoice = voiceSettingsNameSelect.value; });
+  voiceSettingsSetDefaultBtn.addEventListener("click", () => {
+    settings.ttsProvider = voiceSettingsDraftProvider;
+    settings.ttsVoiceStyle = voiceSettingsDraftStyle;
+    settings.ttsVoiceName = voiceSettingsDraftVoice;
+    saveSettings();
+    refreshTtsUi(); // brings the Settings panel's own copies in line with the new default too
+    showToast("Default voice updated");
+  });
+  function openVoiceSettingsModal() {
+    voiceSettingsDraftProvider = settings.ttsProvider;
+    voiceSettingsDraftStyle = settings.ttsVoiceStyle;
+    voiceSettingsDraftVoice = settings.ttsVoiceName;
+    applyVoiceSettingsDraftToUI();
+    setVoiceTestStatus("");
+    voiceSettingsModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeVoiceSettingsModal() {
+    stopTestNarration();
+    setVoiceTestStatus("");
+    voiceSettingsModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  voiceSettingsModalCloseBtn.addEventListener("click", closeVoiceSettingsModal);
+  voiceSettingsDoneBtn.addEventListener("click", closeVoiceSettingsModal);
+  voiceSettingsModalOverlay.addEventListener("click", (e) => { if (e.target === voiceSettingsModalOverlay) closeVoiceSettingsModal(); });
 
   // Maps OpenWeatherMap's icon codes (e.g. "01d", "10n") to one of our own
   // weather icons by their 2-digit condition prefix — day/night suffix is
@@ -5689,6 +5883,7 @@
   refreshOwmUi();
   geminiKeyInput.value = "";
   refreshGeminiUi();
+  refreshTtsUi();
   refreshHomeUi();
   if (settings.home) {
     placeHomeMarker(settings.home.lat, settings.home.lng);
@@ -9551,7 +9746,18 @@
     });
   }
 
+  let journalSessionNotesSnapshot = "";
+  let journalSessionUrlSnapshot = "";
+  let journalSessionReviewSnapshot = null;
   function openJournalModal(tab) {
+    // Snapshot everything this modal can touch (notes, link, and every
+    // Review field) before any of it gets populated/edited, so Cancel can
+    // cleanly revert this session's changes -- Save needs no equivalent
+    // step since notesInput/urlInput/pendingReview are already kept live
+    // in sync as you type (see the various "input" listeners below).
+    journalSessionNotesSnapshot = notesInput.value;
+    journalSessionUrlSnapshot = urlInput.value;
+    journalSessionReviewSnapshot = JSON.parse(JSON.stringify(pendingReview));
     // A generated story doesn't have Review data of its own -- the Reviews
     // tab is hidden entirely, and the Notes tab's label becomes the
     // content's own title (e.g. "Narrative Story") instead of "Notes", so
@@ -9610,8 +9816,14 @@
     document.body.classList.remove("modal-open");
     stopJournalToolbarDictation();
   }
-  journalCloseBtn.addEventListener("click", closeJournalModal);
-  journalDoneBtn.addEventListener("click", closeJournalModal); // everything already autosaved into pendingReview/notesInput as it was typed
+  function discardJournalSessionChanges() {
+    notesInput.value = journalSessionNotesSnapshot;
+    urlInput.value = journalSessionUrlSnapshot;
+    pendingReview = journalSessionReviewSnapshot ? JSON.parse(JSON.stringify(journalSessionReviewSnapshot)) : emptyReview();
+  }
+  journalCloseBtn.addEventListener("click", () => { discardJournalSessionChanges(); closeJournalModal(); }); // the header "x" discards too, matching Cancel -- only "Save" keeps this session's edits
+  journalDoneBtn.addEventListener("click", closeJournalModal); // "Save" -- everything already autosaved into pendingReview/notesInput/urlInput as it was typed, so this just confirms and closes
+  journalCancelBtn.addEventListener("click", () => { discardJournalSessionChanges(); closeJournalModal(); });
 
   function openModal() {
     editingWaypointId = null;
@@ -9747,7 +9959,8 @@
     if (!editingWaypointId) return;
     const wp = waypoints.find((w) => w.id === editingWaypointId);
     if (!wp) return;
-    openConfirmModal("Delete waypoint?", 'Delete "' + wp.name + '"? This can\'t be undone.', () => {
+    const deleteHeader = wp.isStoryEntry ? "Delete " + storyEntryTitle(wp) + "?" : "Delete waypoint?";
+    openConfirmModal(deleteHeader, 'Delete "' + wp.name + '"? This can\'t be undone.', () => {
       deleteWaypoint(editingWaypointId);
       clearPendingMarker();
       editingWaypointId = null;
@@ -10053,46 +10266,246 @@
     } catch (e) { /* non-fatal — toast still covers it */ }
   }
 
-  // "Listen" on an A.I.-generated story -- reads wp.notes aloud via the
-  // browser's own text-to-speech, independent of the short-confirmation
-  // speak() above (a normal reading pace, not the quicker one used for
-  // "Waypoint saved"-style confirmations, and a real play/stop toggle
-  // rather than a fire-and-forget utterance). One shared player: starting
-  // a new one stops whatever was already playing, and both the card
-  // button and the modal button (when open on that same story) stay in
-  // sync with whichever one is actually playing.
-  let currentStorySpeechId = null;
+  // "Listen" on an A.I.-generated story -- reads wp.notes aloud, either via
+  // the browser's own free/instant text-to-speech, or (if turned on in
+  // Settings -> Story Narration) Gemini's TTS model for a much more
+  // natural, expressively-directed voice. One shared player either way:
+  // starting a new one stops whatever was already playing, and every
+  // "Listen" button for that same story (card + modal) stays in sync with
+  // whichever one is actually playing -- including a distinct "loading"
+  // state while Gemini audio is being generated, since that takes a few
+  // seconds, unlike the device voice which starts instantly.
+
   function updateListenButtons() {
     document.querySelectorAll('[data-action="listen-story"]').forEach((btn) => {
-      const isPlaying = btn.dataset.id === currentStorySpeechId;
-      btn.classList.toggle("listening", isPlaying);
-      btn.innerHTML = icon(isPlaying ? "stop" : "play", 14) + (isPlaying ? " Stop" : " Listen");
+      const isThis = btn.dataset.id === currentStorySpeechId;
+      const label = isThis && currentStorySpeechState === "loading" ? "Loading…" : (isThis && currentStorySpeechState === "playing" ? "Stop" : "Listen");
+      btn.classList.toggle("listening", isThis && currentStorySpeechState === "playing");
+      btn.classList.toggle("loading", isThis && currentStorySpeechState === "loading");
+      btn.innerHTML = icon(isThis && currentStorySpeechState === "playing" ? "stop" : "play", 14) + " " + label;
     });
-    const isModalPlaying = !!editingWaypointId && editingWaypointId === currentStorySpeechId;
-    journalListenBtn.classList.toggle("listening", isModalPlaying);
-    journalListenBtn.innerHTML = icon(isModalPlaying ? "stop" : "play", 15);
-    journalListenBtn.title = isModalPlaying ? "Stop reading" : "Listen to this story";
+    const isModalThis = !!editingWaypointId && editingWaypointId === currentStorySpeechId;
+    const modalPlaying = isModalThis && currentStorySpeechState === "playing";
+    const modalLoading = isModalThis && currentStorySpeechState === "loading";
+    journalListenBtn.classList.toggle("listening", modalPlaying);
+    journalListenBtn.classList.toggle("loading", modalLoading);
+    journalListenBtn.innerHTML = icon(modalPlaying ? "stop" : "play", 15);
+    journalListenBtn.title = modalPlaying ? "Stop reading" : (modalLoading ? "Generating audio…" : "Listen to this story");
   }
   function stopStorySpeech() {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (currentStoryUsesGemini) {
+      if (currentStoryAudioEl) { currentStoryAudioEl.pause(); currentStoryAudioEl.currentTime = 0; }
+      currentStoryAudioEl = null;
+    } else if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     currentStorySpeechId = null;
+    currentStorySpeechState = "idle";
     updateListenButtons();
   }
+
+  // Converts Gemini TTS's raw PCM response into a playable WAV Blob -- the
+  // API returns bare audio samples with no file header at all, so without
+  // this an <audio> element has nothing it recognizes as an audio format.
+  function pcmBase64ToWavBlob(base64Data, sampleRate, numChannels, bitsPerSample) {
+    const binary = atob(base64Data);
+    const pcmBytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) pcmBytes[i] = binary.charCodeAt(i);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const byteRate = sampleRate * blockAlign;
+    const buffer = new ArrayBuffer(44 + pcmBytes.length);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + pcmBytes.length, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeStr(36, "data");
+    view.setUint32(40, pcmBytes.length, true);
+    new Uint8Array(buffer, 44).set(pcmBytes);
+    return new Blob([buffer], { type: "audio/wav" });
+  }
+
+  function buildTtsPrompt(text, styleIdOverride) {
+    const style = TTS_VOICE_STYLES.find((s) => s.id === (styleIdOverride || settings.ttsVoiceStyle)) || TTS_VOICE_STYLES[0];
+    return style.instruction + ": " + text;
+  }
+
+  // One attempt against the TTS model. Throws an Error carrying `.status`
+  // so the retry wrapper below can tell a transient 429/503 apart from
+  // anything else (bad key, blocked content) not worth retrying.
+  async function callGeminiTtsOnce(promptText, voiceName) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_TTS_MODEL + ":generateContent";
+    const body = {
+      contents: [{ parts: [{ text: promptText }] }],
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } } }
+      }
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": settings.geminiApiKey },
+      body: JSON.stringify(body)
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* fall through to generic error below */ }
+    if (!res.ok) {
+      const msg = data && data.error && data.error.message ? data.error.message : ("HTTP " + res.status);
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    const part = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
+      data.candidates[0].content.parts && data.candidates[0].content.parts[0];
+    const inline = part && part.inlineData;
+    if (!inline || !inline.data) throw new Error("Gemini TTS returned no audio.");
+    return inline; // { mimeType, data (base64 PCM) }
+  }
+  async function callGeminiTtsWithRetry(promptText, voiceName) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await callGeminiTtsOnce(promptText, voiceName);
+      } catch (e) {
+        const isTransient = e && (e.status === 429 || e.status === 503);
+        if (!isTransient || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
+        console.warn("[gemini-tts] returned " + e.status + " (attempt " + (attempt + 1) + "). Retrying in " + GEMINI_RETRY_DELAYS_MS[attempt] + "ms\u2026");
+        await sleep(GEMINI_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  }
+
+  // Turns text into a playable Gemini-voiced Blob URL, using (and
+  // populating) geminiTtsCache so the exact same text/voice/style
+  // combination is only ever generated once per session rather than
+  // re-billed and re-waited-for on every replay. Defaults to the saved
+  // voice/style, but Test Narration passes its own (not-yet-saved) draft
+  // choices explicitly so previewing a combination never depends on it
+  // already being the real default.
+  async function synthesizeGeminiSpeech(text, styleIdOverride, voiceNameOverride) {
+    const styleId = styleIdOverride || settings.ttsVoiceStyle;
+    const voiceName = voiceNameOverride || settings.ttsVoiceName;
+    const cacheKey = hashPhotoContent(text) + "::" + voiceName + "::" + styleId;
+    const cached = geminiTtsCache.get(cacheKey);
+    if (cached) return cached;
+    const inline = await callGeminiTtsWithRetry(buildTtsPrompt(text, styleId), voiceName);
+    const rateMatch = /rate=(\d+)/.exec(inline.mimeType || "");
+    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+    const blob = pcmBase64ToWavBlob(inline.data, sampleRate, 1, 16);
+    const url = URL.createObjectURL(blob);
+    geminiTtsCache.set(cacheKey, url);
+    return url;
+  }
+
   function toggleStorySpeech(id) {
     if (currentStorySpeechId === id) { stopStorySpeech(); return; }
     const wp = waypoints.find((w) => w.id === id);
     if (!wp || !wp.notes) { showToast("Nothing to read yet."); return; }
-    if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); return; }
-    window.speechSynthesis.cancel(); // stop anything else currently talking (another story, a hands-free confirmation, etc.)
-    const utter = new SpeechSynthesisUtterance(wp.notes);
+    stopStorySpeech(); // stop anything else currently talking (another story, a hands-free confirmation, etc.)
+    stopTestNarration(); // and any in-progress voice preview from the Voice Settings modal
+
+    if (settings.ttsProvider === "gemini" && settings.geminiApiKey) {
+      currentStorySpeechId = id;
+      currentStorySpeechState = "loading";
+      currentStoryUsesGemini = true;
+      updateListenButtons();
+      synthesizeGeminiSpeech(wp.notes).then((url) => {
+        if (currentStorySpeechId !== id) return; // cancelled or superseded while the request was in flight
+        const audioEl = new Audio(url);
+        currentStoryAudioEl = audioEl;
+        currentStorySpeechState = "playing";
+        updateListenButtons();
+        audioEl.onended = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
+        audioEl.onerror = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
+        audioEl.play().catch(() => { if (currentStorySpeechId === id) stopStorySpeech(); });
+      }).catch((e) => {
+        console.warn("[gemini-tts] falling back to device voice:", e && e.message);
+        if (currentStorySpeechId !== id) return; // cancelled while the request was in flight
+        showToast("Gemini voice unavailable — using device voice instead.");
+        currentStoryUsesGemini = false;
+        speakStoryWithDeviceVoice(id, wp.notes);
+      });
+      return;
+    }
+    speakStoryWithDeviceVoice(id, wp.notes);
+  }
+  function speakStoryWithDeviceVoice(id, text) {
+    if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); stopStorySpeech(); return; }
+    const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.0;
     utter.onend = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
     utter.onerror = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
     currentStorySpeechId = id;
+    currentStorySpeechState = "playing";
+    currentStoryUsesGemini = false;
     updateListenButtons();
     window.speechSynthesis.speak(utter);
   }
   journalListenBtn.addEventListener("click", () => { if (editingWaypointId) toggleStorySpeech(editingWaypointId); });
+
+  // "Test Narration" in the Voice Settings modal -- previews whatever
+  // voice/style is currently selected against a sample paragraph, rather
+  // than a real story. Mutually exclusive with the card/modal "Listen"
+  // player above (starting either one stops the other), but otherwise a
+  // fully independent, simpler play/stop toggle since there's no waypoint
+  // behind it to key state off of.
+  function updateTestNarrationBtn() {
+    voiceSettingsTestBtn.innerHTML = icon(testNarrationPlaying ? "stop" : "play", 14) + " " + (testNarrationPlaying ? "Stop" : "Test Narration");
+  }
+  function setVoiceTestStatus(text, kind) {
+    voiceSettingsTestStatus.textContent = text || "";
+    voiceSettingsTestStatus.classList.toggle("loading", kind === "loading");
+    voiceSettingsTestStatus.classList.toggle("error", kind === "error");
+  }
+  function stopTestNarration() {
+    if (testNarrationAudioEl) { testNarrationAudioEl.pause(); testNarrationAudioEl.currentTime = 0; testNarrationAudioEl = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (testNarrationPlaying) { testNarrationPlaying = false; updateTestNarrationBtn(); }
+  }
+  function speakTestWithDeviceVoice(text) {
+    if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); stopTestNarration(); return; }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.0;
+    utter.onend = stopTestNarration;
+    utter.onerror = stopTestNarration;
+    window.speechSynthesis.speak(utter);
+  }
+  function toggleTestNarration() {
+    if (testNarrationPlaying) { stopTestNarration(); setVoiceTestStatus(""); return; }
+    const text = voiceSettingsTestText.value.trim();
+    if (!text) { showToast("Type something to test first."); return; }
+    stopStorySpeech(); // don't overlap with a real story that might already be playing
+    testNarrationPlaying = true;
+    updateTestNarrationBtn();
+    if (voiceSettingsDraftProvider === "gemini" && settings.geminiApiKey) {
+      setVoiceTestStatus("Loading…", "loading");
+      synthesizeGeminiSpeech(text, voiceSettingsDraftStyle, voiceSettingsDraftVoice).then((url) => {
+        if (!testNarrationPlaying) return; // stopped while the request was in flight
+        setVoiceTestStatus("");
+        const audioEl = new Audio(url);
+        testNarrationAudioEl = audioEl;
+        audioEl.onended = () => { stopTestNarration(); setVoiceTestStatus(""); };
+        audioEl.onerror = () => { stopTestNarration(); setVoiceTestStatus("Playback failed.", "error"); };
+        audioEl.play().catch(() => { stopTestNarration(); setVoiceTestStatus("Playback failed.", "error"); });
+      }).catch((e) => {
+        console.warn("[gemini-tts] test narration falling back to device voice:", e && e.message);
+        if (!testNarrationPlaying) return;
+        setVoiceTestStatus((e && e.message ? e.message : "Gemini voice failed") + " — playing device voice instead.", "error");
+        speakTestWithDeviceVoice(text);
+      });
+      return;
+    }
+    speakTestWithDeviceVoice(text);
+  }
+  voiceSettingsTestBtn.addEventListener("click", toggleTestNarration);
+  updateTestNarrationBtn();
 
   // --- Voice capture state machine: idle -> creating -> naming -> noting -> idle ---
   // "waypoint" creates and saves a point immediately (so it's never lost even if
@@ -10763,7 +11176,7 @@
     return Promise.reject(new Error("clipboard unavailable"));
   }
 
-  async function shareWaypoint(wp, platformHint) {
+  function buildShareText(wp) {
     const appleLink = "https://maps.apple.com/?ll=" + wp.lat + "," + wp.lng + "&q=" + encodeURIComponent(wp.name || "Waypoint");
     const googleLink = "https://www.google.com/maps/search/?api=1&query=" + wp.lat + "," + wp.lng;
     const wazeLink = "https://waze.com/ul?ll=" + wp.lat + "," + wp.lng;
@@ -10775,7 +11188,21 @@
       "Waze: " + wazeLink,
       "OpenStreetMap: " + osmLink,
     ].join("\n");
-    const text = infoBlock + "\n\n" + mapLinksBlock; // blank line between the waypoint info and the block of map links
+    return infoBlock + "\n\n" + mapLinksBlock; // blank line between the waypoint info and the block of map links
+  }
+
+  // Email gets its own direct path rather than going through the generic
+  // native share sheet like Messages/Instagram/TikTok do -- a mailto: link
+  // opens the person's actual mail app with the subject/body already
+  // filled in, which is both more precise and more reliable than hinting
+  // "pick Email from the list" the way the other platforms have to.
+  function shareWaypointByEmail(wp) {
+    const text = buildShareText(wp);
+    window.location.href = "mailto:?subject=" + encodeURIComponent(wp.name || "Waypoint") + "&body=" + encodeURIComponent(text);
+  }
+
+  async function shareWaypoint(wp, platformHint) {
+    const text = buildShareText(wp);
     const copyPromise = copyText(text); // kicked off early so it runs alongside any photo conversion below; awaited below only where its result actually matters
 
     let files = [];
@@ -11983,7 +12410,12 @@
             icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
-          (isStory ? '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" : "") +
+          (isStory ?
+            '<div class="card-action-split">' +
+              '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" +
+              '<button class="card-action-btn card-action-gear" data-action="voice-settings" data-id="' + wp.id + '" title="A.I. voice settings">' + icon("gear", 14) + "</button>" +
+            "</div>"
+            : "") +
           (isStory ? "" : '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>") +
         "</div>" +
       "</div>"
@@ -12022,6 +12454,7 @@
             break;
           case "share": openShareModal(wp); break;
           case "listen-story": e.stopPropagation(); toggleStorySpeech(wp.id); break;
+          case "voice-settings": e.stopPropagation(); openVoiceSettingsModal(); break;
           case "forecast": e.stopPropagation(); openForecastModal(wp.lat, wp.lng, wp.name); break;
           case "view-photo": {
             e.stopPropagation();
