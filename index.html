@@ -19,6 +19,14 @@
     --bg:#020617; --panel-bg:rgba(15,23,42,.95); --surface:#0f172a; --surface-2:#1e293b;
     --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#94a3b8; --text-mute:#8896ad;
     --amber:#f59e0b; --amber-light:#fbbf24; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
+    /* Solid backgrounds for every round icon button (topbar buttons, modal
+       close buttons, panel sync/close) -- deliberately not the blurred
+       --panel-bg those used to lean on, since backdrop-filter has proven
+       unreliable on iPad regardless of vendor prefixing. A few shades
+       lighter than the old near-black tone so they read clearly as
+       buttons, with a lighter step for hover and a lighter still step for
+       an actual pressed/active look. */
+    --btn-icon-bg:#3a4a5f; --btn-icon-bg-hover:#4d6076; --btn-icon-bg-active:#5c7189;
   }
   *{box-sizing:border-box;}
   html,body,#app{height:100%; margin:0;}
@@ -84,9 +92,11 @@
     .search-wrap.expanded .search-collapse-btn{display:flex;}
   }
 
-  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--panel-bg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--btn-icon-bg);
     border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;
-    position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:border-color .15s;}
+    position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:background-color .15s, border-color .15s, transform .1s;}
+  .btn-icon:hover{background:var(--btn-icon-bg-hover);}
+  .btn-icon:active{background:var(--btn-icon-bg-active); transform:scale(.94);}
   .btn-icon.locate{color:var(--cyan);}
   .btn-icon.locate:hover{border-color:rgba(34,211,238,.5);}
   .btn-icon.locate:disabled{opacity:.5; cursor:default;}
@@ -255,10 +265,12 @@
     position:sticky; top:-20px; background:var(--surface); z-index:2;}
   .modal-header h2{margin:0; font-size:14px; font-weight:600;}
   .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
-    width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;}
+    width:30px; height:30px; border-radius:50%; background:var(--btn-icon-bg); border:1px solid var(--border); flex-shrink:0;
+    transition:background-color .15s, border-color .15s, color .15s, transform .1s;}
   .modal-header-actions{display:flex; align-items:center; gap:8px;}
   .modal-header .icon-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
-  .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--surface); border-color:var(--border-soft);}
+  .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--btn-icon-bg-hover); border-color:var(--border-soft);}
+  .modal-header .icon-btn:active, .panel-close:active, .layers-panel-header .icon-btn:active{background:var(--btn-icon-bg-active); transform:scale(.92);}
   @keyframes panel-sync-spin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
   #panelSyncBtn.syncing svg{animation:panel-sync-spin 1s linear infinite;}
   .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
@@ -2139,7 +2151,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "322";
+  const APP_VERSION = "324";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6736,7 +6748,8 @@
   // while paused, since there's no active segment to add to yet).
   let rideAccumulatedMs = 0;
   let rideSegmentStartTime = null;
-  const RIDE_JITTER_THRESHOLD_METERS = 2; // ignore GPS noise while stationary
+  const RIDE_JITTER_THRESHOLD_METERS = 2; // baseline minimum movement to count as real, even with perfect accuracy
+  const RIDE_MAX_ACCEPTABLE_ACCURACY_METERS = 30; // a fix reporting worse than this (tree cover, buildings, canyons) isn't usable at any distance -- drop it outright
 
   rideDropdown.querySelectorAll(".ride-dropdown-option[data-activity]").forEach((opt) => {
     opt.querySelector(".icon").innerHTML = icon(activityInfo(opt.dataset.activity).icon, 16);
@@ -6809,13 +6822,23 @@
   const MAX_PLAUSIBLE_SPEED_KMH = { bike: 90, hike: 20, car: 200, boat: 100 };
 
   function onRidePosition(pos) {
-    const { latitude, longitude, speed } = pos.coords;
+    const { latitude, longitude, speed, accuracy } = pos.coords;
+    // A fix this imprecise isn't just noisy at the margins -- it's not
+    // trustworthy at all. Drop it outright rather than let a single bad
+    // reading introduce a wild zigzag into the recorded path.
+    if (typeof accuracy === "number" && accuracy > RIDE_MAX_ACCEPTABLE_ACCURACY_METERS) return;
     const now = Date.now();
     let segmentDist = 0;
     if (ridePoints.length > 0) {
       const prev = ridePoints[ridePoints.length - 1];
       segmentDist = haversineMeters(prev.lat, prev.lng, latitude, longitude);
-      if (segmentDist < RIDE_JITTER_THRESHOLD_METERS) return; // stationary noise — don't record
+      // The noise floor scales with how precise this fix claims to be -- a
+      // "move" smaller than roughly half the fix's own margin of error is
+      // more likely GPS wobble than real movement, especially at walking
+      // pace. Never drops below the fixed baseline above, so a perfectly
+      // precise fix is still held to a real minimum.
+      const noiseFloor = Math.max(RIDE_JITTER_THRESHOLD_METERS, typeof accuracy === "number" ? accuracy * 0.5 : 0);
+      if (segmentDist < noiseFloor) return; // stationary noise — don't record
       rideDistanceMeters += segmentDist;
     }
     const plausibleMax = MAX_PLAUSIBLE_SPEED_KMH[currentActivityType] || 200;
@@ -6900,9 +6923,16 @@
   // Lower accuracy and a longer allowed cache age than route tracking uses —
   // this is for passive, general position display, not precise recording,
   // so it doesn't need to be as battery-hungry.
+  const LIVE_DOT_MAX_ACCEPTABLE_ACCURACY_METERS = 60; // looser than route tracking's threshold since this mode already asks for lower-accuracy fixes
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(
-      (pos) => updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude),
+      (pos) => {
+        // A wildly imprecise fix would otherwise make the dot visibly jump
+        // to a wrong spot and back -- better to just hold the last good
+        // position than show a jittery, misleading one.
+        if (typeof pos.coords.accuracy === "number" && pos.coords.accuracy > LIVE_DOT_MAX_ACCEPTABLE_ACCURACY_METERS) return;
+        updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude);
+      },
       () => { /* silently ignore — permission denied, unavailable, etc. shouldn't interrupt anything */ },
       { enableHighAccuracy: false, maximumAge: 15000, timeout: 20000 }
     );
