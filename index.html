@@ -19,14 +19,13 @@
     --bg:#020617; --panel-bg:rgba(15,23,42,.95); --surface:#0f172a; --surface-2:#1e293b;
     --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#94a3b8; --text-mute:#8896ad;
     --amber:#f59e0b; --amber-light:#fbbf24; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
-    /* Solid backgrounds for every round icon button (topbar buttons, modal
-       close buttons, panel sync/close) -- deliberately not the blurred
-       --panel-bg those used to lean on, since backdrop-filter has proven
-       unreliable on iPad regardless of vendor prefixing. A few shades
-       lighter than the old near-black tone so they read clearly as
-       buttons, with a lighter step for hover and a lighter still step for
-       an actual pressed/active look. */
-    --btn-icon-bg:#3a4a5f; --btn-icon-bg-hover:#4d6076; --btn-icon-bg-active:#5c7189;
+    /* Hover/active steps for every round icon button (topbar buttons, modal
+       close buttons, panel sync/close) -- the button's own idle background
+       stays dark/solid (var(--surface) or var(--surface-2), same tone as
+       before, just without the blur that proved unreliable on iPad); these
+       two are only for a visibly lighter hover, and a lighter-still
+       pressed/active look on top of that. */
+    --btn-icon-bg-hover:#334155; --btn-icon-bg-active:#475569;
   }
   *{box-sizing:border-box;}
   html,body,#app{height:100%; margin:0;}
@@ -36,6 +35,17 @@
   }
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
   button{font:inherit; color:inherit;}
+  /* Every icon this app renders is an inline <svg class="icon">, generated
+     by the same icon() helper. WebKit (Safari, and every browser on iOS
+     including "Chrome", since Apple requires them all to use WebKit) has a
+     real, documented quirk where an SVG child of a flex container -- which
+     every one of these icon-buttons is, for centering -- can shrink well
+     below its own explicit width/height, sometimes down to nearly
+     invisible, under flex layout pressure that Blink/Firefox don't apply
+     the same way. This is very likely why icons render fine on desktop
+     Chrome but tiny-or-missing on an iPad. flex-shrink:0 stops that
+     shrinking outright, globally, for every icon in the app at once. */
+  svg.icon{flex-shrink:0;}
 
   #map{position:absolute; inset:0; z-index:0; background:var(--surface);}
   #map::before{content:""; position:absolute; inset:0; pointer-events:none; z-index:750;
@@ -92,7 +102,7 @@
     .search-wrap.expanded .search-collapse-btn{display:flex;}
   }
 
-  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--btn-icon-bg);
+  .btn-icon{flex-shrink:0; width:44px; height:44px; border-radius:12px; background:var(--surface);
     border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;
     position:relative; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:background-color .15s, border-color .15s, transform .1s;}
   .btn-icon:hover{background:var(--btn-icon-bg-hover);}
@@ -265,7 +275,7 @@
     position:sticky; top:-20px; background:var(--surface); z-index:2;}
   .modal-header h2{margin:0; font-size:14px; font-weight:600;}
   .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
-    width:30px; height:30px; border-radius:50%; background:var(--btn-icon-bg); border:1px solid var(--border); flex-shrink:0;
+    width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;
     transition:background-color .15s, border-color .15s, color .15s, transform .1s;}
   .modal-header-actions{display:flex; align-items:center; gap:8px;}
   .modal-header .icon-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
@@ -2151,7 +2161,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "324";
+  const APP_VERSION = "325";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
