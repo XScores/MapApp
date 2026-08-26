@@ -274,13 +274,13 @@
   .modal-header{display:flex; justify-content:space-between; align-items:center; margin:-20px -20px 4px; padding:20px 20px 4px;
     position:sticky; top:-20px; background:var(--surface); z-index:2;}
   .modal-header h2{margin:0; font-size:14px; font-weight:600;}
-  .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
+  .modal-header .icon-btn, .panel-close, .layers-panel-header .icon-btn, .folder-create-panel-header .icon-btn{cursor:pointer; color:var(--text-mute); display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0;
     transition:background-color .15s, border-color .15s, color .15s, transform .1s;}
   .modal-header-actions{display:flex; align-items:center; gap:8px;}
   .modal-header .icon-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
-  .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover{color:var(--text); background:var(--btn-icon-bg-hover); border-color:var(--border-soft);}
-  .modal-header .icon-btn:active, .panel-close:active, .layers-panel-header .icon-btn:active{background:var(--btn-icon-bg-active); transform:scale(.92);}
+  .modal-header .icon-btn:hover, .panel-close:hover, .layers-panel-header .icon-btn:hover, .folder-create-panel-header .icon-btn:hover{color:var(--text); background:var(--btn-icon-bg-hover); border-color:var(--border-soft);}
+  .modal-header .icon-btn:active, .panel-close:active, .layers-panel-header .icon-btn:active, .folder-create-panel-header .icon-btn:active{background:var(--btn-icon-bg-active); transform:scale(.92);}
   @keyframes panel-sync-spin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
   #panelSyncBtn.syncing svg{animation:panel-sync-spin 1s linear infinite;}
   .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
@@ -519,6 +519,9 @@
     border-radius:12px; flex-shrink:0;}
   .folder-create-panel.hidden{display:none;}
   .folder-create-panel .field-input{margin-bottom:10px;}
+  .folder-create-panel-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .folder-create-panel-header.hidden{display:none;}
+  .folder-create-panel-header-title{font-size:14px; font-weight:600; color:var(--text);}
   .folder-create-panel .color-swatches{margin-bottom:12px;}
   .folder-create-panel-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
   .folder-create-panel-row .home-action-btn.hidden{display:none;}
@@ -614,6 +617,9 @@
     border-radius:6px; background:#d32323; color:#fff; font-weight:700; font-size:11px; white-space:nowrap;}
   .card-camera{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-camera:hover{color:var(--cyan);}
+  .card-waypoint-visibility-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-waypoint-visibility-btn:hover{color:var(--amber-light);}
+  .card-waypoint-visibility-btn.hidden-state{color:var(--red);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
   .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
@@ -1449,6 +1455,25 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="pdfExportModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2>Export Trip as PDF</h2>
+        <button class="icon-btn" id="pdfExportModalCloseBtn" data-icon="x"></button>
+      </div>
+      <p class="layers-hint">Choose the map style to place under the route. If tile imagery can't be loaded for any reason, a plain schematic diagram is used instead so the export never fails outright.</p>
+      <div class="folder-picker-list" id="pdfExportBasemapList">
+        <div class="folder-picker-row selected" data-action="pdf-basemap" data-basemap="street"><span class="icon"></span><span>Street</span><span class="story-format-checkbox"></span></div>
+        <div class="folder-picker-row" data-action="pdf-basemap" data-basemap="satellite"><span class="icon"></span><span>Satellite</span><span class="story-format-checkbox"></span></div>
+        <div class="folder-picker-row" data-action="pdf-basemap" data-basemap="terrain"><span class="icon"></span><span>Terrain</span><span class="story-format-checkbox"></span></div>
+        <div class="folder-picker-row" data-action="pdf-basemap" data-basemap="schematic"><span class="icon"></span><span>Schematic only (no map imagery)</span><span class="story-format-checkbox"></span></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-primary" id="pdfExportGenerateBtn">Generate PDF</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="voiceSettingsModalOverlay">
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
@@ -1571,6 +1596,10 @@
     </div>
     <div class="panel-list-wrap" id="panelWaypointsView">
       <div class="folder-create-panel hidden" id="waypointFolderCreatePanel">
+        <div class="folder-create-panel-header hidden" id="folderCreatePanelHeader">
+          <span class="folder-create-panel-header-title">Edit Trip Folder</span>
+          <button type="button" class="icon-btn" id="folderExportPdfBtn" title="Export trip as PDF" data-icon="fileDown" data-icon-size="15"></button>
+        </div>
         <p class="layers-hint hidden" id="folderCreatePanelTripLabel">Creating a Trip folder — waypoints saved while it's open will land here automatically.</p>
         <input type="text" id="folderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
         <input type="color" id="folderCreateColorInput" value="#fbbf24" title="Folder icon color" style="display:none;" />
@@ -1737,6 +1766,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/h3-js/4.4.0/h3-js.js"></script>
 <script>window.h3 = exports;</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
 (async function () {
   "use strict";
@@ -1800,6 +1830,7 @@
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 6 10 7 10-7"></path>',
     play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
     stop: '<rect x="5" y="5" width="14" height="14" rx="1.5"></rect>',
+    fileDown: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6M9 15l3 3 3-3"></path>',
     gear: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
   };
 
@@ -2161,7 +2192,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "326";
+  const APP_VERSION = "334";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2759,6 +2790,8 @@
   const waypointNewFolderBtn = el("waypointNewFolderBtn");
   const waypointNewTripBtn = el("waypointNewTripBtn");
   const folderCreatePanelTripLabel = el("folderCreatePanelTripLabel");
+  const folderCreatePanelHeader = el("folderCreatePanelHeader");
+  const folderExportPdfBtn = el("folderExportPdfBtn");
   const waypointBulkBar = el("waypointBulkBar");
   const waypointBulkCount = el("waypointBulkCount");
   const waypointBulkMoveBtn = el("waypointBulkMoveBtn");
@@ -3492,6 +3525,10 @@
     geminiKeySaved.style.display = hasKey ? "flex" : "none";
   }
 
+  const pdfExportModalOverlay = el("pdfExportModalOverlay");
+  const pdfExportModalCloseBtn = el("pdfExportModalCloseBtn");
+  const pdfExportBasemapList = el("pdfExportBasemapList");
+  const pdfExportGenerateBtn = el("pdfExportGenerateBtn");
   const voiceSettingsModalOverlay = el("voiceSettingsModalOverlay");
   const voiceSettingsModalCloseBtn = el("voiceSettingsModalCloseBtn");
   const voiceSettingsUseGeminiToggle = el("voiceSettingsUseGeminiToggle");
@@ -3565,6 +3602,52 @@
     refreshTtsUi(); // brings the Settings panel's own copies in line with the new default too
     showToast("Default voice updated");
   });
+  // Basemap picker for PDF export -- a simple single-select list (only one
+  // basemap makes sense at a time), reusing the same checkbox-square visual
+  // as the story-format multi-select modal even though the selection
+  // behavior here is radio-button style, not multi-select.
+  let pdfExportSelectedBasemap = "street";
+  let pdfExportPendingFolder = null;
+  pdfExportBasemapList.querySelectorAll("[data-action='pdf-basemap']").forEach((row) => {
+    row.querySelector(".icon").innerHTML = icon(row.dataset.basemap === "schematic" ? "image" : "layers", 16);
+    row.querySelector(".story-format-checkbox").innerHTML = icon("check", 12);
+    row.addEventListener("click", () => {
+      pdfExportSelectedBasemap = row.dataset.basemap;
+      pdfExportBasemapList.querySelectorAll("[data-action='pdf-basemap']").forEach((r) => r.classList.toggle("selected", r === row));
+    });
+  });
+  function openPdfExportModal(folder) {
+    pdfExportPendingFolder = folder;
+    pdfExportModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closePdfExportModal() {
+    pdfExportModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  pdfExportModalCloseBtn.addEventListener("click", closePdfExportModal);
+  pdfExportModalOverlay.addEventListener("click", (e) => { if (e.target === pdfExportModalOverlay) closePdfExportModal(); });
+  pdfExportGenerateBtn.addEventListener("click", async () => {
+    const folder = pdfExportPendingFolder;
+    if (!folder) return;
+    const basemapKey = pdfExportSelectedBasemap;
+    closePdfExportModal();
+    pdfExportGenerateBtn.disabled = true;
+    folderExportPdfBtn.disabled = true;
+    const originalIcon = folderExportPdfBtn.innerHTML;
+    folderExportPdfBtn.innerHTML = '<span class="spinner"></span>';
+    try {
+      await generateTripPdf(folder, basemapKey);
+    } catch (e) {
+      console.error("[pdf export] failed", e);
+      showErrorToast("Couldn't generate the PDF: " + (e && e.message ? e.message : "unknown error"));
+    } finally {
+      pdfExportGenerateBtn.disabled = false;
+      folderExportPdfBtn.disabled = false;
+      folderExportPdfBtn.innerHTML = originalIcon;
+    }
+  });
+
   function openVoiceSettingsModal() {
     voiceSettingsDraftProvider = settings.ttsProvider;
     voiceSettingsDraftStyle = settings.ttsVoiceStyle;
@@ -8282,6 +8365,7 @@
     folderCreateNameInput.placeholder = creatingTripFolder ? "Trip name" : "Folder name";
     folderCreatePanelTripLabel.classList.toggle("hidden", !creatingTripFolder);
     const editingFolder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
+    folderCreatePanelHeader.classList.toggle("hidden", !(editingFolder && editingFolder.isTrip));
     const color = (editingFolder && editingFolder.color) || defaultFolderColor(editingFolder ? editingFolder.isTrip : creatingTripFolder);
     folderCreateColorInput.value = color;
     markSwatchSelected(folderCreateColorSwatches, color);
@@ -8423,6 +8507,11 @@
   waypointNewTripBtn.addEventListener("click", () => openFolderCreatePanel(true));
   folderCreateCancelBtn.addEventListener("click", closeFolderCreatePanel);
   folderCreateSelectItemsBtn.addEventListener("click", () => setFolderCreateSelectMode(!folderCreateSelectMode));
+  folderExportPdfBtn.addEventListener("click", () => {
+    const folder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
+    if (!folder) return;
+    openPdfExportModal(folder);
+  });
   folderCreateRemoveItemsBtn.addEventListener("click", () => setFolderRemoveSelectMode(!folderRemoveSelectMode));
   folderCreateAddItemsBtn.addEventListener("click", finalizeFolderCreate);
   folderCreateCreateBtn.addEventListener("click", finalizeFolderCreate);
@@ -11451,6 +11540,13 @@
     }
     return false;
   }
+  // The combined rule an individual waypoint's marker actually obeys:
+  // hidden if its own toggle is on, OR if it's inside a hidden folder
+  // (isWaypointHiddenByFolder alone stays separate, still used on its own
+  // for the folder-level eyeball's own icon state).
+  function isWaypointEffectivelyHidden(wp) {
+    return !!wp.hidden || isWaypointHiddenByFolder(wp);
+  }
   // Recomputes every waypoint's marker against the rule above and adds/
   // removes markers to match -- called after any folder-visibility change,
   // and after render/list refreshes in general, so it self-corrects
@@ -11459,11 +11555,20 @@
   function refreshAllWaypointMarkerVisibility() {
     waypoints.forEach((wp) => {
       if (wp.isStoryEntry) return; // never has a marker to begin with -- see addSavedMarker
-      const shouldHide = isWaypointHiddenByFolder(wp);
+      const shouldHide = isWaypointEffectivelyHidden(wp);
       const hasMarker = !!markers[wp.id];
       if (shouldHide && hasMarker) { map.removeLayer(markers[wp.id]); delete markers[wp.id]; }
       else if (!shouldHide && !hasMarker) { addSavedMarker(wp); }
     });
+  }
+  function setWaypointVisibility(id, hidden) {
+    const wp = waypoints.find((w) => w.id === id);
+    if (!wp) return;
+    wp.hidden = hidden;
+    wp.updatedAt = Date.now();
+    saveWaypoints();
+    refreshAllWaypointMarkerVisibility();
+    renderList();
   }
   function setWaypointFolderVisibility(folderId, hidden) {
     const folder = waypointFolders.find((f) => f.id === folderId);
@@ -11580,6 +11685,531 @@
     if (mins < 60) return mins + " min";
     const h = Math.floor(mins / 60), m = mins % 60;
     return h + "h" + (m ? " " + m + "m" : "");
+  }
+
+  // ================================================================
+  //  Trip PDF export (Phase 1) -- header stats, a schematic route map
+  //  (line + numbered markers), a clickable table of contents, and one
+  //  appendix page per waypoint with its notes and photos.
+  //
+  //  Deliberately not compositing real basemap tile imagery in this
+  //  pass: canvas-exporting an image drawn from a cross-origin tile
+  //  server throws if that server doesn't send CORS headers, and
+  //  behavior is inconsistent enough across tile providers that a
+  //  silent failure there would break the whole export. A schematic
+  //  line-and-marker diagram carries no such risk and works
+  //  everywhere identically -- real map imagery is a good Phase 2
+  //  candidate once that can be tested on a real device.
+  // ================================================================
+
+  function pdfWaypointsForFolder(folder) {
+    return waypoints
+      .filter((w) => w.folderId === folder.id && !w.isStoryEntry && !isWaypointEffectivelyHidden(w)) // respects the same "hide from map" toggle (folder-level or individual) the live map already honors -- a waypoint hidden from the map shouldn't reappear in its own trip's PDF either
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // visit order, oldest first -- the order the trip actually happened in
+  }
+
+  // Waypoints logged at (or very near) the same real-world spot at
+  // different times -- returning to the same house, campsite, or lookout
+  // more than once -- are the main cause of markers stacking on top of
+  // each other on the PDF map. Rather than showing each visit as its own
+  // separate numbered marker, this merges any such cluster into one
+  // representative point (at the group's centroid, using the earliest
+  // visit's name), with every visit's notes combined into a single note
+  // body -- each one clearly labeled with its own date, time, and
+  // weather so nothing is lost, just consolidated onto one marker.
+  const PDF_SAME_LOCATION_THRESHOLD_METERS = 60;
+  function mergeWaypointsAtSameLocation(wps) {
+    const clusters = []; // each: { members: [wp, ...], lat, lng } -- lat/lng is the running centroid
+    wps.forEach((wp) => {
+      let cluster = clusters.find((c) => haversineMeters(c.lat, c.lng, wp.lat, wp.lng) <= PDF_SAME_LOCATION_THRESHOLD_METERS);
+      if (!cluster) { cluster = { members: [], lat: wp.lat, lng: wp.lng }; clusters.push(cluster); }
+      cluster.members.push(wp);
+      cluster.lat = cluster.members.reduce((s, m) => s + m.lat, 0) / cluster.members.length;
+      cluster.lng = cluster.members.reduce((s, m) => s + m.lng, 0) / cluster.members.length;
+    });
+    return clusters.map((cluster) => {
+      if (cluster.members.length === 1) return cluster.members[0];
+      const members = cluster.members.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      const combinedNotes = members.map((m) => {
+        const when = m.createdAt ? new Date(m.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Unknown time";
+        const weather = m.weather ? formatWeatherTemp(m.weather.tempC) + ", " + m.weather.description : null;
+        const header = when + (weather ? " \u2014 " + weather : "");
+        return header + " (" + m.name + ")\n" + (m.notes || "(no notes)");
+      }).join("\n\n---\n\n");
+      const combinedPhotos = members.reduce((acc, m) => acc.concat(Array.isArray(m.photos) ? m.photos : []), []);
+      return {
+        id: members[0].id,
+        lat: cluster.lat, lng: cluster.lng,
+        name: members[0].name + " (" + members.length + " visits)",
+        notes: combinedNotes,
+        photos: combinedPhotos,
+        createdAt: members[0].createdAt,
+      };
+    }).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }
+
+  // Greedy word-wrap using the actual embedded font's measured width --
+  // pdf-lib has no built-in text wrapping. Returns at most maxLines lines;
+  // the caller is responsible for showing a "continued in app" note if
+  // content was cut off, so a single very long note can never blow past
+  // the fixed page layout this uses.
+  function pdfWrapText(text, font, fontSize, maxWidth, maxLines) {
+    const paragraphs = String(text || "").split(/\r?\n/);
+    const lines = [];
+    let truncated = false;
+    outer:
+    for (const para of paragraphs) {
+      const words = para.split(/\s+/).filter(Boolean);
+      if (words.length === 0) { lines.push(""); if (lines.length >= maxLines) { truncated = true; break; } continue; }
+      let current = words[0];
+      for (let i = 1; i < words.length; i++) {
+        const trial = current + " " + words[i];
+        if (font.widthOfTextAtSize(trial, fontSize) <= maxWidth) {
+          current = trial;
+        } else {
+          lines.push(current);
+          if (lines.length >= maxLines) { truncated = true; break outer; }
+          current = words[i];
+        }
+      }
+      lines.push(current);
+      if (lines.length >= maxLines) { truncated = true; break; }
+    }
+    return { lines: lines.slice(0, maxLines), truncated };
+  }
+
+  // Draws the connecting route line and numbered markers onto a canvas.
+  // A plain linear lat/lng projection (not true Mercator) is accurate
+  // enough for the modest geographic extent of a single trip.
+  // A real canoe/hiking trip often revisits the same physical spot more
+  // than once (leaving a house, then arriving back at it later) -- those
+  // waypoints project to nearly the same pixel position, which used to
+  // stack their circles exactly on top of each other (hiding all but the
+  // last-drawn one) and pile their labels into unreadable overlapping
+  // text. This spreads any such cluster into a small arc around its
+  // shared center, so every marker in a cluster stays visible and
+  // distinguishable, and the connecting line is drawn through the
+  // spread-out positions (not the original overlapping ones) so it
+  // doesn't look like it's pointing at a hidden point.
+  // Real basemap tile sources for the PDF export, matching the exact URL
+  // templates the live map already uses (so the imagery is identical, and
+  // proven-working). ArcGIS uses {z}/{y}/{x} order -- different from the
+  // standard XYZ order OSM/OpenTopoMap use -- so each source builds its
+  // own URL rather than assuming one shared format.
+  const PDF_BASEMAP_SOURCES = {
+    street: { subdomains: ["a", "b", "c"], maxZoom: 19, url: (s, z, x, y) => "https://" + s + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png" },
+    satellite: { subdomains: [""], maxZoom: 19, url: (s, z, x, y) => "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x },
+    terrain: { subdomains: ["a", "b", "c"], maxZoom: 17, url: (s, z, x, y) => "https://" + s + ".tile.opentopomap.org/" + z + "/" + x + "/" + y + ".png" },
+  };
+  const PDF_BASEMAP_ATTRIBUTION = {
+    street: "\u00a9 OpenStreetMap contributors",
+    satellite: "Imagery \u00a9 Esri, Maxar, Earthstar Geographics",
+    terrain: "\u00a9 OpenStreetMap contributors, SRTM \u2014 style: \u00a9 OpenTopoMap",
+  };
+
+  // Standard Web Mercator projection to a pixel position in the full
+  // world map at a given zoom (256px tiles) -- verified independently
+  // against known reference values before shipping this.
+  function lonLatToWorldPixel(lon, lat, zoom) {
+    const scale = 256 * Math.pow(2, zoom);
+    const x = (lon + 180) / 360 * scale;
+    const sinLat = Math.sin(lat * Math.PI / 180);
+    const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;
+    return { x, y };
+  }
+  // Highest zoom at which the given lat/lng bounding box still fits
+  // within (canvasSize - padding) -- the standard slippy-map "fit
+  // bounds" calculation.
+  function computeFitZoom(minLat, maxLat, minLng, maxLng, canvasW, canvasH, padding, maxZoom) {
+    for (let z = maxZoom; z >= 2; z--) {
+      const p1 = lonLatToWorldPixel(minLng, maxLat, z);
+      const p2 = lonLatToWorldPixel(maxLng, minLat, z);
+      if (p2.x - p1.x <= canvasW - padding * 2 && p2.y - p1.y <= canvasH - padding * 2) return z;
+    }
+    return 2;
+  }
+  function loadImageCrossOrigin(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // required for the canvas to stay exportable -- see the tainting check below
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("tile failed to load"));
+      img.src = url;
+    });
+  }
+  // Fetches and draws every tile covering the given bounding box onto
+  // ctx. Returns the {zoom, originX, originY} needed to project
+  // lat/lng onto this same canvas, or null if imagery couldn't be used
+  // at all (some tiles failed, or -- checked explicitly -- the canvas
+  // came out cross-origin-tainted and could never be exported anyway).
+  // A provider lacking proper CORS headers is a real, documented
+  // possibility; null here means "fall back to the schematic diagram",
+  // never a thrown error that could abort the whole PDF.
+  async function drawBasemapTiles(ctx, basemapKey, minLat, maxLat, minLng, maxLng, canvasW, canvasH, padding) {
+    const source = PDF_BASEMAP_SOURCES[basemapKey];
+    if (!source) return null;
+    const zoom = computeFitZoom(minLat, maxLat, minLng, maxLng, canvasW, canvasH, padding, source.maxZoom);
+    const centerPx = lonLatToWorldPixel((minLng + maxLng) / 2, (minLat + maxLat) / 2, zoom);
+    const originX = centerPx.x - canvasW / 2, originY = centerPx.y - canvasH / 2;
+
+    const tileSize = 256;
+    const firstTileX = Math.floor(originX / tileSize), lastTileX = Math.floor((originX + canvasW) / tileSize);
+    const firstTileY = Math.floor(originY / tileSize), lastTileY = Math.floor((originY + canvasH) / tileSize);
+    const maxTileIndex = Math.pow(2, zoom) - 1;
+
+    const jobs = [];
+    for (let tx = firstTileX; tx <= lastTileX; tx++) {
+      for (let ty = firstTileY; ty <= lastTileY; ty++) {
+        if (ty < 0 || ty > maxTileIndex) continue; // no vertical wrap at the poles
+        const wrappedX = ((tx % (maxTileIndex + 1)) + (maxTileIndex + 1)) % (maxTileIndex + 1); // wrap horizontally around the antimeridian
+        const subdomain = source.subdomains[Math.abs(tx + ty) % source.subdomains.length];
+        const url = source.url(subdomain, zoom, wrappedX, ty);
+        jobs.push(loadImageCrossOrigin(url).then((img) => ({ img, tx, ty })).catch(() => null));
+      }
+    }
+    if (jobs.length === 0) return null;
+    const results = await Promise.all(jobs);
+    const loaded = results.filter(Boolean);
+    if (loaded.length === 0) return null;
+    loaded.forEach(({ img, tx, ty }) => {
+      ctx.drawImage(img, tx * tileSize - originX, ty * tileSize - originY, tileSize, tileSize);
+    });
+    // A tile server without proper CORS headers taints the canvas even
+    // though drawImage itself doesn't throw -- this is the only reliable
+    // way to detect it, and it must be checked before anything relies on
+    // this canvas being exportable later.
+    try { ctx.getImageData(0, 0, 1, 1); } catch (e) { return null; }
+    return { zoom, originX, originY };
+  }
+
+  function spreadClusteredPoints(points, minDist) {
+    const n = points.length;
+    const adjusted = points.map((p) => ({ x: p.x, y: p.y }));
+    const visited = new Array(n).fill(false);
+    for (let i = 0; i < n; i++) {
+      if (visited[i]) continue;
+      const cluster = [i];
+      for (let j = i + 1; j < n; j++) {
+        if (visited[j]) continue;
+        const dx = points[j].x - points[i].x, dy = points[j].y - points[i].y;
+        if (Math.sqrt(dx * dx + dy * dy) < minDist) cluster.push(j);
+      }
+      cluster.forEach((idx) => { visited[idx] = true; });
+      if (cluster.length > 1) {
+        const cx = cluster.reduce((s, idx) => s + points[idx].x, 0) / cluster.length;
+        const cy = cluster.reduce((s, idx) => s + points[idx].y, 0) / cluster.length;
+        const radius = Math.max(16, cluster.length * 7);
+        cluster.forEach((idx, k) => {
+          const angle = (k / cluster.length) * Math.PI * 2 - Math.PI / 2;
+          adjusted[idx].x = cx + Math.cos(angle) * radius;
+          adjusted[idx].y = cy + Math.sin(angle) * radius;
+        });
+      }
+    }
+    return adjusted;
+  }
+
+  async function drawTripRouteCanvas(wps, pxWidth, pxHeight, basemapKey) {
+    const canvas = document.createElement("canvas");
+    canvas.width = pxWidth;
+    canvas.height = pxHeight;
+    const ctx = canvas.getContext("2d");
+
+    const pad = 46;
+    let minLat = Math.min(...wps.map((w) => w.lat)), maxLat = Math.max(...wps.map((w) => w.lat));
+    let minLng = Math.min(...wps.map((w) => w.lng)), maxLng = Math.max(...wps.map((w) => w.lng));
+    if (maxLat - minLat < 0.0005) { const mid = (maxLat + minLat) / 2; minLat = mid - 0.0005; maxLat = mid + 0.0005; }
+    if (maxLng - minLng < 0.0005) { const mid = (maxLng + minLng) / 2; minLng = mid - 0.0005; maxLng = mid + 0.0005; }
+
+    let mercator = null;
+    let usedBasemap = null;
+    if (basemapKey && basemapKey !== "schematic") {
+      try {
+        mercator = await drawBasemapTiles(ctx, basemapKey, minLat, maxLat, minLng, maxLng, pxWidth, pxHeight, pad);
+        if (mercator) usedBasemap = basemapKey;
+      } catch (e) { mercator = null; }
+    }
+
+    let points;
+    if (mercator) {
+      points = wps.map((w) => {
+        const wp = lonLatToWorldPixel(w.lng, w.lat, mercator.zoom);
+        return { x: wp.x - mercator.originX, y: wp.y - mercator.originY };
+      });
+    } else {
+      // Guaranteed-safe fallback: a plain background and a simple linear
+      // projection, carrying no cross-origin risk at all. Reached either
+      // because "Schematic only" was chosen, or because real tile
+      // imagery couldn't be used for this export.
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillRect(0, 0, pxWidth, pxHeight);
+      const project = (lat, lng) => ({
+        x: pad + ((lng - minLng) / (maxLng - minLng)) * (pxWidth - pad * 2),
+        y: pad + (1 - (lat - minLat) / (maxLat - minLat)) * (pxHeight - pad * 2),
+      });
+      points = wps.map((w) => project(w.lat, w.lng));
+    }
+    // Spreading clustered markers apart is only valid for the synthetic
+    // schematic diagram -- on top of *real* map tiles, nudging a marker
+    // away from its true projected position means it no longer points at
+    // where that waypoint actually is. Real accuracy matters more than
+    // avoiding visual overlap here: waypoints that are genuinely a few
+    // meters apart in real life will legitimately land on the same pixel
+    // at an overview zoom, and that's honest, not a bug.
+    const spread = mercator ? points : spreadClusteredPoints(points, 30);
+
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    spread.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+    ctx.stroke();
+
+    // Segment distance labels at each connecting line's midpoint, using
+    // the real haversine distance between the two waypoints (not a pixel
+    // measurement). A white halo behind the text keeps it legible over
+    // real map imagery, which -- unlike the plain schematic background --
+    // can be dark or busy at any given spot.
+    ctx.font = "bold 11px Helvetica, Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < wps.length - 1; i++) {
+      const segMeters = haversineMeters(wps[i].lat, wps[i].lng, wps[i + 1].lat, wps[i + 1].lng);
+      const label = formatDistance(segMeters);
+      const mx = (spread[i].x + spread[i + 1].x) / 2, my = (spread[i].y + spread[i + 1].y) / 2;
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = "rgba(255,255,255,.88)";
+      ctx.fillRect(mx - w / 2 - 5, my - 9, w + 10, 18);
+      ctx.fillStyle = "#1e293b";
+      ctx.fillText(label, mx, my + 1);
+    }
+
+    // Numbered markers only -- no per-point name labels. With up to
+    // dozens of waypoints, and several often clustered at the same real
+    // location, trying to also fit readable names directly on the
+    // diagram is what caused the clutter; the numbers here cross-reference
+    // the clickable Table of Contents and appendix instead.
+    spread.forEach((p, i) => {
+      ctx.fillStyle = "#2563eb";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 12px Helvetica, Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), p.x, p.y + 1);
+    });
+
+    if (usedBasemap) {
+      ctx.font = "9px Helvetica, Arial, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      const attribution = PDF_BASEMAP_ATTRIBUTION[usedBasemap] || "";
+      const attrWidth = ctx.measureText(attribution).width;
+      ctx.fillStyle = "rgba(255,255,255,.8)";
+      ctx.fillRect(4, pxHeight - 18, attrWidth + 8, 16);
+      ctx.fillStyle = "#334155";
+      ctx.fillText(attribution, 8, pxHeight - 6);
+    }
+
+    return { canvas, usedBasemap };
+  }
+
+  async function canvasToPngBytes(canvas) {
+    const dataUrl = canvas.toDataURL("image/png");
+    const res = await fetch(dataUrl);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  // Manually builds a PDF internal-link annotation (a clickable region
+  // that jumps to another page) -- pdf-lib's stable API has no
+  // high-level helper for this, so it's constructed directly against
+  // the lower-level PDF object model pdf-lib exposes. Verified against
+  // a real pdf-lib + pypdf round trip before shipping this: the
+  // resulting /Dest correctly resolves to the target page.
+  function pdfAddInternalLink(pdfDoc, page, rect, targetPage) {
+    const { PDFName } = PDFLib;
+    const context = pdfDoc.context;
+    const destArray = context.obj([targetPage.ref, PDFName.of("XYZ"), null, null, null]);
+    const linkDict = context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+      Border: [0, 0, 0],
+      Dest: destArray,
+    });
+    const linkRef = context.register(linkDict);
+    const existingAnnots = page.node.Annots();
+    if (existingAnnots) existingAnnots.push(linkRef);
+    else page.node.set(PDFName.of("Annots"), context.obj([linkRef]));
+  }
+
+  // Embeds one photo (a data: URL already sitting on the waypoint) at a
+  // given max box size, preserving aspect ratio. Only jpeg/png are
+  // supported by pdf-lib directly -- anything else (e.g. webp) is
+  // skipped rather than thrown on, so one unusual photo format can't
+  // abort the whole export.
+  async function pdfEmbedPhotoScaled(pdfDoc, dataUrl, maxW, maxH) {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!match) return null;
+    const mime = match[1];
+    const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+    let image;
+    try {
+      if (mime.indexOf("png") !== -1) image = await pdfDoc.embedPng(bytes);
+      else if (mime.indexOf("jpeg") !== -1 || mime.indexOf("jpg") !== -1) image = await pdfDoc.embedJpg(bytes);
+      else return null;
+    } catch (e) { return null; }
+    const scale = Math.min(maxW / image.width, maxH / image.height, 1);
+    return { image, width: image.width * scale, height: image.height * scale };
+  }
+
+  async function generateTripPdf(folder, basemapKey) {
+    if (!window.PDFLib) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
+    const wps = mergeWaypointsAtSameLocation(pdfWaypointsForFolder(folder));
+    if (wps.length === 0) { showToast("This trip has no waypoints to export yet."); return; }
+
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.setTitle(folder.name);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const PAGE_W = 612, PAGE_H = 792, MARGIN = 50;
+    // A real PDF can't update part of a page in place when a link is
+    // clicked -- every viewer just jumps to a different page, there's no
+    // "same page, changing region." This two-column template is how the
+    // same practical effect is achieved anyway: a compact index repeated
+    // on the left of every page, with that specific page's own content on
+    // the right -- clicking any entry, from any page, jumps straight to
+    // that waypoint's own version of this same layout.
+    const TOC_COL_W = 170;
+    const COL_GAP = 20;
+    const RIGHT_COL_X = MARGIN + TOC_COL_W + COL_GAP;
+    const RIGHT_COL_W = PAGE_W - RIGHT_COL_X - MARGIN;
+
+    let totalMeters = 0;
+    for (let i = 0; i < wps.length - 1; i++) totalMeters += haversineMeters(wps[i].lat, wps[i].lng, wps[i + 1].lat, wps[i + 1].lng);
+
+    // -------- Page 1: header banner + route map + table of contents --------
+    const coverPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    coverPage.drawRectangle({ x: 0, y: PAGE_H - 70, width: PAGE_W, height: 70, color: rgb(0.09, 0.1, 0.15) });
+    coverPage.drawText(folder.name, { x: MARGIN, y: PAGE_H - 44, size: 20, font: bold, color: rgb(1, 1, 1) });
+    const exportDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    const statsLine = "Exported " + exportDate + "   |   " + formatDistance(totalMeters) + " total   |   " + wps.length + " waypoint" + (wps.length === 1 ? "" : "s");
+    coverPage.drawText(statsLine, { x: MARGIN, y: PAGE_H - 62, size: 10, font, color: rgb(0.85, 0.87, 0.9) });
+
+    const mapPxW = 1000, mapPxH = 560; // shorter than before -- the table of contents now shares this page, below the map
+    const { canvas: routeCanvas, usedBasemap } = await drawTripRouteCanvas(wps, mapPxW, mapPxH, basemapKey);
+    const mapPngBytes = await canvasToPngBytes(routeCanvas);
+    const mapImage = await pdfDoc.embedPng(mapPngBytes);
+    const mapDrawW = PAGE_W - MARGIN * 2;
+    const mapDrawH = mapDrawW * (mapPxH / mapPxW);
+    const mapTopY = PAGE_H - 100;
+    coverPage.drawImage(mapImage, { x: MARGIN, y: mapTopY - mapDrawH, width: mapDrawW, height: mapDrawH });
+    const captionText = usedBasemap
+      ? "Numbers match the list below and the appendix (page numbers, in visit order). Waypoints very close together in real life may overlap at this zoom."
+      : "Schematic route diagram — numbers match the list below and the appendix (page numbers, in visit order)." +
+        (basemapKey && basemapKey !== "schematic" ? " (Map imagery couldn't be loaded for this export.)" : "");
+    const { lines: captionLines } = pdfWrapText(captionText, font, 9, PAGE_W - MARGIN * 2, 2);
+    captionLines.forEach((line, i) => {
+      coverPage.drawText(line, { x: MARGIN, y: mapTopY - mapDrawH - 12 - i * 12, size: 9, font, color: rgb(0.45, 0.5, 0.58) });
+    });
+    const tocTopY = mapTopY - mapDrawH - 12 - captionLines.length * 12 - 22;
+    coverPage.drawText("Table of Contents", { x: MARGIN, y: tocTopY, size: 14, font: bold });
+
+    // Appendix pages are created up front (empty) so links can target
+    // them regardless of draw order -- content is filled in below.
+    const appendixPages = wps.map(() => pdfDoc.addPage([PAGE_W, PAGE_H]));
+
+    // Draws the repeated index: every waypoint, in visit order, each one
+    // linking to its own appendix page. currentIndex (null on the cover
+    // page) bolds that one entry and skips its own link, so a page never
+    // links to itself.
+    function drawTocColumn(page, x, y, width, currentIndex) {
+      let rowY = y;
+      wps.forEach((wp, i) => {
+        const isCurrent = i === currentIndex;
+        const label = (i + 1) + ". " + wp.name;
+        const rowFont = isCurrent ? bold : font;
+        const { lines: tocLines } = pdfWrapText(label, rowFont, 10, width, 2);
+        tocLines.forEach((line, li) => {
+          page.drawText(line, { x, y: rowY - li * 12, size: 10, font: rowFont, color: isCurrent ? rgb(0.09, 0.1, 0.15) : rgb(0.1, 0.3, 0.75) });
+        });
+        const rowHeight = tocLines.length * 12 + 6;
+        if (!isCurrent) pdfAddInternalLink(pdfDoc, page, { x, y: rowY - rowHeight + 6, width, height: rowHeight }, appendixPages[i]);
+        rowY -= rowHeight;
+      });
+    }
+    drawTocColumn(coverPage, MARGIN, tocTopY - 22, PAGE_W - MARGIN * 2, null);
+
+    // -------- Each appendix page: the same left-column index, that waypoint's content on the right --------
+    for (let i = 0; i < wps.length; i++) {
+      const wp = wps[i];
+      const page = appendixPages[i];
+      page.drawText("Table of Contents", { x: MARGIN, y: PAGE_H - 60, size: 11, font: bold, color: rgb(0.4, 0.45, 0.52) });
+      drawTocColumn(page, MARGIN, PAGE_H - 80, TOC_COL_W, i);
+
+      const heading = (i + 1) + ". " + wp.name;
+      const { lines: headingLines } = pdfWrapText(heading, bold, 15, RIGHT_COL_W, 2);
+      let y = PAGE_H - 60;
+      headingLines.forEach((line, li) => { page.drawText(line, { x: RIGHT_COL_X, y: y - li * 17, size: 15, font: bold }); });
+      y -= headingLines.length * 17 + (wp.createdAt ? 4 : 8);
+      if (wp.createdAt) {
+        page.drawText(new Date(wp.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), {
+          x: RIGHT_COL_X, y, size: 9, font, color: rgb(0.45, 0.5, 0.58),
+        });
+        y -= 18;
+      }
+
+      if (wp.notes) {
+        const { lines, truncated } = pdfWrapText(wp.notes, font, 10, RIGHT_COL_W, 40);
+        lines.forEach((line) => { page.drawText(line, { x: RIGHT_COL_X, y, size: 10, font, color: rgb(0.15, 0.17, 0.2) }); y -= 13; });
+        if (truncated) { page.drawText("(continued in the app — full note is longer than fits here)", { x: RIGHT_COL_X, y, size: 8, font, color: rgb(0.5, 0.55, 0.6) }); y -= 13; }
+      } else {
+        page.drawText("No notes recorded for this waypoint.", { x: RIGHT_COL_X, y, size: 10, font, color: rgb(0.55, 0.6, 0.65) });
+        y -= 13;
+      }
+      y -= 14;
+
+      // Photo thumbnails, up to 4, in a 2x2 grid sized to the right column.
+      const photos = Array.isArray(wp.photos) ? wp.photos.slice(0, 4) : [];
+      if (photos.length > 0) {
+        const cellW = (RIGHT_COL_W - 10) / 2, cellH = 100;
+        let col = 0, row = 0;
+        for (const src of photos) {
+          const embedded = await pdfEmbedPhotoScaled(pdfDoc, src, cellW, cellH);
+          if (embedded) {
+            const cellX = RIGHT_COL_X + col * (cellW + 10);
+            const cellY = y - row * (cellH + 8) - embedded.height;
+            page.drawImage(embedded.image, { x: cellX, y: cellY, width: embedded.width, height: embedded.height });
+          }
+          col++;
+          if (col > 1) { col = 0; row++; }
+        }
+        if (Array.isArray(wp.photos) && wp.photos.length > 4) {
+          page.drawText("+" + (wp.photos.length - 4) + " more photo" + (wp.photos.length - 4 === 1 ? "" : "s") + " in the app", {
+            x: RIGHT_COL_X, y: y - (row + 1) * (cellH + 8) - 4, size: 8, font, color: rgb(0.5, 0.55, 0.6),
+          });
+        }
+      }
+    }
+
+    const bytes = await pdfDoc.save();
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (folder.name || "trip").replace(/[\\/:*?"<>|]/g, "_") + ".pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    showToast('Exported "' + folder.name + '.pdf"');
   }
 
   // Builds the JSON-ish trip summary fed to the model: each real (non-story)
@@ -12428,6 +13058,7 @@
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             (wp.review && wp.review.rating ? '<span class="card-rating-badge" title="Review rating">' + wp.review.rating.toFixed(1) + " \u2605</span>" : "") +
             (isStory ? "" : '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>") +
+            (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
           "</div>" +
         "</div>" +
@@ -12488,6 +13119,7 @@
         switch (action) {
           case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); break;
           case "edit": e.stopPropagation(); openEditModal(wp); break;
+          case "toggle-waypoint-visibility": e.stopPropagation(); setWaypointVisibility(wp.id, !wp.hidden); break;
           case "toggle-favorite":
             e.stopPropagation();
             wp.favorite = !wp.favorite;
