@@ -2161,7 +2161,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "325";
+  const APP_VERSION = "326";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -5382,9 +5382,25 @@
         cache[item.hash] = item.path;
         anyUploaded = true;
       } catch (e) {
-        console.error("[repo sync] failed to upload photo " + item.path, e);
-        anyFailed = true;
-        failures.push({ waypointId: item.waypointId, waypointName: item.waypointName, hash: item.hash, path: item.path, message: (e && e.message) || "Unknown error", dataUrl: item.dataUrl });
+        // A device whose local upload cache doesn't yet know a photo was
+        // already uploaded by a *different* device (e.g. it never ran the
+        // original upload itself) will try to create a file that already
+        // exists in the repo -- GitHub rejects that as a conflict, since
+        // updating an existing file requires its current sha. Since the
+        // filename is the content hash itself, a file existing at this
+        // exact path is guaranteed to be this exact photo, not just a
+        // same-named coincidence -- so confirm that before giving up, and
+        // heal this device's cache instead of reporting a false failure on
+        // every sync from here on.
+        const existsAlready = await fetchRepoFile(owner, repo, item.path).then((f) => !!f).catch(() => false);
+        if (existsAlready) {
+          cache[item.hash] = item.path;
+          anyUploaded = true;
+        } else {
+          console.error("[repo sync] failed to upload photo " + item.path, e);
+          anyFailed = true;
+          failures.push({ waypointId: item.waypointId, waypointName: item.waypointName, hash: item.hash, path: item.path, message: (e && e.message) || "Unknown error", dataUrl: item.dataUrl });
+        }
       }
     });
     if (anyUploaded) await savePhotoUploadCache(cache);
