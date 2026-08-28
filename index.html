@@ -534,6 +534,12 @@
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;}
   .folder-accordion.expanded > .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
   .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
+  .drag-armed{outline:2px solid var(--amber-light); outline-offset:2px; border-radius:10px;}
+  .drag-source-hidden{opacity:.35;}
+  .drag-ghost{position:fixed; z-index:9999; pointer-events:none; opacity:.92; box-shadow:0 8px 24px rgba(0,0,0,.4);
+    border-radius:10px; transform:scale(1.03);}
+  .drop-target-hover{outline:2px solid var(--cyan); outline-offset:-1px; background:rgba(34,211,238,.12) !important;}
+  body.dragging-active{cursor:grabbing;}
   .folder-accordion-header.selected-for-move{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
   .folder-accordion.expanded > .folder-accordion-header .folder-accordion-chevron{transform:rotate(0deg);}
@@ -2207,7 +2213,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "360";
+  const APP_VERSION = "361";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -9091,6 +9097,20 @@
       });
     });
     bindRouteFolderAccordionEvents();
+    setupDragToFolder(routesPanelList, {
+      itemSelector: ".ride-card",
+      getItemId: (el) => el.dataset.id,
+      assignToFolder: (rideId, folderId) => {
+        const ride = rides.find((r) => r.id === rideId);
+        const folder = rideFolders.find((f) => f.id === folderId);
+        if (!ride || !folder || ride.folderId === folderId) return;
+        ride.folderId = folderId;
+        ride.updatedAt = Date.now();
+        saveRides();
+        renderRoutesList();
+        showToast('Moved to "' + folder.name + '"');
+      },
+    });
     refreshRoutesAzPickerAvailability();
     refreshListFilterControls();
     applyRoutesSearchFilter();
@@ -9183,6 +9203,20 @@
       });
     });
     bindMeasurementFolderAccordionEvents();
+    setupDragToFolder(measurementsPanelList, {
+      itemSelector: ".ride-card",
+      getItemId: (el) => el.dataset.id,
+      assignToFolder: (measurementId, folderId) => {
+        const m = measurements.find((mm) => mm.id === measurementId);
+        const folder = measurementFolders.find((f) => f.id === folderId);
+        if (!m || !folder || m.folderId === folderId) return;
+        m.folderId = folderId;
+        m.updatedAt = Date.now();
+        saveMeasurements();
+        renderMeasurementsList();
+        showToast('Moved to "' + folder.name + '"');
+      },
+    });
     refreshMeasurementsAzPickerAvailability();
     refreshListFilterControls();
     applyMeasurementsSearchFilter();
@@ -11776,6 +11810,102 @@
       "</div>" +
     "</div>";
   }
+  // Drag-and-drop for moving individual waypoints/routes/measurements
+  // into an existing folder. Deliberately NOT built on the native HTML5
+  // drag-and-drop API (the `draggable` attribute + dragstart/dragover/
+  // drop events) -- that API is mouse-only by design, and touch browsers
+  // (this app's actual iPad/iPhone usage) never fire those events at all,
+  // a well-known, longstanding limitation rather than an edge case.
+  // Built on Pointer Events instead, which unify mouse/touch/pen input.
+  //
+  // A movement-threshold alone isn't reliable on iOS Safari: it can
+  // commit to its own scroll gesture before a JS handler's preventDefault
+  // would still be honored, once the finger has already moved a few
+  // pixels. A long-press first (holding still, matching the same
+  // convention iOS itself uses for rearranging home-screen icons) avoids
+  // that race entirely, since it doesn't trigger the browser's scroll
+  // gesture recognizer in the first place.
+  const DRAG_LONG_PRESS_MS = 350;
+  const DRAG_CANCEL_THRESHOLD_PX = 8;
+  function setupDragToFolder(listEl, config) {
+    // config: { itemSelector, getItemId, assignToFolder(itemId, folderId) }
+    listEl.querySelectorAll(config.itemSelector).forEach((itemEl) => {
+      itemEl.addEventListener("pointerdown", (e) => {
+        if (e.target.closest("button, input, a, select, textarea")) return; // let normal controls inside the card work untouched
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        const itemId = config.getItemId(itemEl);
+        if (!itemId) return;
+        const pointerId = e.pointerId;
+        const startX = e.clientX, startY = e.clientY;
+        const startRect = itemEl.getBoundingClientRect(); // captured before any drag-state class could change the element's own layout
+        let armed = false, dragging = false, ghostEl = null, currentDropTarget = null;
+
+        const armTimer = setTimeout(() => {
+          armed = true;
+          itemEl.classList.add("drag-armed");
+        }, DRAG_LONG_PRESS_MS);
+
+        function cleanup() {
+          clearTimeout(armTimer);
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onCancel);
+          itemEl.classList.remove("drag-armed", "drag-source-hidden");
+          document.body.classList.remove("dragging-active");
+          if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+          if (currentDropTarget) { currentDropTarget.classList.remove("drop-target-hover"); currentDropTarget = null; }
+        }
+
+        function onMove(moveEvent) {
+          if (moveEvent.pointerId !== pointerId) return;
+          const dx = moveEvent.clientX - startX, dy = moveEvent.clientY - startY;
+          if (!armed) {
+            // Any real movement before the long-press fires means this is
+            // an ordinary scroll or tap, not a drag -- back off entirely
+            // rather than fight the browser's own gesture handling.
+            if (Math.abs(dx) > DRAG_CANCEL_THRESHOLD_PX || Math.abs(dy) > DRAG_CANCEL_THRESHOLD_PX) cleanup();
+            return;
+          }
+          if (!dragging) {
+            dragging = true;
+            document.body.classList.add("dragging-active");
+            itemEl.classList.add("drag-source-hidden");
+            ghostEl = itemEl.cloneNode(true);
+            ghostEl.className = "drag-ghost";
+            ghostEl.style.width = startRect.width + "px";
+            document.body.appendChild(ghostEl);
+          }
+          moveEvent.preventDefault();
+          ghostEl.style.left = (startRect.left + dx) + "px";
+          ghostEl.style.top = (startRect.top + dy) + "px";
+          // The ghost sits directly under the pointer, so it has to be
+          // excluded from elementFromPoint's hit-test or it would always
+          // detect itself instead of whatever folder is underneath.
+          ghostEl.style.display = "none";
+          const under = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+          ghostEl.style.display = "";
+          const folderHeader = under ? under.closest(".folder-accordion-header") : null;
+          if (currentDropTarget && currentDropTarget !== folderHeader) currentDropTarget.classList.remove("drop-target-hover");
+          if (folderHeader) folderHeader.classList.add("drop-target-hover");
+          currentDropTarget = folderHeader;
+        }
+        function onUp(upEvent) {
+          if (upEvent.pointerId !== pointerId) return;
+          const droppedOn = currentDropTarget;
+          cleanup();
+          if (dragging && droppedOn) config.assignToFolder(itemId, droppedOn.dataset.id);
+        }
+        function onCancel(cancelEvent) {
+          if (cancelEvent.pointerId !== pointerId) return;
+          cleanup();
+        }
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("pointercancel", onCancel);
+      });
+    });
+  }
+
   function bindFolderAccordionEvents() {
     panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
@@ -13572,6 +13702,20 @@
     panelList.innerHTML = entries.map((e) => e.html).join("");
     bindCardEvents();
     bindFolderAccordionEvents();
+    setupDragToFolder(panelList, {
+      itemSelector: ".card:not(.story-card)", // AI-generated story entries stay tied to their own Trip folder, not draggable elsewhere
+      getItemId: (el) => el.dataset.id,
+      assignToFolder: (waypointId, folderId) => {
+        const wp = waypoints.find((w) => w.id === waypointId);
+        const folder = waypointFolders.find((f) => f.id === folderId);
+        if (!wp || !folder || wp.folderId === folderId) return;
+        wp.folderId = folderId;
+        wp.updatedAt = Date.now();
+        saveWaypoints();
+        renderList();
+        showToast('Moved to "' + folder.name + '"');
+      },
+    });
     refreshListFilterControls();
     applyWaypointSearchFilter();
     refreshAzPickerAvailability();
