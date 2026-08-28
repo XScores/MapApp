@@ -1455,6 +1455,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="folderShareModalOverlay">
+    <div class="modal-card" style="max-width:340px;">
+      <div class="modal-header">
+        <h2 id="folderShareModalTitle">Share</h2>
+        <button class="icon-btn" id="folderShareModalCloseBtn" data-icon="x"></button>
+      </div>
+      <div class="folder-picker-list">
+        <div class="folder-picker-row" data-action="folder-share-email"><span class="icon"></span><span>Email full list</span></div>
+        <div class="folder-picker-row" id="folderShareModalPdfRow" data-action="folder-share-pdf"><span class="icon"></span><span>Export as PDF</span></div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="pdfExportModalOverlay">
     <div class="modal-card" style="max-width:340px;">
       <div class="modal-header">
@@ -1468,6 +1481,8 @@
         <div class="folder-picker-row" data-action="pdf-basemap" data-basemap="terrain"><span class="icon"></span><span>Terrain</span><span class="story-format-checkbox"></span></div>
         <div class="folder-picker-row" data-action="pdf-basemap" data-basemap="schematic"><span class="icon"></span><span>Schematic only (no map imagery)</span><span class="story-format-checkbox"></span></div>
       </div>
+      <label class="layers-option" style="margin-top:8px;"><input type="checkbox" id="pdfExportShowDistancesToggle" checked /><span>Show distance tags on route segments</span></label>
+      <label class="layers-option"><input type="checkbox" id="pdfExportIncludeAiContentToggle" /><span>Include A.I. generated content (if any)</span></label>
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary" id="pdfExportGenerateBtn">Generate PDF</button>
       </div>
@@ -2192,7 +2207,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "334";
+  const APP_VERSION = "360";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3525,10 +3540,16 @@
     geminiKeySaved.style.display = hasKey ? "flex" : "none";
   }
 
+  const folderShareModalOverlay = el("folderShareModalOverlay");
+  const folderShareModalTitle = el("folderShareModalTitle");
+  const folderShareModalCloseBtn = el("folderShareModalCloseBtn");
+  const folderShareModalPdfRow = el("folderShareModalPdfRow");
   const pdfExportModalOverlay = el("pdfExportModalOverlay");
   const pdfExportModalCloseBtn = el("pdfExportModalCloseBtn");
   const pdfExportBasemapList = el("pdfExportBasemapList");
   const pdfExportGenerateBtn = el("pdfExportGenerateBtn");
+  const pdfExportShowDistancesToggle = el("pdfExportShowDistancesToggle");
+  const pdfExportIncludeAiContentToggle = el("pdfExportIncludeAiContentToggle");
   const voiceSettingsModalOverlay = el("voiceSettingsModalOverlay");
   const voiceSettingsModalCloseBtn = el("voiceSettingsModalCloseBtn");
   const voiceSettingsUseGeminiToggle = el("voiceSettingsUseGeminiToggle");
@@ -3616,6 +3637,42 @@
       pdfExportBasemapList.querySelectorAll("[data-action='pdf-basemap']").forEach((r) => r.classList.toggle("selected", r === row));
     });
   });
+  let folderSharePendingFolder = null;
+  let folderSharePendingKind = "waypoint"; // "waypoint" | "route" | "measurement" -- picks which email-share function to call and whether the PDF row applies
+  folderShareModalOverlay.querySelector('[data-action="folder-share-email"]').querySelector(".icon").innerHTML = icon("mail", 16);
+  folderShareModalPdfRow.querySelector(".icon").innerHTML = icon("fileDown", 16);
+  function openFolderShareModal(folder, kind) {
+    folderSharePendingFolder = folder;
+    folderSharePendingKind = kind || "waypoint";
+    folderShareModalTitle.textContent = "Share " + folder.name;
+    folderShareModalPdfRow.style.display = (folderSharePendingKind === "waypoint" && folder.isTrip) ? "" : "none"; // PDF export only exists for Trip waypoint folders
+    folderShareModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeFolderShareModal() {
+    folderShareModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  folderShareModalCloseBtn.addEventListener("click", closeFolderShareModal);
+  folderShareModalOverlay.addEventListener("click", (e) => { if (e.target === folderShareModalOverlay) closeFolderShareModal(); });
+  folderShareModalOverlay.querySelector('[data-action="folder-share-email"]').addEventListener("click", () => {
+    const folder = folderSharePendingFolder;
+    const kind = folderSharePendingKind;
+    closeFolderShareModal();
+    if (!folder) return;
+    if (kind === "route") shareRouteFolderByEmail(folder);
+    else if (kind === "measurement") shareMeasurementFolderByEmail(folder);
+    else shareFolderByEmail(folder);
+  });
+  // Delegates straight into the existing PDF export flow (basemap choice,
+  // distance tags, AI content toggle) rather than duplicating any of that
+  // UI here -- this modal is just the shared entry point for both options.
+  folderShareModalPdfRow.addEventListener("click", () => {
+    const folder = folderSharePendingFolder;
+    closeFolderShareModal();
+    if (folder) openPdfExportModal(folder);
+  });
+
   function openPdfExportModal(folder) {
     pdfExportPendingFolder = folder;
     pdfExportModalOverlay.classList.remove("hidden");
@@ -3631,13 +3688,15 @@
     const folder = pdfExportPendingFolder;
     if (!folder) return;
     const basemapKey = pdfExportSelectedBasemap;
+    const showDistances = pdfExportShowDistancesToggle.checked;
+    const includeAiContent = pdfExportIncludeAiContentToggle.checked;
     closePdfExportModal();
     pdfExportGenerateBtn.disabled = true;
     folderExportPdfBtn.disabled = true;
     const originalIcon = folderExportPdfBtn.innerHTML;
     folderExportPdfBtn.innerHTML = '<span class="spinner"></span>';
     try {
-      await generateTripPdf(folder, basemapKey);
+      await generateTripPdf(folder, basemapKey, showDistances, includeAiContent);
     } catch (e) {
       console.error("[pdf export] failed", e);
       showErrorToast("Couldn't generate the PDF: " + (e && e.message ? e.message : "unknown error"));
@@ -11346,6 +11405,80 @@
     window.location.href = "mailto:?subject=" + encodeURIComponent(wp.name || "Waypoint") + "&body=" + encodeURIComponent(text);
   }
 
+  // Sharing an entire folder by email only (not Messages/the native share
+  // sheet) -- a combined message for a folder with many waypoints can run
+  // long, which email handles fine but text messages don't always. Story
+  // entries and anything currently hidden from the map are left out,
+  // matching the same folder-wide filtering the PDF export already uses,
+  // since neither has a real location worth map-linking.
+  function buildFolderShareText(folder) {
+    const folderWaypoints = waypoints
+      .filter((w) => w.folderId === folder.id && !w.isStoryEntry && !isWaypointEffectivelyHidden(w))
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const sections = folderWaypoints.map((wp, i) => (i + 1) + ". " + buildShareText(wp));
+    return (folder.name || "Trip") + "\n\n" + sections.join("\n\n---\n\n");
+  }
+  function shareFolderByEmail(folder) {
+    const folderWaypoints = waypoints.filter((w) => w.folderId === folder.id && !w.isStoryEntry && !isWaypointEffectivelyHidden(w));
+    if (folderWaypoints.length === 0) { showToast("This folder has no waypoints to share yet."); return; }
+    const text = buildFolderShareText(folder);
+    window.location.href = "mailto:?subject=" + encodeURIComponent(folder.name || "Trip") + "&body=" + encodeURIComponent(text);
+  }
+
+  // Same folder-wide email share, for Routes and Measurements -- neither
+  // has a single coordinate the way a waypoint does (a route/measurement
+  // is a multi-point path), so the map link points at the starting point
+  // instead of the item itself.
+  function buildRideShareText(r) {
+    const info = activityInfo(r.activityType);
+    const dateStr = new Date(r.startTime).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    const infoBlock = [r.name, info.label + "   " + dateStr, formatDistance(r.distanceMeters) + "   " + formatDuration(r.durationMs), r.notes || null].filter(Boolean).join("\n");
+    if (Array.isArray(r.points) && r.points.length > 0) {
+      const p = r.points[0];
+      const googleLink = "https://www.google.com/maps/search/?api=1&query=" + p.lat + "," + p.lng;
+      return infoBlock + "\n\nStarting point: " + googleLink;
+    }
+    return infoBlock;
+  }
+  function buildRouteFolderShareText(folder) {
+    const folderRides = rides.filter((r) => r.folderId === folder.id).sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+    const sections = folderRides.map((r, i) => (i + 1) + ". " + buildRideShareText(r));
+    return (folder.name || "Routes") + "\n\n" + sections.join("\n\n---\n\n");
+  }
+  function shareRouteFolderByEmail(folder) {
+    const folderRides = rides.filter((r) => r.folderId === folder.id);
+    if (folderRides.length === 0) { showToast("This folder has no routes to share yet."); return; }
+    const text = buildRouteFolderShareText(folder);
+    window.location.href = "mailto:?subject=" + encodeURIComponent(folder.name || "Routes") + "&body=" + encodeURIComponent(text);
+  }
+
+  function buildMeasurementShareText(m) {
+    const dateStr = new Date(m.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    let totalM = 0;
+    for (let i = 0; i < m.points.length - 1; i++) totalM += haversineMeters(m.points[i].lat, m.points[i].lng, m.points[i + 1].lat, m.points[i + 1].lng);
+    const summary = isClosedLoop(m.points)
+      ? formatDistance(totalM) + " perimeter, " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m\u00b2 area"
+      : formatDistance(totalM);
+    const infoBlock = [m.name, dateStr, summary].filter(Boolean).join("\n");
+    if (Array.isArray(m.points) && m.points.length > 0) {
+      const p = m.points[0];
+      const googleLink = "https://www.google.com/maps/search/?api=1&query=" + p.lat + "," + p.lng;
+      return infoBlock + "\n\nStarting point: " + googleLink;
+    }
+    return infoBlock;
+  }
+  function buildMeasurementFolderShareText(folder) {
+    const folderMeasurements = measurements.filter((m) => m.folderId === folder.id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const sections = folderMeasurements.map((m, i) => (i + 1) + ". " + buildMeasurementShareText(m));
+    return (folder.name || "Measurements") + "\n\n" + sections.join("\n\n---\n\n");
+  }
+  function shareMeasurementFolderByEmail(folder) {
+    const folderMeasurements = measurements.filter((m) => m.folderId === folder.id);
+    if (folderMeasurements.length === 0) { showToast("This folder has no measurements to share yet."); return; }
+    const text = buildMeasurementFolderShareText(folder);
+    window.location.href = "mailto:?subject=" + encodeURIComponent(folder.name || "Measurements") + "&body=" + encodeURIComponent(text);
+  }
+
   async function shareWaypoint(wp, platformHint) {
     const text = buildShareText(wp);
     const copyPromise = copyText(text); // kicked off early so it runs alongside any photo conversion below; awaited below only where its result actually matters
@@ -11627,6 +11760,7 @@
       : "";
     const visibilityBtn = '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' +
       (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>";
+    const shareFolderBtn = '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>";
     return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
@@ -11634,6 +11768,7 @@
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripStoryBtn +
+        shareFolderBtn +
         visibilityBtn +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
@@ -11644,7 +11779,7 @@
   function bindFolderAccordionEvents() {
     panelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='ai-story']") || e.target.closest("[data-action='folder-toggle-visibility']") || e.target.closest("[data-action='folder-share']")) return;
         const id = header.dataset.id;
         if (id === editingFolderId) return; // stays expanded for the duration of editing so its contents remain reachable
         if (expandedFolderIds.has(id)) collapseFolderAndDescendants(id); else setOnlyExpandedFolder(id);
@@ -11659,6 +11794,13 @@
     });
     panelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); setWaypointFolderVisibility(btn.dataset.id, !waypointFolders.find((f) => f.id === btn.dataset.id).hidden); });
+    });
+    panelList.querySelectorAll('[data-action="folder-share"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folder = waypointFolders.find((f) => f.id === btn.dataset.id);
+        if (folder) openFolderShareModal(folder, "waypoint");
+      });
     });
   }
 
@@ -11740,7 +11882,7 @@
       return {
         id: members[0].id,
         lat: cluster.lat, lng: cluster.lng,
-        name: members[0].name + " (" + members.length + " visits)",
+        name: members[0].name + " (" + members.length + " notes)",
         notes: combinedNotes,
         photos: combinedPhotos,
         createdAt: members[0].createdAt,
@@ -11753,6 +11895,35 @@
   // the caller is responsible for showing a "continued in app" note if
   // content was cut off, so a single very long note can never blow past
   // the fixed page layout this uses.
+  // pdf-lib's built-in fonts (Helvetica, etc.) use WinAnsi encoding, which
+  // covers standard Latin text but not arrows, checkmarks, stars, emoji,
+  // or most other symbols -- and throws immediately if asked to draw one.
+  // Waypoint names and notes are free-typed by the person using the app,
+  // so this can't be assumed away; every character is tested against the
+  // actual embedded font (the same check pdf-lib itself does internally)
+  // rather than maintained as a guessed lookup table, so anything WinAnsi
+  // can't handle is caught here instead of crashing the whole export.
+  // Common cases get a readable fallback; anything else becomes "?".
+  const PDF_UNSUPPORTED_CHAR_FALLBACKS = { "\u2192": "->", "\u2190": "<-", "\u2191": "^", "\u2193": "v", "\u2713": "v", "\u2714": "v", "\u2717": "x", "\u2718": "x", "\u2605": "*", "\u2606": "*" };
+  function sanitizeForPdfFont(text, font) {
+    let result = "";
+    for (const ch of String(text || "")) {
+      // Newlines/carriage returns/tabs fail this same font-encoding test
+      // (they're control characters, not glyphs) but they're never
+      // actually drawn -- pdfWrapText splits paragraphs on them before
+      // any text reaches drawText -- so they must pass through untouched
+      // rather than get treated as an unsupported character.
+      if (ch === "\n" || ch === "\r" || ch === "\t") { result += ch; continue; }
+      try {
+        font.widthOfTextAtSize(ch, 10);
+        result += ch;
+      } catch (e) {
+        result += PDF_UNSUPPORTED_CHAR_FALLBACKS[ch] !== undefined ? PDF_UNSUPPORTED_CHAR_FALLBACKS[ch] : "?";
+      }
+    }
+    return result;
+  }
+
   function pdfWrapText(text, font, fontSize, maxWidth, maxLines) {
     const paragraphs = String(text || "").split(/\r?\n/);
     const lines = [];
@@ -11958,51 +12129,19 @@
     // at an overview zoom, and that's honest, not a bug.
     const spread = mercator ? points : spreadClusteredPoints(points, 30);
 
+    // The connecting line is baked into this background image and always
+    // visible -- only the markers, numbers, and segment labels are drawn
+    // separately as native PDF objects on top (see generateTripPdf),
+    // since those are the pieces that get individually toggled as PDF
+    // layers in Acrobat. A raster image can't have parts of its own
+    // pixels selectively hidden, so anything meant to be toggleable can't
+    // be baked in here.
     ctx.strokeStyle = "#2563eb";
     ctx.lineWidth = 3;
     ctx.lineJoin = "round";
     ctx.beginPath();
     spread.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
     ctx.stroke();
-
-    // Segment distance labels at each connecting line's midpoint, using
-    // the real haversine distance between the two waypoints (not a pixel
-    // measurement). A white halo behind the text keeps it legible over
-    // real map imagery, which -- unlike the plain schematic background --
-    // can be dark or busy at any given spot.
-    ctx.font = "bold 11px Helvetica, Arial, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    for (let i = 0; i < wps.length - 1; i++) {
-      const segMeters = haversineMeters(wps[i].lat, wps[i].lng, wps[i + 1].lat, wps[i + 1].lng);
-      const label = formatDistance(segMeters);
-      const mx = (spread[i].x + spread[i + 1].x) / 2, my = (spread[i].y + spread[i + 1].y) / 2;
-      const w = ctx.measureText(label).width;
-      ctx.fillStyle = "rgba(255,255,255,.88)";
-      ctx.fillRect(mx - w / 2 - 5, my - 9, w + 10, 18);
-      ctx.fillStyle = "#1e293b";
-      ctx.fillText(label, mx, my + 1);
-    }
-
-    // Numbered markers only -- no per-point name labels. With up to
-    // dozens of waypoints, and several often clustered at the same real
-    // location, trying to also fit readable names directly on the
-    // diagram is what caused the clutter; the numbers here cross-reference
-    // the clickable Table of Contents and appendix instead.
-    spread.forEach((p, i) => {
-      ctx.fillStyle = "#2563eb";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 12px Helvetica, Arial, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(i + 1), p.x, p.y + 1);
-    });
 
     if (usedBasemap) {
       ctx.font = "9px Helvetica, Arial, sans-serif";
@@ -12016,7 +12155,7 @@
       ctx.fillText(attribution, 8, pxHeight - 6);
     }
 
-    return { canvas, usedBasemap };
+    return { canvas, usedBasemap, points: spread };
   }
 
   async function canvasToPngBytes(canvas) {
@@ -12031,10 +12170,24 @@
   // the lower-level PDF object model pdf-lib exposes. Verified against
   // a real pdf-lib + pypdf round trip before shipping this: the
   // resulting /Dest correctly resolves to the target page.
-  function pdfAddInternalLink(pdfDoc, page, rect, targetPage) {
+  // A normal PDF "go to this page/position/zoom" navigation link -- no
+  // scripting, no layers, so unlike the click-to-reveal and marker-layer
+  // features above, this works in every viewer (Chrome, Safari, Preview),
+  // not just Acrobat. destOptions lets left/top/zoom be set explicitly
+  // (e.g. to zoom into a specific region); omitted values default to
+  // null, meaning "keep whatever the viewer's current position/zoom
+  // already is" -- verified against a real pdf-lib + pypdf round trip
+  // (exact left/top/zoom values preserved) before trusting this.
+  // gateOCG (optional) ties the link itself to an OCG the same way
+  // pdfAddSetOCGStateLink's does -- needed when multiple targets' click
+  // regions occupy the same screen position (e.g. each waypoint's own
+  // photo thumbnails, all centered under the map), so only the currently
+  // visible one is actually clickable.
+  function pdfAddInternalLink(pdfDoc, page, rect, targetPage, destOptions, gateOCG) {
     const { PDFName } = PDFLib;
     const context = pdfDoc.context;
-    const destArray = context.obj([targetPage.ref, PDFName.of("XYZ"), null, null, null]);
+    const opts = destOptions || {};
+    const destArray = context.obj([targetPage.ref, PDFName.of("XYZ"), opts.left != null ? opts.left : null, opts.top != null ? opts.top : null, opts.zoom != null ? opts.zoom : null]);
     const linkDict = context.obj({
       Type: "Annot",
       Subtype: "Link",
@@ -12042,6 +12195,341 @@
       Border: [0, 0, 0],
       Dest: destArray,
     });
+    if (gateOCG) linkDict.set(PDFName.of("OC"), gateOCG);
+    const linkRef = context.register(linkDict);
+    const existingAnnots = page.node.Annots();
+    if (existingAnnots) existingAnnots.push(linkRef);
+    else page.node.set(PDFName.of("Annots"), context.obj([linkRef]));
+  }
+
+  // A plain "open this URL" link -- the simplest, most universal PDF
+  // action there is (unlike everything else built for this feature, this
+  // works in literally every PDF viewer, no Acrobat dependency at all).
+  // /URI must be a genuine PDF text string, not a Name -- built with the
+  // same explicit PDFString.of() this feature already learned it needs
+  // for /JS, rather than context.obj()'s automatic (and incorrect, for
+  // free-form text) string-to-Name coercion. Verified against a real
+  // pdf-lib + pypdf round trip (correct action type, correct string type,
+  // exact URL preserved) before trusting this.
+  function pdfAddUriLink(pdfDoc, page, rect, url) {
+    const { PDFName, PDFString } = PDFLib;
+    const context = pdfDoc.context;
+    const actionDict = context.obj({ Type: "Action", S: "URI" });
+    actionDict.set(PDFName.of("URI"), PDFString.of(url));
+    const linkDict = context.obj({
+      Type: "Annot", Subtype: "Link",
+      Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+      Border: [0, 0, 0],
+    });
+    linkDict.set(PDFName.of("A"), context.register(actionDict));
+    const linkRef = context.register(linkDict);
+    const existingAnnots = page.node.Annots();
+    if (existingAnnots) existingAnnots.push(linkRef);
+    else page.node.set(PDFName.of("Annots"), context.obj([linkRef]));
+  }
+  // A simple two-circle "map pin" glyph (a solid dot with a smaller white
+  // center) -- not a full teardrop-shaped pin, which would need its own
+  // bezier path, but immediately readable as a location marker and built
+  // entirely from the same drawCircle already proven reliable throughout
+  // this feature.
+  function drawMapPinIcon(page, cx, cy) {
+    const { rgb } = PDFLib;
+    page.drawCircle({ x: cx, y: cy, size: 6, color: rgb(0.86, 0.15, 0.15) });
+    page.drawCircle({ x: cx, y: cy, size: 2.2, color: rgb(1, 1, 1) });
+  }
+
+  // PDF "layers" (Optional Content Groups / OCGs) -- real, ~20-year-old
+  // part of the PDF spec, but only Adobe Acrobat/Reader reliably exposes
+  // an interactive Layers panel to toggle them; Chrome's built-in viewer
+  // is unreliable and Safari/Preview don't support toggling at all (they
+  // just render the default state). Every OCG here defaults to visible,
+  // so non-Acrobat viewers see the map exactly as if this feature didn't
+  // exist -- this is a bonus decluttering tool for Acrobat users, not a
+  // requirement for anyone else to see the map correctly.
+  //
+  // pdf-lib has no high-level API for this, but it exports the same
+  // low-level operator primitives it uses internally (PDFOperator,
+  // PDFOperatorNames.BeginMarkedContentSequence for "BDC") -- verified
+  // against a real pdf-lib + pypdf round trip (catalog /OCProperties,
+  // the page's /Resources/Properties mapping, and the raw BDC/EMC content
+  // stream tags) before trusting this in the app.
+  function pdfCreateOCG(pdfDoc, name) {
+    const ocgDict = pdfDoc.context.obj({ Type: "OCG", Name: name });
+    return pdfDoc.context.register(ocgDict);
+  }
+  // Registers every OCG in the document catalog (all visible by default)
+  // and maps each one to a short property name (/MC0, /MC1, ...) in the
+  // given page's own /Resources/Properties dict -- required so the BDC
+  // operator's second operand can actually resolve to the right OCG.
+  // This registers ALL of a page's OCGs in one call -- must be called once
+  // with every OCG the page uses (marker-visibility ones and detail-pane
+  // ones alike), never once per "group", since each call fully replaces
+  // the page's /Resources/Properties and the document's /OCProperties
+  // rather than merging with whatever a previous call already set up.
+  // offRefs lists which of those OCGs should start hidden (everything
+  // else defaults to visible).
+  function pdfRegisterOCGsOnPage(pdfDoc, page, ocgRefs, offRefs) {
+    const { PDFName } = PDFLib;
+    const context = pdfDoc.context;
+    const propsEntries = {};
+    ocgRefs.forEach((ref, i) => { propsEntries["MC" + i] = ref; });
+    const propsRef = context.register(context.obj(propsEntries));
+    page.node.Resources().set(PDFName.of("Properties"), propsRef);
+    const configDict = { Name: "Waypoints", BaseState: "ON", Order: ocgRefs, ListMode: "AllPages" };
+    if (offRefs && offRefs.length > 0) configDict.OFF = offRefs;
+    const ocProperties = context.obj({ OCGs: ocgRefs, D: configDict });
+    pdfDoc.catalog.set(PDFName.of("OCProperties"), ocProperties);
+  }
+  function pdfBeginOCG(propIndex) {
+    const { PDFOperator, PDFOperatorNames, PDFName } = PDFLib;
+    return PDFOperator.of(PDFOperatorNames.BeginMarkedContentSequence, [PDFName.of("OC"), PDFName.of("MC" + propIndex)]);
+  }
+  function pdfEndOCG() {
+    const { PDFOperator, PDFOperatorNames } = PDFLib;
+    return PDFOperator.of(PDFOperatorNames.EndMarkedContent);
+  }
+
+  // Markers and distance labels drawn as regular page content (the old
+  // approach) scale with the viewer's zoom exactly like everything else
+  // on the page -- there's no setting for "regular content" to ignore
+  // zoom. A genuinely fixed-screen-size marker requires a real PDF
+  // annotation with the NoZoom flag (bit position 4, value 8 -- verified
+  // directly against the PDF Reference's own annotation flag table) and
+  // its own custom appearance stream (a Form XObject), since only
+  // annotations -- not page content -- can opt out of the page's zoom
+  // transform. NoRotate (bit 5, value 16) is set alongside it so the
+  // marker doesn't spin if the page is ever viewed rotated. Structurally
+  // verified (correct flag value, correct Form XObject/BBox/Resources
+  // setup, correct decoded drawing operators, correct /OC tie-in to the
+  // existing marker-visibility layer) against a real pdf-lib + pypdf
+  // round trip -- the actual "stays fixed size when zoomed" rendering
+  // behavior itself can only be confirmed in a real PDF viewer, which
+  // isn't something available to test from here.
+  //
+  // PDF content streams have no native circle operator; a many-sided
+  // polygon is visually indistinguishable from a true circle at marker
+  // size and far simpler to get exactly right than hand-deriving bezier
+  // control points for a proper curve.
+  function buildCircleMarkerContentStream(font, size, numberText) {
+    const radius = size / 2, cx = radius, cy = radius, sides = 16;
+    let path = "";
+    for (let i = 0; i <= sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const px = (cx + radius * Math.cos(angle)).toFixed(2);
+      const py = (cy + radius * Math.sin(angle)).toFixed(2);
+      path += (i === 0 ? px + " " + py + " m\n" : px + " " + py + " l\n");
+    }
+    path += "h\n";
+    const fontSize = 6;
+    const textWidth = font.widthOfTextAtSize(numberText, fontSize);
+    const textX = (cx - textWidth / 2).toFixed(2);
+    const textY = (cy - fontSize * 0.35).toFixed(2);
+    return (
+      "q\n0.145 0.388 0.922 rg\n1 1 1 RG\n1.5 w\n" + path + "B\nQ\n" +
+      "q\n1 1 1 rg\nBT\n/F1 " + fontSize + " Tf\n" + textX + " " + textY + " Td\n(" + numberText + ") Tj\nET\nQ\n"
+    );
+  }
+  function buildLabelContentStream(font, labelW, labelH, text) {
+    const fontSize = 7;
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const textX = ((labelW - textWidth) / 2).toFixed(2);
+    const textY = ((labelH - fontSize) / 2 + fontSize * 0.2).toFixed(2);
+    return (
+      "q\n1 1 1 rg\n0.6 0.65 0.7 RG\n0.75 w\n0 0 " + labelW.toFixed(2) + " " + labelH.toFixed(2) + " re\nB\nQ\n" +
+      "q\n0.12 0.16 0.2 rg\nBT\n/F1 " + fontSize + " Tf\n" + textX + " " + textY + " Td\n(" + text + ") Tj\nET\nQ\n"
+    );
+  }
+  function pdfBuildAppearanceStream(pdfDoc, font, w, h, contentStr) {
+    const context = pdfDoc.context;
+    const stream = context.stream(contentStr, {
+      Type: "XObject", Subtype: "Form",
+      BBox: [0, 0, w, h], Matrix: [1, 0, 0, 1, 0, 0],
+      Resources: { Font: { F1: font.ref } },
+    });
+    return context.register(stream);
+  }
+  function pdfAddNoZoomStamp(pdfDoc, page, x, y, w, h, appearanceRef, ocgRef) {
+    const { PDFName } = PDFLib;
+    const context = pdfDoc.context;
+    const annotDict = {
+      Type: "Annot", Subtype: "Stamp",
+      Rect: [x, y, x + w, y + h],
+      F: 24, // NoZoom (8) + NoRotate (16)
+      AP: { N: appearanceRef },
+      Border: [0, 0, 0],
+    };
+    if (ocgRef) annotDict.OC = ocgRef;
+    const annotRef = context.register(context.obj(annotDict));
+    const existingAnnots = page.node.Annots();
+    if (existingAnnots) existingAnnots.push(annotRef);
+    else page.node.set(PDFName.of("Annots"), context.obj([annotRef]));
+  }
+
+  // Clips whatever is drawn after this call to a rounded-rectangle region,
+  // until popPdfClip() removes it -- used to round the map image's
+  // corners, since drawImage itself has no corner-radius option. Pushes a
+  // rounded-rect path (bezier-curved corners) then W/n to convert it into
+  // a clip rather than a paint operation.
+  //
+  // Built with pdf-lib's own exported path-construction helpers
+  // (moveTo/lineTo/appendBezierCurve/etc.), not raw PDFOperator.of() calls
+  // -- verified the hard way: constructing operators manually with plain
+  // JS numbers as operands silently produced an empty content stream
+  // (pdf-lib's own helpers wrap each coordinate in asPDFNumber() first,
+  // which turned out to be required, not optional, confirmed by checking
+  // pdf-lib's own source for how its high-level drawing methods build
+  // these same operators internally).
+  function pushPdfRoundedRectClip(page, x, y, width, height, radius) {
+    const { moveTo, lineTo, appendBezierCurve, closePath, clip, endPath, pushGraphicsState } = PDFLib;
+    const k = 0.5523;
+    const r = Math.min(radius, width / 2, height / 2);
+    page.pushOperators(
+      pushGraphicsState(),
+      moveTo(x + r, y + height),
+      lineTo(x + width - r, y + height),
+      appendBezierCurve(x + width - r + k * r, y + height, x + width, y + height - r + k * r, x + width, y + height - r),
+      lineTo(x + width, y + r),
+      appendBezierCurve(x + width, y + r - k * r, x + width - r + k * r, y, x + width - r, y),
+      lineTo(x + r, y),
+      appendBezierCurve(x + r - k * r, y, x, y + r - k * r, x, y + r),
+      lineTo(x, y + height - r),
+      appendBezierCurve(x, y + height - r + k * r, x + r - k * r, y + height, x + r, y + height),
+      closePath(),
+      clip(),
+      endPath()
+    );
+  }
+  function popPdfClip(page) {
+    page.pushOperators(PDFLib.popGraphicsState());
+  }
+  // Draws a filled, stroked rounded rectangle as regular page content --
+  // used as the visible frame behind the scrollable detail text field,
+  // since form fields have no native corner-radius option either. The
+  // field itself is placed on top with no background/border of its own
+  // (see its setup below) so this drawn shape is the only thing giving it
+  // a visible edge, and its rounded corners aren't covered by the field's
+  // own square bounding box.
+  function drawPdfRoundedRect(page, x, y, width, height, radius, fillRgb, strokeRgb, lineWidth) {
+    const { moveTo, lineTo, appendBezierCurve, closePath, fillAndStroke, setFillingRgbColor, setStrokingRgbColor, setLineWidth, pushGraphicsState, popGraphicsState } = PDFLib;
+    const k = 0.5523;
+    const r = Math.min(radius, width / 2, height / 2);
+    page.pushOperators(
+      pushGraphicsState(),
+      setFillingRgbColor(fillRgb.red, fillRgb.green, fillRgb.blue),
+      setStrokingRgbColor(strokeRgb.red, strokeRgb.green, strokeRgb.blue),
+      setLineWidth(lineWidth),
+      moveTo(x + r, y + height),
+      lineTo(x + width - r, y + height),
+      appendBezierCurve(x + width - r + k * r, y + height, x + width, y + height - r + k * r, x + width, y + height - r),
+      lineTo(x + width, y + r),
+      appendBezierCurve(x + width, y + r - k * r, x + width - r + k * r, y, x + width - r, y),
+      lineTo(x + r, y),
+      appendBezierCurve(x + r - k * r, y, x, y + r - k * r, x, y + r),
+      lineTo(x, y + height - r),
+      appendBezierCurve(x, y + height - r + k * r, x + r - k * r, y + height, x + r, y + height),
+      closePath(),
+      fillAndStroke(),
+      popGraphicsState()
+    );
+  }
+
+  // A link whose click changes layer visibility on the spot -- no /Dest,
+  // no page jump, just "show this one OCG, hide these others" -- which is
+  // what makes genuine same-page click-to-reveal possible. Verified
+  // against a real pdf-lib + pypdf round trip (confirmed /S is
+  // SetOCGState with no /Dest present, and the /State array correctly
+  // names the right OCGs to turn on/off) before trusting this in the app.
+  // Acrobat/Reader-only, same as the marker-visibility layers above --
+  // other viewers simply don't run this action, so the link just does
+  // nothing there (the content it would reveal isn't otherwise reachable
+  // in those viewers, which is a real, disclosed trade-off of a
+  // single-page click-to-reveal design).
+  // gateOCG (optional) ties the LINK ITSELF to an OCG, not just the
+  // visual layer it targets -- needed whenever multiple links sit at the
+  // same screen position for different states (e.g. each photo's own
+  // prev/next controls occupy the same spot in a slideshow), so only the
+  // currently-visible one is actually clickable; per spec, optional
+  // content applies to annotation interactivity as well as rendering, not
+  // just what's drawn. Verified this combination is valid PDF (a Link can
+  // carry both /A and /OC at once, unlike /A and /Dest which are mutually
+  // exclusive) before relying on it.
+  function pdfAddSetOCGStateLink(pdfDoc, page, rect, showRef, hideRefs, gateOCG) {
+    const { PDFName } = PDFLib;
+    const context = pdfDoc.context;
+    const stateArray = context.obj(["ON", [showRef], "OFF", hideRefs]);
+    const actionDict = context.obj({ Type: "Action", S: "SetOCGState", State: stateArray, PreserveRB: false });
+    const linkDict = context.obj({
+      Type: "Annot", Subtype: "Link",
+      Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+      Border: [0, 0, 0], A: actionDict,
+    });
+    if (gateOCG) linkDict.set(PDFName.of("OC"), gateOCG);
+    const linkRef = context.register(linkDict);
+    const existingAnnots = page.node.Annots();
+    if (existingAnnots) existingAnnots.push(linkRef);
+    else page.node.set(PDFName.of("Annots"), context.obj([linkRef]));
+  }
+
+  // Click-to-reveal for the detail pane uses a JavaScript action that sets
+  // a scrollable form field's value -- not another SetOCGState link like
+  // the marker-visibility layers above use. Two escaping passes are
+  // required here, verified against a real pdf-lib + Node.js round trip
+  // (adversarial test text: quotes, backslashes, newlines, and
+  // parentheses all at once) before trusting this in the app:
+  //   1. Escape the raw text for JavaScript's own string-literal syntax
+  //      (\, ", and newlines all need JS escape sequences).
+  //   2. Separately escape the *entire resulting JS source* for PDF's own
+  //      literal-string syntax (\, (, and) ) -- pdf-lib's PDFString.of()
+  //      does zero escaping of its own (confirmed directly from its
+  //      source), so skipping this step lets PDF's decoder consume the
+  //      JS-escape backslashes from step 1 before Acrobat's JS engine
+  //      ever sees them, corrupting the text.
+  function escapeForJsStringLiteral(text) {
+    return String(text)
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\r\n|\r|\n/g, "\\n");
+  }
+  function escapeForPdfLiteralString(text) {
+    return String(text)
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+  }
+  // Updates one or more form fields in a single click -- used to set the
+  // bold title/date fields and the regular scrollable body field all at
+  // once, since a standard PDF text field can only have one font for its
+  // whole content (no mixing bold and regular within one field -- PDF
+  // does have a "Rich Text" field type that supports that, but it's
+  // poorly supported across viewers and pdf-lib has no real support for
+  // building one, so three separate plain fields -- each with its own
+  // font -- is the reliable way to get the same visual result). Verified
+  // against a real pdf-lib + Node.js round trip (three separate
+  // statements, each correctly updating its own field, each field's own
+  // /DA confirmed to use the right font) before trusting this.
+  // extraJs (optional) appends additional raw JavaScript statements after
+  // the field-value assignments -- used to also toggle OCG (layer)
+  // visibility from the same click, via Acrobat's this.getOCGs() API.
+  // This is a genuinely different mechanism from the declarative
+  // SetOCGState link action used (and found not to respond to clicks)
+  // elsewhere in this feature -- JavaScript execution itself is already
+  // proven working here (this exact function is what makes the notes box
+  // update on click), so this is worth trying even though an OCG-based
+  // outcome carries real risk of hitting the same wall for reasons
+  // outside what's verifiable from here.
+  function pdfAddJsMultiFieldUpdateLink(pdfDoc, page, rect, fieldUpdates, extraJs) {
+    const { PDFName, PDFString } = PDFLib;
+    const context = pdfDoc.context;
+    let js = fieldUpdates.map((fu) => 'this.getField("' + fu.fieldName + '").value = "' + escapeForJsStringLiteral(fu.value) + '";').join(" ");
+    if (extraJs) js += " " + extraJs;
+    const actionDict = context.obj({ Type: "Action", S: "JavaScript" });
+    actionDict.set(PDFName.of("JS"), PDFString.of(escapeForPdfLiteralString(js)));
+    const linkDict = context.obj({
+      Type: "Annot", Subtype: "Link",
+      Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+      Border: [0, 0, 0],
+    });
+    linkDict.set(PDFName.of("A"), context.register(actionDict));
     const linkRef = context.register(linkDict);
     const existingAnnots = page.node.Annots();
     if (existingAnnots) existingAnnots.push(linkRef);
@@ -12067,26 +12555,72 @@
     const scale = Math.min(maxW / image.width, maxH / image.height, 1);
     return { image, width: image.width * scale, height: image.height * scale };
   }
+  // "Cover" scaling for square thumbnails -- the larger of the two
+  // ratios, so the image completely fills the box (the caller crops
+  // whatever overflows via its own clip), rather than pdfEmbedPhotoScaled's
+  // "contain" scaling, which would letterbox a non-square photo (typical
+  // for real phone camera shots) and leave a rounded-corner clip with
+  // nothing actually reaching the corners to clip -- which is exactly why
+  // the thumbnail rounding wasn't showing up.
+  async function pdfEmbedPhotoCover(pdfDoc, dataUrl, boxSize) {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!match) return null;
+    const mime = match[1];
+    const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+    let image;
+    try {
+      if (mime.indexOf("png") !== -1) image = await pdfDoc.embedPng(bytes);
+      else if (mime.indexOf("jpeg") !== -1 || mime.indexOf("jpg") !== -1) image = await pdfDoc.embedJpg(bytes);
+      else return null;
+    } catch (e) { return null; }
+    const scale = Math.max(boxSize / image.width, boxSize / image.height);
+    return { image, width: image.width * scale, height: image.height * scale };
+  }
 
-  async function generateTripPdf(folder, basemapKey) {
+  async function generateTripPdf(folder, basemapKey, showDistances, includeAiContent) {
     if (!window.PDFLib) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
     const wps = mergeWaypointsAtSameLocation(pdfWaypointsForFolder(folder));
     if (wps.length === 0) { showToast("This trip has no waypoints to export yet."); return; }
 
     const { PDFDocument, rgb, StandardFonts } = PDFLib;
     const pdfDoc = await PDFDocument.create();
-    pdfDoc.setTitle(folder.name);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    // AI-generated content (Narrative Story, Blog Post, etc.) lives in the
+    // same folder as real waypoints but is never part of the numbered
+    // route or the map -- consistent with how it's excluded from the live
+    // map's markers. Gathered and sanitized the same way as wps, but kept
+    // entirely separate: no marker, no map pin, no Google Maps link,
+    // since there's no real "place" to point at.
+    const storyWps = includeAiContent
+      ? waypoints.filter((w) => w.folderId === folder.id && w.isStoryEntry && !isWaypointEffectivelyHidden(w)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+      : [];
+
+    // Every piece of user-typed text is sanitized once, up front, before
+    // any drawing happens -- see sanitizeForPdfFont above for why this is
+    // necessary (WinAnsi can't encode arrows, emoji, checkmarks, stars,
+    // etc., and pdf-lib throws immediately on the first one it hits
+    // otherwise). This only affects what gets drawn into this PDF -- the
+    // real waypoint/folder names and notes in the app are untouched.
+    const safeFolderName = sanitizeForPdfFont(folder.name, font);
+    wps.forEach((wp) => {
+      wp.name = sanitizeForPdfFont(wp.name, font);
+      wp.notes = sanitizeForPdfFont(wp.notes, font);
+    });
+    storyWps.forEach((wp) => {
+      wp.name = sanitizeForPdfFont(wp.name, font);
+      wp.notes = sanitizeForPdfFont(wp.notes, font);
+    });
+    pdfDoc.setTitle(safeFolderName);
+
+    // Standard page size. The detail pane is one fixed-size scrollable
+    // multiline form field rather than pre-drawn, stacked, per-waypoint
+    // text blocks -- so the page never needs to grow to accommodate the
+    // longest possible note; long notes just scroll within the field
+    // instead (the same "Multi-line" + "Scroll Long Text" behavior you'd
+    // set up by hand on a text field in Acrobat).
     const PAGE_W = 612, PAGE_H = 792, MARGIN = 50;
-    // A real PDF can't update part of a page in place when a link is
-    // clicked -- every viewer just jumps to a different page, there's no
-    // "same page, changing region." This two-column template is how the
-    // same practical effect is achieved anyway: a compact index repeated
-    // on the left of every page, with that specific page's own content on
-    // the right -- clicking any entry, from any page, jumps straight to
-    // that waypoint's own version of this same layout.
     const TOC_COL_W = 170;
     const COL_GAP = 20;
     const RIGHT_COL_X = MARGIN + TOC_COL_W + COL_GAP;
@@ -12095,108 +12629,364 @@
     let totalMeters = 0;
     for (let i = 0; i < wps.length - 1; i++) totalMeters += haversineMeters(wps[i].lat, wps[i].lng, wps[i + 1].lat, wps[i + 1].lng);
 
-    // -------- Page 1: header banner + route map + table of contents --------
-    const coverPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
-    coverPage.drawRectangle({ x: 0, y: PAGE_H - 70, width: PAGE_W, height: 70, color: rgb(0.09, 0.1, 0.15) });
-    coverPage.drawText(folder.name, { x: MARGIN, y: PAGE_H - 44, size: 20, font: bold, color: rgb(1, 1, 1) });
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    page.drawRectangle({ x: 0, y: PAGE_H - 70, width: PAGE_W, height: 70, color: rgb(0.09, 0.1, 0.15) });
+    page.drawText(safeFolderName, { x: MARGIN, y: PAGE_H - 44, size: 20, font: bold, color: rgb(1, 1, 1) });
     const exportDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
     const statsLine = "Exported " + exportDate + "   |   " + formatDistance(totalMeters) + " total   |   " + wps.length + " waypoint" + (wps.length === 1 ? "" : "s");
-    coverPage.drawText(statsLine, { x: MARGIN, y: PAGE_H - 62, size: 10, font, color: rgb(0.85, 0.87, 0.9) });
+    page.drawText(statsLine, { x: MARGIN, y: PAGE_H - 62, size: 10, font, color: rgb(0.85, 0.87, 0.9) });
 
-    const mapPxW = 1000, mapPxH = 560; // shorter than before -- the table of contents now shares this page, below the map
-    const { canvas: routeCanvas, usedBasemap } = await drawTripRouteCanvas(wps, mapPxW, mapPxH, basemapKey);
+    const mapPxW = 2500, mapPxH = 1025; // extended 20pt at both the top and bottom edges (40pt total vertical growth) from the previous size
+    const { canvas: routeCanvas, usedBasemap, points: mapPoints } = await drawTripRouteCanvas(wps, mapPxW, mapPxH, basemapKey);
     const mapPngBytes = await canvasToPngBytes(routeCanvas);
     const mapImage = await pdfDoc.embedPng(mapPngBytes);
     const mapDrawW = PAGE_W - MARGIN * 2;
     const mapDrawH = mapDrawW * (mapPxH / mapPxW);
-    const mapTopY = PAGE_H - 100;
-    coverPage.drawImage(mapImage, { x: MARGIN, y: mapTopY - mapDrawH, width: mapDrawW, height: mapDrawH });
-    const captionText = usedBasemap
-      ? "Numbers match the list below and the appendix (page numbers, in visit order). Waypoints very close together in real life may overlap at this zoom."
-      : "Schematic route diagram — numbers match the list below and the appendix (page numbers, in visit order)." +
-        (basemapKey && basemapKey !== "schematic" ? " (Map imagery couldn't be loaded for this export.)" : "");
-    const { lines: captionLines } = pdfWrapText(captionText, font, 9, PAGE_W - MARGIN * 2, 2);
-    captionLines.forEach((line, i) => {
-      coverPage.drawText(line, { x: MARGIN, y: mapTopY - mapDrawH - 12 - i * 12, size: 9, font, color: rgb(0.45, 0.5, 0.58) });
+    const mapTopY = PAGE_H - 80; // moved up 20pt so the map's top edge extends further into what was previously header-gap space
+    const mapX = MARGIN, mapY = mapTopY - mapDrawH;
+    pushPdfRoundedRectClip(page, mapX, mapY, mapDrawW, mapDrawH, 10);
+    page.drawImage(mapImage, { x: mapX, y: mapY, width: mapDrawW, height: mapDrawH });
+    popPdfClip(page);
+
+    // Visible zoom controls -- plain "go to this position at this zoom
+    // factor" navigation, not scripting, so unlike the click-to-reveal
+    // and marker-layer features these work in every PDF viewer. "+" jumps
+    // to a close-up view anchored on the map's top-left corner; the reset
+    // button restores a normal full-page view. The underlying map image
+    // is also rendered at a much higher resolution than the page displays
+    // it at, so it stays sharp even zoomed in well past what these
+    // buttons alone provide -- a pinch/scroll zoom on top of this still
+    // works exactly as it would on any PDF.
+    const zoomBtnRadius = 11, zoomBtnGap = 6;
+    const zoomOutCenterX = PAGE_W - MARGIN - 8 - zoomBtnRadius;
+    const zoomInCenterX = zoomOutCenterX - zoomBtnRadius * 2 - zoomBtnGap;
+    const zoomBtnCenterY = mapY + 8 + zoomBtnRadius;
+    [
+      { cx: zoomInCenterX, glyph: "+", left: MARGIN - 8, top: mapTopY + 8, zoom: 2.5, title: "Zoom into the map" },
+      { cx: zoomOutCenterX, glyph: "-", left: 0, top: PAGE_H, zoom: 1, title: "Reset zoom" },
+    ].forEach((btn) => {
+      page.drawCircle({ x: btn.cx, y: zoomBtnCenterY, size: zoomBtnRadius, color: rgb(1, 1, 1), opacity: 0.9, borderColor: rgb(0.6, 0.65, 0.7), borderWidth: 1 });
+      const glyphW = bold.widthOfTextAtSize(btn.glyph, 13);
+      page.drawText(btn.glyph, { x: btn.cx - glyphW / 2, y: zoomBtnCenterY - 4.5, size: 13, font: bold, color: rgb(0.15, 0.17, 0.2) });
+      pdfAddInternalLink(pdfDoc, page, { x: btn.cx - zoomBtnRadius, y: zoomBtnCenterY - zoomBtnRadius, width: zoomBtnRadius * 2, height: zoomBtnRadius * 2 }, page, { left: btn.left, top: btn.top, zoom: btn.zoom });
     });
-    const tocTopY = mapTopY - mapDrawH - 12 - captionLines.length * 12 - 22;
-    coverPage.drawText("Table of Contents", { x: MARGIN, y: tocTopY, size: 14, font: bold });
 
-    // Appendix pages are created up front (empty) so links can target
-    // them regardless of draw order -- content is filled in below.
-    const appendixPages = wps.map(() => pdfDoc.addPage([PAGE_W, PAGE_H]));
+    // Marker-visibility layers -- independent of the click-to-reveal
+    // mechanism below, and unaffected by anything about it: Acrobat's own
+    // Layers panel (View > Show/Hide > Navigation Panes > Layers) can
+    // still toggle individual waypoint markers to declutter the map, the
+    // same as before.
+    const markerOCGs = wps.map((wp, i) => pdfCreateOCG(pdfDoc, "Marker: " + (i + 1) + ". " + wp.name));
+    pdfRegisterOCGsOnPage(pdfDoc, page, markerOCGs, []);
 
-    // Draws the repeated index: every waypoint, in visit order, each one
-    // linking to its own appendix page. currentIndex (null on the cover
-    // page) bolds that one entry and skips its own link, so a page never
-    // links to itself.
-    function drawTocColumn(page, x, y, width, currentIndex) {
-      let rowY = y;
-      wps.forEach((wp, i) => {
-        const isCurrent = i === currentIndex;
-        const label = (i + 1) + ". " + wp.name;
-        const rowFont = isCurrent ? bold : font;
-        const { lines: tocLines } = pdfWrapText(label, rowFont, 10, width, 2);
-        tocLines.forEach((line, li) => {
-          page.drawText(line, { x, y: rowY - li * 12, size: 10, font: rowFont, color: isCurrent ? rgb(0.09, 0.1, 0.15) : rgb(0.1, 0.3, 0.75) });
+    // All photos across the trip's (non-hidden) waypoints, flattened into
+    // one list -- capped to whatever fits in a single row of thumbnails,
+    // since PDF has no equivalent of a scrollable <div> for images (a
+    // scrolling *text* field exists, used for the notes box, but nothing
+    // analogous for a strip of images). The enlarged slideshow view for
+    // each one gets its own separate page with plain page-to-page links
+    // (see the Photos section below the map) rather than the OCG-layer
+    // approach used for the marker visibility above: a first attempt
+    // using OCG click actions for this didn't respond to clicks at all in
+    // practice, mirroring exactly what happened with the original
+    // OCG-based click-to-reveal notes design before it was replaced with
+    // JavaScript field updates. A follow-up attempt tried the same idea
+    // via JavaScript's this.getOCGs() instead of the declarative action,
+    // hoping the different mechanism might fare better -- it didn't
+    // respond either, confirming what Acrobat's own scripting community
+    // had warned was likely. Plain page navigation is the one mechanism
+    // already confirmed working (the zoom buttons use it), so that's what
+    // this is built on.
+    const allPhotos = [];
+    wps.forEach((wp, wpIndex) => {
+      (Array.isArray(wp.photos) ? wp.photos : []).forEach((src) => { allPhotos.push({ src, waypointName: wp.name, waypointIndex: wpIndex }); });
+    });
+    const thumbSize = 60, thumbGap = 8;
+    const maxThumbs = Math.max(0, Math.floor((PAGE_W - MARGIN * 2 + thumbGap) / (thumbSize + thumbGap)));
+    const shownPhotos = allPhotos.slice(0, maxThumbs);
+    const morePhotosCount = allPhotos.length - shownPhotos.length;
+
+    // Markers, numbers, and segment-distance labels are drawn as native
+    // PDF objects on top of the (always-visible) map image -- a raster
+    // image can't have parts of its own pixels selectively hidden, so
+    // anything meant to be toggleable can't be baked into the map image
+    // itself. Converts each waypoint's already-computed canvas-pixel
+    // position into this page's own point coordinates using the same
+    // scale/offset the image was placed at.
+    const pxToPdf = (p) => ({
+      x: MARGIN + (p.x / mapPxW) * mapDrawW,
+      y: (mapTopY - mapDrawH) + (1 - p.y / mapPxH) * mapDrawH,
+    });
+    const pdfPoints = mapPoints.map(pxToPdf);
+
+    // The full text shown for waypoint i when its marker or list entry is
+    // clicked -- name, date, and notes, plus a plain mention of how many
+    // photos are attached (a scrollable text field can't display images,
+    // so this names the count rather than silently dropping them).
+    // Split into a {title, body} pair rather than one combined string --
+    // title/date go in their own always-bold field, notes in the regular
+    // scrollable one, since a single PDF text field can't mix font
+    // weights within itself (see pdfAddJsMultiFieldUpdateLink).
+    function detailTextFor(i) {
+      const wp = wps[i];
+      const titleParts = [(i + 1) + ". " + wp.name];
+      if (wp.createdAt) titleParts.push(new Date(wp.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }));
+      const bodyParts = [wp.notes || "No notes recorded for this waypoint."];
+      const photoCount = Array.isArray(wp.photos) ? wp.photos.length : 0;
+      if (photoCount > 0) { bodyParts.push(""); bodyParts.push("(" + photoCount + " photo" + (photoCount === 1 ? "" : "s") + " attached \u2014 view " + (photoCount === 1 ? "it" : "them") + " in the app)"); }
+      return { title: titleParts.join("\n"), body: bodyParts.join("\n") };
+    }
+    // Same idea, for an AI-generated content entry -- no visit number, no
+    // photo count (story items don't attach their own photos separately),
+    // just its title, when it was generated, and its full text.
+    function storyDetailTextFor(wp) {
+      const titleParts = [wp.name];
+      if (wp.createdAt) titleParts.push(new Date(wp.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }));
+      return { title: titleParts.join("\n"), body: wp.notes || "(no content)" };
+    }
+
+    const markerSize = 12; // matches the appearance stream's own BBox in buildCircleMarkerContentStream
+    for (let i = 0; i < wps.length; i++) {
+      if (i > 0 && showDistances) {
+        const segMeters = haversineMeters(wps[i - 1].lat, wps[i - 1].lng, wps[i].lat, wps[i].lng);
+        const label = formatDistance(segMeters);
+        const mx = (pdfPoints[i - 1].x + pdfPoints[i].x) / 2, my = (pdfPoints[i - 1].y + pdfPoints[i].y) / 2;
+        const labelW = font.widthOfTextAtSize(label, 7) + 6, labelH = 11;
+        const labelApRef = pdfBuildAppearanceStream(pdfDoc, bold, labelW, labelH, buildLabelContentStream(bold, labelW, labelH, label));
+        pdfAddNoZoomStamp(pdfDoc, page, mx - labelW / 2, my - labelH / 2, labelW, labelH, labelApRef, markerOCGs[i]);
+      }
+      const numLabel = String(i + 1);
+      const markerApRef = pdfBuildAppearanceStream(pdfDoc, bold, markerSize, markerSize, buildCircleMarkerContentStream(bold, markerSize, numLabel));
+      pdfAddNoZoomStamp(pdfDoc, page, pdfPoints[i].x - markerSize / 2, pdfPoints[i].y - markerSize / 2, markerSize, markerSize, markerApRef, markerOCGs[i]);
+      // Clicking directly on a marker does the same thing as clicking its
+      // Legend entry -- a slightly generous click target
+      // (16x16) centered on the marker.
+      const detail = detailTextFor(i);
+      pdfAddJsMultiFieldUpdateLink(pdfDoc, page, { x: pdfPoints[i].x - 8, y: pdfPoints[i].y - 8, width: 16, height: 16 }, [
+        { fieldName: "detailTitle", value: detail.title },
+        { fieldName: "detailText", value: detail.body },
+      ]);
+    }
+
+    // -------- Photos: a fixed row of thumbnails under the map (true
+    // horizontal scroll isn't something PDF supports -- no equivalent of
+    // a scrollable <div> for images), capped to whatever fits in one row,
+    // with a count of anything beyond that. Clicking a thumbnail opens a
+    // dedicated page for that photo, enlarged, with working prev/next
+    // links to every other photo and a link back to this page -- plain
+    // page-to-page navigation, the same proven mechanism the zoom buttons
+    // already use, rather than the OCG-layer approach used for the marker
+    // visibility above (see the note further up on why). --------
+    let thumbTopY = mapY - thumbGap; // same gap as between individual thumbnails, not a separate larger value
+    const photoPages = shownPhotos.map(() => pdfDoc.addPage([PAGE_W, PAGE_H])); // created now so thumbnail links can target them; content filled in at the end of this function
+    if (shownPhotos.length > 0) {
+      // Centered under the map (matching its own width/position) rather
+      // than left-aligned to the page margin.
+      const rowWidth = shownPhotos.length * thumbSize + (shownPhotos.length - 1) * thumbGap;
+      const rowStartX = MARGIN + (mapDrawW - rowWidth) / 2;
+      for (let i = 0; i < shownPhotos.length; i++) {
+        const tx0 = rowStartX + i * (thumbSize + thumbGap);
+        const ty0 = thumbTopY - thumbSize;
+        // Same rounded-corner clip technique already used for the map
+        // image itself -- drawImage has no corner-radius option of its own.
+        pushPdfRoundedRectClip(page, tx0, ty0, thumbSize, thumbSize, 8);
+        // "Cover" scaling, not "contain" -- fills the whole square so the
+        // rounding actually has something to visibly clip. A non-square
+        // photo (the normal case) previously got letterboxed within the
+        // box by pdfEmbedPhotoScaled, leaving the corners blank either
+        // way, which is why the rounding wasn't showing up before.
+        const embedded = await pdfEmbedPhotoCover(pdfDoc, shownPhotos[i].src, thumbSize);
+        if (embedded) {
+          const tx = tx0 + (thumbSize - embedded.width) / 2;
+          const ty = ty0 + (thumbSize - embedded.height) / 2;
+          page.drawImage(embedded.image, { x: tx, y: ty, width: embedded.width, height: embedded.height });
+        }
+        popPdfClip(page);
+        // Small numbered badge in the top-right corner, matching the same
+        // waypoint number shown on its map marker, so it's clear at a
+        // glance which waypoint each photo belongs to.
+        const badgeCx = tx0 + thumbSize - 2, badgeCy = ty0 + thumbSize - 2;
+        page.drawCircle({ x: badgeCx, y: badgeCy, size: 8, color: rgb(0.145, 0.388, 0.922), borderColor: rgb(1, 1, 1), borderWidth: 1.25 });
+        const badgeLabel = String(shownPhotos[i].waypointIndex + 1);
+        const badgeLabelW = bold.widthOfTextAtSize(badgeLabel, 8);
+        page.drawText(badgeLabel, { x: badgeCx - badgeLabelW / 2, y: badgeCy - 3, size: 8, font: bold, color: rgb(1, 1, 1) });
+        pdfAddInternalLink(pdfDoc, page, { x: tx0, y: ty0, width: thumbSize, height: thumbSize }, photoPages[i], { left: 0, top: PAGE_H, zoom: 1 });
+      }
+      if (morePhotosCount > 0) {
+        const moreLabel = "(+" + morePhotosCount + " more in the app)";
+        const moreLabelW = font.widthOfTextAtSize(moreLabel, 9);
+        page.drawText(moreLabel, { x: MARGIN + mapDrawW / 2 - moreLabelW / 2, y: thumbTopY - thumbSize - 14, size: 9, font, color: rgb(0.55, 0.6, 0.65) });
+      }
+    }
+
+    const columnsTopY = (shownPhotos.length > 0 ? thumbTopY - thumbSize - 20 : mapTopY - mapDrawH - 30);
+    page.drawText("Legend:", { x: MARGIN, y: columnsTopY, size: 14, font: bold });
+    page.drawText("Notes:", { x: RIGHT_COL_X, y: columnsTopY, size: 14, font: bold });
+
+    // -------- Left column: the index. Clicking an entry reveals that waypoint's content on the right; the pin icon opens the location directly in Google Maps. --------
+    const tocIconGap = 18; // reserved space for the leading map-pin icon
+    let tocY = columnsTopY - 22;
+    wps.forEach((wp, i) => {
+      const label = (i + 1) + ". " + wp.name;
+      const { lines: tocLines } = pdfWrapText(label, font, 10, TOC_COL_W - tocIconGap, 2);
+      tocLines.forEach((line, li) => {
+        page.drawText(line, { x: MARGIN + tocIconGap, y: tocY - li * 12, size: 10, font, color: rgb(0.1, 0.3, 0.75) });
+      });
+      const rowHeight = tocLines.length * 12 + 6;
+      const detail = detailTextFor(i);
+      // The text's baseline sits at tocY; its optical vertical center (for
+      // a 10pt font) sits a little above that, not below it -- centering
+      // the icon there instead of at the baseline itself is what actually
+      // lines it up with the first line of text rather than looking low.
+      const iconCx = MARGIN + 7, iconCy = tocY + 3.5;
+      drawMapPinIcon(page, iconCx, iconCy);
+      pdfAddUriLink(pdfDoc, page, { x: iconCx - 8, y: iconCy - 8, width: 16, height: 16 }, "https://www.google.com/maps/search/?api=1&query=" + wp.lat + "," + wp.lng);
+      pdfAddJsMultiFieldUpdateLink(pdfDoc, page, { x: MARGIN + tocIconGap, y: tocY - rowHeight + 6, width: TOC_COL_W - tocIconGap, height: rowHeight }, [
+        { fieldName: "detailTitle", value: detail.title },
+        { fieldName: "detailText", value: detail.body },
+      ]);
+      tocY -= rowHeight;
+    });
+
+    // -------- Left column continued: any AI-generated content, listed below the numbered waypoints. --------
+    if (storyWps.length > 0) {
+      tocY -= 12;
+      page.drawText("A.I. Generated Content", { x: MARGIN, y: tocY, size: 11, font: bold, color: rgb(0.3, 0.34, 0.4) });
+      tocY -= 18;
+      storyWps.forEach((wp) => {
+        const { lines: storyLines } = pdfWrapText(wp.name, font, 10, TOC_COL_W, 2);
+        storyLines.forEach((line, li) => {
+          page.drawText(line, { x: MARGIN, y: tocY - li * 12, size: 10, font, color: rgb(0.1, 0.3, 0.75) });
         });
-        const rowHeight = tocLines.length * 12 + 6;
-        if (!isCurrent) pdfAddInternalLink(pdfDoc, page, { x, y: rowY - rowHeight + 6, width, height: rowHeight }, appendixPages[i]);
-        rowY -= rowHeight;
+        const storyRowHeight = storyLines.length * 12 + 6;
+        const storyDetail = storyDetailTextFor(wp);
+        pdfAddJsMultiFieldUpdateLink(pdfDoc, page, { x: MARGIN, y: tocY - storyRowHeight + 6, width: TOC_COL_W, height: storyRowHeight }, [
+          { fieldName: "detailTitle", value: storyDetail.title },
+          { fieldName: "detailText", value: storyDetail.body },
+        ]);
+        tocY -= storyRowHeight;
       });
     }
-    drawTocColumn(coverPage, MARGIN, tocTopY - 22, PAGE_W - MARGIN * 2, null);
 
-    // -------- Each appendix page: the same left-column index, that waypoint's content on the right --------
-    for (let i = 0; i < wps.length; i++) {
-      const wp = wps[i];
-      const page = appendixPages[i];
-      page.drawText("Table of Contents", { x: MARGIN, y: PAGE_H - 60, size: 11, font: bold, color: rgb(0.4, 0.45, 0.52) });
-      drawTocColumn(page, MARGIN, PAGE_H - 80, TOC_COL_W, i);
+    // -------- Right column: a small always-bold title/date field above one fixed-size scrollable notes field. --------
+    const detailStartY = columnsTopY - 12.5; // aligns the box's top edge with the top of the Google Maps pin icon on the first Legend row (columnsTopY - 22 + 3.5 (icon center offset) + 6 (icon radius))
+    const detailFieldH = detailStartY - MARGIN;
+    // Drawn first, as regular page content, so its rounded corners are
+    // actually visible -- both fields sit on top with no background/
+    // border of their own (backgroundColor: undefined skips pdf-lib's own
+    // default-white fill entirely, confirmed by checking that no /MK
+    // background entry gets written at all), so this frame is the only
+    // thing giving the box its visible edge and corner radius.
+    drawPdfRoundedRect(page, RIGHT_COL_X, MARGIN, RIGHT_COL_W, detailFieldH, 10, rgb(1, 1, 1), rgb(0.7, 0.73, 0.78), 1);
+    // Both fields' own rects are inset 10pt from the drawn frame on every
+    // side -- text fills a field's rect edge-to-edge with no padding
+    // option of its own, so this is what actually keeps the text off the
+    // frame's border, while the visible frame drawn above stays full size.
+    const fieldPad = 10;
+    const titleFieldH = 40, titleGap = 8;
+    const innerX = RIGHT_COL_X + fieldPad, innerW = RIGHT_COL_W - fieldPad * 2;
+    const titleFieldY = MARGIN + detailFieldH - fieldPad - titleFieldH;
+    const notesFieldH = detailFieldH - fieldPad * 2 - titleFieldH - titleGap;
+    const notesFieldY = MARGIN + fieldPad;
 
-      const heading = (i + 1) + ". " + wp.name;
-      const { lines: headingLines } = pdfWrapText(heading, bold, 15, RIGHT_COL_W, 2);
-      let y = PAGE_H - 60;
-      headingLines.forEach((line, li) => { page.drawText(line, { x: RIGHT_COL_X, y: y - li * 17, size: 15, font: bold }); });
-      y -= headingLines.length * 17 + (wp.createdAt ? 4 : 8);
-      if (wp.createdAt) {
-        page.drawText(new Date(wp.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), {
-          x: RIGHT_COL_X, y, size: 9, font, color: rgb(0.45, 0.5, 0.58),
-        });
-        y -= 18;
-      }
+    const form = pdfDoc.getForm();
+    // pdf-lib's own BorderStyle class has a literal "TODO: also handle the
+    // /S entry" in its source -- it only ever writes /W (width), never /S
+    // (style), leaving /S unset. Per spec an absent /S should default to
+    // Solid, but the visible grey lines on specific edges (not a full
+    // rectangle) match the classic look of a viewer falling back to its
+    // own default border style instead -- so /S is forced to Solid
+    // explicitly here, directly on the underlying widget dictionary,
+    // rather than trusting an implicit default. Verified this actually
+    // persists on the real widget annotation (not just the field
+    // dictionary, which pdf-lib keeps separate) before trusting it.
+    // Separately, addToPage() also silently defaults borderColor to
+    // black when it's not explicitly passed (the same "if key not in
+    // options" pattern already discovered for backgroundColor) -- caught
+    // by inspecting the saved /MK dict and finding an unrequested /BC
+    // entry, fixed below by passing borderColor: undefined explicitly.
+    function pdfForceSolidBorderStyle(field) {
+      const { PDFName } = PDFLib;
+      field.acroField.getWidgets().forEach((widget) => {
+        widget.getOrCreateBorderStyle().dict.set(PDFName.of("S"), PDFName.of("S"));
+      });
+    }
 
-      if (wp.notes) {
-        const { lines, truncated } = pdfWrapText(wp.notes, font, 10, RIGHT_COL_W, 40);
-        lines.forEach((line) => { page.drawText(line, { x: RIGHT_COL_X, y, size: 10, font, color: rgb(0.15, 0.17, 0.2) }); y -= 13; });
-        if (truncated) { page.drawText("(continued in the app — full note is longer than fits here)", { x: RIGHT_COL_X, y, size: 8, font, color: rgb(0.5, 0.55, 0.6) }); y -= 13; }
+    // A single PDF text field can only use one font for its whole value,
+    // so the bold title/date and the regular notes body are two separate
+    // fields rather than one field with mixed formatting. Passing font:
+    // to addToPage() alone was not enough to make this stick -- verified
+    // directly (checked the field's own saved /DA font entry) that
+    // updateAppearances(font) is what actually persists the intended font,
+    // and skipping it silently left the field on the default font instead.
+    const titleField = form.createTextField("detailTitle");
+    titleField.addToPage(page, { x: innerX, y: titleFieldY, width: innerW, height: titleFieldH, font: bold, borderWidth: 0, borderColor: undefined, backgroundColor: undefined });
+    titleField.enableMultiline();
+    titleField.setFontSize(11);
+    titleField.setText("Click a waypoint number on the map, or an entry in the list on the left, to view its details here.");
+    titleField.updateAppearances(bold);
+    pdfForceSolidBorderStyle(titleField);
+
+    const detailField = form.createTextField("detailText");
+    detailField.addToPage(page, { x: innerX, y: notesFieldY, width: innerW, height: notesFieldH, font, borderWidth: 0, borderColor: undefined, backgroundColor: undefined });
+    detailField.enableMultiline();
+    detailField.enableScrolling();
+    detailField.setFontSize(10);
+    detailField.setText("");
+    detailField.updateAppearances(font);
+    pdfForceSolidBorderStyle(detailField);
+
+    // -------- Enlarged photo pages, one per photo -- plain page-to-page
+    // links for prev/next/close, the same proven navigation mechanism
+    // the zoom buttons use (see the note further up on why this replaced
+    // the original OCG-layer design). --------
+    for (let i = 0; i < shownPhotos.length; i++) {
+      const photoPage = photoPages[i];
+      photoPage.drawRectangle({ x: 0, y: PAGE_H - 50, width: PAGE_W, height: 50, color: rgb(0.09, 0.1, 0.15) });
+      const captionText = shownPhotos[i].waypointName + "  \u2014  Photo " + (i + 1) + " of " + shownPhotos.length;
+      photoPage.drawText(captionText, { x: MARGIN, y: PAGE_H - 32, size: 13, font: bold, color: rgb(1, 1, 1) });
+
+      // Reserves enough space on each side for the arrows to sit a clean
+      // 20pt outside the image's own edge even at maximum image width
+      // (20pt gap + the arrow circle's own 15pt radius, with a little to
+      // spare), rather than a fixed position relative to the page margin.
+      const maxImgW = PAGE_W - MARGIN * 2 - 80;
+      const embedded = await pdfEmbedPhotoScaled(pdfDoc, shownPhotos[i].src, maxImgW, PAGE_H - 160);
+      const arrowY = PAGE_H / 2 - 15; // falls back to page-center if the photo failed to embed
+      if (embedded) {
+        const ex = MARGIN + 40 + (maxImgW - embedded.width) / 2;
+        const ey = MARGIN + 60 + (PAGE_H - 160 - embedded.height) / 2;
+        // Same rounded-corner radius used on the map image itself, sized
+        // to the photo's own actual drawn bounds rather than a fixed box,
+        // since drawImage has no corner-radius option of its own.
+        pushPdfRoundedRectClip(photoPage, ex, ey, embedded.width, embedded.height, 10);
+        photoPage.drawImage(embedded.image, { x: ex, y: ey, width: embedded.width, height: embedded.height });
+        popPdfClip(photoPage);
+
+        const imgCenterY = ey + embedded.height / 2;
+        const imgLeft = ex, imgRight = ex + embedded.width;
+        drawPhotoNavArrows(imgCenterY, imgLeft - 20, imgRight + 20);
       } else {
-        page.drawText("No notes recorded for this waypoint.", { x: RIGHT_COL_X, y, size: 10, font, color: rgb(0.55, 0.6, 0.65) });
-        y -= 13;
+        drawPhotoNavArrows(arrowY, MARGIN + 14, PAGE_W - MARGIN - 14);
       }
-      y -= 14;
 
-      // Photo thumbnails, up to 4, in a 2x2 grid sized to the right column.
-      const photos = Array.isArray(wp.photos) ? wp.photos.slice(0, 4) : [];
-      if (photos.length > 0) {
-        const cellW = (RIGHT_COL_W - 10) / 2, cellH = 100;
-        let col = 0, row = 0;
-        for (const src of photos) {
-          const embedded = await pdfEmbedPhotoScaled(pdfDoc, src, cellW, cellH);
-          if (embedded) {
-            const cellX = RIGHT_COL_X + col * (cellW + 10);
-            const cellY = y - row * (cellH + 8) - embedded.height;
-            page.drawImage(embedded.image, { x: cellX, y: cellY, width: embedded.width, height: embedded.height });
-          }
-          col++;
-          if (col > 1) { col = 0; row++; }
-        }
-        if (Array.isArray(wp.photos) && wp.photos.length > 4) {
-          page.drawText("+" + (wp.photos.length - 4) + " more photo" + (wp.photos.length - 4 === 1 ? "" : "s") + " in the app", {
-            x: RIGHT_COL_X, y: y - (row + 1) * (cellH + 8) - 4, size: 8, font, color: rgb(0.5, 0.55, 0.6),
-          });
-        }
+      function drawPhotoNavArrows(centerY, leftEdgeX, rightEdgeX) {
+        const prevIdx = (i - 1 + shownPhotos.length) % shownPhotos.length;
+        const nextIdx = (i + 1) % shownPhotos.length;
+        const r = 15;
+        photoPage.drawCircle({ x: leftEdgeX - r, y: centerY, size: r, color: rgb(1, 1, 1), borderColor: rgb(0.6, 0.65, 0.7), borderWidth: 1 });
+        photoPage.drawText("<", { x: leftEdgeX - r - 4, y: centerY - 5, size: 16, font: bold, color: rgb(0.15, 0.17, 0.2) });
+        pdfAddInternalLink(pdfDoc, photoPage, { x: leftEdgeX - r * 2, y: centerY - r, width: r * 2, height: r * 2 }, photoPages[prevIdx], { left: 0, top: PAGE_H, zoom: 1 });
+
+        photoPage.drawCircle({ x: rightEdgeX + r, y: centerY, size: r, color: rgb(1, 1, 1), borderColor: rgb(0.6, 0.65, 0.7), borderWidth: 1 });
+        photoPage.drawText(">", { x: rightEdgeX + r - 4, y: centerY - 5, size: 16, font: bold, color: rgb(0.15, 0.17, 0.2) });
+        pdfAddInternalLink(pdfDoc, photoPage, { x: rightEdgeX, y: centerY - r, width: r * 2, height: r * 2 }, photoPages[nextIdx], { left: 0, top: PAGE_H, zoom: 1 });
       }
+
+      const closeLabel = "\u00d7 Close";
+      const closeW = bold.widthOfTextAtSize(closeLabel, 12);
+      photoPage.drawText(closeLabel, { x: PAGE_W - MARGIN - closeW, y: PAGE_H - 32, size: 12, font: bold, color: rgb(1, 1, 1) });
+      pdfAddInternalLink(pdfDoc, photoPage, { x: PAGE_W - MARGIN - closeW - 6, y: PAGE_H - 40, width: closeW + 10, height: 24 }, page, { left: MARGIN, top: mapTopY, zoom: 1 });
     }
 
     const bytes = await pdfDoc.save();
@@ -12554,6 +13344,7 @@
         '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
@@ -12564,7 +13355,7 @@
   function bindRouteFolderAccordionEvents() {
     routesPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']") || e.target.closest("[data-action='folder-share']")) return;
         const id = header.dataset.id;
         if (id === editingRouteFolderId) return;
         if (expandedRouteFolderIds.has(id)) collapseRouteFolderAndDescendants(id); else setOnlyExpandedRouteFolder(id);
@@ -12576,6 +13367,13 @@
     });
     routesPanelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); setRouteFolderVisibility(btn.dataset.id, !rideFolders.find((f) => f.id === btn.dataset.id).hidden); });
+    });
+    routesPanelList.querySelectorAll('[data-action="folder-share"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folder = rideFolders.find((f) => f.id === btn.dataset.id);
+        if (folder) openFolderShareModal(folder, "route");
+      });
     });
   }
 
@@ -12706,6 +13504,7 @@
         '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
@@ -12716,7 +13515,7 @@
   function bindMeasurementFolderAccordionEvents() {
     measurementsPanelList.querySelectorAll(".folder-accordion-header").forEach((header) => {
       header.addEventListener("click", (e) => {
-        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']")) return;
+        if (e.target.closest("[data-action='folder-rename']") || e.target.closest("[data-action='folder-toggle-visibility']") || e.target.closest("[data-action='folder-share']")) return;
         const id = header.dataset.id;
         if (id === editingMeasurementFolderId) return;
         if (expandedMeasurementFolderIds.has(id)) collapseMeasurementFolderAndDescendants(id); else setOnlyExpandedMeasurementFolder(id);
@@ -12728,6 +13527,13 @@
     });
     measurementsPanelList.querySelectorAll('[data-action="folder-toggle-visibility"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); setMeasurementFolderVisibility(btn.dataset.id, !measurementFolders.find((f) => f.id === btn.dataset.id).hidden); });
+    });
+    measurementsPanelList.querySelectorAll('[data-action="folder-share"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folder = measurementFolders.find((f) => f.id === btn.dataset.id);
+        if (folder) openFolderShareModal(folder, "measurement");
+      });
     });
   }
 
