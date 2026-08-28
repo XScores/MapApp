@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "369";
+  const APP_VERSION = "371";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6219,7 +6219,6 @@
   }
 
   map.on("click", (e) => {
-    if (isDismissibleMenuOpenForMapClick()) return; // this click is dismissing an open menu, not placing a waypoint
     if (measuringActive) {
       handleMeasureClick(e.latlng);
       return;
@@ -6244,6 +6243,13 @@
       }
       return;
     }
+    // These run after the active-mode checks above (measuring, camera
+    // placement, home picking) so an in-progress workflow like measuring
+    // a distance still takes priority even if the panel happens to be
+    // open at the same time -- only a "plain" map tap, with nothing else
+    // actively in progress, gets reinterpreted as dismissing a menu.
+    if (panel.classList.contains("open")) { closePanel(); return; } // the panel has no full-screen backdrop the way modals do (the map stays visible around it), so tapping the map is a natural "click outside to dismiss", matching its own explicit close button
+    if (isDismissibleMenuOpenForMapClick()) return; // dismissing Layers/ride-dropdown/search/list-filter, not placing a waypoint
     if (isMapClickNearInterestingPolyline(e.latlng)) {
       showToast("Tap directly on the line to see its details.");
       return;
@@ -11887,6 +11893,19 @@
         const startRect = itemEl.getBoundingClientRect(); // captured before any drag-state class could change the element's own layout
         let armed = false, dragging = false, ghostEl = null, currentDropTarget = null;
 
+        // Captured immediately, right at pointerdown -- not only once a
+        // drag actually starts. Once captured, this element keeps
+        // receiving this pointer's move/up/cancel events directly,
+        // regardless of what it physically passes over on screen (a
+        // folder header, another card, whatever), rather than depending
+        // on normal event bubbling/targeting to keep working correctly.
+        // This is the standard, MDN-documented technique for custom
+        // pointer-driven drag interactions, and is known to reduce a
+        // mobile browser's tendency to cancel an in-progress touch
+        // sequence partway through -- which is exactly the failure this
+        // is meant to address, on both touch and mouse alike.
+        try { itemEl.setPointerCapture(pointerId); } catch (err) { /* not available in every environment; falls back to normal event delivery */ }
+
         const armTimer = setTimeout(() => {
           armed = true;
           itemEl.classList.add("drag-armed");
@@ -11894,9 +11913,10 @@
 
         function cleanup() {
           clearTimeout(armTimer);
-          document.removeEventListener("pointermove", onMove);
-          document.removeEventListener("pointerup", onUp);
-          document.removeEventListener("pointercancel", onCancel);
+          itemEl.removeEventListener("pointermove", onMove);
+          itemEl.removeEventListener("pointerup", onUp);
+          itemEl.removeEventListener("pointercancel", onCancel);
+          try { itemEl.releasePointerCapture(pointerId); } catch (err) { /* already released (e.g. automatically on pointerup) */ }
           itemEl.classList.remove("drag-armed", "drag-source-hidden");
           document.body.classList.remove("dragging-active");
           if (ghostEl) { ghostEl.remove(); ghostEl = null; }
@@ -11925,16 +11945,11 @@
           moveEvent.preventDefault();
           ghostEl.style.left = (startRect.left + dx) + "px";
           ghostEl.style.top = (startRect.top + dy) + "px";
-          // The ghost already has pointer-events:none via its .drag-ghost
-          // class (set once, statically, not toggled here), which is
-          // exactly what makes elementFromPoint see through it to whatever
-          // folder is actually underneath -- an earlier version of this
-          // toggled the ghost's display on/off on every single move event
-          // to achieve the same thing, which was both unnecessary (the
-          // static CSS already covers it) and a real liability on iOS:
-          // repeatedly mutating the DOM many times per second during an
-          // active touch sequence is exactly the kind of thing that can
-          // destabilize the browser's own gesture tracking mid-drag.
+          // The ghost has pointer-events:none via its .drag-ghost class,
+          // which is what makes elementFromPoint see through it to
+          // whatever folder is actually underneath -- unrelated to, and
+          // unaffected by, the pointer capture above (capture only
+          // affects where events are delivered, not hit-testing).
           const under = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
           const folderHeader = under ? under.closest(".folder-accordion-header") : null;
           if (currentDropTarget && currentDropTarget !== folderHeader) currentDropTarget.classList.remove("drop-target-hover");
@@ -11951,9 +11966,9 @@
           if (cancelEvent.pointerId !== pointerId) return;
           cleanup();
         }
-        document.addEventListener("pointermove", onMove);
-        document.addEventListener("pointerup", onUp);
-        document.addEventListener("pointercancel", onCancel);
+        itemEl.addEventListener("pointermove", onMove);
+        itemEl.addEventListener("pointerup", onUp);
+        itemEl.addEventListener("pointercancel", onCancel);
       });
     });
   }
