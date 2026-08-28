@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "367";
+  const APP_VERSION = "368";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6202,7 +6202,24 @@
     map.flyTo([lat, lng], Math.max(zoom || map.getZoom(), 15), { duration: 0.9 });
   }
 
+  // Several small menus (Layers, the ride-type dropdown, search results,
+  // the list icon-filter dropdown) close themselves via a document-level
+  // "click outside" listener rather than a full-screen overlay backdrop.
+  // Since they don't block the click the way a modal overlay does, the
+  // same click also reaches the map underneath -- and because Leaflet's
+  // own click handler (bound closer to the click target) fires before
+  // that document-level listener gets a chance to close the menu, this
+  // check has to run here, at the top of the map's own handler, using
+  // each menu's open/closed state as it was at the moment of the click.
+  function isDismissibleMenuOpenForMapClick() {
+    return layersPanel.classList.contains("show")
+      || !rideDropdown.classList.contains("hidden")
+      || searchResultsEl.classList.contains("show")
+      || !listIconFilterDropdown.classList.contains("hidden");
+  }
+
   map.on("click", (e) => {
+    if (isDismissibleMenuOpenForMapClick()) return; // this click is dismissing an open menu, not placing a waypoint
     if (measuringActive) {
       handleMeasureClick(e.latlng);
       return;
