@@ -2214,7 +2214,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "365";
+  const APP_VERSION = "366";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2543,6 +2543,20 @@
     if (id && markers[id]) {
       const el = markers[id].getElement && markers[id].getElement();
       if (el) el.classList.add("wp-selected");
+    }
+
+    // A waypoint's own card only exists in the DOM at all while its folder
+    // (and every ancestor of it) is expanded -- a collapsed folder's body
+    // isn't rendered, not just hidden. If the card isn't there yet, expand
+    // that folder chain and re-render before trying to find/highlight it,
+    // so clicking a marker whose waypoint is tucked inside a closed folder
+    // actually reveals and highlights it instead of silently doing nothing.
+    if (id) {
+      const wp = waypoints.find((w) => w.id === id);
+      if (wp && wp.folderId && !panelList.querySelector('.card[data-id="' + CSS.escape(id) + '"]')) {
+        setOnlyExpandedFolder(wp.folderId);
+        renderList();
+      }
     }
 
     panelList.querySelectorAll(".card.selected").forEach((c) => c.classList.remove("selected"));
