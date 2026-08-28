@@ -540,7 +540,7 @@
   .drag-ghost{position:fixed; z-index:9999; pointer-events:none; opacity:.92; box-shadow:0 8px 24px rgba(0,0,0,.4);
     border-radius:10px; transform:scale(1.03);}
   .drop-target-hover{outline:2px solid var(--cyan); outline-offset:-1px; background:rgba(34,211,238,.12) !important;}
-  body.dragging-active{cursor:grabbing;}
+  body.dragging-active{cursor:grabbing; touch-action:none;}
   body.dragging-active *{-webkit-user-select:none !important; user-select:none !important; -webkit-touch-callout:none !important;}
   .folder-accordion-header.selected-for-move{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "368";
+  const APP_VERSION = "369";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -11925,12 +11925,17 @@
           moveEvent.preventDefault();
           ghostEl.style.left = (startRect.left + dx) + "px";
           ghostEl.style.top = (startRect.top + dy) + "px";
-          // The ghost sits directly under the pointer, so it has to be
-          // excluded from elementFromPoint's hit-test or it would always
-          // detect itself instead of whatever folder is underneath.
-          ghostEl.style.display = "none";
+          // The ghost already has pointer-events:none via its .drag-ghost
+          // class (set once, statically, not toggled here), which is
+          // exactly what makes elementFromPoint see through it to whatever
+          // folder is actually underneath -- an earlier version of this
+          // toggled the ghost's display on/off on every single move event
+          // to achieve the same thing, which was both unnecessary (the
+          // static CSS already covers it) and a real liability on iOS:
+          // repeatedly mutating the DOM many times per second during an
+          // active touch sequence is exactly the kind of thing that can
+          // destabilize the browser's own gesture tracking mid-drag.
           const under = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
-          ghostEl.style.display = "";
           const folderHeader = under ? under.closest(".folder-accordion-header") : null;
           if (currentDropTarget && currentDropTarget !== folderHeader) currentDropTarget.classList.remove("drop-target-hover");
           if (folderHeader) folderHeader.classList.add("drop-target-hover");
