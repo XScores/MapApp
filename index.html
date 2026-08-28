@@ -2213,7 +2213,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "361";
+  const APP_VERSION = "364";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4308,12 +4308,13 @@
         poly.on("mouseover", () => poly.setStyle(hexHoverStyleFor(cell)));
         poly.on("mouseout", () => poly.setStyle(hexStyleFor(cell)));
         poly.on("click", (e) => {
+          if (!adminMode) return; // just viewing the grid -- let the click pass through to the map underneath (e.g. to add a waypoint) instead of hijacking it
           L.DomEvent.stopPropagation(e);
           try {
             const [clat, clng] = window.h3.cellToLatLng(cell);
             map.panTo([clat, clng]);
           } catch (err) { /* ignore */ }
-          if (adminMode) openAnchorEditModal(cell);
+          openAnchorEditModal(cell);
         });
         cellToPolygon.set(cell, poly);
         group.addLayer(poly);
@@ -4365,13 +4366,10 @@
         if (showTooltip) poly.bindTooltip(res1TooltipContent(cell, word), { sticky: true, direction: "top", className: "mono" });
         poly.on("mouseover", () => poly.setStyle({ opacity: 1, fillOpacity: 0.14 }));
         poly.on("mouseout", () => poly.setStyle({ opacity: 0.5, fillOpacity: 0.03 }));
-        poly.on("click", (e) => {
-          L.DomEvent.stopPropagation(e);
-          try {
-            const [clat, clng] = window.h3.cellToLatLng(cell);
-            map.panTo([clat, clng]);
-          } catch (err) { /* ignore */ }
-        });
+        // No click handler at all -- this layer is purely a hover-based
+        // viewing aid (see its own tooltip description), so a click should
+        // reach the map underneath untouched (e.g. to add a waypoint at
+        // the actual clicked location) rather than reacting to it in any way.
         group.addLayer(poly);
       } catch (e) { /* skip malformed cell */ }
     });
@@ -11831,7 +11829,14 @@
     // config: { itemSelector, getItemId, assignToFolder(itemId, folderId) }
     listEl.querySelectorAll(config.itemSelector).forEach((itemEl) => {
       itemEl.addEventListener("pointerdown", (e) => {
-        if (e.target.closest("button, input, a, select, textarea")) return; // let normal controls inside the card work untouched
+        // Excludes the smaller action buttons (favorite, edit, share,
+        // visibility, delete, etc.) so they stay normally clickable, but
+        // NOT the main card button itself (waypoint cards wrap their
+        // entire name/icon area in a real <button class="card-main">,
+        // which covers most of the card's surface) -- excluding that too
+        // would have left almost nowhere on a waypoint card where a drag
+        // could actually begin, which is exactly the bug this fixes.
+        if (e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main")) return;
         if (e.pointerType === "mouse" && e.button !== 0) return;
         const itemId = config.getItemId(itemEl);
         if (!itemId) return;
