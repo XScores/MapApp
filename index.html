@@ -531,7 +531,8 @@
 
   .folder-accordion{margin-bottom:8px;}
   .folder-accordion-header{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer;
-    background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;}
+    background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
   .folder-accordion.expanded > .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
   .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
   .drag-armed{outline:2px solid var(--amber-light); outline-offset:2px; border-radius:10px;}
@@ -540,6 +541,7 @@
     border-radius:10px; transform:scale(1.03);}
   .drop-target-hover{outline:2px solid var(--cyan); outline-offset:-1px; background:rgba(34,211,238,.12) !important;}
   body.dragging-active{cursor:grabbing;}
+  body.dragging-active *{-webkit-user-select:none !important; user-select:none !important; -webkit-touch-callout:none !important;}
   .folder-accordion-header.selected-for-move{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .folder-accordion-chevron{flex-shrink:0; color:var(--text-mute); display:flex; transform:rotate(-90deg); transition:transform .15s;}
   .folder-accordion.expanded > .folder-accordion-header .folder-accordion-chevron{transform:rotate(0deg);}
@@ -2214,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "366";
+  const APP_VERSION = "367";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
