@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "373";
+  const APP_VERSION = "374";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -11952,6 +11952,7 @@
           document.body.classList.remove("dragging-active");
           if (ghostEl) { ghostEl.remove(); ghostEl = null; }
           if (currentDropTarget) { currentDropTarget.classList.remove("drop-target-hover"); currentDropTarget = null; }
+          if (dragging) map.dragging.enable(); // only re-enables what was actually turned off below, harmless to call otherwise
         }
 
         function onMove(moveEvent) {
@@ -11986,6 +11987,18 @@
             // completely untouched, while still gaining pointer capture's
             // reliability for the remainder of an actual drag.
             try { itemEl.setPointerCapture(pointerId); captured = true; } catch (err) { /* not available in every environment; falls back to normal event delivery */ }
+            // Explicitly turns off the map's own touch-pan handling for
+            // the duration of this drag. The panel sits above the map in
+            // z-index and is a separate element in the DOM, not nested
+            // inside it, so this isn't a straightforward stacking bug --
+            // but the map remains visible and interactive in the space
+            // around the panel, and on iOS specifically, a drag starting
+            // near that shared space can end up moving the map instead of
+            // the dragged item. Rather than relying on assumptions about
+            // exactly how that happens, this removes the ambiguity
+            // directly: the map simply can't pan while an item is being
+            // dragged, regardless of the underlying mechanism.
+            map.dragging.disable();
           }
           moveEvent.preventDefault();
           ghostEl.style.left = (startRect.left + dx) + "px";
