@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "375";
+  const APP_VERSION = "376";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -11902,6 +11902,20 @@
         let armed = false, dragging = false, ghostEl = null, currentDropTarget = null, captured = false;
         let autoScrollTimer = null, autoScrollDirection = 0, autoScrollSpeed = 0, lastPointerX = startX, lastPointerY = startY;
 
+        // Disabled immediately here, not once an actual drag is confirmed
+        // further down. Leaflet starts tracking a potential pan the
+        // moment a touch begins, with no knowledge of this long-press
+        // arming period -- so by the time this code later confirms a
+        // drag and tries to turn map panning off, Leaflet may already
+        // have been following that same touch for the entire arm delay,
+        // and disabling a handler after a gesture is already underway
+        // doesn't necessarily unwind what it's already doing. Disabling
+        // right away, before any movement is even possible, closes that
+        // gap entirely. A plain tap re-enables it just as quickly in
+        // cleanup(), so there's no real window where this matters for
+        // normal map interaction.
+        try { map.dragging.disable(); } catch (err) { /* must not prevent the rest of this handler from running */ }
+
         // Re-run from both onMove (on actual pointer movement) and the
         // auto-scroll tick below (so the highlighted folder stays correct
         // even while the pointer sits still at the edge and the list
@@ -11952,7 +11966,7 @@
           document.body.classList.remove("dragging-active");
           if (ghostEl) { ghostEl.remove(); ghostEl = null; }
           if (currentDropTarget) { currentDropTarget.classList.remove("drop-target-hover"); currentDropTarget = null; }
-          if (dragging) { try { map.dragging.enable(); } catch (err) { /* must not block the rest of cleanup, or onUp's subsequent assignToFolder call */ } }
+          try { map.dragging.enable(); } catch (err) { /* must not block the rest of cleanup, or onUp's subsequent assignToFolder call */ }
         }
 
         function onMove(moveEvent) {
@@ -11987,18 +12001,6 @@
             // completely untouched, while still gaining pointer capture's
             // reliability for the remainder of an actual drag.
             try { itemEl.setPointerCapture(pointerId); captured = true; } catch (err) { /* not available in every environment; falls back to normal event delivery */ }
-            // Explicitly turns off the map's own touch-pan handling for
-            // the duration of this drag. The panel sits above the map in
-            // z-index and is a separate element in the DOM, not nested
-            // inside it, so this isn't a straightforward stacking bug --
-            // but the map remains visible and interactive in the space
-            // around the panel, and on iOS specifically, a drag starting
-            // near that shared space can end up moving the map instead of
-            // the dragged item. Rather than relying on assumptions about
-            // exactly how that happens, this removes the ambiguity
-            // directly: the map simply can't pan while an item is being
-            // dragged, regardless of the underlying mechanism.
-            try { map.dragging.disable(); } catch (err) { /* if this ever throws on some browser, the drag itself must still proceed rather than being silently halted here */ }
           }
           moveEvent.preventDefault();
           ghostEl.style.left = (startRect.left + dx) + "px";
