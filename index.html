@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "374";
+  const APP_VERSION = "375";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -11952,7 +11952,7 @@
           document.body.classList.remove("dragging-active");
           if (ghostEl) { ghostEl.remove(); ghostEl = null; }
           if (currentDropTarget) { currentDropTarget.classList.remove("drop-target-hover"); currentDropTarget = null; }
-          if (dragging) map.dragging.enable(); // only re-enables what was actually turned off below, harmless to call otherwise
+          if (dragging) { try { map.dragging.enable(); } catch (err) { /* must not block the rest of cleanup, or onUp's subsequent assignToFolder call */ } }
         }
 
         function onMove(moveEvent) {
@@ -11998,7 +11998,7 @@
             // exactly how that happens, this removes the ambiguity
             // directly: the map simply can't pan while an item is being
             // dragged, regardless of the underlying mechanism.
-            map.dragging.disable();
+            try { map.dragging.disable(); } catch (err) { /* if this ever throws on some browser, the drag itself must still proceed rather than being silently halted here */ }
           }
           moveEvent.preventDefault();
           ghostEl.style.left = (startRect.left + dx) + "px";
