@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "377";
+  const APP_VERSION = "378";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -10698,9 +10698,21 @@
         currentStoryAudioEl = audioEl;
         currentStorySpeechState = "playing";
         updateListenButtons();
+        // Falls back to device voice here too, not just on a failed
+        // synthesizeGeminiSpeech call above -- that only covers the
+        // network/API request itself. The audio can still fail once it
+        // actually reaches playback (autoplay restrictions, a blob the
+        // browser can't decode, etc.), and previously that just gave up
+        // silently instead of trying the fallback at all.
+        const fallBackToDeviceVoice = () => {
+          if (currentStorySpeechId !== id) return;
+          showToast("Gemini voice unavailable — using device voice instead.");
+          currentStoryUsesGemini = false;
+          speakStoryWithDeviceVoice(id, wp.notes);
+        };
         audioEl.onended = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
-        audioEl.onerror = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
-        audioEl.play().catch(() => { if (currentStorySpeechId === id) stopStorySpeech(); });
+        audioEl.onerror = fallBackToDeviceVoice;
+        audioEl.play().catch(fallBackToDeviceVoice);
       }).catch((e) => {
         console.warn("[gemini-tts] falling back to device voice:", e && e.message);
         if (currentStorySpeechId !== id) return; // cancelled while the request was in flight
