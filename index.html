@@ -2216,7 +2216,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "376";
+  const APP_VERSION = "377";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -11953,6 +11953,19 @@
         const armTimer = setTimeout(() => {
           armed = true;
           itemEl.classList.add("drag-armed");
+          // Applied here, at the moment the long-press itself completes --
+          // not later, once actual movement is detected inside onMove.
+          // The finger has been completely still for the whole hold (any
+          // real movement before this point would have cancelled the arm
+          // via the threshold check below), so iOS's own scroll-gesture
+          // recognizer for this scrollable list hasn't started evaluating
+          // anything yet -- that only begins once movement itself starts.
+          // Applying touch-action:none here, before the first movement
+          // happens rather than after, is what actually lands in time for
+          // iOS to honor it, instead of the list's native scroll already
+          // having won that first movement by the time this code would
+          // otherwise get around to setting it.
+          document.body.classList.add("dragging-active");
         }, DRAG_LONG_PRESS_MS);
 
         function cleanup() {
@@ -11983,7 +11996,6 @@
           }
           if (!dragging) {
             dragging = true;
-            document.body.classList.add("dragging-active");
             itemEl.classList.add("drag-source-hidden");
             ghostEl = itemEl.cloneNode(true);
             ghostEl.classList.add("drag-ghost"); // adds to (rather than replaces) the cloned card's own classes, so it keeps its normal background/padding/border instead of showing unstyled floating text
