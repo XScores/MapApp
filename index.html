@@ -286,6 +286,15 @@
   .modal-coords{font-size:12px; color:var(--text-mute); margin:0 0 12px;}
   .modal-coords-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
   .modal-coords-row .modal-coords{margin:0;}
+  .modal-coords-row-right{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  /* Scoped narrower than the standalone weather-snapshot used elsewhere (the
+     panel's own Live Weather section) -- this one sits inline next to the
+     Forecast button, not stacked as its own full-width block. */
+  #modalWeatherContainer .weather-snapshot{margin-top:0; padding:4px 8px; border-radius:8px;}
+  #modalWeatherContainer .weather-snapshot-summary b{font-size:13px;}
+  #modalWeatherContainer .layers-accordion-content{position:absolute; right:0; margin-top:4px; z-index:5;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:8px 12px; width:max-content; max-width:220px;}
+  #modalWeatherContainer{position:relative;}
   .modal-forecast-btn{flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
     font-size:12px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer;}
   .modal-forecast-btn:hover{border-color:#7c3aed;}
@@ -1155,7 +1164,10 @@
       </div>
       <div class="modal-coords-row">
         <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
-        <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
+        <div class="modal-coords-row-right">
+          <div id="modalWeatherContainer"></div>
+          <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
+        </div>
       </div>
 
       <div class="code-row" id="wordCodeSection">
@@ -1239,7 +1251,6 @@
       </div>
       <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none;" />
       <p class="layers-hint" id="photoStatus" style="display:none;"></p>
-      <div id="modalWeatherContainer"></div>
 
       <div class="btn-row">
         <button class="btn btn-danger hidden" id="deleteWaypointBtn">Delete</button>
@@ -2238,7 +2249,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "384";
+  const APP_VERSION = "386";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -10187,6 +10198,7 @@
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => { nameInput.focus(); nameInput.select(); }, 30);
+    modalInitialSnapshot = captureModalSnapshot();
   }
 
   function openEditModal(wp) {
@@ -10235,6 +10247,7 @@
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => nameInput.focus(), 30);
+    modalInitialSnapshot = captureModalSnapshot();
   }
 
   function closeModal() {
@@ -10242,6 +10255,7 @@
     document.body.classList.remove("modal-open");
     stopVoice();
     stopNotesToolbarDictation();
+    modalInitialSnapshot = null;
   }
 
   locateBtn.addEventListener("click", () => {
@@ -10264,7 +10278,42 @@
     );
   });
 
+  // Snapshot of every editable field's value, taken once the modal has
+  // fully populated (at the end of openModal/openEditModal) -- compared
+  // against the same fields' current values when the user tries to close
+  // without saving, so an actual, unsaved edit can be distinguished from
+  // just opening and closing the modal untouched.
+  let modalInitialSnapshot = null;
+  function captureModalSnapshot() {
+    return JSON.stringify({
+      name: nameInput.value,
+      notes: notesInput.value,
+      url: urlInput.value,
+      dateTime: waypointDateTimeInput.value,
+      markerStyle: pendingMarkerStyle,
+      markerColor: markerColorInput.value,
+      markerEmoji: markerEmojiInput.value,
+      photos: pendingPhotos,
+      review: pendingReview,
+    });
+  }
+  function modalHasUnsavedChanges() {
+    if (modalInitialSnapshot === null) return false; // no snapshot taken -- treat as nothing to lose rather than risk a false warning
+    return captureModalSnapshot() !== modalInitialSnapshot;
+  }
   function cancelPendingModal() {
+    if (modalHasUnsavedChanges()) {
+      openConfirmModal(
+        "Discard changes?",
+        "You have unsaved edits that will be lost if you close without saving.",
+        () => { performCancelPendingModal(); },
+        { confirmLabel: "Discard", danger: true, cancelLabel: "Keep Editing" }
+      );
+      return;
+    }
+    performCancelPendingModal();
+  }
+  function performCancelPendingModal() {
     clearPendingMarker();
     if (editingWaypointId) {
       const wp = waypoints.find((w) => w.id === editingWaypointId);
