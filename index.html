@@ -287,6 +287,13 @@
   .modal-coords-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
   .modal-coords-row .modal-coords{margin:0;}
   .modal-coords-row-right{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  /* The date/time field now shares its row with the weather pill and
+     Forecast button (narrower than before to make room) -- aligned to the
+     bottom of the row so the input itself lines up with those controls,
+     since only the date field has its own label sitting above it. */
+  .modal-datetime-row{display:flex; align-items:flex-end; gap:10px; margin-bottom:16px;}
+  .modal-datetime-row #waypointDateTimeSection{flex:1; min-width:0; margin-bottom:0;}
+  .modal-datetime-row #waypointDateTimeSection .field-input{width:100%;}
   /* Scoped narrower than the standalone weather-snapshot used elsewhere (the
      panel's own Live Weather section) -- this one sits inline next to the
      Forecast button, not stacked as its own full-width block. */
@@ -1162,16 +1169,27 @@
           <button class="icon-btn" id="modalCloseBtn" data-icon="x"></button>
         </div>
       </div>
-      <div class="modal-coords-row">
-        <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
+      <div id="nameFieldSection">
+        <label class="field-label">Name</label>
+        <div class="name-row">
+          <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
+        </div>
+      </div>
+
+      <div class="modal-datetime-row">
+        <div id="waypointDateTimeSection">
+          <label class="field-label">Date &amp; time</label>
+          <input id="waypointDateTimeInput" class="field-input" type="datetime-local" />
+        </div>
         <div class="modal-coords-row-right">
           <div id="modalWeatherContainer"></div>
           <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
         </div>
       </div>
 
-      <div class="code-row" id="wordCodeSection">
+      <div class="modal-coords-row" id="wordCodeSection">
         <span class="code-badge amber mono" id="modalWordCode"></span>
+        <p class="modal-coords mono" id="modalCoords">0.000000, 0.000000</p>
       </div>
 
       <div id="homeLocationSection" style="display:none;">
@@ -1189,22 +1207,10 @@
         </div>
       </div>
 
-      <div id="nameFieldSection">
-        <label class="field-label">Name</label>
-        <div class="name-row">
-          <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
-        </div>
-      </div>
-
-      <div id="waypointDateTimeSection">
-        <label class="field-label">Date &amp; time</label>
-        <input id="waypointDateTimeInput" class="field-input" type="datetime-local" />
-      </div>
-
       <div class="field-label-row">
         <div class="journal-tab-row" id="notesReviewTabRow">
           <button type="button" class="journal-tab-btn active" id="notesFieldLabelBtn">Notes</button>
-          <button type="button" class="journal-tab-btn" id="reviewFieldLabelBtn">Review</button>
+          <button type="button" class="journal-tab-btn" id="reviewFieldLabelBtn">Reviews</button>
         </div>
         <div class="rte-toolbar" id="notesToolbar">
           <button type="button" class="rte-btn rte-mic-btn" id="notesToolbarMicBtn" title="Dictate at cursor — or at the end if nothing's selected"><span class="icon"></span></button>
@@ -2249,7 +2255,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "386";
+  const APP_VERSION = "387";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6429,7 +6435,7 @@
     // everything else from the previous full list, restored after the curated set
     "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
     "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊",
-    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣",
+    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣", "🐟", "🦌", "🫎",
     "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰",
     "🚒", "🚑", "🚨", "🆘",
     "📍", "❤️", "🚩", "🎯"
@@ -10164,7 +10170,7 @@
     editingWaypointId = null;
     editingHomeMode = false;
     deleteWaypointBtn.classList.add("hidden");
-    wordCodeSection.style.display = "block";
+    wordCodeSection.style.display = "flex"; // this row is a flex layout (code badge + coords side by side), not a plain block
     nameFieldSection.style.display = "block";
     waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
@@ -10210,7 +10216,7 @@
     // are a centroid, it has no link of its own, and there's no weather to
     // fetch for it. Hide those sections rather than show data that doesn't
     // mean anything here, matching how the card already treats these.
-    wordCodeSection.style.display = isStoryWp ? "none" : "block";
+    wordCodeSection.style.display = isStoryWp ? "none" : "flex";
     nameFieldSection.style.display = "block";
     waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
