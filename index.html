@@ -304,6 +304,12 @@
   input[type="search"]::-webkit-search-results-button,
   input[type="search"]::-webkit-search-results-decoration{-webkit-appearance:none; appearance:none;}
   input[type="search"].field-input{-webkit-appearance:none; appearance:none;}
+  input[type="range"].field-input{-webkit-appearance:none; appearance:none; background:none; border:none; padding:0; height:24px; cursor:pointer;}
+  input[type="range"].field-input::-webkit-slider-runnable-track{background:var(--surface-2); border:1px solid var(--border); border-radius:10px; height:8px;}
+  input[type="range"].field-input::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%;
+    background:var(--amber); border:2px solid var(--surface); margin-top:-6px; box-shadow:0 1px 3px rgba(0,0,0,.4);}
+  input[type="range"].field-input::-moz-range-track{background:var(--surface-2); border:1px solid var(--border); border-radius:10px; height:8px;}
+  input[type="range"].field-input::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:var(--amber); border:2px solid var(--surface);}
   textarea{resize:none;}
   #notesInput{margin-bottom:16px;}
   #urlFieldSection{margin-bottom:16px;}
@@ -1071,6 +1077,8 @@
             <label class="field-label">Voice</label>
             <select id="ttsVoiceNameSelect" class="field-input"></select>
           </div>
+          <label class="field-label">Speed <span id="ttsSpeedValueLabel"></span></label>
+          <input type="range" id="ttsSpeedSlider" class="field-input" min="0.5" max="2" step="0.05" />
         </div>
 
         <div class="layers-section">
@@ -1530,6 +1538,8 @@
           <button type="button" class="btn btn-secondary" id="voiceSettingsTestBtn"></button>
         </div>
       </div>
+      <label class="field-label">Speed <span id="voiceSettingsSpeedValueLabel"></span></label>
+      <input type="range" id="voiceSettingsSpeedSlider" class="field-input" min="0.5" max="2" step="0.05" />
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-secondary" id="voiceSettingsSetDefaultBtn">Set as Default</button>
         <button type="button" class="btn btn-primary" id="voiceSettingsDoneBtn">Done</button>
@@ -2228,7 +2238,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "382";
+  const APP_VERSION = "384";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2248,7 +2258,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
   // endpoint as the text models used elsewhere in this file, just with
@@ -2723,6 +2733,8 @@
   const ttsGeminiOptions = el("ttsGeminiOptions");
   const ttsVoiceStyleSelect = el("ttsVoiceStyleSelect");
   const ttsVoiceNameSelect = el("ttsVoiceNameSelect");
+  const ttsSpeedSlider = el("ttsSpeedSlider");
+  const ttsSpeedValueLabel = el("ttsSpeedValueLabel");
   const panelToggleBtn = el("panelToggleBtn");
   const countBadge = el("countBadge");
   const counterNumber = el("counterNumber");
@@ -3591,6 +3603,8 @@
   const voiceSettingsGeminiOptions = el("voiceSettingsGeminiOptions");
   const voiceSettingsStyleSelect = el("voiceSettingsStyleSelect");
   const voiceSettingsNameSelect = el("voiceSettingsNameSelect");
+  const voiceSettingsSpeedSlider = el("voiceSettingsSpeedSlider");
+  const voiceSettingsSpeedValueLabel = el("voiceSettingsSpeedValueLabel");
   const voiceSettingsTestText = el("voiceSettingsTestText");
   const voiceSettingsTestBtn = el("voiceSettingsTestBtn");
   const voiceSettingsTestStatus = el("voiceSettingsTestStatus");
@@ -3618,6 +3632,8 @@
     ttsGeminiOptions.classList.toggle("hidden", !useGemini);
     ttsVoiceStyleSelect.value = settings.ttsVoiceStyle;
     ttsVoiceNameSelect.value = settings.ttsVoiceName;
+    ttsSpeedSlider.value = settings.ttsSpeed;
+    ttsSpeedValueLabel.textContent = settings.ttsSpeed.toFixed(2) + "x";
   }
   populateTtsSelects();
   ttsUseGeminiToggle.addEventListener("change", () => {
@@ -3627,6 +3643,11 @@
   });
   ttsVoiceStyleSelect.addEventListener("change", () => { settings.ttsVoiceStyle = ttsVoiceStyleSelect.value; saveSettings(); refreshTtsUi(); });
   ttsVoiceNameSelect.addEventListener("change", () => { settings.ttsVoiceName = ttsVoiceNameSelect.value; saveSettings(); refreshTtsUi(); });
+  ttsSpeedSlider.addEventListener("input", () => {
+    settings.ttsSpeed = parseFloat(ttsSpeedSlider.value);
+    ttsSpeedValueLabel.textContent = settings.ttsSpeed.toFixed(2) + "x"; // updates live while dragging, not just on release
+  });
+  ttsSpeedSlider.addEventListener("change", () => { saveSettings(); }); // saved once the slider is released, not on every intermediate value while dragging
 
   // The Voice Settings modal's own toggle/selects are a *draft* --
   // deliberately not auto-saved on every change, unlike the Settings
@@ -3637,12 +3658,15 @@
   let voiceSettingsDraftProvider = settings.ttsProvider;
   let voiceSettingsDraftStyle = settings.ttsVoiceStyle;
   let voiceSettingsDraftVoice = settings.ttsVoiceName;
+  let voiceSettingsDraftSpeed = settings.ttsSpeed;
   function applyVoiceSettingsDraftToUI() {
     const useGemini = voiceSettingsDraftProvider === "gemini";
     voiceSettingsUseGeminiToggle.checked = useGemini;
     voiceSettingsGeminiOptions.classList.toggle("hidden", !useGemini);
     voiceSettingsStyleSelect.value = voiceSettingsDraftStyle;
     voiceSettingsNameSelect.value = voiceSettingsDraftVoice;
+    voiceSettingsSpeedSlider.value = voiceSettingsDraftSpeed;
+    voiceSettingsSpeedValueLabel.textContent = voiceSettingsDraftSpeed.toFixed(2) + "x";
   }
   voiceSettingsUseGeminiToggle.addEventListener("change", () => {
     voiceSettingsDraftProvider = voiceSettingsUseGeminiToggle.checked ? "gemini" : "device";
@@ -3650,10 +3674,15 @@
   });
   voiceSettingsStyleSelect.addEventListener("change", () => { voiceSettingsDraftStyle = voiceSettingsStyleSelect.value; });
   voiceSettingsNameSelect.addEventListener("change", () => { voiceSettingsDraftVoice = voiceSettingsNameSelect.value; });
+  voiceSettingsSpeedSlider.addEventListener("input", () => {
+    voiceSettingsDraftSpeed = parseFloat(voiceSettingsSpeedSlider.value);
+    voiceSettingsSpeedValueLabel.textContent = voiceSettingsDraftSpeed.toFixed(2) + "x";
+  });
   voiceSettingsSetDefaultBtn.addEventListener("click", () => {
     settings.ttsProvider = voiceSettingsDraftProvider;
     settings.ttsVoiceStyle = voiceSettingsDraftStyle;
     settings.ttsVoiceName = voiceSettingsDraftVoice;
+    settings.ttsSpeed = voiceSettingsDraftSpeed;
     saveSettings();
     refreshTtsUi(); // brings the Settings panel's own copies in line with the new default too
     showToast("Default voice updated");
@@ -3746,6 +3775,7 @@
     voiceSettingsDraftProvider = settings.ttsProvider;
     voiceSettingsDraftStyle = settings.ttsVoiceStyle;
     voiceSettingsDraftVoice = settings.ttsVoiceName;
+    voiceSettingsDraftSpeed = settings.ttsSpeed;
     applyVoiceSettingsDraftToUI();
     setVoiceTestStatus("");
     voiceSettingsModalOverlay.classList.remove("hidden");
@@ -7163,16 +7193,21 @@
   }
 
   // Continuously keeps the live position centered in whatever space is
-  // actually visible below the open Route card — not just clear of it, but
-  // centered within it — recalculated on every GPS fix so the map scrolls
-  // to follow as the user moves, the same way turn-by-turn navigation does.
-  function followRidePosition(lat, lng) {
+  // Continuously keeps a live position centered in whatever space is
+  // actually visible below a given overlay HUD -- not just clear of it,
+  // but centered within it -- recalculated on every GPS fix so the map
+  // scrolls to follow as the user moves, the same way turn-by-turn
+  // navigation does. Generalized (originally written for the Route HUD
+  // specifically) so both active route tracking and hands-free voice
+  // capture can share the exact same, already-proven-correct centering
+  // math against whichever of their own overlays is actually on screen.
+  function followCurrentPosition(lat, lng, hudEl) {
     try {
-      if (!rideHud || rideHud.classList.contains("hidden")) {
+      if (!hudEl || hudEl.classList.contains("hidden")) {
         map.panTo([lat, lng], { animate: true, duration: 0.4 });
         return;
       }
-      const hudRect = rideHud.getBoundingClientRect();
+      const hudRect = hudEl.getBoundingClientRect();
       const mapSize = map.getSize();
       const availableTop = hudRect.bottom; // #map fills the full viewport (inset:0), so this is directly comparable to container points
       const availableHeight = mapSize.y - availableTop;
@@ -7187,6 +7222,7 @@
       map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: true, duration: 0.4 });
     } catch (e) { /* if the map API doesn't support this in some edge case, just skip the pan rather than break tracking */ }
   }
+  function followRidePosition(lat, lng) { followCurrentPosition(lat, lng, rideHud); }
 
   let rideStartMarker = null, rideEndMarker = null;
   let viewedRideStartMarker = null, viewedRideEndMarker = null;
@@ -10707,6 +10743,7 @@
       synthesizeGeminiSpeech(wp.notes).then((url) => {
         if (currentStorySpeechId !== id) return; // cancelled or superseded while the request was in flight
         const audioEl = new Audio(url);
+        audioEl.playbackRate = settings.ttsSpeed;
         currentStoryAudioEl = audioEl;
         currentStorySpeechState = "playing";
         updateListenButtons();
@@ -10739,7 +10776,7 @@
   function speakStoryWithDeviceVoice(id, text) {
     if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); stopStorySpeech(); return; }
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.0;
+    utter.rate = settings.ttsSpeed;
     utter.onend = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
     utter.onerror = () => { if (currentStorySpeechId === id) stopStorySpeech(); };
     currentStorySpeechId = id;
@@ -10772,7 +10809,7 @@
   function speakTestWithDeviceVoice(text) {
     if (!window.speechSynthesis) { showToast("Speech playback isn't supported in this browser — try Chrome or Safari."); stopTestNarration(); return; }
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.0;
+    utter.rate = voiceSettingsDraftSpeed;
     utter.onend = stopTestNarration;
     utter.onerror = stopTestNarration;
     window.speechSynthesis.speak(utter);
@@ -10790,6 +10827,7 @@
         if (!testNarrationPlaying) return; // stopped while the request was in flight
         setVoiceTestStatus("");
         const audioEl = new Audio(url);
+        audioEl.playbackRate = voiceSettingsDraftSpeed;
         testNarrationAudioEl = audioEl;
         audioEl.onended = () => { stopTestNarration(); setVoiceTestStatus(""); };
         audioEl.onerror = () => { stopTestNarration(); setVoiceTestStatus("Playback failed.", "error"); };
@@ -11165,7 +11203,19 @@
       speak("Hands-free waypoints on.");
       if (navigator.geolocation && navigator.geolocation.watchPosition) {
         handsFreeWatchId = navigator.geolocation.watchPosition(
-          (pos) => { handsFreeLastPosition = pos; },
+          (pos) => {
+            handsFreeLastPosition = pos;
+            // Hands-free is squarely a "moving while using this" mode
+            // (driving, most often) -- the live position dot was already
+            // tracking correctly here, but nothing ever kept the map
+            // centered on it, so it would visibly drift toward and off
+            // the edge of the screen the longer the drive went on. This
+            // reuses the exact centering math already proven correct for
+            // active route tracking, aimed at whichever HUD (the voice
+            // capture panel) is actually covering the map right now.
+            updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude);
+            followCurrentPosition(pos.coords.latitude, pos.coords.longitude, voiceCapturePanel);
+          },
           () => { /* a watch error just means we fall back to getCurrentPosition when "waypoint" is heard -- nothing to surface here */ },
           { enableHighAccuracy: true, maximumAge: 5000 }
         );
