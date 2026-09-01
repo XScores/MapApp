@@ -805,6 +805,7 @@
     border-radius:12px; padding:14px 18px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
   .ride-hud.hidden{display:none;}
   .ride-hud-header{display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; margin-bottom:6px;}
+  .ride-hud-header.hidden{display:none;}
   .ride-hud-title{font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
   .ride-hud-header-actions{display:flex; gap:6px; flex-shrink:0;}
   .ride-hud-edit-btn.hidden{display:none;}
@@ -818,23 +819,25 @@
   .ride-hud.viewing-mode .ride-hud-value{font-size:21px;}
   .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
   .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
-    border:none; border-radius:8px; padding:8px; cursor:pointer;}
+    border:none; border-radius:8px; padding:8px 4px; cursor:pointer; white-space:nowrap;}
   .ride-hud-stop-btn:hover{filter:brightness(1.1);}
   .ride-hud-stop-btn.hidden{display:none;}
-  .ride-hud-prefs-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 0 12px;}
-  .ride-hud-prefs-row.hidden{display:none;}
-  .ride-hud-wakelock-row{display:flex; align-items:center; gap:8px; padding:0; cursor:pointer;
-    font-size:13px; color:#cbd5e1;}
-  .ride-hud-wakelock-row input{accent-color:#a78bfa; width:16px; height:16px; flex-shrink:0; cursor:pointer;}
-  .unit-toggle{display:flex; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:2px; flex-shrink:0;}
-  .unit-toggle-btn{background:none; border:none; color:var(--text-mute); font-size:11px; font-weight:700;
-    padding:4px 10px; border-radius:6px; cursor:pointer;}
-  .unit-toggle-btn.active{background:#7c3aed; color:#fff;}
+  /* A state toggle, not an action button, so it reads differently from its
+     row-mates: outlined/neutral when off, filled to match them once on.
+     Sized to its own short label (flex:0 0 auto) rather than sharing the
+     row equally -- the other three buttons (already the longest labels in
+     this row) keep flex:1 and simply get a bit narrower to make room,
+     rather than everyone splitting the row four ways evenly. */
+  .ride-hud-wake-btn{flex:0 0 auto; background:transparent; border:1px solid var(--border); color:#cbd5e1; padding:8px 10px;}
+  .ride-hud-wake-btn.active{background:#7c3aed; border-color:#7c3aed; color:#fff;}
+  .ride-hud-wake-btn:disabled{opacity:.4; cursor:not-allowed;}
   .ride-hud-save-form{margin-top:10px;}
   .ride-hud-save-form.hidden{display:none;}
   .ride-hud-notes-textarea{width:100%; min-height:60px; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
     border-radius:8px; color:var(--text); font-size:13px; padding:8px; font-family:inherit; box-sizing:border-box; margin-top:4px;}
-  .ride-hud-confirm-save-btn{width:100%; margin-top:10px;}
+  .ride-hud-save-form-actions{display:flex; gap:8px; margin-top:10px;}
+  .ride-hud-back-btn{background:transparent; border:1px solid var(--border); color:#cbd5e1;}
+  .ride-hud-confirm-save-btn{flex:1;}
   .route-endpoint-marker{width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     border:2px solid #fff; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.45);}
   .distance-marker{min-width:22px; height:22px; border-radius:11px; background:rgba(15,23,42,.92); border:2px solid;
@@ -1777,7 +1780,7 @@
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
-    <div class="ride-hud-header">
+    <div class="ride-hud-header" id="rideHudHeader">
       <span class="ride-hud-title" id="rideHudTitle"></span>
       <div class="ride-hud-header-actions">
         <button class="panel-close ride-hud-edit-btn hidden" id="rideHudEditBtn" title="Edit name"></button>
@@ -1795,25 +1798,23 @@
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel6">Avg Speed</span><span class="ride-hud-value" id="rideHudAvgSpeed">0.0</span></div>
     </div>
     <div id="rideHudWeatherContainer"></div>
-    <div class="ride-hud-prefs-row" id="rideHudPrefsRow">
-      <label class="layers-option ride-hud-wakelock-row" id="rideHudWakeLockRow"><input type="checkbox" id="keepScreenAwakeToggle" /><span>Keep screen awake</span></label>
-      <div class="unit-toggle" id="unitToggle">
-        <button type="button" class="unit-toggle-btn" data-unit="km">KM</button>
-        <button type="button" class="unit-toggle-btn" data-unit="mi">MI</button>
-      </div>
-    </div>
     <div class="ride-hud-btn-row">
-      <button class="ride-hud-stop-btn" id="rideHudStopBtn">Pause Route</button>
-      <button class="ride-hud-stop-btn hidden" id="rideHudResumeBtn">Resume Route</button>
-      <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save Route</button>
-      <button class="ride-hud-stop-btn" id="rideHudViewRoutesBtn">View Routes</button>
+      <button type="button" class="ride-hud-stop-btn ride-hud-wake-btn" id="keepScreenAwakeToggle">Keep Awake</button>
+      <button class="ride-hud-stop-btn" id="rideHudStopBtn">Pause</button>
+      <button class="ride-hud-stop-btn hidden" id="rideHudResumeBtn">Resume</button>
+      <button class="ride-hud-stop-btn hidden" id="rideHudCancelBtn">Cancel</button>
+      <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save</button>
+      <button class="ride-hud-stop-btn hidden" id="rideHudViewRoutesBtn">View Routes</button>
     </div>
     <div class="ride-hud-save-form hidden" id="rideHudSaveForm">
       <label class="field-label">Name</label>
       <input type="text" id="rideHudNameInput" class="field-input" maxlength="80" />
       <label class="field-label" style="margin-top:8px;">Notes</label>
       <textarea id="rideHudNotesInput" class="ride-hud-notes-textarea" rows="3" placeholder="Optional notes about this route…"></textarea>
-      <button class="ride-hud-stop-btn ride-hud-confirm-save-btn" id="rideHudConfirmSaveBtn">Save Route</button>
+      <div class="ride-hud-save-form-actions">
+        <button class="ride-hud-stop-btn ride-hud-back-btn" id="rideHudSaveFormBackBtn">Back</button>
+        <button class="ride-hud-stop-btn ride-hud-confirm-save-btn" id="rideHudConfirmSaveBtn">Save Route</button>
+      </div>
     </div>
   </div>
 
@@ -2261,7 +2262,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "392";
+  const APP_VERSION = "395";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2656,22 +2657,22 @@
   const rideHudTime = el("rideHudTime");
   const rideHudDistance = el("rideHudDistance");
   const rideHudSpeed = el("rideHudSpeed");
-  const rideHudPrefsRow = el("rideHudPrefsRow");
-  const rideHudWakeLockRow = el("rideHudWakeLockRow");
-  const unitToggle = el("unitToggle");
   const unitTempSwitch = el("unitTempSwitch");
   const unitDistanceSwitch = el("unitDistanceSwitch");
   const unitSmallDistanceSwitch = el("unitSmallDistanceSwitch");
   const unitSpeedSwitch = el("unitSpeedSwitch");
   const rideHudStopBtn = el("rideHudStopBtn");
   const rideHudResumeBtn = el("rideHudResumeBtn");
+  const rideHudCancelBtn = el("rideHudCancelBtn");
   const rideHudSaveBtn = el("rideHudSaveBtn");
   const rideHudSaveForm = el("rideHudSaveForm");
   const rideHudNameInput = el("rideHudNameInput");
   const rideHudNotesInput = el("rideHudNotesInput");
   const rideHudConfirmSaveBtn = el("rideHudConfirmSaveBtn");
+  const rideHudSaveFormBackBtn = el("rideHudSaveFormBackBtn");
   const rideHudCloseXBtn = el("rideHudCloseXBtn");
   const rideHudTitle = el("rideHudTitle");
+  const rideHudHeader = el("rideHudHeader");
   const rideHudEditBtn = el("rideHudEditBtn");
   const rideHudStatsRow2 = el("rideHudStatsRow2");
   const rideHudLabel4 = el("rideHudLabel4");
@@ -6903,16 +6904,17 @@
   }
 
   if (wakeLockSupported) {
-    keepScreenAwakeToggle.checked = !!settings.keepScreenAwake;
-    keepScreenAwakeToggle.addEventListener("change", () => {
-      settings.keepScreenAwake = keepScreenAwakeToggle.checked;
+    keepScreenAwakeToggle.classList.toggle("active", !!settings.keepScreenAwake);
+    keepScreenAwakeToggle.addEventListener("click", () => {
+      settings.keepScreenAwake = !settings.keepScreenAwake;
+      keepScreenAwakeToggle.classList.toggle("active", settings.keepScreenAwake);
       saveSettings();
       updateWakeLock();
     });
     if (settings.keepScreenAwake) updateWakeLock();
   } else {
     keepScreenAwakeToggle.disabled = true;
-    rideHudWakeLockRow.querySelector("span").textContent = "Keep screen awake (not supported)";
+    keepScreenAwakeToggle.title = "Not supported on this device/browser";
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") updateWakeLock();
@@ -6940,32 +6942,10 @@
     }
     renderRoutesList(); // route cards show distance too
   }
-  function setUnitToggleUI() {
-    unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.unit === settings.units.distance);
-    });
-  }
-  setUnitToggleUI();
-  unitToggle.querySelectorAll(".unit-toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      // A quick, single km/mi toggle in this compact context sets distance
-      // and speed together, since that matches what someone tapping "mi"
-      // here would expect — the Settings tab has fully independent
-      // controls for anyone who wants a different combination.
-      settings.units.distance = btn.dataset.unit;
-      settings.units.speed = btn.dataset.unit === "mi" ? "mph" : "kmh";
-      saveSettings();
-      setUnitToggleUI();
-      refreshUnitDisplay();
-      syncUnitsSettingsUI();
-    });
-  });
 
-  // Settings tab: four fully independent unit toggles — unlike the quick
-  // km/mi toggle above, these are never linked to each other, so someone
-  // can mix (for example) distance in miles with temperature in Celsius if
-  // that's genuinely what they want.
+  // Settings tab: four fully independent unit toggles -- these are never
+  // linked to each other, so someone can mix (for example) distance in
+  // miles with temperature in Celsius if that's genuinely what they want.
   const UNIT_SWITCHES = [
     { el: unitTempSwitch, key: "temperature", metricValue: "c", imperialValue: "f" },
     { el: unitDistanceSwitch, key: "distance", metricValue: "km", imperialValue: "mi" },
@@ -6990,7 +6970,6 @@
       saveSettings();
       syncUnitsSettingsUI();
       refreshUnitDisplay();
-      setUnitToggleUI(); // keeps the route-HUD km/mi toggle in sync if distance or speed changed here
     });
   });
   syncUnitsSettingsUI();
@@ -7466,18 +7445,29 @@
     rideHudCurrentState = state;
     rideHudStopBtn.classList.toggle("hidden", state !== "tracking");
     rideHudResumeBtn.classList.toggle("hidden", state !== "unsaved");
-    rideHudSaveBtn.classList.toggle("hidden", state !== "unsaved");
-    rideHudViewRoutesBtn.classList.toggle("hidden", state === "unsaved"); // Resume+Save take this row's other slot instead
-    rideHudSaveForm.classList.add("hidden"); // always start collapsed; Save Route reveals it explicitly
-    rideHudPrefsRow.classList.toggle("hidden", state === "viewing");
+    // Cancel and Save now cover tracking and unsaved (paused) alike -- Save
+    // used to only appear once already paused, but there's no reason it
+    // should require that extra step now that clicking it pauses on its
+    // own if needed. View Routes, in turn, only makes sense once viewing a
+    // saved route (it has no place in an in-progress, unsaved ride) so it
+    // moves the other way, from "tracking-or-viewing" to "viewing only".
+    rideHudCancelBtn.classList.toggle("hidden", state !== "tracking" && state !== "unsaved");
+    rideHudSaveBtn.classList.toggle("hidden", state !== "tracking" && state !== "unsaved");
+    rideHudViewRoutesBtn.classList.toggle("hidden", state !== "viewing");
+    // Keep Awake only matters while a ride is actually being recorded
+    // (tracking or paused, ready to resume) -- same scope the old
+    // checkbox's row had.
+    keepScreenAwakeToggle.classList.toggle("hidden", state !== "tracking" && state !== "unsaved");
+    rideHudSaveForm.classList.add("hidden"); // always start collapsed; Save reveals it explicitly
     rideHudStatsRow2.classList.toggle("hidden", state !== "viewing");
     rideHud.classList.toggle("viewing-mode", state === "viewing"); // halves the stat value text size while reviewing a saved route
     rideHudEditBtn.classList.toggle("hidden", state !== "viewing");
     if (state !== "viewing") { rideHudTitle.textContent = ""; rideHudWeatherContainer.innerHTML = ""; }
-    // Close-X is always available now — Pause preserves the route rather than
-    // finalizing it, so there's no state where accidentally tapping X could
-    // silently destroy in-progress GPS data the way a hard Stop used to.
-    rideHudCloseXBtn.classList.remove("hidden");
+    // The header row (title + edit/close-X) only has anything to show while
+    // viewing a saved route -- tracking/unsaved have no title to display,
+    // and Cancel now covers what the X used to do for them, so the row
+    // (and the vertical space it took) goes away entirely for those states.
+    rideHudHeader.classList.toggle("hidden", state !== "viewing");
   }
 
   // Mitigates iOS's "Shake to Undo" popping up mid-ride from bike-mount
@@ -7551,7 +7541,7 @@
   // straight back up — it does NOT finalize the route the way the old Stop
   // used to. The elapsed-time display freezes too (moving time, not wall
   // clock), same as any normal stopwatch pause.
-  function pauseRide() {
+  function pauseRide(silent) {
     if (rideWatchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(rideWatchId); rideWatchId = null; }
     clearInterval(rideTimerInterval);
     wakeLockRideActive = false;
@@ -7580,9 +7570,33 @@
     const { start, end } = placeEndpointMarkers(ridePoints, currentActivityType);
     rideStartMarker = start; rideEndMarker = end;
     showRideHudState("unsaved");
-    showToast("Route paused.");
+    if (!silent) showToast("Route paused.");
   }
-  rideHudStopBtn.addEventListener("click", pauseRide);
+  rideHudStopBtn.addEventListener("click", () => pauseRide(false));
+
+  // Cancel is now the only way to fully discard an in-progress route (the
+  // old always-available X is gone, replaced by this explicit button) --
+  // covers both actively-tracking and paused-but-unsaved alike, since both
+  // have real GPS data on the line. An empty, just-started ride has nothing
+  // to lose, so only warn once there's actually a recorded point or two.
+  function cancelCurrentRide() {
+    // Matches the same "too short to matter" bar pauseRide already uses --
+    // a single recorded point is just the starting location, not an actual
+    // traveled path yet, so there's nothing meaningful to warn about losing
+    // until a second point exists.
+    const hasProgress = ridePoints.length >= 2;
+    if (hasProgress) {
+      openConfirmModal(
+        "Discard this route?",
+        "You'll lose the time and distance recorded so far.",
+        () => { discardCurrentRide(); },
+        { confirmLabel: "Discard", danger: true, cancelLabel: "Keep Going" }
+      );
+      return;
+    }
+    discardCurrentRide();
+  }
+  rideHudCancelBtn.addEventListener("click", cancelCurrentRide);
 
   // Picks the route back up right where Pause left it — same points, same
   // accumulated distance and moving time, just resuming GPS recording.
@@ -7619,11 +7633,27 @@
     rideHudNameInput.value = info.label + " " + new Date(rideStartTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
     rideHudNotesInput.value = "";
     rideHudResumeBtn.classList.add("hidden");
+    rideHudCancelBtn.classList.add("hidden");
     rideHudSaveBtn.classList.add("hidden");
     rideHudSaveForm.classList.remove("hidden");
     setTimeout(() => { rideHudNameInput.focus(); rideHudNameInput.select(); }, 50);
   }
-  rideHudSaveBtn.addEventListener("click", revealSaveForm);
+  // Save now reaches this directly from an actively-tracking ride too, not
+  // just after an explicit Pause -- pausing first (same as tapping Pause
+  // Route would) so the stats shown while naming it are frozen rather than
+  // still climbing underneath the form. Skips straight to the form if
+  // already paused, and does nothing further if the ride turned out too
+  // short to save at all (pauseRide already discards and hides the HUD in
+  // that case, so there's no form left to reveal).
+  function handleSaveBtnClick() {
+    if (rideHudCurrentState === "tracking") pauseRide(true);
+    if (rideHudCurrentState === "unsaved") revealSaveForm();
+  }
+  rideHudSaveBtn.addEventListener("click", handleSaveBtnClick);
+  // Backs out of naming without discarding the route itself -- the ride
+  // stays paused, ready to resume, cancel, or save again from the normal
+  // button row this returns to.
+  rideHudSaveFormBackBtn.addEventListener("click", () => { showRideHudState("unsaved"); });
 
   function confirmSaveRoute() {
     const info = activityInfo(currentActivityType);
