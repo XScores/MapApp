@@ -17,7 +17,7 @@
 <style>
   :root{
     --bg:#020617; --panel-bg:rgba(15,23,42,.95); --surface:#0f172a; --surface-2:#1e293b;
-    --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#94a3b8; --text-mute:#8896ad;
+    --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#c3cddc; --text-mute:#aebacb;
     --amber:#f59e0b; --amber-light:#fbbf24; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
     /* Hover/active steps for every round icon button (topbar buttons, modal
        close buttons, panel sync/close) -- the button's own idle background
@@ -394,11 +394,15 @@
   .measure-edit-banner-actions .btn{padding:8px 12px; font-size:13px; flex:1;}
 
   /* ---------- point-edit toolbar (route/measurement point editing) ---------- */
-  .point-edit-toolbar{position:absolute; top:64px; left:12px; right:12px; z-index:55; display:flex; align-items:center;
-    gap:8px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:10px; padding:8px 10px;
+  .point-edit-toolbar{position:absolute; top:calc(64px + env(safe-area-inset-top)); left:12px; right:12px; z-index:55; display:flex; align-items:center;
+    flex-wrap:wrap; gap:8px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:10px; padding:8px 10px;
     box-shadow:0 6px 20px rgba(0,0,0,.4); font-size:12.5px; color:var(--text-dim);}
   .point-edit-toolbar.hidden{display:none;}
   .point-edit-toolbar-hint{flex:1; min-width:0;}
+  /* .btn/.btn-secondary/.btn-primary are sized for full-width modal footer
+     rows -- overridden here to match the compact Add/Delete point buttons
+     they now share a row with, rather than looming over them. */
+  .point-edit-toolbar-btn{flex:0 0 auto; padding:6px 12px; font-size:12.5px; border-radius:8px;}
   .point-edit-mode-btn{display:flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--border);
     border-radius:8px; padding:6px 10px; font-size:12.5px; color:var(--text-dim); cursor:pointer; flex-shrink:0;}
   .point-edit-mode-btn.active{background:rgba(34,211,238,.18); border-color:var(--cyan); color:var(--text);}
@@ -1149,6 +1153,8 @@
   </div>
 
   <div class="point-edit-toolbar hidden" id="pointEditToolbar">
+    <button type="button" class="btn btn-secondary point-edit-toolbar-btn" id="pointEditCancelBtn">Cancel</button>
+    <button type="button" class="btn btn-primary point-edit-toolbar-btn" id="pointEditSaveBtn">Save</button>
     <span class="point-edit-toolbar-hint"></span>
     <button type="button" class="point-edit-mode-btn" id="pointEditAddBtn" data-mode="add" title="Tap the line to add a point"><span class="icon"></span><span>Add point</span></button>
     <button type="button" class="point-edit-mode-btn" id="pointEditDeleteBtn" data-mode="delete" title="Tap a point to delete it"><span class="icon"></span><span>Delete point</span></button>
@@ -2255,7 +2261,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "387";
+  const APP_VERSION = "392";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2571,6 +2577,13 @@
   let currentlyViewedMeasurementId = null;
   let measureEditBanner = null;
   let editLivePoints = [];
+  // Snapshot of editLivePoints taken when point-editing starts and again
+  // after every explicit Save, so a later close attempt can tell whether
+  // there's anything that would actually be lost.
+  let pointEditSavedSnapshot = null;
+  function pointEditHasUnsavedChanges() {
+    return pointEditSavedSnapshot !== null && JSON.stringify(editLivePoints) !== pointEditSavedSnapshot;
+  }
   function setSelectedWaypointMarker(id) {
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
@@ -2929,6 +2942,8 @@
   const pointEditToolbar = el("pointEditToolbar");
   const pointEditAddBtn = el("pointEditAddBtn");
   const pointEditDeleteBtn = el("pointEditDeleteBtn");
+  const pointEditCancelBtn = el("pointEditCancelBtn");
+  const pointEditSaveBtn = el("pointEditSaveBtn");
   const measureViewCloseBtn = el("measureViewCloseBtn");
   const micBtn = el("micBtn");
   const deleteWaypointBtn = el("deleteWaypointBtn");
@@ -7037,6 +7052,22 @@
     const mStr = h > 0 ? String(m).padStart(2, "0") : String(m);
     return (h > 0 ? h + ":" : "") + mStr + ":" + String(s).padStart(2, "0");
   }
+  // Seconds-free version used only for the live Route HUD's main Time
+  // stat, which sits in a fixed-width row alongside Distance and Speed --
+  // once a ride runs past an hour, the full H:MM:SS string got long enough
+  // to visually collide with the Distance value next to it. Always shows
+  // H:MM (even at zero hours) so the format never jumps between styles as
+  // a ride crosses the one-hour mark. The full-precision seconds are never
+  // actually lost -- durationMs itself keeps millisecond precision, and
+  // every other display of a ride's duration (the saved-route review
+  // screen, its card in the list, and shared/exported text) still calls
+  // formatDuration above and shows seconds as before.
+  function formatDurationNoSeconds(ms) {
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h + ":" + String(m).padStart(2, "0");
+  }
   function formatDistance(meters) {
     if (settings.units.distance === "mi") return (meters / 1609.344).toFixed(2) + " mi";
     return (meters / 1000).toFixed(2) + " km";
@@ -7073,7 +7104,7 @@
   }
 
   function updateRideHud() {
-    rideHudTime.textContent = formatDuration(currentElapsedMs());
+    rideHudTime.textContent = formatDurationNoSeconds(currentElapsedMs());
     rideHudDistance.textContent = formatDistanceValue(rideDistanceMeters);
     rideHudSpeed.textContent = formatSpeedValue(currentSpeedKmh);
   }
@@ -7218,10 +7249,19 @@
   // specifically) so both active route tracking and hands-free voice
   // capture can share the exact same, already-proven-correct centering
   // math against whichever of their own overlays is actually on screen.
+  // Kept as an instant jump rather than an animated pan: GPS fixes during
+  // an active ride can arrive every second or faster (enableHighAccuracy),
+  // well inside a typical animation's duration -- each new fix would
+  // interrupt the previous pan before it finished, so the map would
+  // perpetually chase a moving target and visibly lag behind the true,
+  // correctly-centered position rather than ever actually reaching it.
+  // An instant re-center on every fix has no such lag: the visible
+  // "smoothness" comes from the fix frequency itself, the same way
+  // turn-by-turn navigation apps already do this.
   function followCurrentPosition(lat, lng, hudEl) {
     try {
       if (!hudEl || hudEl.classList.contains("hidden")) {
-        map.panTo([lat, lng], { animate: true, duration: 0.4 });
+        map.panTo([lat, lng], { animate: false });
         return;
       }
       const hudRect = hudEl.getBoundingClientRect();
@@ -7236,7 +7276,7 @@
         centerPoint.x + (targetPoint.x - desiredScreenX),
         centerPoint.y + (targetPoint.y - desiredScreenY)
       );
-      map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: true, duration: 0.4 });
+      map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: false });
     } catch (e) { /* if the map API doesn't support this in some edge case, just skip the pan rather than break tracking */ }
   }
   function followRidePosition(lat, lng) { followCurrentPosition(lat, lng, rideHud); }
@@ -7665,11 +7705,25 @@
   // actively tracking OR paused-but-unsaved, it discards the whole route (per
   // "discard unless saved") — now safe to offer in both cases since Pause no
   // longer risks losing anything by accident the way the old immediate Stop
-  // did. A saved route being looked back at just closes, nothing to lose there.
+  // did. A saved route being looked back at just closes, nothing to lose there
+  // -- unless its points have been dragged/added/deleted since the last Save,
+  // in which case this is now the one place that would actually lose that
+  // work, so it gets its own warning first.
   rideHudCloseXBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (rideHudCurrentState === "tracking" || rideHudCurrentState === "unsaved") discardCurrentRide();
-    else if (rideHudCurrentState === "viewing") closeViewedRide();
+    else if (rideHudCurrentState === "viewing") {
+      if (pointEditKind === "route" && pointEditHasUnsavedChanges()) {
+        openConfirmModal(
+          "Discard changes?",
+          "You have unsaved point edits that will be lost if you close without saving.",
+          () => { finishPointEdit(false); },
+          { confirmLabel: "Discard", danger: true, cancelLabel: "Keep Editing" }
+        );
+        return;
+      }
+      closeViewedRide();
+    }
   });
 
   function closeRideDropdown() { rideDropdown.classList.add("hidden"); }
@@ -8273,6 +8327,21 @@
   // tears down whatever's currently shown for that item, replaces it with
   // a draggable/editable line centered on screen, and shows the toolbar +
   // banner. kind is "route" or "measurement".
+  // The toolbar's CSS position clears the top icon bar on its own. But
+  // editing a saved route's points keeps that route's HUD card open too
+  // (so its stats stay visible while dragging points), and the HUD's
+  // height varies with its content -- a second fixed guess for "below the
+  // HUD" would drift out of sync with it, so this measures the HUD's
+  // actual rendered bottom edge instead.
+  function positionPointEditToolbar() {
+    if (rideHud && !rideHud.classList.contains("hidden")) {
+      const hudRect = rideHud.getBoundingClientRect();
+      pointEditToolbar.style.top = (hudRect.bottom + 10) + "px";
+    } else {
+      pointEditToolbar.style.top = ""; // fall back to the CSS default (clears the top icon bar)
+    }
+  }
+  window.addEventListener("resize", () => { if (!pointEditToolbar.classList.contains("hidden")) positionPointEditToolbar(); });
   function startPointEdit(kind, id, options) {
     options = options || {};
     const item = kind === "route" ? rides.find((r) => r.id === id) : measurements.find((mm) => mm.id === id);
@@ -8312,8 +8381,13 @@
     }
 
     pointEditToolbar.classList.remove("hidden");
+    positionPointEditToolbar();
     setPointEditMode("drag");
-    showMeasureEditBanner({ points: editLivePoints, showArea: pointEditKind === "measurement" });
+    // Routes keep their HUD open and close via its own X button (with an
+    // unsaved-changes check there); measurements have no equivalent, so
+    // Save still means save-and-close for them, same as before.
+    pointEditSaveBtn.textContent = kind === "route" ? "Save" : "Save & Hide";
+    pointEditSavedSnapshot = JSON.stringify(editLivePoints);
   }
   function startEditingMeasurementPoints(id) { startPointEdit("measurement", id); }
   function startEditingRoutePoints(id) {
@@ -8363,49 +8437,75 @@
     pointEditMode = "drag";
     editLivePoints = [];
   }
+  // Commits editLivePoints to the underlying route/measurement without
+  // deciding whether to also exit edit mode -- shared by finishPointEdit's
+  // save-and-exit path and the toolbar's own Save button for routes
+  // (save-in-place, since routes now exit via the HUD's X button instead).
+  // Returns false (without saving) if there aren't enough points yet.
+  function commitPointEditSave() {
+    const kind = pointEditKind;
+    const id = pointEditId;
+    const item = kind === "route" ? rides.find((r) => r.id === id) : kind === "measurement" ? measurements.find((mm) => mm.id === id) : null;
+    if (!item) return false;
+    if (editLivePoints.length < 2) {
+      showToast((kind === "route" ? "A route" : "A measurement") + " needs at least 2 points.");
+      return false;
+    }
+    item.points = editLivePoints.slice();
+    item.updatedAt = Date.now();
+    if (kind === "route") {
+      let newDistance = 0;
+      for (let i = 0; i < item.points.length - 1; i++) {
+        newDistance += haversineMeters(item.points[i].lat, item.points[i].lng, item.points[i + 1].lat, item.points[i + 1].lng);
+      }
+      item.distanceMeters = newDistance; // duration/timestamps stay as originally recorded
+      saveRides();
+      showToast("Route updated");
+      renderRoutesList();
+      // The HUD stays open through a route save now, so its own Distance
+      // stat needs to reflect the edit immediately rather than showing a
+      // now-stale number until the next full view.
+      if (rideHudCurrentState === "viewing") rideHudDistance.textContent = formatDistanceValue(item.distanceMeters);
+    } else {
+      saveMeasurements();
+      showToast("Measurement updated");
+      renderMeasurementsList();
+    }
+    pointEditSavedSnapshot = JSON.stringify(editLivePoints);
+    return true;
+  }
   function finishPointEdit(save) {
     const kind = pointEditKind;
     const id = pointEditId;
     const item = kind === "route" ? rides.find((r) => r.id === id) : kind === "measurement" ? measurements.find((mm) => mm.id === id) : null;
 
     if (save && item) {
-      if (editLivePoints.length < 2) {
-        showToast((kind === "route" ? "A route" : "A measurement") + " needs at least 2 points.");
-        return;
-      }
-      item.points = editLivePoints.slice();
-      item.updatedAt = Date.now();
-      if (kind === "route") {
-        let newDistance = 0;
-        for (let i = 0; i < item.points.length - 1; i++) {
-          newDistance += haversineMeters(item.points[i].lat, item.points[i].lng, item.points[i + 1].lat, item.points[i + 1].lng);
-        }
-        item.distanceMeters = newDistance; // duration/timestamps stay as originally recorded
-        saveRides();
-        showToast("Route updated");
-        renderRoutesList();
-      } else {
-        saveMeasurements();
-        showToast("Measurement updated");
-        renderMeasurementsList();
-      }
+      if (!commitPointEditSave()) return;
     }
 
     teardownPointEditDisplay();
 
-    // Editing is now the same state as viewing, so "done" always means
-    // fully closing -- there's no separate static view left to fall back
-    // to. Both routes and measurements use the same eyeball-controlled
-    // visibility model, so "Save & Hide" (or Cancel) always means the item
-    // is no longer shown on the map afterward, regardless of whether it
-    // happened to be visible via the eyeball before editing started --
-    // editing itself was what was showing it (via its own temporary
-    // editable line), not the eyeball, so there's nothing to restore back to.
+    // This path now only ever runs for Cancel (both kinds) or a
+    // measurement's Save (routes' own Save commits in place via
+    // commitPointEditSave without reaching here at all -- see
+    // pointEditSaveBtn below). Cancel always means the item is no longer
+    // shown on the map afterward: editing itself was what was showing it
+    // (via its own temporary editable line), not the eyeball, so there's
+    // nothing to restore back to.
     if (item) {
       if (kind === "route") closeViewedRide();
       else { removeMeasurementVisibilityLayer(id); refreshMeasurementVisibilityButton(id); }
     }
   }
+  pointEditCancelBtn.addEventListener("click", () => finishPointEdit(false));
+  pointEditSaveBtn.addEventListener("click", () => {
+    // Routes: save in place and stay open, since the HUD's own X button is
+    // now how the route actually gets closed (with its own unsaved-changes
+    // check). Measurements have no such HUD/X to hand off to, so Save
+    // keeps meaning save-and-close for them, same as always.
+    if (pointEditKind === "route") commitPointEditSave();
+    else finishPointEdit(true);
+  });
   measureEditPointsBtn.addEventListener("click", () => {
     const id = currentlyViewedMeasurementId;
     commitMeasurementRename();
