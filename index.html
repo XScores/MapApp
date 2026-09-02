@@ -879,6 +879,13 @@
     box-shadow:0 0 0 4px rgba(66,133,244,.3), 0 1px 4px rgba(0,0,0,.4);}
 
   .ride-card{display:flex; align-items:center; gap:12px; cursor:pointer;}
+  /* The info block grows taller with weather/notes, but the action buttons
+     (visibility, favorite, edit, delete) should stay pinned level with the
+     title at the top of that block, not drift down to the card's vertical
+     center as extra lines get added below the title. The round icon badge
+     is left centered -- it's a distinct visual badge, not part of the text
+     flow the buttons need to track. */
+  .ride-card > button{align-self:flex-start; margin-top:1px;}
   .ride-card:hover{border-color:rgba(167,139,250,.4);}
   .ride-card-icon{flex-shrink:0; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.06);
     display:flex; align-items:center; justify-content:center;}
@@ -1195,6 +1202,7 @@
       <div class="modal-header">
         <h2 id="modalTitle">New waypoint</h2>
         <div class="modal-header-actions">
+          <button class="icon-btn" id="modalCameraBtn" title="Take a photo"></button>
           <button class="icon-btn" id="micBtn" title="Voice input — say &quot;name&quot; or &quot;note&quot; to dictate, &quot;done&quot; to end"></button>
           <button class="icon-btn" id="modalCloseBtn" data-icon="x"></button>
         </div>
@@ -2282,7 +2290,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "401";
+  const APP_VERSION = "403";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2967,6 +2975,7 @@
   const pointEditSaveBtn = el("pointEditSaveBtn");
   const measureViewCloseBtn = el("measureViewCloseBtn");
   const micBtn = el("micBtn");
+  const modalCameraBtn = el("modalCameraBtn");
   const deleteWaypointBtn = el("deleteWaypointBtn");
   const cancelBtn = el("cancelBtn");
   const saveBtn = el("saveBtn");
@@ -3036,6 +3045,7 @@
   el("hudIcon").innerHTML = icon("crosshair", 11);
   locateBtn.innerHTML = icon("navigation", 18);
   cameraBtn.innerHTML = icon("camera", 18);
+  modalCameraBtn.innerHTML = icon("camera", 18);
   pointEditAddBtn.querySelector(".icon").innerHTML = icon("plus", 14);
   pointEditDeleteBtn.querySelector(".icon").innerHTML = icon("trash", 14);
   voiceWaypointBtn.innerHTML = icon("mic", 18);
@@ -9770,10 +9780,24 @@
   }
 
   cameraBtn.addEventListener("click", () => cameraCaptureInput.click());
+  modalCameraBtn.addEventListener("click", () => { modalPhotoCaptureActive = true; cameraCaptureInput.click(); });
   cameraCaptureInput.addEventListener("change", () => {
     const file = cameraCaptureInput.files && cameraCaptureInput.files[0];
     if (file) {
-      if (cardPhotoTargetId) {
+      if (modalPhotoCaptureActive) {
+        // Triggered from the New/Edit Waypoint modal's own camera button --
+        // add straight into this in-progress waypoint's pending photos
+        // rather than starting a whole separate "new waypoint from photo"
+        // flow. Mobile camera capture is one photo per tap by design (the
+        // OS closes the camera after each shot) -- the toast nudges the
+        // user to tap again for another rather than the flow silently
+        // looking "done" after just one. Guarded against the modal having
+        // been closed while the native camera UI was up, however unlikely.
+        if (!modalOverlay.classList.contains("hidden")) {
+          addPhotoFiles(cameraCaptureInput.files);
+          showToast("Photo added — tap the camera icon again to add another.");
+        }
+      } else if (cardPhotoTargetId) {
         // Triggered from a specific waypoint's camera button on its card --
         // add the photo directly to that waypoint, skipping the GPS/nearby-
         // waypoint flow entirely since the target is already known.
@@ -9783,6 +9807,7 @@
         handleCameraCapture(file);
       }
     }
+    modalPhotoCaptureActive = false;
     cardPhotoTargetId = null;
     cameraCaptureInput.value = "";
   });
@@ -14691,6 +14716,12 @@
   });
 
   let cardPhotoTargetId = null;
+  // Set true only for the span between tapping the New/Edit Waypoint
+  // modal's own camera button and that single capture's change event
+  // firing -- routes the photo into the modal's in-progress pendingPhotos
+  // instead of the default "create a new waypoint from this photo" flow
+  // (or a specific card's own camera target, if that's what's active).
+  let modalPhotoCaptureActive = false;
   cardPhotoFileInput.addEventListener("change", () => {
     const wp = waypoints.find((w) => w.id === cardPhotoTargetId);
     if (wp && cardPhotoFileInput.files && cardPhotoFileInput.files.length) {
