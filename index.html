@@ -828,6 +828,7 @@
   .ride-hud-title{font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
   .ride-hud-header-actions{display:flex; gap:6px; flex-shrink:0;}
   .ride-hud-edit-btn.hidden{display:none;}
+  .ride-hud-edit-btn.active{background:#7c3aed; color:#fff;}
   .ride-hud-title-input{flex:1; min-width:0; background:var(--surface-2); border:1px solid #7c3aed; border-radius:6px;
     color:var(--text); font-size:15px; font-weight:700; padding:3px 8px; font-family:inherit;}
   .ride-hud-stats-row{display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;}
@@ -2281,7 +2282,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "400";
+  const APP_VERSION = "401";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -7741,7 +7742,8 @@
 
   function closeViewedRide() {
     const strayInput = rideHud.querySelector(".ride-hud-title-input");
-    if (strayInput) { strayInput.replaceWith(rideHudTitle); rideHudEditBtn.classList.remove("hidden"); }
+    if (strayInput) { strayInput.replaceWith(rideHudTitle); }
+    rideHudEditBtn.classList.remove("active");
     rideHud.classList.add("hidden");
     rideHudCurrentState = null;
     if (pointEditKind === "route") teardownPointEditDisplay();
@@ -7930,15 +7932,22 @@
     // then keeps it in sync as the user zooms into a specific section.
     viewedRideBaseInterval = pickBaseMarkerInterval(ride.distanceMeters);
     viewedRideFitZoom = map.getZoom();
-    refreshDistanceMarkers(ride.points, info.color, viewedRideDistanceMarkers, viewedRideBaseInterval);
 
     panel.classList.remove("open");
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
 
-    // A static, non-editable line -- draggable points and the add/delete
-    // toolbar only appear once Edit is explicitly clicked, rather than
-    // automatically just from looking at a saved route.
+    drawStaticRouteDisplay(ride);
+  }
+
+  // Draws the route's read-only display: distance markers, a plain
+  // (non-editable) line, and endpoint markers. Used both when first
+  // viewing a route and when toggling point-edit mode back off via the
+  // Edit button, so both paths land on exactly the same static look.
+  function drawStaticRouteDisplay(ride) {
+    const info = activityInfo(ride.activityType);
+    const latlngs = ride.points.map((p) => [p.lat, p.lng]);
+    refreshDistanceMarkers(ride.points, info.color, viewedRideDistanceMarkers, viewedRideBaseInterval);
     viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
     viewedRideHitbox = addWideClickHitbox(latlngs, {
       click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); },
@@ -8585,7 +8594,6 @@
     input.maxLength = 80;
     input.value = currentlyViewedRide.name;
     rideHudTitle.replaceWith(input);
-    rideHudEditBtn.classList.add("hidden");
     input.focus();
     input.select();
     function commit() {
@@ -8596,25 +8604,50 @@
       renderRoutesList();
       rideHudTitle.textContent = newName;
       input.replaceWith(rideHudTitle);
-      rideHudEditBtn.classList.remove("hidden");
     }
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
     input.addEventListener("blur", commit, { once: true });
   }
   rideHudEditBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    startEditRouteTitle();
-    // The toolbar (draggable points, add/delete) now only ever appears from
-    // this explicit click -- viewing a route on its own just shows the
-    // static line and stats, nothing editable, until this is pressed.
-    // Guarded against re-triggering if already mid-edit on this same route:
-    // startPointEdit re-reads points fresh from the saved data and would
-    // silently wipe out an in-progress, unsaved drag otherwise.
+    // A toggle now: still visible (not swapped out) while editing, and
+    // shown as active/selected, so a second click on the very same button
+    // is what turns editing back off -- rather than editing being a
+    // one-way door out of the static view.
     const alreadyEditingThisRoute = pointEditKind === "route" && currentlyViewedRide && pointEditId === currentlyViewedRide.id;
-    if (currentlyViewedRide && !alreadyEditingThisRoute) {
+    if (alreadyEditingThisRoute) {
+      exitRoutePointEditKeepViewing();
+      return;
+    }
+    startEditRouteTitle();
+    if (currentlyViewedRide) {
       startPointEdit("route", currentlyViewedRide.id, { keepHud: true, skipFitBounds: true });
+      rideHudEditBtn.classList.add("active");
     }
   });
+  // Turns point-edit mode back off without closing the route card itself --
+  // the toolbar and draggable points go away, and the static line/stats
+  // return exactly as they looked before Edit was ever pressed. Distinct
+  // from Cancel, which discards and fully closes the whole card instead.
+  function exitRoutePointEditKeepViewing() {
+    const strayInput = rideHud.querySelector(".ride-hud-title-input");
+    if (strayInput) strayInput.blur(); // commit any rename still in progress first
+    const finish = () => {
+      teardownPointEditDisplay();
+      rideHudEditBtn.classList.remove("active");
+      if (currentlyViewedRide) drawStaticRouteDisplay(currentlyViewedRide);
+    };
+    if (pointEditHasUnsavedChanges()) {
+      openConfirmModal(
+        "Discard changes?",
+        "You have unsaved point edits that will be lost if you stop editing without saving.",
+        finish,
+        { confirmLabel: "Discard", danger: true, cancelLabel: "Keep Editing" }
+      );
+      return;
+    }
+    finish();
+  }
 
   function deleteRide(id) {
     const ride = rides.find((r) => r.id === id);
