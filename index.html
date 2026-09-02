@@ -302,6 +302,14 @@
   #modalWeatherContainer .layers-accordion-content{position:absolute; right:0; margin-top:4px; z-index:5;
     background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:8px 12px; width:max-content; max-width:220px;}
   #modalWeatherContainer{position:relative;}
+  /* Same compact, inline treatment as #modalWeatherContainer above -- this
+     one now sits in the ride HUD's header row, next to the edit/close
+     icons, rather than as its own full-width block further down the card. */
+  #rideHudWeatherContainer .weather-snapshot{margin-top:0; padding:4px 8px; border-radius:8px;}
+  #rideHudWeatherContainer .weather-snapshot-summary b{font-size:13px;}
+  #rideHudWeatherContainer .layers-accordion-content{position:absolute; right:0; margin-top:4px; z-index:5;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:8px 12px; width:max-content; max-width:220px;}
+  #rideHudWeatherContainer{position:relative;}
   .modal-forecast-btn{flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
     font-size:12px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer;}
   .modal-forecast-btn:hover{border-color:#7c3aed;}
@@ -398,13 +406,22 @@
     flex-wrap:wrap; gap:8px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:10px; padding:8px 10px;
     box-shadow:0 6px 20px rgba(0,0,0,.4); font-size:12.5px; color:var(--text-dim);}
   .point-edit-toolbar.hidden{display:none;}
-  .point-edit-toolbar-hint{flex:1; min-width:0;}
+  /* Editing a route's points keeps its HUD card open above this toolbar --
+     merged, the two read as one continuous panel rather than two separate
+     cards with a gap: same width as the HUD, square seam, matching border
+     color, no doubled-up shadow at the join. Measurements have no HUD to
+     merge with, so they keep the toolbar's own standalone rounded-card
+     look untouched. */
+  .point-edit-toolbar.merged-with-hud{left:14px; right:14px; border-color:#7c3aed; border-top:none;
+    border-top-left-radius:0; border-top-right-radius:0; box-shadow:none;}
+  .point-edit-toolbar-hint{flex:0 0 100%; min-width:0;}
   /* .btn/.btn-secondary/.btn-primary are sized for full-width modal footer
-     rows -- overridden here to match the compact Add/Delete point buttons
-     they now share a row with, rather than looming over them. */
-  .point-edit-toolbar-btn{flex:0 0 auto; padding:6px 12px; font-size:12.5px; border-radius:8px;}
-  .point-edit-mode-btn{display:flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--border);
-    border-radius:8px; padding:6px 10px; font-size:12.5px; color:var(--text-dim); cursor:pointer; flex-shrink:0;}
+     rows -- overridden here so Cancel/Save match the compact Add/Delete
+     point buttons in height, and all four now grow to fill the row edge
+     to edge rather than sitting content-sized with gaps between them. */
+  .point-edit-toolbar-btn{flex:1; padding:10px 4px; font-size:12.5px; border-radius:8px; text-align:center; white-space:nowrap;}
+  .point-edit-mode-btn{display:flex; align-items:center; justify-content:center; gap:5px; flex:1; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 4px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;}
   .point-edit-mode-btn.active{background:rgba(34,211,238,.18); border-color:var(--cyan); color:var(--text);}
   .point-edit-mode-btn[data-mode="delete"].active{background:rgba(248,113,113,.18); border-color:var(--red); color:var(--text);}
   .point-edit-vertex-deletable{cursor:pointer !important;}
@@ -804,6 +821,8 @@
   .ride-hud{position:fixed; top:calc(80px + env(safe-area-inset-top)); left:14px; right:14px; z-index:44; background:rgba(15,23,42,.96); border:1.5px solid #7c3aed;
     border-radius:12px; padding:14px 18px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45);}
   .ride-hud.hidden{display:none;}
+  .ride-hud.merged-with-toolbar{border-bottom:none; border-bottom-left-radius:0; border-bottom-right-radius:0; padding-bottom:8px;}
+  .ride-hud.merged-with-toolbar #rideHudStatsRow2{margin-bottom:0;}
   .ride-hud-header{display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; margin-bottom:6px;}
   .ride-hud-header.hidden{display:none;}
   .ride-hud-title{font-size:15px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
@@ -818,6 +837,7 @@
   .ride-hud-value{font-size:42px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;}
   .ride-hud.viewing-mode .ride-hud-value{font-size:21px;}
   .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
+  .ride-hud-btn-row.hidden{display:none;}
   .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
     border:none; border-radius:8px; padding:8px 4px; cursor:pointer; white-space:nowrap;}
   .ride-hud-stop-btn:hover{filter:brightness(1.1);}
@@ -1156,11 +1176,11 @@
   </div>
 
   <div class="point-edit-toolbar hidden" id="pointEditToolbar">
-    <button type="button" class="btn btn-secondary point-edit-toolbar-btn" id="pointEditCancelBtn">Cancel</button>
-    <button type="button" class="btn btn-primary point-edit-toolbar-btn" id="pointEditSaveBtn">Save</button>
     <span class="point-edit-toolbar-hint"></span>
     <button type="button" class="point-edit-mode-btn" id="pointEditAddBtn" data-mode="add" title="Tap the line to add a point"><span class="icon"></span><span>Add point</span></button>
     <button type="button" class="point-edit-mode-btn" id="pointEditDeleteBtn" data-mode="delete" title="Tap a point to delete it"><span class="icon"></span><span>Delete point</span></button>
+    <button type="button" class="btn btn-secondary point-edit-toolbar-btn" id="pointEditCancelBtn">Cancel</button>
+    <button type="button" class="btn btn-primary point-edit-toolbar-btn" id="pointEditSaveBtn">Save</button>
   </div>
 
   <div class="hud">
@@ -1783,6 +1803,7 @@
     <div class="ride-hud-header" id="rideHudHeader">
       <span class="ride-hud-title" id="rideHudTitle"></span>
       <div class="ride-hud-header-actions">
+        <div id="rideHudWeatherContainer"></div>
         <button class="panel-close ride-hud-edit-btn hidden" id="rideHudEditBtn" title="Edit name"></button>
         <button class="panel-close" id="rideHudCloseXBtn" title="Close"></button>
       </div>
@@ -1797,14 +1818,12 @@
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel5">Avg Time/Km</span><span class="ride-hud-value" id="rideHudAvgTimePerKm">0:00</span></div>
       <div class="ride-hud-stat"><span class="ride-hud-label" id="rideHudLabel6">Avg Speed</span><span class="ride-hud-value" id="rideHudAvgSpeed">0.0</span></div>
     </div>
-    <div id="rideHudWeatherContainer"></div>
-    <div class="ride-hud-btn-row">
+    <div class="ride-hud-btn-row" id="rideHudBtnRow">
       <button type="button" class="ride-hud-stop-btn ride-hud-wake-btn" id="keepScreenAwakeToggle">Keep Awake</button>
       <button class="ride-hud-stop-btn" id="rideHudStopBtn">Pause</button>
       <button class="ride-hud-stop-btn hidden" id="rideHudResumeBtn">Resume</button>
       <button class="ride-hud-stop-btn hidden" id="rideHudCancelBtn">Cancel</button>
       <button class="ride-hud-stop-btn hidden" id="rideHudSaveBtn">Save</button>
-      <button class="ride-hud-stop-btn hidden" id="rideHudViewRoutesBtn">View Routes</button>
     </div>
     <div class="ride-hud-save-form hidden" id="rideHudSaveForm">
       <label class="field-label">Name</label>
@@ -2262,7 +2281,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "395";
+  const APP_VERSION = "400";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2666,6 +2685,7 @@
   const rideHudCancelBtn = el("rideHudCancelBtn");
   const rideHudSaveBtn = el("rideHudSaveBtn");
   const rideHudSaveForm = el("rideHudSaveForm");
+  const rideHudBtnRow = el("rideHudBtnRow");
   const rideHudNameInput = el("rideHudNameInput");
   const rideHudNotesInput = el("rideHudNotesInput");
   const rideHudConfirmSaveBtn = el("rideHudConfirmSaveBtn");
@@ -2682,7 +2702,6 @@
   const rideHudAvgTimePerKm = el("rideHudAvgTimePerKm");
   const rideHudAvgSpeed = el("rideHudAvgSpeed");
   const rideHudWeatherContainer = el("rideHudWeatherContainer");
-  const rideHudViewRoutesBtn = el("rideHudViewRoutesBtn");
   const viewRoutesBtn = el("rideDropdownViewRoutesBtn");
   const routesPanelList = el("routesPanelList");
   const measurementsPanelList = el("measurementsPanelList");
@@ -6451,7 +6470,7 @@
     // everything else from the previous full list, restored after the curated set
     "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
     "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊",
-    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣", "🐟", "🦌", "🫎",
+    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣", "🐟", "🦌", "🫎", "🧺",
     "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰",
     "🚒", "🚑", "🚨", "🆘",
     "📍", "❤️", "🚩", "🎯"
@@ -7448,12 +7467,15 @@
     // Cancel and Save now cover tracking and unsaved (paused) alike -- Save
     // used to only appear once already paused, but there's no reason it
     // should require that extra step now that clicking it pauses on its
-    // own if needed. View Routes, in turn, only makes sense once viewing a
-    // saved route (it has no place in an in-progress, unsaved ride) so it
-    // moves the other way, from "tracking-or-viewing" to "viewing only".
+    // own if needed.
     rideHudCancelBtn.classList.toggle("hidden", state !== "tracking" && state !== "unsaved");
     rideHudSaveBtn.classList.toggle("hidden", state !== "tracking" && state !== "unsaved");
-    rideHudViewRoutesBtn.classList.toggle("hidden", state !== "viewing");
+    // The whole row (Keep Awake, Pause/Resume, Cancel, Save) is only ever
+    // relevant to an in-progress, unsaved ride -- viewing a saved route has
+    // nothing left for it to show (View Routes moved out entirely; the
+    // point-edit toolbar now occupies this same visual spot instead, once
+    // the row above it is out of the way).
+    rideHudBtnRow.classList.toggle("hidden", state === "viewing");
     // Keep Awake only matters while a ride is actually being recorded
     // (tracking or paused, ready to resume) -- same scope the old
     // checkbox's row had.
@@ -7914,11 +7936,16 @@
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
 
-    // Viewing a route now goes straight into its editable form — draggable
-    // points and the add/delete toolbar — rather than a separate, static
-    // display requiring a further "Edit" step. The HUD and its just-computed
-    // fit are kept exactly as set up above.
-    startPointEdit("route", ride.id, { keepHud: true, skipFitBounds: true });
+    // A static, non-editable line -- draggable points and the add/delete
+    // toolbar only appear once Edit is explicitly clicked, rather than
+    // automatically just from looking at a saved route.
+    viewedRidePolyline = L.polyline(latlngs, { color: info.color, weight: 4, opacity: 0.85 }).addTo(map);
+    viewedRideHitbox = addWideClickHitbox(latlngs, {
+      click: (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ride.points); },
+    });
+    const endpoints = placeEndpointMarkers(ride.points, ride.activityType);
+    viewedRideStartMarker = endpoints.start;
+    viewedRideEndMarker = endpoints.end;
   }
 
   // As the user zooms into a specific section of a viewed route, the marker
@@ -8357,16 +8384,22 @@
   // tears down whatever's currently shown for that item, replaces it with
   // a draggable/editable line centered on screen, and shows the toolbar +
   // banner. kind is "route" or "measurement".
-  // The toolbar's CSS position clears the top icon bar on its own. But
-  // editing a saved route's points keeps that route's HUD card open too
-  // (so its stats stay visible while dragging points), and the HUD's
-  // height varies with its content -- a second fixed guess for "below the
-  // HUD" would drift out of sync with it, so this measures the HUD's
-  // actual rendered bottom edge instead.
+  // The toolbar's CSS position clears the top icon bar on its own -- used
+  // as-is for measurements, which have no HUD card of their own. Editing a
+  // saved route's points keeps that route's HUD card open too (so its
+  // stats stay visible while dragging points), and in that case the two
+  // are made to read as one continuous panel: flush against each other
+  // (no gap, matching width, square seam, one border color) rather than
+  // two separate cards stacked with space between them. The HUD's height
+  // varies with its content, so this measures its actual rendered bottom
+  // edge each time rather than assuming a fixed one.
   function positionPointEditToolbar() {
-    if (rideHud && !rideHud.classList.contains("hidden")) {
+    const merging = rideHud && !rideHud.classList.contains("hidden") && pointEditKind === "route";
+    pointEditToolbar.classList.toggle("merged-with-hud", merging);
+    rideHud.classList.toggle("merged-with-toolbar", merging);
+    if (merging) {
       const hudRect = rideHud.getBoundingClientRect();
-      pointEditToolbar.style.top = (hudRect.bottom + 10) + "px";
+      pointEditToolbar.style.top = hudRect.bottom + "px";
     } else {
       pointEditToolbar.style.top = ""; // fall back to the CSS default (clears the top icon bar)
     }
@@ -8461,6 +8494,8 @@
     if (editPolylineHitbox) { map.removeLayer(editPolylineHitbox); editPolylineHitbox = null; }
     clearEditVertexMarkers();
     pointEditToolbar.classList.add("hidden");
+    pointEditToolbar.classList.remove("merged-with-hud");
+    rideHud.classList.remove("merged-with-toolbar");
     if (measureEditBanner) measureEditBanner.classList.add("hidden");
     pointEditKind = null;
     pointEditId = null;
@@ -8566,7 +8601,20 @@
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
     input.addEventListener("blur", commit, { once: true });
   }
-  rideHudEditBtn.addEventListener("click", (e) => { e.stopPropagation(); startEditRouteTitle(); });
+  rideHudEditBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    startEditRouteTitle();
+    // The toolbar (draggable points, add/delete) now only ever appears from
+    // this explicit click -- viewing a route on its own just shows the
+    // static line and stats, nothing editable, until this is pressed.
+    // Guarded against re-triggering if already mid-edit on this same route:
+    // startPointEdit re-reads points fresh from the saved data and would
+    // silently wipe out an in-progress, unsaved drag otherwise.
+    const alreadyEditingThisRoute = pointEditKind === "route" && currentlyViewedRide && pointEditId === currentlyViewedRide.id;
+    if (currentlyViewedRide && !alreadyEditingThisRoute) {
+      startPointEdit("route", currentlyViewedRide.id, { keepHud: true, skipFitBounds: true });
+    }
+  });
 
   function deleteRide(id) {
     const ride = rides.find((r) => r.id === id);
@@ -9573,7 +9621,6 @@
     panel.classList.add("open");
   }
   viewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); closeRideDropdown(); openRoutesPanel(); });
-  rideHudViewRoutesBtn.addEventListener("click", (e) => { e.stopPropagation(); openRoutesPanel(); });
 
   const CAMERA_MATCH_RADIUS_METERS = 75;
   function findNearbyWaypoint(lat, lng) {
