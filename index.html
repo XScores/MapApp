@@ -466,12 +466,41 @@
   .color-swatches{display:flex; gap:6px; flex-wrap:wrap;}
   .color-swatch{width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; flex-shrink:0;}
   .color-swatch.selected{border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.15);}
-  .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:2px;}
-  .emoji-quick-btn{width:46px; height:46px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
+  /* Explicit, always-visible scrollbar rather than relying on the OS's own
+     auto-hiding behavior -- with close to 100 icons now, a hint that more
+     exist below matters more than it used to. */
+  .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:6px;
+    scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2);}
+  .emoji-quick-pick::-webkit-scrollbar{width:8px;}
+  .emoji-quick-pick::-webkit-scrollbar-track{background:var(--surface-2); border-radius:4px;}
+  .emoji-quick-pick::-webkit-scrollbar-thumb{background:var(--border-soft); border-radius:4px;}
+  .emoji-quick-pick::-webkit-scrollbar-thumb:hover{background:var(--text-mute);}
+  .emoji-quick-pick-label{flex-basis:100%; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--text-mute); margin:6px 0 2px;}
+  .emoji-quick-pick-label:first-child{margin-top:0;}
+  .emoji-quick-item{position:relative; width:46px; height:46px; flex-shrink:0;}
+  /* Light background rather than the app's usual dark surface -- several
+     emoji (bike, shopping cart, and others) render as solid black or dark
+     line art on most platforms, which all but disappeared against a dark
+     square. A light backdrop keeps every glyph readable regardless of its
+     own coloring, the same reasoning most emoji keyboards use. */
+  .emoji-quick-btn{width:100%; height:100%; border-radius:10px; background:#e2e8f0; border:1px solid #cbd5e1;
     font-size:26px; display:flex; align-items:center; justify-content:center; cursor:grab; padding:0; user-select:none;}
-  .emoji-quick-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5);}
-  .emoji-quick-btn.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5); position:relative;}
-  .emoji-quick-btn.drop-target{border-color:var(--amber); background:rgba(245,158,11,.18); transform:scale(1.08);}
+  .emoji-quick-btn:hover{background:#cbd5e1; border-color:rgba(245,158,11,.6);}
+  .emoji-quick-item.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5);}
+  .emoji-quick-item.drop-target{transform:scale(1.08);}
+  .emoji-quick-item.drop-target .emoji-quick-btn{border-color:var(--amber); background:rgba(245,158,11,.35);}
+  /* A separate small badge in the corner, not part of the main button --
+     its own hit target, so favoriting can never be mistaken for a tap on
+     the icon itself or the start of a drag. Heart + red-when-favorited
+     matches the same convention already used for favoriting routes,
+     measurements, and waypoints elsewhere in the app, rather than
+     introducing a second, different symbol for the same idea. */
+  .emoji-favorite-toggle{position:absolute; top:-5px; right:-5px; width:19px; height:19px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--border); color:var(--text-mute); line-height:1;
+    display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; z-index:1;}
+  .emoji-favorite-toggle.favorited{color:var(--red);}
+  .emoji-favorite-toggle.favorited svg{fill:currentColor;}
   .wp-emoji-marker{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:28px; line-height:1; box-shadow:0 3px 8px rgba(0,0,0,.4); border:2px solid rgba(15,23,42,.55);}
   .wp-div-icon.wp-selected .wp-pin{
@@ -1267,8 +1296,8 @@
 
       <label class="field-label">Marker style</label>
       <div class="style-toggle-row">
-        <button type="button" class="style-toggle-btn active" id="markerStylePinBtn" data-style="pin">Pin</button>
-        <button type="button" class="style-toggle-btn" id="markerStyleEmojiBtn" data-style="emoji">Icons</button>
+        <button type="button" class="style-toggle-btn active" id="markerStyleEmojiBtn" data-style="emoji">Icons</button>
+        <button type="button" class="style-toggle-btn" id="markerStylePinBtn" data-style="pin">Pin</button>
       </div>
 
       <div class="field-row" id="markerColorField">
@@ -2290,7 +2319,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "403";
+  const APP_VERSION = "408";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2310,7 +2339,7 @@
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
   // endpoint as the text models used elsewhere in this file, just with
@@ -6480,9 +6509,10 @@
     "⭐️", // Star / Favorite
     // everything else from the previous full list, restored after the curated set
     "✈️", "🚁", "🚂", "🚆", "🚉", "🚌", "🚙", "🚚", "🚛", "🛻", "🚐", "🏍️", "🚲",
-    "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊",
-    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣", "🐟", "🦌", "🫎", "🧺",
-    "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰",
+    "⛵", "🚤", "🛥️", "🚢", "⛴️", "🏖️", "🌊", "🚣", "🏄", "🏊", "🤿", "🛟", "⛷️", "🏂", "⛸️",
+    "🏕️", "🔥", "🧭", "⛰️", "🛶", "🌲", "🎣", "🐟", "🦌", "🫎", "🧺", "🍄", "🦅", "🐻", "🐺", "🦆", "🐿️", "🐕", "🐎", "🐾",
+    "🏠", "🏡", "🏢", "🏫", "⛪", "🏛️", "🏭", "🏰", "🏦", "🏧", "🏪", "💊", "🛍️",
+    "🎡", "🚴", "🏃", "⚽", "🏋️", "🚿",
     "🚒", "🚑", "🚨", "🆘",
     "📍", "❤️", "🚩", "🎯"
   ];
@@ -6494,6 +6524,16 @@
       settings.iconQuickPickOrder = DEFAULT_ICON_QUICK_PICKS.slice();
     }
     return settings.iconQuickPickOrder;
+  }
+  function getFavoriteIcons() {
+    if (!Array.isArray(settings.favoriteIcons)) settings.favoriteIcons = [];
+    return settings.favoriteIcons;
+  }
+  function toggleFavoriteIcon(emoji) {
+    const favs = getFavoriteIcons();
+    const idx = favs.indexOf(emoji);
+    if (idx === -1) favs.push(emoji); else favs.splice(idx, 1);
+    saveSettings();
   }
 
   function renderColorSwatches(container, input, presets) {
@@ -6534,17 +6574,53 @@
 
   function renderIconQuickPick() {
     const picks = getIconQuickPicks();
-    emojiQuickPick.innerHTML = picks.map((e) =>
-      '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>"
-    ).join("");
-    emojiQuickPick.querySelectorAll(".emoji-quick-btn").forEach((btn) => {
+    const favSet = new Set(getFavoriteIcons());
+    const favoritedPicks = picks.filter((e) => favSet.has(e));
+    const restPicks = picks.filter((e) => !favSet.has(e));
+
+    function itemHtml(e) {
+      const isFav = favSet.has(e);
+      return '<div class="emoji-quick-item" data-emoji="' + e + '">' +
+        '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>" +
+        '<button type="button" class="emoji-favorite-toggle' + (isFav ? " favorited" : "") + '" data-emoji="' + e +
+          '" title="' + (isFav ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 11) + "</button>" +
+      "</div>";
+    }
+
+    // Favorites (if any) render as their own labeled group up front, ahead
+    // of the full set below -- keeps the ones used most within reach
+    // without scrolling, while favoriting itself stays independent of drag
+    // order: the star toggles a separate list, it doesn't move anything in
+    // the underlying iconQuickPickOrder array.
+    let html = "";
+    if (favoritedPicks.length > 0) {
+      html += '<div class="emoji-quick-pick-label">Favorites</div>';
+      html += favoritedPicks.map(itemHtml).join("");
+      html += '<div class="emoji-quick-pick-label">All icons</div>';
+    }
+    html += restPicks.map(itemHtml).join("");
+    emojiQuickPick.innerHTML = html;
+
+    emojiQuickPick.querySelectorAll(".emoji-quick-item").forEach((item) => {
+      const btn = item.querySelector(".emoji-quick-btn");
       btn.style.touchAction = "none"; // let us own the gesture instead of the browser scrolling
       btn.addEventListener("pointerdown", (e) => {
         iconDragState = {
-          pointerId: e.pointerId, tile: btn, startX: e.clientX, startY: e.clientY,
-          startIndex: Array.from(emojiQuickPick.children).indexOf(btn), dragging: false
+          pointerId: e.pointerId, tile: item, startX: e.clientX, startY: e.clientY, dragging: false
         };
         btn.setPointerCapture(e.pointerId);
+      });
+    });
+    emojiQuickPick.querySelectorAll(".emoji-favorite-toggle").forEach((star) => {
+      // A separate sibling button, not nested inside .emoji-quick-btn --
+      // HTML doesn't allow nesting interactive elements cleanly, and more
+      // importantly this keeps a tap here from ever reaching the main
+      // button's own pointerdown, so favoriting can never be misread as
+      // the start of a drag or a tap-to-select.
+      star.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFavoriteIcon(star.dataset.emoji);
+        renderIconQuickPick();
       });
     });
   }
@@ -6559,9 +6635,9 @@
     }
     if (iconDragState.dragging) {
       iconDragState.tile.style.transform = "translate(" + dx + "px," + dy + "px)";
-      emojiQuickPick.querySelectorAll(".emoji-quick-btn.drop-target").forEach((t) => t.classList.remove("drop-target"));
+      emojiQuickPick.querySelectorAll(".emoji-quick-item.drop-target").forEach((t) => t.classList.remove("drop-target"));
       const elUnder = document.elementFromPoint(e.clientX, e.clientY);
-      const targetTile = elUnder && elUnder.closest(".emoji-quick-btn");
+      const targetTile = elUnder && elUnder.closest(".emoji-quick-item");
       if (targetTile && targetTile !== iconDragState.tile && emojiQuickPick.contains(targetTile)) {
         targetTile.classList.add("drop-target");
       }
@@ -6575,16 +6651,25 @@
     state.tile.style.transform = "";
     state.tile.style.pointerEvents = "";
     state.tile.classList.remove("dragging");
-    const dropTarget = emojiQuickPick.querySelector(".emoji-quick-btn.drop-target");
+    const dropTarget = emojiQuickPick.querySelector(".emoji-quick-item.drop-target");
     if (dropTarget) dropTarget.classList.remove("drop-target");
 
     if (state.dragging) {
       if (dropTarget) {
+        // Reorders by the emoji's own identity rather than DOM/array index --
+        // favorites render out of array order (pulled to the front), so a
+        // dropped position no longer lines up with its raw index in
+        // iconQuickPickOrder the way it did before favorites existed.
         const picks = getIconQuickPicks();
-        const targetIndex = Array.from(emojiQuickPick.children).indexOf(dropTarget);
-        const [moved] = picks.splice(state.startIndex, 1);
-        picks.splice(targetIndex, 0, moved);
-        saveSettings();
+        const draggedEmoji = state.tile.dataset.emoji;
+        const targetEmoji = dropTarget.dataset.emoji;
+        const fromIndex = picks.indexOf(draggedEmoji);
+        const toIndex = picks.indexOf(targetEmoji);
+        if (fromIndex !== -1 && toIndex !== -1) {
+          const [moved] = picks.splice(fromIndex, 1);
+          picks.splice(toIndex, 0, moved);
+          saveSettings();
+        }
       }
       renderIconQuickPick();
     } else {
@@ -10430,7 +10515,7 @@
     markerColorInput.value = defaultColor;
     markSwatchSelected(markerColorSwatches, defaultColor);
     markerEmojiInput.value = "";
-    setMarkerStyleUI("pin");
+    setMarkerStyleUI("emoji");
     pendingPhotos = [];
     pendingReview = emptyReview();
     photoStatus.style.display = "none";
