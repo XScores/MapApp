@@ -691,6 +691,11 @@
   .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
   .card-main{display:flex; gap:8px; flex:1; min-width:0; cursor:pointer; background:none; border:none; padding:0; text-align:left;}
+  /* Matches the icon picker's own light backdrop in the New/Edit Waypoint
+     modal -- same fix, same reason: dark-colored emoji need a light
+     background to stay visible, and this app's cards are dark. */
+  .card-icon-emoji-badge{flex-shrink:0; width:28px; height:28px; border-radius:8px; background:#e2e8f0;
+    display:flex; align-items:center; justify-content:center;}
   .card-main .icon{margin-top:2px; flex-shrink:0;}
   .card-name{font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; margin:0;}
@@ -2319,7 +2324,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "408";
+  const APP_VERSION = "411";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4057,6 +4062,7 @@
     layersPanel.classList.toggle("show");
     layersToggleBtn.classList.toggle("active", layersPanel.classList.contains("show"));
     if (layersPanel.classList.contains("show")) {
+      closePanel(); // the waypoints/routes/measurements panel would otherwise sit open underneath this one
       refreshStorageStatus();
       switchLayersTab("main");
     }
@@ -13871,12 +13877,16 @@
   // Each format gets its own emoji/color so the pinned story cards (and
   // their map markers) are visually distinguishable from one another at a
   // glance, not just by name.
+  // All five formats share one color -- purple reads as "this is an A.I.
+  // Story entry" at a glance on the map, regardless of which format it
+  // was generated in. Each format keeps its own distinct emoji so they're
+  // still individually recognizable up close.
   const STORY_FORMAT_MARKERS = {
     narrative: { emoji: "\u2728", color: "#a78bfa" },
     blog: { emoji: "\uD83D\uDCDD", color: "#a78bfa" },
-    instagram: { emoji: "\uD83D\uDCF7", color: "#f472b6" },
-    tiktok: { emoji: "\uD83C\uDFB5", color: "#38bdf8" },
-    youtube: { emoji: "\u25B6\uFE0F", color: "#f87171" }
+    instagram: { emoji: "\uD83D\uDCF7", color: "#a78bfa" },
+    tiktok: { emoji: "\uD83C\uDFB5", color: "#a78bfa" },
+    youtube: { emoji: "\u25B6\uFE0F", color: "#a78bfa" }
   };
 
   async function generateTripStory(folderId, formatId) {
@@ -14439,7 +14449,7 @@
         const key = waypointIconKey(wp);
         if (!counts.has(key)) {
           const iconContent = wp.markerStyle === "emoji"
-            ? '<span style="font-size:14px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span>"
+            ? '<span class="card-icon-emoji-badge"><span style="font-size:14px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span></span>"
             : '<span style="color:' + (wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)")) + '; display:flex;">' + icon("mapPin", 14) + "</span>";
           counts.set(key, { iconContent, count: 0 });
         }
@@ -14568,7 +14578,12 @@
 
   function cardIconHtml(wp) {
     if (wp.markerStyle === "emoji") {
-      return '<span class="icon" style="font-size:16px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span>";
+      // Same light backdrop as the icon picker in the New/Edit Waypoint
+      // modal, and for the same reason -- plenty of emoji (like the bike
+      // used for Bike Path waypoints) render as solid black or dark line
+      // art on most platforms, which all but disappears directly against
+      // this app's own dark card background.
+      return '<span class="card-icon-emoji-badge"><span class="icon" style="font-size:16px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span></span>";
     }
     const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
     return '<span class="icon" style="color:' + pinColor + '">' + icon("mapPin", 16) + "</span>";
@@ -14954,6 +14969,7 @@
   syncSuggestionPullBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     syncSuggestionBanner.classList.add("hidden");
+    closePanel(); // same as the main Layers toggle -- don't leave the waypoints panel open underneath
     layersPanel.classList.add("show");
     layersToggleBtn.classList.add("active");
     performRepoSync();
