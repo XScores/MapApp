@@ -473,9 +473,18 @@
   .color-swatches{display:flex; gap:6px; flex-wrap:wrap;}
   .color-swatch{width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; flex-shrink:0;}
   .color-swatch.selected{border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.15);}
-  /* Explicit, always-visible scrollbar rather than relying on the OS's own
-     auto-hiding behavior -- with close to 100 icons now, a hint that more
-     exist below matters more than it used to. */
+  /* Explicit scrollbar styling for browsers that support it (desktop
+     Chrome/Firefox/Edge, and future Safari versions per the standards
+     track) -- confirmed there is no CSS way to force this on current iOS
+     Safari at all: Apple's own engineers have stated custom/always-visible
+     scrollbars aren't supported there since iOS 14, ::-webkit-scrollbar
+     included. The fade below is the fallback that actually works
+     everywhere, iOS included, since it's just an overlay, not scrollbar
+     styling. */
+  .emoji-quick-pick-wrap{position:relative;}
+  .emoji-quick-pick-fade{position:absolute; left:0; right:6px; bottom:0; height:22px; pointer-events:none;
+    background:linear-gradient(to bottom, transparent, var(--surface)); border-radius:0 0 10px 10px; transition:opacity .15s;}
+  .emoji-quick-pick-fade.hidden{opacity:0;}
   .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:6px;
     scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2);}
   .emoji-quick-pick::-webkit-scrollbar{width:8px;}
@@ -1323,7 +1332,10 @@
       <div class="field-row" id="markerEmojiField" style="display:none;">
         <label class="field-label">Icons</label>
         <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
-        <div class="emoji-quick-pick" id="emojiQuickPick"></div>
+        <div class="emoji-quick-pick-wrap">
+          <div class="emoji-quick-pick" id="emojiQuickPick"></div>
+          <div class="emoji-quick-pick-fade" id="emojiQuickPickFade"></div>
+        </div>
       </div>
 
       <label class="field-label">Photos (optional)</label>
@@ -2334,7 +2346,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "412";
+  const APP_VERSION = "414";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2859,6 +2871,7 @@
   const markerEmojiField = el("markerEmojiField");
   const markerEmojiInput = el("markerEmojiInput");
   const emojiQuickPick = el("emojiQuickPick");
+  const emojiQuickPickFade = el("emojiQuickPickFade");
   const photoDropzone = el("photoDropzone");
   const photoDropzoneEmpty = el("photoDropzoneEmpty");
   const photoThumbs = el("photoThumbs");
@@ -3971,7 +3984,18 @@
       if (!res.ok) return null;
       const data = await res.json();
       if (!data.weather || !data.weather[0] || typeof (data.main && data.main.temp) !== "number") return null;
-      return { tempC: data.main.temp, icon: data.weather[0].icon, description: data.weather[0].description };
+      const snapshot = { tempC: data.main.temp, icon: data.weather[0].icon, description: data.weather[0].description };
+      // The API's own sunrise/sunset + timezone offset -- real, exact
+      // values (correct for DST and each location's actual political
+      // timezone, not just its longitude) rather than the astronomical
+      // approximation used as a fallback for waypoints saved before this
+      // was captured.
+      if (data.sys && typeof data.sys.sunrise === "number" && typeof data.sys.sunset === "number") {
+        snapshot.sunrise = data.sys.sunrise * 1000;
+        snapshot.sunset = data.sys.sunset * 1000;
+        snapshot.tzOffsetSec = typeof data.timezone === "number" ? data.timezone : null;
+      }
+      return snapshot;
     } catch (e) { return null; }
   }
   function formatWeatherTemp(tempC) {
@@ -3981,6 +4005,18 @@
   // Reuses the same accordion chrome already established for the Layers
   // panel's Live Weather section — header shows the icon and temperature at
   // a glance, expanding to the full description and the captured date/time.
+  // Formats an absolute UTC sunrise/sunset moment into that location's own
+  // local clock time -- using the API's own exact UTC offset when known
+  // (correct for DST and each place's actual timezone, not just its
+  // longitude), falling back to the longitude-only approximation only when
+  // no exact offset is available at all.
+  function formatSunTime(epochMs, tzOffsetSec, lng) {
+    if (typeof epochMs !== "number") return "";
+    if (typeof tzOffsetSec === "number") {
+      return new Date(epochMs + tzOffsetSec * 1000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+    }
+    return formatSunTimeApprox(new Date(epochMs), lng);
+  }
   function buildWeatherAccordionHtml(weather, capturedAtMs, lat, lng) {
     if (!weather) return "";
     const iconName = weatherIconNameForOwmCode(weather.icon);
@@ -3988,7 +4024,18 @@
     const dateStr = capturedAtMs ? new Date(capturedAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
     const desc = weather.description ? weather.description.charAt(0).toUpperCase() + weather.description.slice(1) : "";
     let sunHtml = "";
-    if (capturedAtMs && typeof lat === "number" && typeof lng === "number") {
+    if (typeof weather.sunrise === "number" && typeof weather.sunset === "number") {
+      // Real values captured directly from the weather API at the moment
+      // this snapshot was taken -- exact, not approximated.
+      sunHtml = '<p class="weather-snapshot-sun">' +
+        '<span>' + icon("sunrise", 13) + formatSunTime(weather.sunrise, weather.tzOffsetSec, lng) + "</span>" +
+        '<span>' + icon("sunset", 13) + formatSunTime(weather.sunset, weather.tzOffsetSec, lng) + "</span>" +
+      "</p>";
+    } else if (capturedAtMs && typeof lat === "number" && typeof lng === "number") {
+      // Waypoints saved before sunrise/sunset was captured have no such
+      // field to fall back on -- approximated from the date and location
+      // instead, close enough for an older entry without needing to
+      // re-fetch or guess at what the weather actually was that day.
       const sun = getSunTimes(new Date(capturedAtMs), lat, lng);
       if (sun.polarNight) {
         sunHtml = '<p class="weather-snapshot-sun">' + icon("moon", 13) + "Polar night — no sunrise this day</p>";
@@ -4071,23 +4118,24 @@
     return days.slice(0, 5);
   }
 
-  function renderForecastDays(days, units, lat, lng) {
+  function renderForecastDays(days, units, sunSnapshot, lng) {
     const tempUnit = units === "imperial" ? "°F" : "°C";
+    // Same real sunrise/sunset time-of-day for every day in the window --
+    // fetched once (today's exact values from the weather API), reused
+    // across the forecast since it only shifts by a couple of minutes a
+    // day, versus the astronomical approximation's real timezone gap.
+    let sunHtml = "";
+    if (sunSnapshot && typeof sunSnapshot.sunrise === "number" && typeof sunSnapshot.sunset === "number") {
+      sunHtml = '<span class="forecast-day-sun">' +
+        '<span>' + icon("sunrise", 12) + formatSunTime(sunSnapshot.sunrise, sunSnapshot.tzOffsetSec, lng) + "</span>" +
+        '<span>' + icon("sunset", 12) + formatSunTime(sunSnapshot.sunset, sunSnapshot.tzOffsetSec, lng) + "</span>" +
+      "</span>";
+    }
     forecastDaysContainer.innerHTML = days.map((d) => {
       // localDate's epoch value was already shifted by the LOCATION's own tz
       // offset, so reading it back out with timeZone:"UTC" gives the correct
       // weekday for that location, regardless of the viewer's own timezone.
       const dayName = d.localDate.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
-      let sunHtml = "";
-      if (typeof lat === "number" && typeof lng === "number") {
-        const sun = getSunTimes(d.localDate, lat, lng);
-        if (sun.sunrise && sun.sunset) {
-          sunHtml = '<span class="forecast-day-sun">' +
-            '<span>' + icon("sunrise", 12) + formatSunTimeApprox(sun.sunrise, lng) + "</span>" +
-            '<span>' + icon("sunset", 12) + formatSunTimeApprox(sun.sunset, lng) + "</span>" +
-          "</span>";
-        }
-      }
       return '<div class="forecast-day-row">' +
         '<span class="forecast-day-name">' + dayName + "</span>" +
         '<span class="forecast-day-icon">' + icon(weatherIconNameForOwmCode(d.icon), 22) + "</span>" +
@@ -4122,12 +4170,19 @@
       const units = settings.units.temperature === "f" ? "imperial" : "metric";
       const url = "https://api.openweathermap.org/data/2.5/forecast?lat=" + lat + "&lon=" + lng +
         "&appid=" + encodeURIComponent(settings.owmApiKey) + "&units=" + units;
-      const res = await fetch(url);
+      // The 5-day/3-hour forecast endpoint itself has no sunrise/sunset
+      // field at all (confirmed against OpenWeather's own docs) -- fetched
+      // in parallel from the current-weather endpoint instead, which does.
+      // That only ever covers today, but sunrise/sunset drifts by at most
+      // a couple of minutes a day, so today's real, exact time is a far
+      // closer stand-in for the rest of the 5-day window than an
+      // approximation with no real timezone data behind it at all.
+      const [res, sunSnapshot] = await Promise.all([fetch(url), fetchWeatherSnapshot(lat, lng)]);
       if (!res.ok) throw new Error("Forecast request failed (" + res.status + ")");
       const data = await res.json();
       if (!data.list || !data.list.length) throw new Error("No forecast data returned");
       const days = aggregateForecastByDay(data);
-      renderForecastDays(days, units, lat, lng);
+      renderForecastDays(days, units, sunSnapshot, lng);
       forecastLoadingState.classList.add("hidden");
       forecastDaysContainer.classList.remove("hidden");
     } catch (e) {
@@ -6695,7 +6750,13 @@
 
     emojiQuickPick.querySelectorAll(".emoji-quick-item").forEach((item) => {
       const btn = item.querySelector(".emoji-quick-btn");
-      btn.style.touchAction = "none"; // let us own the gesture instead of the browser scrolling
+      // pan-y, not none -- none blocked the browser's native vertical
+      // scroll on every touch that started on any icon, which is
+      // effectively the whole grid. That's what made the icon set seem to
+      // stop partway through on iOS: nothing below the fold was reachable.
+      // pan-y still lets the grid scroll normally, while leaving
+      // horizontal movement free for this drag-to-reorder gesture to claim.
+      btn.style.touchAction = "pan-y";
       btn.addEventListener("pointerdown", (e) => {
         iconDragState = {
           pointerId: e.pointerId, tile: item, startX: e.clientX, startY: e.clientY, dragging: false
@@ -6715,7 +6776,17 @@
         renderIconQuickPick();
       });
     });
+    updateEmojiQuickPickFade();
   }
+  // Hides the "more below" fade once actually scrolled to the bottom (or
+  // if the list never overflowed in the first place) -- this is the part
+  // that has to work on iOS regardless of scrollbar support, since it's
+  // just an overlay div, not scrollbar-specific styling.
+  function updateEmojiQuickPickFade() {
+    const atBottom = emojiQuickPick.scrollHeight - emojiQuickPick.scrollTop - emojiQuickPick.clientHeight < 4;
+    emojiQuickPickFade.classList.toggle("hidden", atBottom);
+  }
+  emojiQuickPick.addEventListener("scroll", updateEmojiQuickPickFade);
 
   emojiQuickPick.addEventListener("pointermove", (e) => {
     if (!iconDragState || e.pointerId !== iconDragState.pointerId) return;
@@ -10240,6 +10311,7 @@
     markerStylePinBtn.classList.toggle("active", style === "pin");
     markerStyleEmojiBtn.classList.toggle("active", style === "emoji");
     markerEmojiField.style.display = style === "emoji" ? "block" : "none";
+    if (style === "emoji") updateEmojiQuickPickFade(); // the grid was hidden (0 height) at the last render, so the fade's "at bottom" check needs redoing now that it's actually laid out
     refreshPendingMarkerPreview();
   }
   markerStylePinBtn.addEventListener("click", () => setMarkerStyleUI("pin"));
