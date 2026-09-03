@@ -200,6 +200,9 @@
   .weather-snapshot-summary b{font-size:15px; font-weight:700;}
   .weather-snapshot-desc{font-size:13px; color:var(--text-dim); margin:0 0 2px;}
   .weather-snapshot-date{font-size:12px; color:var(--text-mute); margin:0;}
+  .weather-snapshot-sun{display:flex; gap:12px; font-size:12px; color:var(--text-mute); margin:4px 0 0;}
+  .weather-snapshot-sun span{display:flex; align-items:center; gap:4px;}
+  .weather-snapshot-sun svg{flex-shrink:0;}
   .gist-sync-block{margin-top:12px; padding-top:12px; border-top:1px solid #1e293b;}
   .token-input-row{display:flex; align-items:center; gap:6px;}
   .token-input-row .field-input{flex:1; min-width:0;}
@@ -377,6 +380,10 @@
   .forecast-day-name{width:76px; flex-shrink:0; font-size:14px; font-weight:600; color:var(--text);}
   .forecast-day-icon{flex-shrink:0; display:flex; color:var(--amber-light);}
   .forecast-day-desc{flex:1; min-width:0; font-size:12.5px; color:var(--text-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .forecast-day-desc-col{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .forecast-day-desc-col .forecast-day-desc{flex:none;}
+  .forecast-day-sun{display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-mute);}
+  .forecast-day-sun span{display:flex; align-items:center; gap:3px;}
   .forecast-day-temps{flex-shrink:0; font-size:14px; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
   .forecast-day-temps .hi{color:var(--text); font-weight:700;}
   .forecast-day-temps .lo{color:var(--text-mute);}
@@ -1909,6 +1916,9 @@
 
   const ICONS = {
     sun: '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>',
+    sunrise: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><line x1="23" y1="22" x2="1" y2="22"></line><polyline points="8 6 12 2 16 6"></polyline>',
+    sunset: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="9" x2="12" y2="2"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><line x1="23" y1="22" x2="1" y2="22"></line><polyline points="16 5 12 9 8 5"></polyline>',
+    moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>',
     cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>',
     cloudSun: '<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><path d="M23 22H1"></path><path d="M8 6l1.5 1.5"></path><path d="M16 6l-1.5 1.5"></path>',
     cloudRain: '<line x1="16" y1="13" x2="16" y2="21"></line><line x1="8" y1="13" x2="8" y2="21"></line><line x1="12" y1="15" x2="12" y2="23"></line><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>',
@@ -2324,7 +2334,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "411";
+  const APP_VERSION = "412";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3904,6 +3914,54 @@
   // null on any failure (no key, network error, malformed response) rather
   // than throwing, since a missing weather snapshot should never block or
   // break saving a waypoint or route.
+  // Sunrise/sunset via a standard astronomical formula (the same one behind
+  // the well-known SunCalc library) rather than pulled from the weather
+  // API -- OpenWeatherMap's current-weather endpoint only ever returns
+  // TODAY's sunrise/sunset, which would be wrong for a waypoint logged on
+  // any other day. Computing it directly from lat/lng + date works
+  // uniformly for brand-new waypoints and for every already-saved one,
+  // with no backfill, no extra API calls, and no dependency on a key
+  // being configured at all. Accurate to within a couple of minutes,
+  // which is what "when did the sun rise here" calls for.
+  const SUN_J1970 = 2440588, SUN_J2000 = 2451545, SUN_RAD = Math.PI / 180, SUN_OBLIQUITY = SUN_RAD * 23.4397;
+  function sunToJulian(date) { return date.getTime() / 86400000 - 0.5 + SUN_J1970; }
+  function sunFromJulian(j) { return new Date((j + 0.5 - SUN_J1970) * 86400000); }
+  function sunToDays(date) { return sunToJulian(date) - SUN_J2000; }
+  function solarMeanAnomaly(d) { return SUN_RAD * (357.5291 + 0.98560028 * d); }
+  function eclipticLongitude(M) {
+    const C = SUN_RAD * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+    return M + C + SUN_RAD * 102.9372 + Math.PI;
+  }
+  function getSunTimes(date, lat, lng) {
+    const lw = SUN_RAD * -lng, phi = SUN_RAD * lat;
+    const d = sunToDays(date);
+    const n = Math.round(d - 0.0009 - lw / (2 * Math.PI));
+    const ds = 0.0009 + lw / (2 * Math.PI) + n;
+    const M = solarMeanAnomaly(ds);
+    const L = eclipticLongitude(M);
+    const dec = Math.asin(Math.sin(L) * Math.sin(SUN_OBLIQUITY));
+    const Jnoon = SUN_J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+    const h0 = -0.833 * SUN_RAD; // standard sunrise/sunset angle -- accounts for atmospheric refraction and the sun's own disk radius
+    const cosH = (Math.sin(h0) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec));
+    if (cosH > 1) return { sunrise: null, sunset: null, polarNight: true }; // sun never rises this day at this latitude
+    if (cosH < -1) return { sunrise: null, sunset: null, midnightSun: true }; // sun never sets this day at this latitude
+    const w = Math.acos(cosH);
+    const a = 0.0009 + (w + lw) / (2 * Math.PI) + n;
+    const Jset = SUN_J2000 + a + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+    const Jrise = Jnoon - (Jset - Jnoon);
+    return { sunrise: sunFromJulian(Jrise), sunset: sunFromJulian(Jset) };
+  }
+  // No exact UTC offset is available for an arbitrary waypoint (that would
+  // need its own timezone lookup/API), so this approximates local time
+  // from longitude alone -- 15° per hour, the same basis every timezone is
+  // ultimately built from. Off by up to 30-60 minutes in places with
+  // unusual political timezone boundaries, but that's a fine trade-off for
+  // "roughly when did the sun rise here" rather than requiring another API.
+  function formatSunTimeApprox(date, lng) {
+    if (!date) return "";
+    const offsetMs = Math.round(lng / 15) * 3600000;
+    return new Date(date.getTime() + offsetMs).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  }
   async function fetchWeatherSnapshot(lat, lng) {
     if (!settings.owmApiKey) return null;
     try {
@@ -3923,12 +3981,26 @@
   // Reuses the same accordion chrome already established for the Layers
   // panel's Live Weather section — header shows the icon and temperature at
   // a glance, expanding to the full description and the captured date/time.
-  function buildWeatherAccordionHtml(weather, capturedAtMs) {
+  function buildWeatherAccordionHtml(weather, capturedAtMs, lat, lng) {
     if (!weather) return "";
     const iconName = weatherIconNameForOwmCode(weather.icon);
     const tempStr = formatWeatherTemp(weather.tempC);
     const dateStr = capturedAtMs ? new Date(capturedAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
     const desc = weather.description ? weather.description.charAt(0).toUpperCase() + weather.description.slice(1) : "";
+    let sunHtml = "";
+    if (capturedAtMs && typeof lat === "number" && typeof lng === "number") {
+      const sun = getSunTimes(new Date(capturedAtMs), lat, lng);
+      if (sun.polarNight) {
+        sunHtml = '<p class="weather-snapshot-sun">' + icon("moon", 13) + "Polar night — no sunrise this day</p>";
+      } else if (sun.midnightSun) {
+        sunHtml = '<p class="weather-snapshot-sun">' + icon("sun", 13) + "Midnight sun — no sunset this day</p>";
+      } else if (sun.sunrise && sun.sunset) {
+        sunHtml = '<p class="weather-snapshot-sun">' +
+          '<span>' + icon("sunrise", 13) + formatSunTimeApprox(sun.sunrise, lng) + "</span>" +
+          '<span>' + icon("sunset", 13) + formatSunTimeApprox(sun.sunset, lng) + "</span>" +
+        "</p>";
+      }
+    }
     return '<div class="weather-snapshot">' +
       '<button type="button" class="layers-accordion-toggle weather-snapshot-toggle">' +
         '<span class="weather-snapshot-summary">' + icon(iconName, 18) + "<b>" + tempStr + "</b></span>" +
@@ -3937,6 +4009,7 @@
       '<div class="layers-accordion-content">' +
         '<p class="weather-snapshot-desc">' + escapeHtml(desc) + "</p>" +
         (dateStr ? '<p class="weather-snapshot-date">' + escapeHtml(dateStr) + "</p>" : "") +
+        sunHtml +
       "</div>" +
     "</div>";
   }
@@ -3998,17 +4071,30 @@
     return days.slice(0, 5);
   }
 
-  function renderForecastDays(days, units) {
+  function renderForecastDays(days, units, lat, lng) {
     const tempUnit = units === "imperial" ? "°F" : "°C";
     forecastDaysContainer.innerHTML = days.map((d) => {
       // localDate's epoch value was already shifted by the LOCATION's own tz
       // offset, so reading it back out with timeZone:"UTC" gives the correct
       // weekday for that location, regardless of the viewer's own timezone.
       const dayName = d.localDate.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+      let sunHtml = "";
+      if (typeof lat === "number" && typeof lng === "number") {
+        const sun = getSunTimes(d.localDate, lat, lng);
+        if (sun.sunrise && sun.sunset) {
+          sunHtml = '<span class="forecast-day-sun">' +
+            '<span>' + icon("sunrise", 12) + formatSunTimeApprox(sun.sunrise, lng) + "</span>" +
+            '<span>' + icon("sunset", 12) + formatSunTimeApprox(sun.sunset, lng) + "</span>" +
+          "</span>";
+        }
+      }
       return '<div class="forecast-day-row">' +
         '<span class="forecast-day-name">' + dayName + "</span>" +
         '<span class="forecast-day-icon">' + icon(weatherIconNameForOwmCode(d.icon), 22) + "</span>" +
-        '<span class="forecast-day-desc">' + escapeHtml(d.description) + "</span>" +
+        '<span class="forecast-day-desc-col">' +
+          '<span class="forecast-day-desc">' + escapeHtml(d.description) + "</span>" +
+          sunHtml +
+        "</span>" +
         '<span class="forecast-day-temps"><span class="hi">' + Math.round(d.high) + tempUnit + '</span> <span class="lo">' + Math.round(d.low) + tempUnit + "</span></span>" +
       "</div>";
     }).join("");
@@ -4041,7 +4127,7 @@
       const data = await res.json();
       if (!data.list || !data.list.length) throw new Error("No forecast data returned");
       const days = aggregateForecastByDay(data);
-      renderForecastDays(days, units);
+      renderForecastDays(days, units, lat, lng);
       forecastLoadingState.classList.add("hidden");
       forecastDaysContainer.classList.remove("hidden");
     } catch (e) {
@@ -8008,7 +8094,9 @@
     rideHudAvgTimePerKm.textContent = formatDuration(stats.avgTimePerUnitMs);
     rideHudLabel6.textContent = "Avg Speed (" + speedUnitLabel() + ")";
     rideHudAvgSpeed.textContent = formatSpeedValue(stats.avgSpeedKmh);
-    rideHudWeatherContainer.innerHTML = buildWeatherAccordionHtml(ride.weather, ride.endTime);
+    rideHudWeatherContainer.innerHTML = ride.points && ride.points.length
+      ? buildWeatherAccordionHtml(ride.weather, ride.endTime, ride.points[0].lat, ride.points[0].lng)
+      : buildWeatherAccordionHtml(ride.weather, ride.endTime);
 
     // The HUD needs to be visible and in its final "viewing" layout BEFORE
     // measuring its height below — its size differs from the tracking/paused
@@ -10575,7 +10663,7 @@
     if (!Array.isArray(pendingReview.tags)) pendingReview.tags = []; // defensive, in case of older/partial saved data
     photoStatus.style.display = "none";
     renderPhotoThumbs();
-    modalWeatherContainer.innerHTML = isStoryWp ? "" : buildWeatherAccordionHtml(wp.weather, wp.createdAt);
+    modalWeatherContainer.innerHTML = isStoryWp ? "" : buildWeatherAccordionHtml(wp.weather, wp.createdAt, wp.lat, wp.lng);
     modalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => nameInput.focus(), 30);
