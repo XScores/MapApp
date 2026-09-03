@@ -2346,7 +2346,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "414";
+  const APP_VERSION = "415";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -6669,6 +6669,20 @@
   function getIconQuickPicks() {
     if (!Array.isArray(settings.iconQuickPickOrder) || settings.iconQuickPickOrder.length === 0) {
       settings.iconQuickPickOrder = DEFAULT_ICON_QUICK_PICKS.slice();
+    } else {
+      // Appends any default icons the user's already-saved order doesn't
+      // have yet. Without this, a returning user's persisted list stays
+      // frozen at whatever size it was the very first time this ran --
+      // new icons added to the curated set afterward (like this session's
+      // 28 additions) would never appear for them no matter how many are
+      // added or how the grid itself scrolls, since the underlying list
+      // they're scrolling through simply never contained them.
+      const existing = new Set(settings.iconQuickPickOrder);
+      const missing = DEFAULT_ICON_QUICK_PICKS.filter((e) => !existing.has(e));
+      if (missing.length > 0) {
+        settings.iconQuickPickOrder = settings.iconQuickPickOrder.concat(missing);
+        saveSettings();
+      }
     }
     return settings.iconQuickPickOrder;
   }
