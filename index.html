@@ -224,6 +224,7 @@
     padding:0 10px; font-size:11px; color:#cbd5e1; cursor:pointer;}
   .owm-key-row button:hover{background:var(--surface);}
   .layers-hint{font-size:11px; color:var(--text-mute); margin:6px 0 0; line-height:1.5;}
+  .layers-hint.hidden{display:none;}
   .layers-hint a{color:var(--cyan);}
   .owm-key-saved{display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--text-mute);}
   .owm-key-saved button{background:none; border:none; color:var(--red); cursor:pointer; font-size:11px; padding:0;}
@@ -322,10 +323,20 @@
   .code-badge.amber{color:var(--amber-light); text-transform:uppercase;}
   .code-badge.cyan{color:var(--cyan);}
   .field-label{font-size:12px; color:var(--text-dim); display:block; margin-bottom:5px;}
+  .folder-create-itinerary-fields{display:flex; flex-direction:column; gap:2px; margin-top:10px;}
+  .folder-create-itinerary-fields.hidden{display:none;}
+  .folder-create-itinerary-fields .field-input{margin-bottom:8px;}
+  .itinerary-date-days-row{display:flex; gap:10px;}
+  .itinerary-date-days-col{flex:1; min-width:0;}
   .name-row{display:flex; gap:8px; margin-bottom:14px;}
   .field-input, textarea{width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
     padding:10px 12px; color:var(--text); font-size:14px; outline:none; font-family:inherit;}
   .field-input:focus, textarea:focus{border-color:rgba(245,158,11,.6);}
+  /* The native calendar/clock icon browsers draw inside date/time inputs
+     renders solid black by default, with no direct CSS color property
+     exposed for it -- inverting it is the standard, well-supported
+     technique for making it visible against a dark field like this one. */
+  .field-input::-webkit-calendar-picker-indicator{filter:invert(1);}
   input[type="search"]::-webkit-search-decoration,
   input[type="search"]::-webkit-search-cancel-button,
   input[type="search"]::-webkit-search-results-button,
@@ -639,6 +650,7 @@
   .folder-accordion-action{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; padding:4px;}
   .folder-accordion-action:hover{color:var(--text-dim);}
   .trip-folder > .folder-accordion-header .folder-accordion-icon{color:#a78bfa;}
+  .itinerary-folder > .folder-accordion-header .folder-accordion-icon{color:#22d3ee;}
   .folder-accordion-story-btn{color:#a78bfa;}
   .folder-accordion-story-btn:hover{color:#c4b5fd;}
   .folder-accordion-story-btn.generating{color:#c4b5fd; cursor:default; animation:story-generating-pulse 1.1s ease-in-out infinite;}
@@ -656,6 +668,23 @@
   .folder-accordion-body .card{margin-bottom:8px;}
   .folder-accordion-body .card:last-child{margin-bottom:0;}
   .folder-accordion-empty{font-size:12.5px; color:var(--text-mute); padding:6px 4px;}
+  .folder-accordion-empty-cta{display:block; width:100%; text-align:left; background:none; border:none; font-family:inherit;
+    color:var(--amber-light); cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
+  .folder-accordion-empty-cta:hover{color:var(--amber);}
+  /* Waypoint drag-and-drop reordering inside Itinerary/Day folders --
+     the handle is a separate sibling next to cardHtml's own unmodified
+     output, the same reasoning as elsewhere in this app: nesting a second
+     button inside .card-main (itself a button) isn't valid HTML, and
+     keeping the handle separate means cardHtml never needs to know this
+     context exists at all. */
+  .itinerary-draggable-item{display:flex; align-items:stretch; gap:0;}
+  .itinerary-drag-handle{flex-shrink:0; width:22px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--text-mute); cursor:grab; padding:0; touch-action:none;}
+  .itinerary-drag-handle:hover{color:var(--text);}
+  .itinerary-draggable-card-wrap{flex:1; min-width:0;}
+  .itinerary-draggable-item.dragging{opacity:.6; position:relative; z-index:5;}
+  .itinerary-draggable-item.drop-before{box-shadow:0 -2px 0 0 var(--cyan);}
+  .itinerary-draggable-item.drop-after{box-shadow:0 2px 0 0 var(--cyan);}
 
   .bulk-select-bar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px;
     margin:0 12px 8px; background:rgba(34,211,238,.1); border:1px solid rgba(34,211,238,.35); border-radius:12px;
@@ -1740,6 +1769,9 @@
       <button type="button" class="list-favorite-filter-btn" id="waypointNewTripBtn" title="New Trip folder">
         <span class="icon"></span>
       </button>
+      <button type="button" class="list-favorite-filter-btn" id="waypointNewItineraryBtn" title="New Itinerary folder">
+        <span class="icon"></span>
+      </button>
       <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
       <p class="panel-sync-status" id="panelSyncStatus"></p>
     </div>
@@ -1755,7 +1787,20 @@
           <button type="button" class="icon-btn" id="folderExportPdfBtn" title="Export trip as PDF" data-icon="fileDown" data-icon-size="15"></button>
         </div>
         <p class="layers-hint hidden" id="folderCreatePanelTripLabel">Creating a Trip folder — waypoints saved while it's open will land here automatically.</p>
+        <p class="layers-hint hidden" id="folderCreatePanelItineraryLabel">Creating an Itinerary folder — search for and add existing waypoints you're planning to visit.</p>
         <input type="text" id="folderCreateNameInput" class="field-input" placeholder="Folder name" autocomplete="off" />
+        <div class="folder-create-itinerary-fields hidden" id="folderCreateItineraryFields">
+          <div class="itinerary-date-days-row">
+            <div class="itinerary-date-days-col">
+              <label class="field-label" for="itineraryStartDateInput">Date trip begins</label>
+              <input type="date" id="itineraryStartDateInput" class="field-input" />
+            </div>
+            <div class="itinerary-date-days-col">
+              <label class="field-label" for="itineraryDayCountInput">Number of days</label>
+              <input type="number" id="itineraryDayCountInput" class="field-input" min="1" max="60" step="1" value="1" />
+            </div>
+          </div>
+        </div>
         <input type="color" id="folderCreateColorInput" value="#fbbf24" title="Folder icon color" style="display:none;" />
         <div class="color-swatches" id="folderCreateColorSwatches"></div>
         <div class="folder-create-panel-row">
@@ -1985,7 +2030,9 @@
     play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
     stop: '<rect x="5" y="5" width="14" height="14" rx="1.5"></rect>',
     fileDown: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6M9 15l3 3 3-3"></path>',
-    gear: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
+    gear: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+    gripDots: '<circle cx="9" cy="6" r="1.4" fill="currentColor"></circle><circle cx="15" cy="6" r="1.4" fill="currentColor"></circle><circle cx="9" cy="12" r="1.4" fill="currentColor"></circle><circle cx="15" cy="12" r="1.4" fill="currentColor"></circle><circle cx="9" cy="18" r="1.4" fill="currentColor"></circle><circle cx="15" cy="18" r="1.4" fill="currentColor"></circle>'
   };
 
   function icon(name, size) {
@@ -2346,7 +2393,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "415";
+  const APP_VERSION = "424";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -2599,6 +2646,7 @@
   let folderRemoveSelectMode = false;
   let editingFolderId = null;
   let creatingTripFolder = false; // true while the folder-create panel is set up via the Trip button, so the folder it produces gets isTrip:true
+  let creatingItineraryFolder = false; // same idea, for the Itinerary button and isItinerary:true
   const aiStoryGeneratingFolderIds = new Set(); // Trip folder ids currently mid-generation, so the button can show a busy state and can't be double-clicked
   const selectedWaypointIdsForMove = new Set();
   const selectedFolderIdsForMove = new Set();
@@ -2967,7 +3015,12 @@
   const waypointSelectModeBtn = el("waypointSelectModeBtn");
   const waypointNewFolderBtn = el("waypointNewFolderBtn");
   const waypointNewTripBtn = el("waypointNewTripBtn");
+  const waypointNewItineraryBtn = el("waypointNewItineraryBtn");
   const folderCreatePanelTripLabel = el("folderCreatePanelTripLabel");
+  const folderCreatePanelItineraryLabel = el("folderCreatePanelItineraryLabel");
+  const folderCreateItineraryFields = el("folderCreateItineraryFields");
+  const itineraryStartDateInput = el("itineraryStartDateInput");
+  const itineraryDayCountInput = el("itineraryDayCountInput");
   const folderCreatePanelHeader = el("folderCreatePanelHeader");
   const folderExportPdfBtn = el("folderExportPdfBtn");
   const waypointBulkBar = el("waypointBulkBar");
@@ -3119,6 +3172,7 @@
   waypointSelectModeBtn.querySelector(".icon").innerHTML = icon("checkSquare", 15);
   waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
   waypointNewTripBtn.querySelector(".icon").innerHTML = icon("plane", 15);
+  waypointNewItineraryBtn.querySelector(".icon").innerHTML = icon("calendar", 15);
   reviewPhoneCallBtn.querySelector(".icon").innerHTML = icon("phone", 15);
   reviewEmailMailBtn.querySelector(".icon").innerHTML = icon("mail", 15);
   photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
@@ -6724,7 +6778,7 @@
   // New folders start amber (or violet for a Trip folder) to match what
   // they'd otherwise render as via CSS alone -- picking a swatch overrides
   // that per-folder from here on.
-  function defaultFolderColor(isTrip) { return isTrip ? "#a78bfa" : "#fbbf24"; }
+  function defaultFolderColor(isTrip, isItinerary) { return isItinerary ? "#22d3ee" : isTrip ? "#a78bfa" : "#fbbf24"; }
 
   /* ---------- draggable icon quick-pick (Pointer Events: works for mouse   */
   /*  AND touch in one implementation — native HTML5 drag-and-drop does      */
@@ -6732,6 +6786,70 @@
   /*  so it isn't usable here.) ---------- */
   const ICON_DRAG_THRESHOLD_PX = 6;
   let iconDragState = null;
+  let itineraryDragState = null; // waypoint drag-reorder within an Itinerary/Day folder -- see panelList's pointermove/pointerup below
+  const ITINERARY_DRAG_THRESHOLD_PX = 6;
+  panelList.addEventListener("pointermove", (e) => {
+    const state = itineraryDragState;
+    if (!state || e.pointerId !== state.pointerId) return;
+    const dy = e.clientY - state.startY;
+    if (!state.dragging && Math.abs(dy) > ITINERARY_DRAG_THRESHOLD_PX) {
+      state.dragging = true;
+      state.item.classList.add("dragging");
+      state.item.style.pointerEvents = "none"; // so elementFromPoint below sees what's UNDER it, not itself
+    }
+    if (!state.dragging) return;
+    state.item.style.transform = "translateY(" + dy + "px)";
+    panelList.querySelectorAll(".itinerary-draggable-item.drop-before, .itinerary-draggable-item.drop-after")
+      .forEach((el) => el.classList.remove("drop-before", "drop-after"));
+    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+    const targetItem = elUnder && elUnder.closest(".itinerary-draggable-item");
+    if (targetItem && targetItem !== state.item) {
+      const rect = targetItem.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      targetItem.classList.add(before ? "drop-before" : "drop-after");
+    }
+  });
+  function finishItineraryDrag(e) {
+    const state = itineraryDragState;
+    if (!state || e.pointerId !== state.pointerId) return;
+    itineraryDragState = null;
+    state.item.style.transform = "";
+    state.item.style.pointerEvents = "";
+    state.item.classList.remove("dragging");
+    const dropBefore = panelList.querySelector(".itinerary-draggable-item.drop-before");
+    const dropAfter = panelList.querySelector(".itinerary-draggable-item.drop-after");
+    if (dropBefore) dropBefore.classList.remove("drop-before");
+    if (dropAfter) dropAfter.classList.remove("drop-after");
+
+    if (!state.dragging) return; // a plain tap on the handle, not a drag -- nothing to commit
+    const target = dropBefore || dropAfter;
+    if (!target) { renderList(); return; } // dropped somewhere with no valid target -- re-render clears the inline transform via a fresh, correctly-ordered render
+
+    // Reorders within the same folder's own list only -- a Day folder's
+    // waypoints don't span across folders, so target and the dragged item
+    // are always expected to share a parent already.
+    const container = state.item.parentElement;
+    if (!container || target.parentElement !== container) return;
+    if (dropBefore) container.insertBefore(state.item, target);
+    else container.insertBefore(state.item, target.nextSibling);
+
+    // Reads the now-updated DOM order back out (direct children only, in
+    // case a nested subfolder's own draggable items are also present
+    // somewhere further down) and assigns fresh, explicit itineraryOrder
+    // values matching it -- from here on this is the sort's source of
+    // truth, overriding plain insertion order.
+    const orderedIds = Array.from(container.children)
+      .filter((el) => el.classList.contains("itinerary-draggable-item"))
+      .map((el) => el.dataset.waypointId);
+    orderedIds.forEach((id, index) => {
+      const wp = waypoints.find((w) => w.id === id);
+      if (wp) wp.itineraryOrder = index;
+    });
+    saveWaypoints();
+    renderList();
+  }
+  panelList.addEventListener("pointerup", finishItineraryDrag);
+  panelList.addEventListener("pointercancel", finishItineraryDrag);
 
   function renderIconQuickPick() {
     const picks = getIconQuickPicks();
@@ -7497,6 +7615,16 @@
   // this is for passive, general position display, not precise recording,
   // so it doesn't need to be as battery-hungry.
   const LIVE_DOT_MAX_ACCEPTABLE_ACCURACY_METERS = 60; // looser than route tracking's threshold since this mode already asks for lower-accuracy fixes
+  // Below this, a fix-to-fix difference reads as GPS jitter from standing
+  // still rather than real movement -- large enough that normal GPS drift
+  // while stationary won't fight a manual pan, small enough that actually
+  // walking still triggers following promptly.
+  const LIVE_FOLLOW_MOVEMENT_THRESHOLD_METERS = 10;
+  // The position the map was last auto-centered on -- compared against on
+  // every fix, and only updated when an actual pan happens, so slow,
+  // sub-threshold movement still accumulates toward the next follow
+  // rather than resetting the comparison every single fix.
+  let lastLiveFollowCenter = null;
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(
       (pos) => {
@@ -7504,7 +7632,22 @@
         // to a wrong spot and back -- better to just hold the last good
         // position than show a jittery, misleading one.
         if (typeof pos.coords.accuracy === "number" && pos.coords.accuracy > LIVE_DOT_MAX_ACCEPTABLE_ACCURACY_METERS) return;
-        updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude);
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        updateLivePositionMarker(lat, lng);
+        // Route tracking and hands-free voice capture already run their
+        // own HUD-aware following on their own, higher-frequency watchers
+        // -- this one only drives the map in plain "normal" mode, so as
+        // not to fight either of those for control of the view.
+        if (rideTracking || handsFreeWatchId) return;
+        const hasMoved = !lastLiveFollowCenter ||
+          haversineMeters(lastLiveFollowCenter.lat, lastLiveFollowCenter.lng, lat, lng) > LIVE_FOLLOW_MOVEMENT_THRESHOLD_METERS;
+        if (hasMoved) {
+          followCurrentPosition(lat, lng, null);
+          lastLiveFollowCenter = { lat, lng };
+        }
+        // else: leave the map exactly where it is -- this is what lets a
+        // stationary user freely pan/zoom without the next fix snapping
+        // it back to center.
       },
       () => { /* silently ignore — permission denied, unavailable, etc. shouldn't interrupt anything */ },
       { enableHighAccuracy: false, maximumAge: 15000, timeout: 20000 }
@@ -8962,6 +9105,7 @@
     // dispatch to whichever tab's folder feature is currently active.
     waypointSelectModeBtn.title = "Select multiple " + (tab === "waypoints" ? "waypoints" : tab === "routes" ? "routes" : "measurements");
     waypointNewTripBtn.classList.toggle("hidden", tab !== "waypoints"); // Trip folders are a Waypoints-tab-only concept
+    waypointNewItineraryBtn.classList.toggle("hidden", tab !== "waypoints"); // same -- Itinerary folders only make sense for waypoints
     if (tab !== "waypoints") panelNoResults.style.display = "none";
     if (tab !== "routes") routesNoResults.style.display = "none";
     if (tab !== "measurements") measurementsNoResults.style.display = "none";
@@ -9015,11 +9159,23 @@
     if (waypointSelectMode) setWaypointSelectMode(false); // only one selection mode active at a time
     waypointFolderCreatePanel.classList.remove("hidden");
     folderCreateNameInput.value = nameValue;
-    folderCreateNameInput.placeholder = creatingTripFolder ? "Trip name" : "Folder name";
+    folderCreateNameInput.placeholder = creatingTripFolder ? "Trip name" : creatingItineraryFolder ? "Itinerary name" : "Folder name";
     folderCreatePanelTripLabel.classList.toggle("hidden", !creatingTripFolder);
+    folderCreatePanelItineraryLabel.classList.toggle("hidden", !creatingItineraryFolder);
+    // Day count/start date only apply to a brand-new itinerary -- changing
+    // the day count after Day subfolders already exist would mean
+    // reconciling waypoints already sorted into days that no longer
+    // exist, which isn't handled yet, so this stays creation-only for now.
+    const showItineraryFields = creatingItineraryFolder && !editingFolderId;
+    folderCreateItineraryFields.classList.toggle("hidden", !showItineraryFields);
+    if (showItineraryFields) {
+      itineraryStartDateInput.value = new Date().toISOString().slice(0, 10);
+      itineraryDayCountInput.value = "1";
+    }
     const editingFolder = editingFolderId ? waypointFolders.find((f) => f.id === editingFolderId) : null;
     folderCreatePanelHeader.classList.toggle("hidden", !(editingFolder && editingFolder.isTrip));
-    const color = (editingFolder && editingFolder.color) || defaultFolderColor(editingFolder ? editingFolder.isTrip : creatingTripFolder);
+    const color = (editingFolder && editingFolder.color) ||
+      defaultFolderColor(editingFolder ? editingFolder.isTrip : creatingTripFolder, editingFolder ? editingFolder.isItinerary : creatingItineraryFolder);
     folderCreateColorInput.value = color;
     markSwatchSelected(folderCreateColorSwatches, color);
     selectedWaypointIdsForMove.clear();
@@ -9028,14 +9184,21 @@
     folderRemoveSelectMode = false;
     folderCreateSelectItemsBtn.classList.remove("active");
     folderCreateRemoveItemsBtn.classList.remove("active");
+    // Neither fits an Itinerary folder -- there's nothing to bulk-select
+    // or add at this level once it just holds Day subfolders rather than
+    // waypoints directly.
+    const isItineraryContext = creatingItineraryFolder || !!(editingFolder && editingFolder.isItinerary);
+    folderCreateSelectItemsBtn.classList.toggle("hidden", isItineraryContext);
+    folderCreateAddItemsBtn.classList.toggle("hidden", isItineraryContext);
     folderCreateRemoveItemsBtn.classList.toggle("hidden", !editingFolderId); // nothing to remove from a folder that doesn't exist yet
     folderCreateDeleteBtn.classList.toggle("hidden", !editingFolderId); // same -- nothing to delete when creating a new folder
     folderCreateCreateBtn.textContent = editingFolderId ? "Save" : "Create";
     setTimeout(() => { folderCreateNameInput.focus(); folderCreateNameInput.select(); }, 30);
   }
-  function openFolderCreatePanel(isTrip) {
+  function openFolderCreatePanel(isTrip, isItinerary) {
     editingFolderId = null;
     creatingTripFolder = !!isTrip;
+    creatingItineraryFolder = !!isItinerary;
     showFolderPanel("");
   }
   function openFolderEditPanel(folderId) {
@@ -9043,6 +9206,7 @@
     if (!folder) return;
     editingFolderId = folderId;
     creatingTripFolder = false; // a folder's Trip status is fixed at creation, not editable here
+    creatingItineraryFolder = false; // same -- Itinerary status is fixed at creation too
     setOnlyExpandedFolder(folderId); // stays expanded for the duration of editing, so Remove items has something visible to act on; also collapses whichever other folder was open
     showFolderPanel(folder.name);
     renderList(); // pins this folder to the top of the list, directly under the search bar/panel
@@ -9058,6 +9222,7 @@
     selectedFolderIdsForMove.clear();
     editingFolderId = null;
     creatingTripFolder = false;
+    creatingItineraryFolder = false;
     renderList();
   }
   // The two panel-scoped selection modes are mutually exclusive -- turning
@@ -9124,7 +9289,27 @@
       if (!folder) { closeFolderCreatePanel(); return; } // deleted elsewhere mid-edit (e.g. synced from another device) -- nothing left to save
       if (folder.name !== name) renameWaypointFolder(folder.id, name);
     } else {
-      folder = createWaypointFolder(name, creatingTripFolder);
+      folder = createWaypointFolder(name, creatingTripFolder, creatingItineraryFolder);
+      if (creatingItineraryFolder) {
+        // Day subfolders are generated once, at creation -- see the note
+        // by folderCreateItineraryFields above on why day count isn't
+        // editable afterward yet.
+        const dayCount = Math.max(1, Math.min(60, parseInt(itineraryDayCountInput.value, 10) || 1));
+        const startDateStr = itineraryStartDateInput.value; // "YYYY-MM-DD" or "" if left blank
+        const startDate = startDateStr ? new Date(startDateStr + "T00:00:00") : null;
+        for (let i = 0; i < dayCount; i++) {
+          let dayLabel = "Day " + (i + 1);
+          if (startDate) {
+            const dayDate = new Date(startDate.getTime() + i * 86400000);
+            dayLabel += " (" + dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + ")";
+          }
+          const dayFolder = createWaypointFolder(dayLabel, false, false);
+          dayFolder.parentFolderId = folder.id;
+          dayFolder.updatedAt = Date.now();
+        }
+        saveWaypointFolders(); // persists the parentFolderId links set above, after each child's own creation already saved without them
+        expandedFolderIds.add(folder.id); // so the new Day subfolders are immediately visible, not hidden behind a collapsed parent
+      }
     }
     if (folder.color !== folderCreateColorInput.value) {
       folder.color = folderCreateColorInput.value;
@@ -9158,6 +9343,7 @@
     else openMeasurementFolderCreatePanel();
   });
   waypointNewTripBtn.addEventListener("click", () => openFolderCreatePanel(true));
+  waypointNewItineraryBtn.addEventListener("click", () => openFolderCreatePanel(false, true));
   folderCreateCancelBtn.addEventListener("click", closeFolderCreatePanel);
   folderCreateSelectItemsBtn.addEventListener("click", () => setFolderCreateSelectMode(!folderCreateSelectMode));
   folderExportPdfBtn.addEventListener("click", () => {
@@ -12286,8 +12472,8 @@
     return deepest || null;
   }
 
-  function createWaypointFolder(name, isTrip) {
-    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, isTrip: !!isTrip, createdAt: Date.now(), updatedAt: Date.now() };
+  function createWaypointFolder(name, isTrip, isItinerary) {
+    const folder = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), name, parentFolderId: null, isTrip: !!isTrip, isItinerary: !!isItinerary, createdAt: Date.now(), updatedAt: Date.now() };
     waypointFolders.push(folder);
     saveWaypointFolders();
     return folder;
@@ -12422,6 +12608,15 @@
     showToast(hidden ? 'Hid "' + folder.name + '" from the map' : 'Showing "' + folder.name + '" on the map');
   }
 
+  // A folder is "itinerary context" either by being the Itinerary folder
+  // itself, or by being one of its Day subfolders (which carry no flag of
+  // their own -- just a parentFolderId pointing at the Itinerary folder).
+  function isItineraryContextFolder(folder) {
+    if (!folder) return false;
+    if (folder.isItinerary) return true;
+    const parent = folder.parentFolderId ? waypointFolders.find((f) => f.id === folder.parentFolderId) : null;
+    return !!(parent && parent.isItinerary);
+  }
   function folderAccordionHtml(folder) {
     const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = waypoints.filter((w) => w.folderId === folder.id);
@@ -12449,17 +12644,50 @@
     // rendered.
     const bodyHtml = expanded
       ? (() => {
-          const bodyEntries = childFolders.map((f) => ({ name: f.name, createdAt: f.createdAt || 0, html: folderAccordionHtml(f) }))
-            .concat(regularItems.map((w) => ({ name: w.name, createdAt: w.createdAt || 0, html: cardHtml(w) })))
+          const isItineraryFolder = isItineraryContextFolder(folder);
+          // Waypoints keep the order they were added in (oldest first, so
+          // the first stop planned lands at the top) rather than
+          // alphabetical -- itineraryOrder overrides that once the user
+          // drags to rearrange them, at which point every waypoint in this
+          // folder gets a fresh, explicit sequence value.
+          const waypointSortKey = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, sortKey: f.createdAt || 0, html: folderAccordionHtml(f) }))
+            .concat(regularItems.map((w) => ({
+              name: w.name,
+              sortKey: waypointSortKey(w),
+              html: isItineraryFolder
+                ? '<div class="itinerary-draggable-item" data-waypoint-id="' + w.id + '">' +
+                    '<button type="button" class="itinerary-drag-handle" aria-label="Reorder ' + escapeHtml(w.name) + '"><span class="icon"></span></button>' +
+                    '<div class="itinerary-draggable-card-wrap">' + cardHtml(w) + "</div>" +
+                  "</div>"
+                : cardHtml(w),
+            })))
             // Trip folders order their contents by capture time, newest
             // first -- that's the natural order you'd want while
-            // retracing a trip. Every other folder keeps the normal
-            // alphabetical sort.
-            .sort(folder.isTrip ? (a, b) => b.createdAt - a.createdAt : (a, b) => compareSortNames(a.name, b.name));
+            // retracing a trip. Itinerary folders (and their Day
+            // subfolders) use insertion/drag order, from waypointSortKey
+            // above. Every other folder keeps the normal alphabetical sort.
+            .sort(
+              folder.isTrip ? (a, b) => b.sortKey - a.sortKey
+              : isItineraryFolder ? (a, b) => a.sortKey - b.sortKey
+              : (a, b) => compareSortNames(a.name, b.name)
+            );
           const storyHtml = storyWps.map((w) => cardHtml(w)).join("");
-          return (bodyEntries.length === 0 && storyWps.length === 0)
-            ? '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>'
-            : storyHtml + bodyEntries.map((e) => e.html).join("");
+          if (bodyEntries.length === 0 && storyWps.length === 0) {
+            // Day subfolders (identified by their parent being an Itinerary
+            // folder, not any flag of their own) get an actionable prompt
+            // instead of the generic empty message -- clicking it closes
+            // the panel so the map is free to search/pan/tap, while this
+            // folder stays expanded so getOpenFolderId() keeps routing any
+            // newly-added waypoint here, exactly as if the user had left
+            // it open themselves.
+            const parentFolder = folder.parentFolderId ? waypointFolders.find((f) => f.id === folder.parentFolderId) : null;
+            return (parentFolder && parentFolder.isItinerary)
+              ? '<button type="button" class="folder-accordion-empty folder-accordion-empty-cta" data-action="add-day-stops" data-id="' + folder.id + '">' +
+                  "Click here to add your planned stops for " + escapeHtml(folder.name) + "</button>"
+              : '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>';
+          }
+          return storyHtml + bodyEntries.map((e) => e.html).join("");
         })()
       : "";
     const tripStoryBtn = folder.isTrip
@@ -12470,10 +12698,10 @@
     const visibilityBtn = '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' +
       (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>";
     const shareFolderBtn = '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>";
-    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + '" data-folder-id="' + folder.id + '">' +
+    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + (folder.isTrip ? " trip-folder" : "") + (folder.isItinerary ? " itinerary-folder" : "") + '" data-folder-id="' + folder.id + '">' +
       '<div class="folder-accordion-header' + (selectedForMove ? " selected-for-move" : "") + '" data-action="folder-toggle" data-id="' + folder.id + '">' +
         '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
-        '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon(folder.isTrip ? "plane" : "folder", 16) + "</span>" +
+        '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon(folder.isItinerary ? "calendar" : folder.isTrip ? "plane" : "folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripStoryBtn +
@@ -12705,6 +12933,23 @@
         e.stopPropagation();
         const folder = waypointFolders.find((f) => f.id === btn.dataset.id);
         if (folder) openFolderShareModal(folder, "waypoint");
+      });
+    });
+    panelList.querySelectorAll('[data-action="add-day-stops"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folder = waypointFolders.find((f) => f.id === btn.dataset.id);
+        closePanel(); // frees up the map for searching/panning/tapping -- expandedFolderIds is untouched, so this folder is still "open" for auto-land
+        if (folder) showToast("Tap the map, search a place, or drop your current location — it'll be added to " + folder.name + ".");
+      });
+    });
+    panelList.querySelectorAll(".itinerary-drag-handle").forEach((handle) => {
+      handle.querySelector(".icon").innerHTML = icon("gripDots", 15);
+      handle.addEventListener("pointerdown", (e) => {
+        const item = handle.closest(".itinerary-draggable-item");
+        if (!item) return;
+        handle.setPointerCapture(e.pointerId);
+        itineraryDragState = { pointerId: e.pointerId, item, startY: e.clientY, dragging: false };
       });
     });
   }
