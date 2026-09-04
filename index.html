@@ -2393,7 +2393,7 @@
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "424";
+  const APP_VERSION = "425";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3883,7 +3883,7 @@
     folderSharePendingFolder = folder;
     folderSharePendingKind = kind || "waypoint";
     folderShareModalTitle.textContent = "Share " + folder.name;
-    folderShareModalPdfRow.style.display = (folderSharePendingKind === "waypoint" && folder.isTrip) ? "" : "none"; // PDF export only exists for Trip waypoint folders
+    folderShareModalPdfRow.style.display = (folderSharePendingKind === "waypoint" && (folder.isTrip || folder.isItinerary)) ? "" : "none"; // PDF export exists for Trip and Itinerary waypoint folders
     folderShareModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
   }
@@ -12617,6 +12617,28 @@
     const parent = folder.parentFolderId ? waypointFolders.find((f) => f.id === folder.parentFolderId) : null;
     return !!(parent && parent.isItinerary);
   }
+  // Trip folders are flat, so "this folder's waypoints" has always just
+  // meant a direct folderId match. Itinerary folders aren't flat -- every
+  // real waypoint lives inside one of their Day subfolders, never in the
+  // Itinerary folder itself -- so anything that gathers "this trip's
+  // waypoints" (AI Story, PDF export) needs to walk the whole subtree for
+  // those, or it would silently find nothing at all. Returns a Set
+  // including the folder's own id, so callers can use it as a direct,
+  // uniform membership check either way.
+  function getFolderAndDescendantIds(folderId) {
+    const ids = new Set([folderId]);
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      waypointFolders.forEach((f) => {
+        if (f.parentFolderId && ids.has(f.parentFolderId) && !ids.has(f.id)) {
+          ids.add(f.id);
+          addedMore = true;
+        }
+      });
+    }
+    return ids;
+  }
   function folderAccordionHtml(folder) {
     const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = waypoints.filter((w) => w.folderId === folder.id);
@@ -12627,7 +12649,7 @@
     // are pinned first in the body, ahead of the normal alphabetical merge,
     // in a fixed format order -- they're a summary of everything else in
     // the folder, so they belong at the top regardless of what they're named.
-    const storyWps = folder.isTrip
+    const storyWps = (folder.isTrip || folder.isItinerary)
       ? items.filter((w) => w.isStoryEntry).sort((a, b) => {
           const ai = STORY_FORMATS.findIndex((f) => f.id === (a.storyFormat || "narrative"));
           const bi = STORY_FORMATS.findIndex((f) => f.id === (b.storyFormat || "narrative"));
@@ -12690,7 +12712,7 @@
           return storyHtml + bodyEntries.map((e) => e.html).join("");
         })()
       : "";
-    const tripStoryBtn = folder.isTrip
+    const tripStoryBtn = (folder.isTrip || folder.isItinerary)
       ? '<button type="button" class="folder-accordion-action folder-accordion-story-btn' + (aiStoryGeneratingFolderIds.has(folder.id) ? " generating" : "") + '" data-action="ai-story" data-id="' + folder.id + '" title="' +
           (aiStoryGeneratingFolderIds.has(folder.id) ? "Generating…" : "A.I. Story") + '"' +
           (aiStoryGeneratingFolderIds.has(folder.id) ? " disabled" : "") + '>' + icon("sparkles", 14) + "</button>"
@@ -12994,10 +13016,28 @@
   //  candidate once that can be tested on a real device.
   // ================================================================
 
+  // Day order first (a Day folder's own createdAt reflects Day 1/2/3...
+  // sequence, since they're generated in order at creation), then each
+  // waypoint's place within its own day -- itineraryOrder once the user's
+  // dragged to rearrange it, falling back to insertion order otherwise.
+  // Plain createdAt alone isn't reliable for this: a Day 3 stop added
+  // before a Day 1 stop would otherwise land first, which is wrong for
+  // a day-by-day trip regardless of when each was actually typed in.
+  function itineraryAwareCompare(a, b) {
+    const dayA = waypointFolders.find((f) => f.id === a.folderId);
+    const dayB = waypointFolders.find((f) => f.id === b.folderId);
+    const dayDelta = (dayA ? (dayA.createdAt || 0) : 0) - (dayB ? (dayB.createdAt || 0) : 0);
+    if (dayDelta !== 0) return dayDelta;
+    const withinA = typeof a.itineraryOrder === "number" ? a.itineraryOrder : (a.createdAt || 0);
+    const withinB = typeof b.itineraryOrder === "number" ? b.itineraryOrder : (b.createdAt || 0);
+    return withinA - withinB;
+  }
   function pdfWaypointsForFolder(folder) {
+    const folderIds = getFolderAndDescendantIds(folder.id); // walks into Day subfolders too, for Itinerary folders -- see getFolderAndDescendantIds
+    const compareFn = folder.isItinerary ? itineraryAwareCompare : (a, b) => (a.createdAt || 0) - (b.createdAt || 0);
     return waypoints
-      .filter((w) => w.folderId === folder.id && !w.isStoryEntry && !isWaypointEffectivelyHidden(w)) // respects the same "hide from map" toggle (folder-level or individual) the live map already honors -- a waypoint hidden from the map shouldn't reappear in its own trip's PDF either
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // visit order, oldest first -- the order the trip actually happened in
+      .filter((w) => folderIds.has(w.folderId) && !w.isStoryEntry && !isWaypointEffectivelyHidden(w)) // respects the same "hide from map" toggle (folder-level or individual) the live map already honors -- a waypoint hidden from the map shouldn't reappear in its own trip's PDF either
+      .sort(compareFn); // visit order, oldest first -- the order the trip actually happened in (or was planned, day by day, for an Itinerary folder)
   }
 
   // Waypoints logged at (or very near) the same real-world spot at
@@ -14311,17 +14351,18 @@
   async function generateTripStory(folderId, formatId) {
     formatId = STORY_FORMATS.some((f) => f.id === formatId) ? formatId : "narrative";
     const folder = waypointFolders.find((f) => f.id === folderId);
-    if (!folder || !folder.isTrip) return;
+    if (!folder || !(folder.isTrip || folder.isItinerary)) return;
     if (aiStoryGeneratingFolderIds.has(folderId)) return; // already in flight (one generation at a time per folder)
     if (!settings.geminiApiKey) {
       showErrorToast("Add a free Gemini API key in Settings \u2192 Gemini API first.");
       return;
     }
+    const storyFolderIds = getFolderAndDescendantIds(folderId); // walks into Day subfolders too, for an Itinerary folder -- see getFolderAndDescendantIds
     const sortedWps = waypoints
-      .filter((w) => w.folderId === folderId && !w.isStoryEntry)
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      .filter((w) => storyFolderIds.has(w.folderId) && !w.isStoryEntry)
+      .sort(folder.isItinerary ? itineraryAwareCompare : (a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (sortedWps.length === 0) {
-      showToast("Add some waypoints to this Trip first.");
+      showToast("Add some waypoints to this " + (folder.isItinerary ? "Itinerary" : "Trip") + " first.");
       return;
     }
     aiStoryGeneratingFolderIds.add(folderId);
