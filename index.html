@@ -3210,7 +3210,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "435";
+  const APP_VERSION = "436";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -5929,7 +5929,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       deletedIds: JSON.parse(JSON.stringify(deletedIds)),
       settings: {
         home: settings.home || null,
-        anchorOverrides: settings.anchorOverrides || {}
+        anchorOverrides: settings.anchorOverrides || {},
+        customLocationMarker: settings.customLocationMarker || { images: [], activeId: null, size: 22 }
       }
     };
   }
@@ -6288,11 +6289,39 @@ svg.leaflet-image-layer.leaflet-interactive path {
       homeAdopted = true;
     }
 
+    // Custom location-marker images: shared data (like anchorOverrides),
+    // so any incoming image this device doesn't already have is added --
+    // never removed or overwritten, since another device may still be
+    // actively using one this device hasn't seen yet. Which one is
+    // currently ACTIVE, though, is a per-device preference (like home),
+    // so that's only adopted if this device hasn't chosen one of its own.
+    let locationMarkersAdded = 0;
+    const incomingMarker = payload.settings && payload.settings.customLocationMarker;
+    if (incomingMarker && Array.isArray(incomingMarker.images)) {
+      const localIds = new Set(settings.customLocationMarker.images.map((im) => im.id));
+      incomingMarker.images.forEach((im) => {
+        if (im && im.id && typeof im.image === "string" && !localIds.has(im.id)) {
+          settings.customLocationMarker.images.push({ id: im.id, image: im.image });
+          localIds.add(im.id);
+          locationMarkersAdded++;
+        }
+      });
+      if (!settings.customLocationMarker.activeId && incomingMarker.activeId && localIds.has(incomingMarker.activeId)) {
+        settings.customLocationMarker.activeId = incomingMarker.activeId;
+        settings.customLocationMarker.size = incomingMarker.size || settings.customLocationMarker.size;
+      }
+      if (locationMarkersAdded > 0 || incomingMarker.activeId) {
+        saveSettings();
+        refreshLocationMarkerSettingsUi();
+        refreshLivePositionMarkerIcon();
+      }
+    }
+
     return {
       added, updated, skipped, routesAdded, routesUpdated, routesSkipped,
       measurementsAdded, measurementsUpdated, measurementsSkipped,
       remoteWaypointDeletions, remoteRideDeletions, remoteMeasurementDeletions,
-      anchorsApplied, homeAdopted
+      anchorsApplied, homeAdopted, locationMarkersAdded
     };
   }
 
