@@ -1139,15 +1139,34 @@ svg.leaflet-image-layer.leaflet-interactive path {
     text-decoration:underline dotted; cursor:pointer;}
   .card-photo-drop-empty.paste-armed, .card-photos.paste-armed{outline:none; border-color:rgba(245,158,11,.7);
     box-shadow:0 0 0 2px rgba(245,158,11,.35); border-radius:8px;}
-  .location-marker-gallery{display:flex; gap:10px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 8px;
-    -webkit-overflow-scrolling:touch;}
-  .location-marker-gallery-item-wrap{position:relative; flex-shrink:0;}
-  .location-marker-gallery-item{width:52px; height:52px; border-radius:10px; background:var(--surface-2);
+  .location-marker-gallery-wrap{position:relative;}
+  .location-marker-gallery{display:flex; gap:8px; flex-wrap:wrap; max-height:190px; overflow-y:auto; overflow-x:hidden;
+    padding:2px 6px 8px 2px; scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2);}
+  .location-marker-gallery::-webkit-scrollbar{width:8px;}
+  .location-marker-gallery::-webkit-scrollbar-track{background:var(--surface-2); border-radius:4px;}
+  .location-marker-gallery::-webkit-scrollbar-thumb{background:var(--border-soft); border-radius:4px;}
+  .location-marker-gallery::-webkit-scrollbar-thumb:hover{background:var(--text-mute);}
+  .location-marker-gallery-label{flex-basis:100%; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--text-mute); margin:6px 0 2px;}
+  .location-marker-gallery-label:first-child{margin-top:0;}
+  .location-marker-gallery-fade{position:absolute; left:0; right:6px; bottom:0; height:22px; pointer-events:none;
+    background:linear-gradient(to bottom, transparent, var(--surface)); border-radius:0 0 10px 10px; transition:opacity .15s;}
+  .location-marker-gallery-fade.hidden{opacity:0;}
+  .location-marker-gallery-item-wrap{position:relative; flex-shrink:0; width:46px; height:46px;}
+  .location-marker-gallery-item{width:100%; height:100%; border-radius:10px; background:var(--surface-2);
     border:2px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;
     overflow:hidden; cursor:pointer; padding:0;}
   .location-marker-gallery-item.active{border-color:var(--amber);}
+  .location-marker-gallery-item-wrap.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5);}
+  .location-marker-gallery-item-wrap.drop-target{transform:scale(1.08);}
+  .location-marker-gallery-item-wrap.drop-target .location-marker-gallery-item{border-color:var(--amber); background:rgba(245,158,11,.35);}
   .location-marker-gallery-item img{max-width:78%; max-height:78%;}
-  .location-marker-gallery-remove{position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%;
+  .location-marker-gallery-favorite{position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--border); color:var(--text-mute); line-height:1;
+    display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; z-index:1;}
+  .location-marker-gallery-favorite.favorited{color:var(--red);}
+  .location-marker-gallery-favorite.favorited svg{fill:currentColor;}
+  .location-marker-gallery-remove{position:absolute; top:-5px; left:-5px; width:18px; height:18px; border-radius:50%;
     background:rgba(2,6,23,.85); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
     cursor:pointer; padding:0; font-size:12px; line-height:1;}
   .location-marker-gallery-remove:hover{background:var(--red);}
@@ -1155,6 +1174,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
     padding:14px 10px; border-radius:10px; border:1.5px dashed var(--border-soft); cursor:pointer; background:none; text-align:center;}
   .location-marker-drop:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
   .location-marker-drop.paste-armed{outline:none; border-color:rgba(245,158,11,.7); box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .connect-backend-banner{display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--amber-light);
+    background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:10px; padding:10px 12px; margin-top:8px;}
+  .connect-backend-banner.hidden{display:none;}
+  .connect-accept-row{display:flex; gap:8px;}
+  .connect-accept-row .field-input{flex:1;}
+  .connect-folder-row{display:flex; align-items:center; gap:8px; padding:10px 4px; border-bottom:1px solid #1e293b;}
+  .connect-folder-row:last-child{border-bottom:none;}
+  .connect-folder-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .connect-folder-count{font-size:11px; color:var(--text-mute); flex-shrink:0;}
+  .connect-item-row{display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid #1e293b;}
+  .connect-item-row:last-child{border-bottom:none;}
+  .connect-item-avatar{width:32px; height:32px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; font-weight:700; color:var(--text-mute);}
+  .connect-item-info{flex:1; min-width:0;}
+  .connect-item-name{font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .connect-item-status{font-size:11px; color:var(--text-mute);}
+  .connect-item-status.pending{color:var(--amber-light);}
+  .connect-empty-hint{font-size:12px; color:var(--text-mute); padding:8px 4px;}
   .style-toggle-row{display:flex; gap:8px; margin-bottom:14px;}
   .style-toggle-btn{flex:1; padding:9px; border-radius:10px; font-size:13px; text-align:center; cursor:pointer;
     border:1px solid var(--border); background:var(--surface-2); color:#cbd5e1;}
@@ -1754,6 +1791,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="layers-panel-header">
           <div class="layers-tabs" id="layersTabs">
             <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
+            <button class="layers-tab" id="layersTabConnectBtn" data-layers-tab="connect">Connect</button>
             <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
           </div>
           <button class="icon-btn" id="layersPanelCloseBtn" data-icon="x" data-icon-size="16"></button>
@@ -1783,6 +1821,48 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <label class="layers-option"><input type="checkbox" id="res1ShowWordToggle" /><span>Show 3 word names</span></label>
           <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide. Mousing over one shows its raw H3 cell index (e.g. 81a8fffffffffff) and/or its curated 3-word name, depending on which options above are on. "Show 3 word names" also labels Precision hexes on hover with their derived 3-word address.</p>
         </div>
+        </div>
+        <div class="layers-panel-body hidden" id="layersViewConnect">
+          <div class="layers-section">
+            <p class="layers-section-title">Connect</p>
+            <p class="layers-hint" id="connectBackendHint">Share your location with people you invite, grouped into folders so you can turn sharing on or off for a whole friend group at once.</p>
+            <div class="connect-backend-banner hidden" id="connectBackendBanner">
+              <span>Not connected to a backend yet — invites and connections are saved on this device only and won't sync to anyone else's phone until a Firebase project is configured.</span>
+              <button type="button" class="home-action-btn" id="connectFirebaseSetupBtn">Set up backend</button>
+            </div>
+          </div>
+          <div class="layers-section">
+            <p class="layers-section-title">Your name</p>
+            <p class="layers-hint">Shown to people you invite or who invite you.</p>
+            <input type="text" id="connectDisplayNameInput" class="field-input" placeholder="Your name" maxlength="40" />
+          </div>
+          <div class="layers-section">
+            <p class="layers-section-title">Invite someone</p>
+            <p class="layers-hint">Sends a one-time invite link through whichever app you choose (Messages, WhatsApp, email, etc.) — they open it in MapApp to connect back to you.</p>
+            <div class="home-actions">
+              <button class="home-action-btn" id="connectInviteBtn">+ Invite someone</button>
+            </div>
+          </div>
+          <div class="layers-section">
+            <p class="layers-section-title">Accept an invite</p>
+            <p class="layers-hint">Paste a code someone sent you.</p>
+            <div class="connect-accept-row">
+              <input type="text" id="connectAcceptInput" class="field-input" placeholder="Paste invite code…" />
+              <button class="home-action-btn" id="connectAcceptBtn">Accept</button>
+            </div>
+          </div>
+          <div class="layers-section">
+            <p class="layers-section-title">Connect folders</p>
+            <p class="layers-hint">Turn a folder off to stop sharing your location with everyone in it, without removing the connections themselves.</p>
+            <div id="connectFoldersList"></div>
+            <div class="home-actions" style="margin-top:8px;">
+              <button class="home-action-btn" id="connectNewFolderBtn">+ New folder</button>
+            </div>
+          </div>
+          <div class="layers-section">
+            <p class="layers-section-title">Connections</p>
+            <div id="connectionsList"></div>
+          </div>
         </div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
         <div class="layers-section">
@@ -1839,7 +1919,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="layers-section">
           <p class="layers-section-title">Current Location Marker</p>
           <p class="layers-hint">Pick which marker to use, or add your own images below — the default stays available, nothing is replaced when you add one.</p>
-          <div class="location-marker-gallery" id="locationMarkerGallery"></div>
+          <div class="location-marker-gallery-wrap">
+            <div class="location-marker-gallery" id="locationMarkerGallery"></div>
+            <div class="location-marker-gallery-fade" id="locationMarkerGalleryFade"></div>
+          </div>
           <div class="location-marker-drop" id="locationMarkerDrop" data-action="location-marker-upload">
             <span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" id="locationMarkerUploadLink">click to add an image</button></span>
           </div>
@@ -3210,7 +3293,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "436";
+  const APP_VERSION = "442";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3218,6 +3301,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const WAYPOINT_FOLDERS_KEY = "waypoint-saver:waypointFolders";
   const RIDE_FOLDERS_KEY = "waypoint-saver:rideFolders";
   const MEASUREMENT_FOLDERS_KEY = "waypoint-saver:measurementFolders";
+  const CONNECTIONS_KEY = "waypoint-saver:connections";
+  const CONNECT_FOLDERS_KEY = "waypoint-saver:connectFolders";
   const DELETED_IDS_KEY = "waypoint-saver:deletedIds";
 
   // All persisted data now lives in IndexedDB via localForage instead of
@@ -3230,7 +3315,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22 } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
   // endpoint as the text models used elsewhere in this file, just with
@@ -3287,7 +3372,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const merged = Object.assign({}, DEFAULT_SETTINGS, p, {
       weather: Object.assign({}, DEFAULT_SETTINGS.weather, p.weather),
       units: Object.assign({}, DEFAULT_SETTINGS.units, p.units),
-      customLocationMarker: Object.assign({}, DEFAULT_SETTINGS.customLocationMarker, p.customLocationMarker)
+      customLocationMarker: Object.assign({}, DEFAULT_SETTINGS.customLocationMarker, p.customLocationMarker),
+      connect: Object.assign({}, DEFAULT_SETTINGS.connect, p.connect)
     });
     // Back-compat: the old single distanceUnit ("km"/"mi") controlled both
     // distance and speed together. If a saved settings object still has it
@@ -3310,7 +3396,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       merged.customLocationMarker = {
         images: [{ id: migratedId, image: p.customLocationMarker.image }],
         activeId: migratedId,
-        size: p.customLocationMarker.size || DEFAULT_SETTINGS.customLocationMarker.size
+        size: p.customLocationMarker.size || DEFAULT_SETTINGS.customLocationMarker.size,
+        favoriteIds: []
       };
     }
     return merged;
@@ -3355,6 +3442,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function saveMeasurementFolders() {
     if (!dataStore) { showErrorToast(describeStorageError(null, "your measurement folders")); return; }
     dataStore.setItem(MEASUREMENT_FOLDERS_KEY, measurementFolders).catch((e) => showErrorToast(describeStorageError(e, "your measurement folders")));
+  }
+  function saveConnections() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your connections")); return; }
+    dataStore.setItem(CONNECTIONS_KEY, connections).catch((e) => showErrorToast(describeStorageError(e, "your connections")));
+  }
+  function saveConnectFolders() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your connect folders")); return; }
+    dataStore.setItem(CONNECT_FOLDERS_KEY, connectFolders).catch((e) => showErrorToast(describeStorageError(e, "your connect folders")));
   }
   function saveSettings() {
     if (!dataStore) return;
@@ -3404,10 +3499,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   async function loadPersistedState() {
     if (!dataStore) {
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
     try {
-      const [w, r, m, s, d, wf, rf, mf] = await Promise.all([
+      const [w, r, m, s, d, wf, rf, mf, cn, cf] = await Promise.all([
         dataStore.getItem(STORAGE_KEY),
         dataStore.getItem(RIDES_KEY),
         dataStore.getItem(MEASUREMENTS_KEY),
@@ -3415,12 +3510,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
         dataStore.getItem(DELETED_IDS_KEY),
         dataStore.getItem(WAYPOINT_FOLDERS_KEY),
         dataStore.getItem(RIDE_FOLDERS_KEY),
-        dataStore.getItem(MEASUREMENT_FOLDERS_KEY)
+        dataStore.getItem(MEASUREMENT_FOLDERS_KEY),
+        dataStore.getItem(CONNECTIONS_KEY),
+        dataStore.getItem(CONNECT_FOLDERS_KEY)
       ]);
-      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), rideFolders: normalizeArray(rf), measurementFolders: normalizeArray(mf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), rideFolders: normalizeArray(rf), measurementFolders: normalizeArray(mf), connections: normalizeArray(cn), connectFolders: normalizeArray(cf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
     } catch (e) {
       console.error("[storage] failed to load from IndexedDB", e);
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
   }
 
@@ -3436,6 +3533,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   let waypointFolders = _persisted.waypointFolders;
   let rideFolders = _persisted.rideFolders;
   let measurementFolders = _persisted.measurementFolders;
+  let connections = _persisted.connections;
+  let connectFolders = _persisted.connectFolders;
   let settings = _persisted.settings;
   // Tombstones: IDs of waypoints/routes/measurements deliberately deleted on
   // this device. Sync payloads include these so a pull can tell "this ID
@@ -3673,6 +3772,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const homePickMapBtn = el("homePickMapBtn");
   const homeClearBtn = el("homeClearBtn");
   const locationMarkerGallery = el("locationMarkerGallery");
+  const locationMarkerGalleryFade = el("locationMarkerGalleryFade");
   const locationMarkerDrop = el("locationMarkerDrop");
   const locationMarkerUploadLink = el("locationMarkerUploadLink");
   const locationMarkerFileInput = el("locationMarkerFileInput");
@@ -3683,9 +3783,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
   const layersTabMainBtn = el("layersTabMainBtn");
+  const layersTabConnectBtn = el("layersTabConnectBtn");
   const layersTabSettingsBtn = el("layersTabSettingsBtn");
   const layersViewMain = el("layersViewMain");
+  const layersViewConnect = el("layersViewConnect");
   const layersViewSettings = el("layersViewSettings");
+  const connectBackendHint = el("connectBackendHint");
+  const connectBackendBanner = el("connectBackendBanner");
+  const connectFirebaseSetupBtn = el("connectFirebaseSetupBtn");
+  const connectDisplayNameInput = el("connectDisplayNameInput");
+  const connectInviteBtn = el("connectInviteBtn");
+  const connectAcceptInput = el("connectAcceptInput");
+  const connectAcceptBtn = el("connectAcceptBtn");
+  const connectFoldersList = el("connectFoldersList");
+  const connectNewFolderBtn = el("connectNewFolderBtn");
+  const connectionsList = el("connectionsList");
   const refreshAppBtn = el("refreshAppBtn");
   const appVersionLabel = el("appVersionLabel");
   appVersionLabel.textContent = "App version " + APP_VERSION;
@@ -5108,18 +5220,35 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
   function switchLayersTab(tab) {
     layersTabMainBtn.classList.toggle("active", tab === "main");
+    layersTabConnectBtn.classList.toggle("active", tab === "connect");
     layersTabSettingsBtn.classList.toggle("active", tab === "settings");
     layersViewMain.classList.toggle("hidden", tab !== "main");
+    layersViewConnect.classList.toggle("hidden", tab !== "connect");
     layersViewSettings.classList.toggle("hidden", tab !== "settings");
+    if (tab === "connect") refreshConnectUi();
   }
   layersTabMainBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("main"); });
+  layersTabConnectBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("connect"); });
   layersTabSettingsBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("settings"); });
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
   });
+  // Checks the click's ORIGINAL propagation path (captured by the browser
+  // at dispatch time), not e.target.closest() -- closest() walks the
+  // CURRENT DOM from e.target, which is unreliable here: a click on
+  // something like the location-marker gallery's favorite badge re-renders
+  // that gallery's contents immediately, which detaches e.target from the
+  // document before this handler runs. closest() on a detached element
+  // finds nothing and reads as a click outside the panel; composedPath()
+  // isn't affected by that mutation at all, since it reflects the tree as
+  // it was when the click actually happened.
+  function clickPathContains(e, selector) {
+    const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+    return path.some((node) => node.nodeType === 1 && node.matches && node.matches(selector));
+  }
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".layers-wrap") && !e.target.closest(".modal-overlay")) {
+    if (!clickPathContains(e, ".layers-wrap") && !clickPathContains(e, ".modal-overlay")) {
       layersPanel.classList.remove("show");
       layersToggleBtn.classList.remove("active");
     }
@@ -5473,21 +5602,89 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
 
   /* ---------- Custom current-location marker ---------- */
+  const LOCATION_MARKER_DRAG_THRESHOLD_PX = 6;
+  let locationMarkerDragState = null;
+  function getFavoriteLocationMarkerIds() {
+    if (!Array.isArray(settings.customLocationMarker.favoriteIds)) settings.customLocationMarker.favoriteIds = [];
+    return settings.customLocationMarker.favoriteIds;
+  }
+  function toggleFavoriteLocationMarker(id) {
+    const favs = getFavoriteLocationMarkerIds();
+    const idx = favs.indexOf(id);
+    if (idx === -1) favs.push(id); else favs.splice(idx, 1);
+    saveSettings();
+  }
   function renderLocationMarkerGallery() {
     const custom = settings.customLocationMarker;
-    const defaultActive = !custom.activeId;
-    let html = '<button type="button" class="location-marker-gallery-item' + (defaultActive ? " active" : "") +
-      '" data-marker-id="" title="Default"><div class="live-position-dot"></div></button>';
-    html += custom.images.map((im) => {
-      const active = custom.activeId === im.id;
-      return '<div class="location-marker-gallery-item-wrap">' +
+    const favSet = new Set(getFavoriteLocationMarkerIds());
+    // The default dot is id "" throughout -- same slot in favoriting as
+    // every uploaded image, just never removable and with no image src.
+    const allItems = [{ id: "", image: null }].concat(custom.images);
+    const favoritedItems = allItems.filter((it) => favSet.has(it.id));
+    const restItems = allItems.filter((it) => !favSet.has(it.id));
+
+    function itemHtml(it) {
+      const active = custom.activeId === it.id || (!custom.activeId && it.id === "");
+      const isFav = favSet.has(it.id);
+      // draggable="false" matters here beyond just preventing an odd
+      // native ghost-image drag: without it, the browser's own built-in
+      // image-drag gesture takes over once the pointer moves far enough
+      // and fires a pointercancel on the button underneath, killing this
+      // custom drag-to-reorder before it ever gets going.
+      const inner = it.image
+        ? '<img src="' + it.image + '" alt="" draggable="false" />'
+        : '<div class="live-position-dot"></div>';
+      return '<div class="location-marker-gallery-item-wrap" data-item-id="' + it.id + '">' +
         '<button type="button" class="location-marker-gallery-item' + (active ? " active" : "") +
-        '" data-marker-id="' + im.id + '"><img src="' + im.image + '" alt="" /></button>' +
-        '<button type="button" class="location-marker-gallery-remove" data-remove-id="' + im.id + '" title="Remove">' + icon("x", 10) + "</button>" +
+        '" data-marker-id="' + it.id + '" title="' + (it.id ? "" : "Default") + '">' + inner + "</button>" +
+        '<button type="button" class="location-marker-gallery-favorite' + (isFav ? " favorited" : "") + '" data-favorite-id="' + it.id +
+          '" title="' + (isFav ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 10) + "</button>" +
+        (it.id ? '<button type="button" class="location-marker-gallery-remove" data-remove-id="' + it.id + '" title="Remove">' + icon("x", 10) + "</button>" : "") +
         "</div>";
-    }).join("");
+    }
+
+    // Favorites (if any) render as their own labeled group up front,
+    // matching the same pattern the waypoint icon picker already uses --
+    // the ones reached for most stay within view without scrolling.
+    let html = "";
+    if (favoritedItems.length > 0) {
+      html += '<div class="location-marker-gallery-label">Favorites</div>';
+      html += favoritedItems.map(itemHtml).join("");
+      html += '<div class="location-marker-gallery-label">All markers</div>';
+    }
+    html += restItems.map(itemHtml).join("");
     locationMarkerGallery.innerHTML = html;
+    updateLocationMarkerGalleryFade();
+
+    // Drag-to-reorder, mirroring the waypoint icon picker's own pointer-
+    // based implementation exactly (pointer events, not HTML5 drag-and-
+    // drop, since the latter doesn't work via touch on iOS Safari). The
+    // default dot (id "") is left out here on purpose -- it isn't part of
+    // the underlying images array at all, so it can't be picked up and
+    // moved, though it stays a valid drop target: dropping an image onto
+    // it moves that image to the very front of the list instead.
+    locationMarkerGallery.querySelectorAll(".location-marker-gallery-item-wrap").forEach((wrap) => {
+      if (!wrap.dataset.itemId) return;
+      const btn = wrap.querySelector(".location-marker-gallery-item");
+      btn.style.touchAction = "pan-y";
+      btn.addEventListener("pointerdown", (e) => {
+        locationMarkerDragState = {
+          pointerId: e.pointerId, wrap, startX: e.clientX, startY: e.clientY, dragging: false, id: wrap.dataset.itemId
+        };
+        btn.setPointerCapture(e.pointerId);
+      });
+    });
   }
+  // Hides the "more below" fade once actually scrolled to the bottom (or
+  // if the gallery never overflowed in the first place) -- an overlay div
+  // rather than relying on scrollbar visibility, which iOS Safari hides
+  // by default, so without this there'd be no indication anything more
+  // is reachable below the fold.
+  function updateLocationMarkerGalleryFade() {
+    const atBottom = locationMarkerGallery.scrollHeight - locationMarkerGallery.scrollTop - locationMarkerGallery.clientHeight < 4;
+    locationMarkerGalleryFade.classList.toggle("hidden", atBottom);
+  }
+  locationMarkerGallery.addEventListener("scroll", updateLocationMarkerGalleryFade);
   function refreshLocationMarkerSettingsUi() {
     const custom = settings.customLocationMarker;
     renderLocationMarkerGallery();
@@ -5526,16 +5723,87 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const custom = settings.customLocationMarker;
     custom.images = custom.images.filter((im) => im.id !== id);
     if (custom.activeId === id) custom.activeId = null; // fall back to the default dot if the removed one was active
+    const favIdx = getFavoriteLocationMarkerIds().indexOf(id);
+    if (favIdx !== -1) custom.favoriteIds.splice(favIdx, 1); // an id no image will ever match again isn't worth keeping around
     saveSettings();
     refreshLocationMarkerSettingsUi();
     refreshLivePositionMarkerIcon();
   }
   locationMarkerGallery.addEventListener("click", (e) => {
+    // Stopped unconditionally, before any of the re-render calls below run
+    // -- those replace this gallery's innerHTML, which detaches e.target
+    // from the document mid-bubble. The document-level "click outside
+    // closes the panel" handler further up runs afterward and calls
+    // e.target.closest(".layers-wrap") on that now-detached element,
+    // which finds nothing and wrongly reads as a click outside the panel,
+    // closing it. Any click that reached this handler at all originated
+    // inside the gallery, so it can never legitimately be an outside
+    // click in the first place.
+    e.stopPropagation();
+    const favBtn = e.target.closest("[data-favorite-id]");
+    if (favBtn) { toggleFavoriteLocationMarker(favBtn.dataset.favoriteId); renderLocationMarkerGallery(); return; }
     const removeBtn = e.target.closest("[data-remove-id]");
     if (removeBtn) { removeLocationMarkerImage(removeBtn.dataset.removeId); return; }
-    const item = e.target.closest("[data-marker-id]");
-    if (item) selectLocationMarker(item.dataset.markerId);
+    // Selecting a marker is handled entirely by the pointer-based
+    // drag/tap logic below now (its "not dragging" branch) -- not here --
+    // so a plain tap and a drag share one unified gesture instead of
+    // fighting over the same click.
   });
+  locationMarkerGallery.addEventListener("pointermove", (e) => {
+    if (!locationMarkerDragState || e.pointerId !== locationMarkerDragState.pointerId) return;
+    const state = locationMarkerDragState;
+    const dx = e.clientX - state.startX, dy = e.clientY - state.startY;
+    if (!state.dragging && Math.hypot(dx, dy) > LOCATION_MARKER_DRAG_THRESHOLD_PX) {
+      state.dragging = true;
+      state.wrap.classList.add("dragging");
+      state.wrap.style.pointerEvents = "none"; // so elementFromPoint below sees what's UNDER it, not itself
+    }
+    if (state.dragging) {
+      state.wrap.style.transform = "translate(" + dx + "px," + dy + "px)";
+      locationMarkerGallery.querySelectorAll(".location-marker-gallery-item-wrap.drop-target").forEach((t) => t.classList.remove("drop-target"));
+      const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+      const targetWrap = elUnder && elUnder.closest(".location-marker-gallery-item-wrap");
+      if (targetWrap && targetWrap !== state.wrap && locationMarkerGallery.contains(targetWrap)) {
+        targetWrap.classList.add("drop-target");
+      }
+    }
+  });
+  function finishLocationMarkerDrag(e) {
+    if (!locationMarkerDragState || e.pointerId !== locationMarkerDragState.pointerId) return;
+    const state = locationMarkerDragState;
+    locationMarkerDragState = null;
+    state.wrap.style.transform = "";
+    state.wrap.style.pointerEvents = "";
+    state.wrap.classList.remove("dragging");
+    const dropTarget = locationMarkerGallery.querySelector(".location-marker-gallery-item-wrap.drop-target");
+    if (dropTarget) dropTarget.classList.remove("drop-target");
+
+    if (state.dragging) {
+      if (dropTarget && dropTarget.dataset.itemId !== state.id) {
+        // Reorders by the image's own id rather than DOM/array index --
+        // favorites render out of array order (pulled to the front), so a
+        // dropped position doesn't line up with a raw index the way it
+        // would without favorites. Dropping onto the default dot (empty
+        // id, never itself part of this array) moves the dragged image to
+        // the very front instead, since there's no dot entry to splice
+        // relative to.
+        const images = settings.customLocationMarker.images;
+        const fromIndex = images.findIndex((im) => im.id === state.id);
+        const toIndex = dropTarget.dataset.itemId ? images.findIndex((im) => im.id === dropTarget.dataset.itemId) : 0;
+        if (fromIndex !== -1 && toIndex !== -1) {
+          const [moved] = images.splice(fromIndex, 1);
+          images.splice(toIndex, 0, moved);
+          saveSettings();
+        }
+      }
+      renderLocationMarkerGallery();
+    } else {
+      // not a drag -- a plain tap, select this marker
+      selectLocationMarker(state.id);
+    }
+  }
+  locationMarkerGallery.addEventListener("pointerup", finishLocationMarkerDrag);
+  locationMarkerGallery.addEventListener("pointercancel", finishLocationMarkerDrag);
   locationMarkerDrop.addEventListener("click", () => locationMarkerFileInput.click());
   locationMarkerUploadLink.addEventListener("click", (e) => { e.stopPropagation(); locationMarkerFileInput.click(); });
   locationMarkerFileInput.addEventListener("change", () => {
@@ -5574,6 +5842,352 @@ svg.leaflet-image-layer.leaflet-interactive path {
     refreshLivePositionMarkerIcon();
   });
   locationMarkerSizeSlider.addEventListener("change", () => saveSettings());
+
+  /* ================================================================ */
+  /*  Connect -- location sharing between users, grouped into folders  */
+  /*                                                                    */
+  /*  This app has no server of its own, so nothing here can actually  */
+  /*  move a location from one person's device to another's without a  */
+  /*  backend to relay it. Everything below is written to work for     */
+  /*  real the moment a Firebase project's config is supplied (see     */
+  /*  ConnectBackend) -- until then it runs in a clearly-labeled        */
+  /*  local-only mode: invites, accepts, and folders all work and       */
+  /*  persist on this device, but nothing syncs to anyone else's phone. */
+  /* ================================================================ */
+  function genConnectId(prefix) {
+    return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function ensureMyDeviceId() {
+    if (!settings.connect.myDeviceId) {
+      settings.connect.myDeviceId = genConnectId("dev");
+      saveSettings();
+    }
+    return settings.connect.myDeviceId;
+  }
+  function isFirebaseConfigured() {
+    const c = settings.connect.firebaseConfig;
+    return !!(c && c.apiKey && c.projectId);
+  }
+
+  /* ---------- Firebase adapter --------------------------------------
+     Real Firestore calls, gated behind isFirebaseConfigured(). The SDK
+     itself is loaded lazily (only once a config is actually supplied)
+     from Google's CDN via loadFirebaseSdk() below -- unlike the map's
+     own core libraries, this is inherently an online-only feature (it
+     cannot do anything useful without a network connection regardless
+     of how its code is delivered), so there's no offline-capability
+     regression in fetching it this way, the way there would have been
+     for Leaflet/h3/pdf-lib.
+
+     Firestore schema this expects, once a project is wired up:
+       /connectUsers/{deviceId}          { name, updatedAt }
+       /connectInvites/{inviteId}        { fromDeviceId, fromName, toDeviceId|null, status: "pending"|"accepted", createdAt }
+       /connectLocations/{deviceId}      { lat, lng, updatedAt }
+     A real deployment also needs Firestore security rules restricting
+     each user to reading only connectLocations docs for device IDs
+     they have an accepted connectInvites relationship with -- that's a
+     server-side config step in the Firebase console itself, not
+     something this file can set up on its own.
+  ---------------------------------------------------------------------*/
+  let firebaseSdkLoadPromise = null;
+  function loadFirebaseSdk() {
+    if (firebaseSdkLoadPromise) return firebaseSdkLoadPromise;
+    firebaseSdkLoadPromise = new Promise((resolve, reject) => {
+      if (window.firebase && window.firebase.firestore) { resolve(window.firebase); return; }
+      const appScript = document.createElement("script");
+      appScript.src = "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js";
+      appScript.onload = () => {
+        const fsScript = document.createElement("script");
+        fsScript.src = "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js";
+        fsScript.onload = () => resolve(window.firebase);
+        fsScript.onerror = () => reject(new Error("Couldn't load the Firebase library -- check your connection."));
+        document.head.appendChild(fsScript);
+      };
+      appScript.onerror = () => reject(new Error("Couldn't load the Firebase library -- check your connection."));
+      document.head.appendChild(appScript);
+    });
+    return firebaseSdkLoadPromise;
+  }
+  let firestoreDb = null;
+  async function getFirestoreDb() {
+    if (firestoreDb) return firestoreDb;
+    if (!isFirebaseConfigured()) throw new Error("Backend not configured");
+    const fb = await loadFirebaseSdk();
+    if (!fb.apps || !fb.apps.length) fb.initializeApp(settings.connect.firebaseConfig);
+    firestoreDb = fb.firestore();
+    return firestoreDb;
+  }
+  const ConnectBackend = {
+    async publishMyLocation(lat, lng) {
+      if (!isFirebaseConfigured()) return;
+      const db = await getFirestoreDb();
+      await db.collection("connectLocations").doc(ensureMyDeviceId()).set({ lat, lng, updatedAt: Date.now() });
+      settings.connect.lastPublishedAt = Date.now();
+      saveSettings();
+    },
+    async sendInvite(inviteId, fromName) {
+      if (!isFirebaseConfigured()) return;
+      const db = await getFirestoreDb();
+      await db.collection("connectInvites").doc(inviteId).set({
+        fromDeviceId: ensureMyDeviceId(), fromName, status: "pending", createdAt: Date.now()
+      });
+    },
+    async acceptInvite(inviteId, myDeviceId, myName) {
+      if (!isFirebaseConfigured()) return;
+      const db = await getFirestoreDb();
+      await db.collection("connectInvites").doc(inviteId).set({
+        toDeviceId: myDeviceId, toName: myName, status: "accepted", acceptedAt: Date.now()
+      }, { merge: true });
+    },
+    subscribeToLocation(deviceId, callback) {
+      if (!isFirebaseConfigured()) return () => {};
+      let unsub = () => {};
+      getFirestoreDb().then((db) => {
+        unsub = db.collection("connectLocations").doc(deviceId).onSnapshot((doc) => {
+          if (doc.exists) callback(doc.data());
+        });
+      }).catch(() => {});
+      return () => unsub();
+    }
+  };
+
+  /* ---------- Local data: folders and connections -------------------*/
+  function createConnectFolder(name) {
+    const folder = { id: genConnectId("cf"), name: name.trim() || "New folder", hidden: false, createdAt: Date.now() };
+    connectFolders.push(folder);
+    saveConnectFolders();
+    renderConnectFolders();
+    return folder;
+  }
+  function setConnectFolderVisibility(folderId, hidden) {
+    const folder = connectFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    folder.hidden = hidden;
+    saveConnectFolders();
+    renderConnectFolders();
+    renderConnectionsList();
+    showToast(hidden ? 'Stopped sharing your location with "' + folder.name + '"' : 'Sharing your location with "' + folder.name + '"');
+  }
+  function deleteConnectFolder(folderId) {
+    const folder = connectFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    if (!confirm('Delete "' + folder.name + '"? Connections in it will be kept, just ungrouped.')) return;
+    connections.forEach((c) => { if (c.folderId === folderId) c.folderId = null; });
+    connectFolders = connectFolders.filter((f) => f.id !== folderId);
+    saveConnectFolders();
+    saveConnections();
+    renderConnectFolders();
+    renderConnectionsList();
+  }
+  function removeConnection(connectionId) {
+    const c = connections.find((x) => x.id === connectionId);
+    if (!c) return;
+    if (!confirm('Remove connection with "' + (c.name || "this person") + '"?')) return;
+    connections = connections.filter((x) => x.id !== connectionId);
+    saveConnections();
+    renderConnectionsList();
+    renderConnectFolders();
+  }
+  function moveConnectionToFolder(connectionId, folderId) {
+    const c = connections.find((x) => x.id === connectionId);
+    if (!c) return;
+    c.folderId = folderId || null;
+    saveConnections();
+    renderConnectFolders();
+    renderConnectionsList();
+  }
+
+  /* ---------- Invite / accept flow ------------------------------------
+     A code is just base64url(JSON) -- {v, inviteId, fromDeviceId, fromName}.
+     No signing or encryption: it's a self-describing invite payload, not
+     a secret, and its accuracy depends entirely on the real backend
+     existing to verify the acceptance ever reaches the original sender.
+  ----------------------------------------------------------------------*/
+  function encodeInviteCode(payload) {
+    return btoa(JSON.stringify(payload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function decodeInviteCode(code) {
+    try {
+      const b64 = code.trim().replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "===".slice((b64.length + 3) % 4);
+      return JSON.parse(atob(padded));
+    } catch (e) { return null; }
+  }
+  async function createInvite() {
+    const name = (connectDisplayNameInput.value || "").trim();
+    const friendName = prompt("Who are you inviting? (just a label for you)");
+    if (friendName === null) return;
+    const inviteId = genConnectId("inv");
+    const payload = { v: 1, inviteId, fromDeviceId: ensureMyDeviceId(), fromName: name || "Someone" };
+    const code = encodeInviteCode(payload);
+    const connection = {
+      id: genConnectId("conn"), name: friendName.trim() || "Unnamed", status: "pending_sent",
+      inviteId, theirDeviceId: null, folderId: null, createdAt: Date.now(), updatedAt: Date.now(), lastKnownLocation: null
+    };
+    connections.push(connection);
+    saveConnections();
+    renderConnectionsList();
+    try { await ConnectBackend.sendInvite(inviteId, name || "Someone"); } catch (e) { /* local-only mode -- fine, already saved above */ }
+    const shareText = (name || "Someone") + " wants to connect on MapApp so you can share locations. Open MapApp and paste this code to accept:\n\n" + code;
+    if (navigator.share) {
+      try { await navigator.share({ text: shareText }); } catch (e) { /* user cancelled the share sheet -- not an error */ }
+    } else {
+      // copyText() itself already resolves/rejects safely (see its own
+      // definition) -- the .catch() here is still needed so a genuine
+      // failure (permission denied, document not focused, no clipboard
+      // API at all) leaves the person with a way to still get the code
+      // instead of a silent no-op with no feedback.
+      copyText(shareText).then(() => {
+        showToast("Invite copied -- paste it to your friend");
+      }).catch(() => {
+        prompt("Couldn't copy automatically -- copy this code yourself:", code);
+      });
+    }
+  }
+  async function acceptInvite() {
+    const code = connectAcceptInput.value;
+    const payload = decodeInviteCode(code);
+    if (!payload || !payload.inviteId || !payload.fromDeviceId) {
+      showToast("That doesn't look like a valid invite code.");
+      return;
+    }
+    const myName = (connectDisplayNameInput.value || "").trim() || "Someone";
+    const connection = {
+      id: genConnectId("conn"), name: payload.fromName || "Unnamed", status: "accepted",
+      inviteId: payload.inviteId, theirDeviceId: payload.fromDeviceId, folderId: null,
+      createdAt: Date.now(), updatedAt: Date.now(), lastKnownLocation: null
+    };
+    connections.push(connection);
+    saveConnections();
+    connectAcceptInput.value = "";
+    renderConnectionsList();
+    try { await ConnectBackend.acceptInvite(payload.inviteId, ensureMyDeviceId(), myName); } catch (e) { /* local-only mode */ }
+    showToast("Connected with " + connection.name);
+  }
+
+  /* ---------- Rendering ------------------------------------------- */
+  function refreshConnectUi() {
+    ensureMyDeviceId();
+    connectDisplayNameInput.value = settings.connect.myDisplayName || "";
+    connectBackendBanner.classList.toggle("hidden", isFirebaseConfigured());
+    renderConnectFolders();
+    renderConnectionsList();
+  }
+  function renderConnectFolders() {
+    if (connectFolders.length === 0) {
+      connectFoldersList.innerHTML = '<p class="connect-empty-hint">No folders yet -- create one to group connections by friend group.</p>';
+      return;
+    }
+    connectFoldersList.innerHTML = connectFolders.map((f) => {
+      const count = connections.filter((c) => c.folderId === f.id).length;
+      return '<div class="connect-folder-row">' +
+        '<span class="connect-folder-name">' + escapeHtml(f.name) + "</span>" +
+        '<span class="connect-folder-count">' + count + (count === 1 ? " person" : " people") + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-connect-folder-visibility="' + f.id + '" title="' +
+          (f.hidden ? "Share with this folder" : "Stop sharing with this folder") + '">' + icon(f.hidden ? "eyeOff" : "eye", 15) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-connect-folder-delete="' + f.id + '" title="Delete folder">' + icon("trash", 15) + "</button>" +
+        "</div>";
+    }).join("");
+    connectFoldersList.querySelectorAll("[data-connect-folder-visibility]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folder = connectFolders.find((f) => f.id === btn.dataset.connectFolderVisibility);
+        setConnectFolderVisibility(folder.id, !folder.hidden);
+      });
+    });
+    connectFoldersList.querySelectorAll("[data-connect-folder-delete]").forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); deleteConnectFolder(btn.dataset.connectFolderDelete); });
+    });
+  }
+  function renderConnectionsList() {
+    if (connections.length === 0) {
+      connectionsList.innerHTML = '<p class="connect-empty-hint">No connections yet -- invite someone above, or accept a code they sent you.</p>';
+      return;
+    }
+    const folderOptions = '<option value="">No folder</option>' + connectFolders.map((f) => '<option value="' + f.id + '">' + escapeHtml(f.name) + "</option>").join("");
+    connectionsList.innerHTML = connections.map((c) => {
+      const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
+      const statusLabel = c.status === "accepted" ? "Connected" : c.status === "pending_sent" ? "Invite sent — waiting" : "Pending";
+      return '<div class="connect-item-row" data-connect-id="' + c.id + '">' +
+        '<div class="connect-item-avatar">' + escapeHtml(initial) + "</div>" +
+        '<div class="connect-item-info">' +
+          '<div class="connect-item-name">' + escapeHtml(c.name) + "</div>" +
+          '<div class="connect-item-status' + (c.status !== "accepted" ? " pending" : "") + '">' + statusLabel + "</div>" +
+        "</div>" +
+        '<select class="field-input connect-item-folder-select" data-connect-folder-select="' + c.id + '" style="width:auto; padding:4px 6px; font-size:12px;">' +
+          folderOptions.replace('value="' + (c.folderId || "") + '"', 'value="' + (c.folderId || "") + '" selected') +
+        "</select>" +
+        '<button type="button" class="location-marker-gallery-remove" data-connect-remove="' + c.id + '" title="Remove">' + icon("x", 10) + "</button>" +
+        "</div>";
+    }).join("");
+    connectionsList.querySelectorAll("[data-connect-folder-select]").forEach((sel) => {
+      sel.addEventListener("change", () => moveConnectionToFolder(sel.dataset.connectFolderSelect, sel.value));
+    });
+    connectionsList.querySelectorAll("[data-connect-remove]").forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); removeConnection(btn.dataset.connectRemove); });
+    });
+  }
+
+  connectDisplayNameInput.addEventListener("change", () => {
+    settings.connect.myDisplayName = connectDisplayNameInput.value.trim();
+    saveSettings();
+  });
+  connectInviteBtn.addEventListener("click", createInvite);
+  connectAcceptBtn.addEventListener("click", acceptInvite);
+  connectNewFolderBtn.addEventListener("click", () => {
+    const name = prompt("Folder name (e.g. \"Family\", \"Hiking group\")");
+    if (name && name.trim()) createConnectFolder(name);
+  });
+  connectFirebaseSetupBtn.addEventListener("click", () => {
+    const raw = prompt("Paste your Firebase web app config (the JSON object from the Firebase console -- Project settings > General > Your apps):");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed.apiKey || !parsed.projectId) throw new Error("missing fields");
+      settings.connect.firebaseConfig = parsed;
+      saveSettings();
+      firestoreDb = null; // force re-init with the new config
+      refreshConnectUi();
+      showToast("Backend connected");
+    } catch (e) {
+      showToast("That doesn't look like a valid Firebase config.");
+    }
+  });
+
+  /* ---------- Geofencing on Measurements -----------------------------
+     Any measurement can be flagged as a geofence zone. Entry/exit is
+     checked against this device's own live position today (which works
+     right now, with no backend needed) -- the same check extends
+     directly to a connection's position once ConnectBackend actually
+     has one to check, since both are just a {lat,lng} being tested
+     against the same zone.
+  ----------------------------------------------------------------------*/
+  const geofenceInsideState = new Map(); // measurementId -> boolean, last known inside/outside
+  function pointInPolygon(lat, lng, latlngs) {
+    // Standard ray-casting test. latlngs is an array of [lat, lng] pairs.
+    let inside = false;
+    for (let i = 0, j = latlngs.length - 1; i < latlngs.length; j = i++) {
+      const yi = latlngs[i][0], xi = latlngs[i][1], yj = latlngs[j][0], xj = latlngs[j][1];
+      const intersect = ((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+  function checkGeofencesForPosition(lat, lng, label) {
+    measurements.forEach((m) => {
+      if (!m.isGeofenceZone || !isClosedLoop(m.points)) return;
+      const latlngs = m.points.map((p) => [p.lat, p.lng]);
+      const isInside = pointInPolygon(lat, lng, latlngs);
+      const wasInside = geofenceInsideState.get(m.id);
+      geofenceInsideState.set(m.id, isInside);
+      if (wasInside === undefined) return; // first check just establishes a baseline, not an edge to alert on
+      if (isInside && !wasInside && m.geofenceAlertEntry !== false) {
+        showToast((label || "You") + " entered \"" + (m.name || "a zone") + "\"");
+      } else if (!isInside && wasInside && m.geofenceAlertExit !== false) {
+        showToast((label || "You") + " left \"" + (m.name || "a zone") + "\"");
+      }
+    });
+  }
 
   /* ---------- H3 region hex grid overlay ---------- */
   let hexGridLayer = null;
@@ -5930,7 +6544,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       settings: {
         home: settings.home || null,
         anchorOverrides: settings.anchorOverrides || {},
-        customLocationMarker: settings.customLocationMarker || { images: [], activeId: null, size: 22 }
+        customLocationMarker: settings.customLocationMarker || { images: [], activeId: null, size: 22, favoriteIds: [] }
       }
     };
   }
@@ -6310,7 +6924,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
         settings.customLocationMarker.activeId = incomingMarker.activeId;
         settings.customLocationMarker.size = incomingMarker.size || settings.customLocationMarker.size;
       }
-      if (locationMarkersAdded > 0 || incomingMarker.activeId) {
+      // Favoriting is shared data too (mirrors anchorOverrides again) --
+      // union in any incoming favorite id this device's set doesn't
+      // already have. An id for an image this device never received
+      // (still possible if that image itself failed some validation
+      // above) is harmless to keep; it simply matches nothing when the
+      // gallery renders.
+      let favoritesChanged = false;
+      if (Array.isArray(incomingMarker.favoriteIds)) {
+        if (!Array.isArray(settings.customLocationMarker.favoriteIds)) settings.customLocationMarker.favoriteIds = [];
+        const localFavSet = new Set(settings.customLocationMarker.favoriteIds);
+        incomingMarker.favoriteIds.forEach((id) => {
+          if (typeof id === "string" && !localFavSet.has(id)) {
+            settings.customLocationMarker.favoriteIds.push(id);
+            localFavSet.add(id);
+            favoritesChanged = true;
+          }
+        });
+      }
+      if (locationMarkersAdded > 0 || incomingMarker.activeId || favoritesChanged) {
         saveSettings();
         refreshLocationMarkerSettingsUi();
         refreshLivePositionMarkerIcon();
@@ -8697,6 +9329,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
       updateLivePositionMarkerRotation(resolvedHeading);
     }
     lastLivePosition = { lat, lng };
+    checkGeofencesForPosition(lat, lng);
+    // Throttled well below GPS fix frequency -- friends don't need
+    // sub-second precision, and this keeps Firestore writes (and the
+    // free-tier daily quota) well within reason even while moving.
+    const CONNECT_PUBLISH_INTERVAL_MS = 20000;
+    if (isFirebaseConfigured() && settings.connect.shareLocation &&
+        (!settings.connect.lastPublishedAt || Date.now() - settings.connect.lastPublishedAt > CONNECT_PUBLISH_INTERVAL_MS)) {
+      ConnectBackend.publishMyLocation(lat, lng).catch(() => { /* next fix will retry */ });
+    }
   }
   // Called when the marker image/size setting itself changes, so an
   // already-visible dot updates immediately rather than waiting for the
@@ -11003,6 +11644,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      (isClosedLoop(m.points) ? '<button class="card-favorite' + (m.isGeofenceZone ? " favorited" : "") + '" data-action="toggle-geofence-zone" data-id="' + m.id + '" title="' + (m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone") + '">' + icon("crosshair", 15) + "</button>" : "") +
       '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
       '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
     "</div>";
@@ -11063,6 +11705,26 @@ svg.leaflet-image-layer.leaflet-interactive path {
         btn.classList.toggle("favorited", m.favorite);
         btn.title = m.favorite ? "Remove from favorites" : "Add to favorites";
         applyActiveTabFilter();
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='toggle-geofence-zone']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const m = measurements.find((mm) => mm.id === btn.dataset.id);
+        if (!m) return;
+        m.isGeofenceZone = !m.isGeofenceZone;
+        if (m.geofenceAlertEntry === undefined) m.geofenceAlertEntry = true;
+        if (m.geofenceAlertExit === undefined) m.geofenceAlertExit = true;
+        m.updatedAt = Date.now();
+        saveMeasurements();
+        // A zone just turned on has no established inside/outside baseline
+        // yet -- clearing it means the very next position check sets one
+        // silently, rather than possibly firing an entry/exit toast off a
+        // stale baseline from before it was a zone at all.
+        geofenceInsideState.delete(m.id);
+        btn.classList.toggle("favorited", m.isGeofenceZone);
+        btn.title = m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone";
+        showToast(m.isGeofenceZone ? '"' + m.name + '" is now a geofence zone' : '"' + m.name + '" is no longer a geofence zone');
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='edit-measurement-points']").forEach((btn) => {
