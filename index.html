@@ -1791,7 +1791,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="layers-panel-header">
           <div class="layers-tabs" id="layersTabs">
             <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
-            <button class="layers-tab" id="layersTabConnectBtn" data-layers-tab="connect">Connect</button>
             <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
           </div>
           <button class="icon-btn" id="layersPanelCloseBtn" data-icon="x" data-icon-size="16"></button>
@@ -1821,48 +1820,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <label class="layers-option"><input type="checkbox" id="res1ShowWordToggle" /><span>Show 3 word names</span></label>
           <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide. Mousing over one shows its raw H3 cell index (e.g. 81a8fffffffffff) and/or its curated 3-word name, depending on which options above are on. "Show 3 word names" also labels Precision hexes on hover with their derived 3-word address.</p>
         </div>
-        </div>
-        <div class="layers-panel-body hidden" id="layersViewConnect">
-          <div class="layers-section">
-            <p class="layers-section-title">Connect</p>
-            <p class="layers-hint" id="connectBackendHint">Share your location with people you invite, grouped into folders so you can turn sharing on or off for a whole friend group at once.</p>
-            <div class="connect-backend-banner hidden" id="connectBackendBanner">
-              <span>Not connected to a backend yet — invites and connections are saved on this device only and won't sync to anyone else's phone until a Firebase project is configured.</span>
-              <button type="button" class="home-action-btn" id="connectFirebaseSetupBtn">Set up backend</button>
-            </div>
-          </div>
-          <div class="layers-section">
-            <p class="layers-section-title">Your name</p>
-            <p class="layers-hint">Shown to people you invite or who invite you.</p>
-            <input type="text" id="connectDisplayNameInput" class="field-input" placeholder="Your name" maxlength="40" />
-          </div>
-          <div class="layers-section">
-            <p class="layers-section-title">Invite someone</p>
-            <p class="layers-hint">Sends a one-time invite link through whichever app you choose (Messages, WhatsApp, email, etc.) — they open it in MapApp to connect back to you.</p>
-            <div class="home-actions">
-              <button class="home-action-btn" id="connectInviteBtn">+ Invite someone</button>
-            </div>
-          </div>
-          <div class="layers-section">
-            <p class="layers-section-title">Accept an invite</p>
-            <p class="layers-hint">Paste a code someone sent you.</p>
-            <div class="connect-accept-row">
-              <input type="text" id="connectAcceptInput" class="field-input" placeholder="Paste invite code…" />
-              <button class="home-action-btn" id="connectAcceptBtn">Accept</button>
-            </div>
-          </div>
-          <div class="layers-section">
-            <p class="layers-section-title">Connect folders</p>
-            <p class="layers-hint">Turn a folder off to stop sharing your location with everyone in it, without removing the connections themselves.</p>
-            <div id="connectFoldersList"></div>
-            <div class="home-actions" style="margin-top:8px;">
-              <button class="home-action-btn" id="connectNewFolderBtn">+ New folder</button>
-            </div>
-          </div>
-          <div class="layers-section">
-            <p class="layers-section-title">Connections</p>
-            <div id="connectionsList"></div>
-          </div>
         </div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
         <div class="layers-section">
@@ -2517,9 +2474,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="panel" id="panel">
     <div class="panel-header">
       <div class="panel-tabs" id="panelTabs">
-        <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Waypoints</button>
-        <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Routes</button>
-        <button class="panel-tab" id="panelTabMeasurements" data-tab="measurements">Measurements</button>
+        <button class="panel-tab active" id="panelTabWaypoints" data-tab="waypoints">Waypoint</button>
+        <button class="panel-tab" id="panelTabRoutes" data-tab="routes">Route</button>
+        <button class="panel-tab" id="panelTabMeasurements" data-tab="measurements">Measure</button>
+        <button class="panel-tab" id="panelTabLink" data-tab="link">Link</button>
       </div>
       <div class="panel-header-actions">
         <button class="panel-close" id="panelSyncBtn" title="Sync waypoints with GitHub (pull, then push)" data-icon="sync" data-icon-size="16"></button>
@@ -2547,6 +2505,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <span class="icon"></span>
       </button>
       <button type="button" class="list-favorite-filter-btn" id="waypointNewItineraryBtn" title="New Itinerary folder">
+        <span class="icon"></span>
+      </button>
+      <button type="button" class="list-favorite-filter-btn hidden" id="linkSetupBtn" title="Link account setup">
+        <span class="icon"></span>
+      </button>
+      <button type="button" class="list-favorite-filter-btn hidden" id="linkGeofenceBtn" title="Link selected people to a geofence zone">
         <span class="icon"></span>
       </button>
       <p class="panel-subtitle" id="panelSubtitle">0 logged</p>
@@ -2666,6 +2630,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="az-picker" id="measurementsAzPicker"></div>
     </div>
     <p class="panel-no-results" id="measurementsNoResults" style="display:none;">No measurements match your search.</p>
+    <div class="panel-search-row hidden" id="linkSearchRow">
+      <span class="icon" id="linkSearchIcon"></span>
+      <input type="text" id="linkSearchInput" class="panel-search-input" placeholder="Search linked people…" autocomplete="off" />
+      <button class="panel-search-clear" id="linkSearchClearBtn" style="display:none;"></button>
+    </div>
+    <div class="panel-list-wrap hidden" id="panelLinkView">
+      <div class="panel-list" id="linkPanelList"></div>
+    </div>
+    <p class="panel-no-results" id="linkNoResults" style="display:none;">No linked people match your search.</p>
     <input type="file" id="cardPhotoFileInput" accept="image/*" multiple style="display:none;" />
   </div>
 
@@ -2681,6 +2654,51 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button class="sync-suggestion-dismiss-btn" id="syncSuggestionDismissBtn" title="Dismiss"></button>
     </div>
     <button class="sync-suggestion-pull-btn" id="syncSuggestionPullBtn">Sync Now</button>
+  </div>
+
+  <div class="modal-overlay hidden" id="linkSetupOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Link account</h2>
+        <button type="button" class="icon-btn" id="linkSetupCloseBtn" data-icon="x" data-icon-size="16"></button>
+      </div>
+      <p class="layers-hint" id="linkBackendHint">Share your location with people you invite. Folders for organizing them live in the Link tab itself now -- use the folder button there.</p>
+      <div class="connect-backend-banner hidden" id="linkBackendBanner">
+        <span>Not connected to a backend yet — invites and connections are saved on this device only and won't sync to anyone else's phone until a Firebase project is configured.</span>
+        <button type="button" class="home-action-btn" id="linkFirebaseSetupBtn">Set up backend</button>
+      </div>
+      <div class="layers-section">
+        <p class="layers-section-title">Your name</p>
+        <p class="layers-hint">Shown to people you invite or who invite you.</p>
+        <input type="text" id="linkDisplayNameInput" class="field-input" placeholder="Your name" maxlength="40" />
+      </div>
+      <div class="layers-section">
+        <p class="layers-section-title">Invite someone</p>
+        <p class="layers-hint">Sends a one-time invite link through whichever app you choose (Messages, WhatsApp, email, etc.) — they open it in MapApp to link back to you.</p>
+        <div class="home-actions">
+          <button class="home-action-btn" id="linkInviteBtn">+ Invite someone</button>
+        </div>
+      </div>
+      <div class="layers-section">
+        <p class="layers-section-title">Accept an invite</p>
+        <p class="layers-hint">Paste a code someone sent you.</p>
+        <div class="connect-accept-row">
+          <input type="text" id="linkAcceptInput" class="field-input" placeholder="Paste invite code…" />
+          <button class="home-action-btn" id="linkAcceptBtn">Accept</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="linkGeofencePickerOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Link to a geofence zone</h2>
+        <button type="button" class="icon-btn" id="linkGeofencePickerCloseBtn" data-icon="x" data-icon-size="16"></button>
+      </div>
+      <p class="layers-hint">Pick a zone (set up from the Measure tab) to alert you when the selected people enter or leave it.</p>
+      <div id="linkGeofenceZoneList"></div>
+    </div>
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
@@ -3293,7 +3311,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "442";
+  const APP_VERSION = "444";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3603,8 +3621,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   // icon (an activity type for routes, or "emoji:<char>"/"pin:<color>" for
   // waypoints). Measurements have no icon filter -- every measurement uses
   // the same ruler icon, so a filter there would be meaningless.
-  const listIconFilter = { waypoints: null, routes: null };
-  const listFavoriteFilter = { waypoints: false, routes: false, measurements: false };
+  const listIconFilter = { waypoints: null, routes: null, link: null };
+  const listFavoriteFilter = { waypoints: false, routes: false, measurements: false, link: false };
   const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   // RainViewer's radar tiles only exist up to zoom 7 (documented on their own
   // API reference) — requesting tiles beyond that returns a "Zoom Level Not
@@ -3783,21 +3801,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
   const layersTabMainBtn = el("layersTabMainBtn");
-  const layersTabConnectBtn = el("layersTabConnectBtn");
   const layersTabSettingsBtn = el("layersTabSettingsBtn");
   const layersViewMain = el("layersViewMain");
-  const layersViewConnect = el("layersViewConnect");
   const layersViewSettings = el("layersViewSettings");
-  const connectBackendHint = el("connectBackendHint");
-  const connectBackendBanner = el("connectBackendBanner");
-  const connectFirebaseSetupBtn = el("connectFirebaseSetupBtn");
-  const connectDisplayNameInput = el("connectDisplayNameInput");
-  const connectInviteBtn = el("connectInviteBtn");
-  const connectAcceptInput = el("connectAcceptInput");
-  const connectAcceptBtn = el("connectAcceptBtn");
-  const connectFoldersList = el("connectFoldersList");
-  const connectNewFolderBtn = el("connectNewFolderBtn");
-  const connectionsList = el("connectionsList");
+  const linkSetupOverlay = el("linkSetupOverlay");
+  const linkSetupCloseBtn = el("linkSetupCloseBtn");
+  const linkBackendBanner = el("linkBackendBanner");
+  const linkFirebaseSetupBtn = el("linkFirebaseSetupBtn");
+  const linkDisplayNameInput = el("linkDisplayNameInput");
+  const linkInviteBtn = el("linkInviteBtn");
+  const linkAcceptInput = el("linkAcceptInput");
+  const linkAcceptBtn = el("linkAcceptBtn");
+  const linkSetupBtn = el("linkSetupBtn");
+  const linkGeofenceBtn = el("linkGeofenceBtn");
+  const linkGeofencePickerOverlay = el("linkGeofencePickerOverlay");
+  const linkGeofencePickerCloseBtn = el("linkGeofencePickerCloseBtn");
+  const linkGeofenceZoneList = el("linkGeofenceZoneList");
+  const panelTabLink = el("panelTabLink");
+  const panelLinkView = el("panelLinkView");
+  const linkPanelList = el("linkPanelList");
+  const linkSearchRow = el("linkSearchRow");
+  const linkSearchInput = el("linkSearchInput");
+  const linkSearchClearBtn = el("linkSearchClearBtn");
+  const linkNoResults = el("linkNoResults");
   const refreshAppBtn = el("refreshAppBtn");
   const appVersionLabel = el("appVersionLabel");
   appVersionLabel.textContent = "App version " + APP_VERSION;
@@ -4129,6 +4155,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   waypointNewFolderBtn.querySelector(".icon").innerHTML = icon("folderPlus", 15);
   waypointNewTripBtn.querySelector(".icon").innerHTML = icon("plane", 15);
   waypointNewItineraryBtn.querySelector(".icon").innerHTML = icon("calendar", 15);
+  linkSetupBtn.querySelector(".icon").innerHTML = icon("link", 15);
+  linkGeofenceBtn.querySelector(".icon").innerHTML = icon("crosshair", 15);
   reviewPhoneCallBtn.querySelector(".icon").innerHTML = icon("phone", 15);
   reviewEmailMailBtn.querySelector(".icon").innerHTML = icon("mail", 15);
   photoViewPrevBtn.innerHTML = icon("chevronLeft", 22);
@@ -5220,15 +5248,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
   function switchLayersTab(tab) {
     layersTabMainBtn.classList.toggle("active", tab === "main");
-    layersTabConnectBtn.classList.toggle("active", tab === "connect");
     layersTabSettingsBtn.classList.toggle("active", tab === "settings");
     layersViewMain.classList.toggle("hidden", tab !== "main");
-    layersViewConnect.classList.toggle("hidden", tab !== "connect");
     layersViewSettings.classList.toggle("hidden", tab !== "settings");
-    if (tab === "connect") refreshConnectUi();
   }
   layersTabMainBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("main"); });
-  layersTabConnectBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("connect"); });
   layersTabSettingsBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("settings"); });
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
@@ -5844,7 +5868,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   locationMarkerSizeSlider.addEventListener("change", () => saveSettings());
 
   /* ================================================================ */
-  /*  Connect -- location sharing between users, grouped into folders  */
+  /*  Link -- location sharing between users, organized as its own tab */
+  /*  in the main panel (folders + people), matching how Waypoints/     */
+  /*  Routes/Measure already work. A separate small modal (linkSetup-   */
+  /*  Overlay) handles account setup (name, invite, accept) -- the      */
+  /*  list itself, including folders, lives in the tab's own body.      */
   /*                                                                    */
   /*  This app has no server of its own, so nothing here can actually  */
   /*  move a location from one person's device to another's without a  */
@@ -5917,6 +5945,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     firestoreDb = fb.firestore();
     return firestoreDb;
   }
+  const liveLocationUnsubscribers = new Map(); // connectionId -> unsubscribe fn, so re-subscribing (e.g. after an edit) doesn't leak listeners
   const ConnectBackend = {
     async publishMyLocation(lat, lng) {
       if (!isFirebaseConfigured()) return;
@@ -5950,51 +5979,100 @@ svg.leaflet-image-layer.leaflet-interactive path {
       return () => unsub();
     }
   };
+  // Keeps each accepted connection's lastKnownLocation live once a backend
+  // exists -- entirely inert (subscribeToLocation no-ops) until then. Also
+  // the path that actually triggers geofence alerts for linked people, not
+  // just for this device's own position.
+  function refreshLiveLocationSubscriptions() {
+    liveLocationUnsubscribers.forEach((unsub) => unsub());
+    liveLocationUnsubscribers.clear();
+    if (!isFirebaseConfigured()) return;
+    connections.forEach((c) => {
+      if (c.status !== "accepted" || !c.theirDeviceId) return;
+      const unsub = ConnectBackend.subscribeToLocation(c.theirDeviceId, (data) => {
+        c.lastKnownLocation = { lat: data.lat, lng: data.lng, updatedAt: data.updatedAt };
+        saveConnections();
+        checkGeofencesForPosition(data.lat, data.lng, c.name);
+        if (activePanelTab === "link") renderLinkList();
+      });
+      liveLocationUnsubscribers.set(c.id, unsub);
+    });
+  }
 
-  /* ---------- Local data: folders and connections -------------------*/
+  /* ---------- Local data: folders, connections, favorites -----------*/
   function createConnectFolder(name) {
     const folder = { id: genConnectId("cf"), name: name.trim() || "New folder", hidden: false, createdAt: Date.now() };
     connectFolders.push(folder);
     saveConnectFolders();
-    renderConnectFolders();
+    renderLinkList();
     return folder;
+  }
+  function renameConnectFolder(folderId) {
+    const folder = connectFolders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const name = prompt("Folder name", folder.name);
+    if (!name || !name.trim()) return;
+    folder.name = name.trim();
+    saveConnectFolders();
+    renderLinkList();
   }
   function setConnectFolderVisibility(folderId, hidden) {
     const folder = connectFolders.find((f) => f.id === folderId);
     if (!folder) return;
     folder.hidden = hidden;
     saveConnectFolders();
-    renderConnectFolders();
-    renderConnectionsList();
+    renderLinkList();
     showToast(hidden ? 'Stopped sharing your location with "' + folder.name + '"' : 'Sharing your location with "' + folder.name + '"');
   }
   function deleteConnectFolder(folderId) {
     const folder = connectFolders.find((f) => f.id === folderId);
     if (!folder) return;
-    if (!confirm('Delete "' + folder.name + '"? Connections in it will be kept, just ungrouped.')) return;
+    if (!confirm('Delete "' + folder.name + '"? People in it will be kept, just ungrouped.')) return;
     connections.forEach((c) => { if (c.folderId === folderId) c.folderId = null; });
     connectFolders = connectFolders.filter((f) => f.id !== folderId);
+    expandedLinkFolderIds.delete(folderId);
     saveConnectFolders();
     saveConnections();
-    renderConnectFolders();
-    renderConnectionsList();
+    renderLinkList();
   }
   function removeConnection(connectionId) {
     const c = connections.find((x) => x.id === connectionId);
     if (!c) return;
-    if (!confirm('Remove connection with "' + (c.name || "this person") + '"?')) return;
+    if (!confirm('Remove "' + (c.name || "this person") + '"?')) return;
     connections = connections.filter((x) => x.id !== connectionId);
+    selectedLinkIds.delete(connectionId);
     saveConnections();
-    renderConnectionsList();
-    renderConnectFolders();
+    renderLinkList();
+    refreshLiveLocationSubscriptions();
   }
   function moveConnectionToFolder(connectionId, folderId) {
     const c = connections.find((x) => x.id === connectionId);
     if (!c) return;
     c.folderId = folderId || null;
     saveConnections();
-    renderConnectFolders();
-    renderConnectionsList();
+    renderLinkList();
+  }
+  function toggleFavoriteConnection(connectionId) {
+    const c = connections.find((x) => x.id === connectionId);
+    if (!c) return;
+    c.favorite = !c.favorite;
+    saveConnections();
+    renderLinkList();
+  }
+  // A tap on a connected person's name/card pans and zooms the map to
+  // their last known position -- there's nothing to fly to for someone
+  // who hasn't shared a location yet (no backend configured, or they
+  // haven't published a fix), so that case gets a plain, honest toast
+  // instead of silently doing nothing.
+  function flyToConnection(connectionId) {
+    const c = connections.find((x) => x.id === connectionId);
+    if (!c) return;
+    if (!c.lastKnownLocation) {
+      showToast(c.name + " hasn't shared a location yet");
+      return;
+    }
+    flyTo(c.lastKnownLocation.lat, c.lastKnownLocation.lng, 15);
+    panel.classList.remove("open");
   }
 
   /* ---------- Invite / accept flow ------------------------------------
@@ -6014,19 +6092,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
     } catch (e) { return null; }
   }
   async function createInvite() {
-    const name = (connectDisplayNameInput.value || "").trim();
+    const name = (linkDisplayNameInput.value || "").trim();
     const friendName = prompt("Who are you inviting? (just a label for you)");
     if (friendName === null) return;
     const inviteId = genConnectId("inv");
     const payload = { v: 1, inviteId, fromDeviceId: ensureMyDeviceId(), fromName: name || "Someone" };
     const code = encodeInviteCode(payload);
     const connection = {
-      id: genConnectId("conn"), name: friendName.trim() || "Unnamed", status: "pending_sent",
+      id: genConnectId("conn"), name: friendName.trim() || "Unnamed", status: "pending_sent", favorite: false,
       inviteId, theirDeviceId: null, folderId: null, createdAt: Date.now(), updatedAt: Date.now(), lastKnownLocation: null
     };
     connections.push(connection);
     saveConnections();
-    renderConnectionsList();
+    renderLinkList();
     try { await ConnectBackend.sendInvite(inviteId, name || "Someone"); } catch (e) { /* local-only mode -- fine, already saved above */ }
     const shareText = (name || "Someone") + " wants to connect on MapApp so you can share locations. Open MapApp and paste this code to accept:\n\n" + code;
     if (navigator.share) {
@@ -6045,100 +6123,43 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
   }
   async function acceptInvite() {
-    const code = connectAcceptInput.value;
+    const code = linkAcceptInput.value;
     const payload = decodeInviteCode(code);
     if (!payload || !payload.inviteId || !payload.fromDeviceId) {
       showToast("That doesn't look like a valid invite code.");
       return;
     }
-    const myName = (connectDisplayNameInput.value || "").trim() || "Someone";
+    const myName = (linkDisplayNameInput.value || "").trim() || "Someone";
     const connection = {
-      id: genConnectId("conn"), name: payload.fromName || "Unnamed", status: "accepted",
+      id: genConnectId("conn"), name: payload.fromName || "Unnamed", status: "accepted", favorite: false,
       inviteId: payload.inviteId, theirDeviceId: payload.fromDeviceId, folderId: null,
       createdAt: Date.now(), updatedAt: Date.now(), lastKnownLocation: null
     };
     connections.push(connection);
     saveConnections();
-    connectAcceptInput.value = "";
-    renderConnectionsList();
+    linkAcceptInput.value = "";
+    renderLinkList();
     try { await ConnectBackend.acceptInvite(payload.inviteId, ensureMyDeviceId(), myName); } catch (e) { /* local-only mode */ }
+    refreshLiveLocationSubscriptions();
     showToast("Connected with " + connection.name);
   }
 
-  /* ---------- Rendering ------------------------------------------- */
-  function refreshConnectUi() {
+  /* ---------- Link setup modal (account name, invite, accept) ------- */
+  function openLinkSetupModal() {
     ensureMyDeviceId();
-    connectDisplayNameInput.value = settings.connect.myDisplayName || "";
-    connectBackendBanner.classList.toggle("hidden", isFirebaseConfigured());
-    renderConnectFolders();
-    renderConnectionsList();
+    linkDisplayNameInput.value = settings.connect.myDisplayName || "";
+    linkBackendBanner.classList.toggle("hidden", isFirebaseConfigured());
+    linkSetupOverlay.classList.remove("hidden");
   }
-  function renderConnectFolders() {
-    if (connectFolders.length === 0) {
-      connectFoldersList.innerHTML = '<p class="connect-empty-hint">No folders yet -- create one to group connections by friend group.</p>';
-      return;
-    }
-    connectFoldersList.innerHTML = connectFolders.map((f) => {
-      const count = connections.filter((c) => c.folderId === f.id).length;
-      return '<div class="connect-folder-row">' +
-        '<span class="connect-folder-name">' + escapeHtml(f.name) + "</span>" +
-        '<span class="connect-folder-count">' + count + (count === 1 ? " person" : " people") + "</span>" +
-        '<button type="button" class="folder-accordion-action" data-connect-folder-visibility="' + f.id + '" title="' +
-          (f.hidden ? "Share with this folder" : "Stop sharing with this folder") + '">' + icon(f.hidden ? "eyeOff" : "eye", 15) + "</button>" +
-        '<button type="button" class="folder-accordion-action" data-connect-folder-delete="' + f.id + '" title="Delete folder">' + icon("trash", 15) + "</button>" +
-        "</div>";
-    }).join("");
-    connectFoldersList.querySelectorAll("[data-connect-folder-visibility]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const folder = connectFolders.find((f) => f.id === btn.dataset.connectFolderVisibility);
-        setConnectFolderVisibility(folder.id, !folder.hidden);
-      });
-    });
-    connectFoldersList.querySelectorAll("[data-connect-folder-delete]").forEach((btn) => {
-      btn.addEventListener("click", (e) => { e.stopPropagation(); deleteConnectFolder(btn.dataset.connectFolderDelete); });
-    });
-  }
-  function renderConnectionsList() {
-    if (connections.length === 0) {
-      connectionsList.innerHTML = '<p class="connect-empty-hint">No connections yet -- invite someone above, or accept a code they sent you.</p>';
-      return;
-    }
-    const folderOptions = '<option value="">No folder</option>' + connectFolders.map((f) => '<option value="' + f.id + '">' + escapeHtml(f.name) + "</option>").join("");
-    connectionsList.innerHTML = connections.map((c) => {
-      const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
-      const statusLabel = c.status === "accepted" ? "Connected" : c.status === "pending_sent" ? "Invite sent — waiting" : "Pending";
-      return '<div class="connect-item-row" data-connect-id="' + c.id + '">' +
-        '<div class="connect-item-avatar">' + escapeHtml(initial) + "</div>" +
-        '<div class="connect-item-info">' +
-          '<div class="connect-item-name">' + escapeHtml(c.name) + "</div>" +
-          '<div class="connect-item-status' + (c.status !== "accepted" ? " pending" : "") + '">' + statusLabel + "</div>" +
-        "</div>" +
-        '<select class="field-input connect-item-folder-select" data-connect-folder-select="' + c.id + '" style="width:auto; padding:4px 6px; font-size:12px;">' +
-          folderOptions.replace('value="' + (c.folderId || "") + '"', 'value="' + (c.folderId || "") + '" selected') +
-        "</select>" +
-        '<button type="button" class="location-marker-gallery-remove" data-connect-remove="' + c.id + '" title="Remove">' + icon("x", 10) + "</button>" +
-        "</div>";
-    }).join("");
-    connectionsList.querySelectorAll("[data-connect-folder-select]").forEach((sel) => {
-      sel.addEventListener("change", () => moveConnectionToFolder(sel.dataset.connectFolderSelect, sel.value));
-    });
-    connectionsList.querySelectorAll("[data-connect-remove]").forEach((btn) => {
-      btn.addEventListener("click", (e) => { e.stopPropagation(); removeConnection(btn.dataset.connectRemove); });
-    });
-  }
-
-  connectDisplayNameInput.addEventListener("change", () => {
-    settings.connect.myDisplayName = connectDisplayNameInput.value.trim();
+  linkSetupBtn.addEventListener("click", openLinkSetupModal);
+  linkSetupCloseBtn.addEventListener("click", () => linkSetupOverlay.classList.add("hidden"));
+  linkDisplayNameInput.addEventListener("change", () => {
+    settings.connect.myDisplayName = linkDisplayNameInput.value.trim();
     saveSettings();
   });
-  connectInviteBtn.addEventListener("click", createInvite);
-  connectAcceptBtn.addEventListener("click", acceptInvite);
-  connectNewFolderBtn.addEventListener("click", () => {
-    const name = prompt("Folder name (e.g. \"Family\", \"Hiking group\")");
-    if (name && name.trim()) createConnectFolder(name);
-  });
-  connectFirebaseSetupBtn.addEventListener("click", () => {
+  linkInviteBtn.addEventListener("click", createInvite);
+  linkAcceptBtn.addEventListener("click", acceptInvite);
+  linkFirebaseSetupBtn.addEventListener("click", () => {
     const raw = prompt("Paste your Firebase web app config (the JSON object from the Firebase console -- Project settings > General > Your apps):");
     if (!raw) return;
     try {
@@ -6147,22 +6168,194 @@ svg.leaflet-image-layer.leaflet-interactive path {
       settings.connect.firebaseConfig = parsed;
       saveSettings();
       firestoreDb = null; // force re-init with the new config
-      refreshConnectUi();
+      linkBackendBanner.classList.toggle("hidden", isFirebaseConfigured());
+      refreshLiveLocationSubscriptions();
       showToast("Backend connected");
     } catch (e) {
       showToast("That doesn't look like a valid Firebase config.");
     }
   });
 
+  /* ---------- Link tab: select mode + geofence assignment ------------*/
+  let linkSelectMode = false;
+  const selectedLinkIds = new Set();
+  const expandedLinkFolderIds = new Set();
+  function setLinkSelectMode(on) {
+    linkSelectMode = on;
+    if (!on) selectedLinkIds.clear();
+    linkPanelList.classList.toggle("select-mode", on);
+    waypointSelectModeBtn.classList.toggle("active", on);
+    renderLinkList();
+  }
+  function openLinkGeofencePicker() {
+    if (selectedLinkIds.size === 0) {
+      showToast("Select at least one person first");
+      return;
+    }
+    const zones = measurements.filter((m) => m.isGeofenceZone);
+    if (zones.length === 0) {
+      showToast("No geofence zones yet -- mark one up in the Measure tab first");
+      return;
+    }
+    linkGeofenceZoneList.innerHTML = zones.map((z) => {
+      const linkedCount = (z.linkedConnectionIds || []).length;
+      return '<button type="button" class="home-action-btn" data-link-zone-id="' + z.id + '" style="width:100%; text-align:left; margin-bottom:8px;">' +
+        escapeHtml(z.name) + (linkedCount ? " (" + linkedCount + " already linked)" : "") + "</button>";
+    }).join("");
+    linkGeofenceZoneList.querySelectorAll("[data-link-zone-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const zone = measurements.find((m) => m.id === btn.dataset.linkZoneId);
+        if (!zone) return;
+        if (!Array.isArray(zone.linkedConnectionIds)) zone.linkedConnectionIds = [];
+        const idsToAdd = Array.from(selectedLinkIds);
+        idsToAdd.forEach((id) => { if (!zone.linkedConnectionIds.includes(id)) zone.linkedConnectionIds.push(id); });
+        zone.updatedAt = Date.now();
+        saveMeasurements();
+        linkGeofencePickerOverlay.classList.add("hidden");
+        showToast("Linked " + idsToAdd.length + (idsToAdd.length === 1 ? " person" : " people") + ' to "' + zone.name + '"');
+        setLinkSelectMode(false);
+      });
+    });
+    linkGeofencePickerOverlay.classList.remove("hidden");
+  }
+  linkGeofenceBtn.addEventListener("click", openLinkGeofencePicker);
+  linkGeofencePickerCloseBtn.addEventListener("click", () => linkGeofencePickerOverlay.classList.add("hidden"));
+
+  /* ---------- Rendering: folders (accordion) + people (cards) --------
+     Mirrors measurementFolderAccordionHtml / measurementCardHtml /
+     renderMeasurementsList as closely as the simpler, flat (no
+     subfolder) shape of connect folders allows.
+  ----------------------------------------------------------------------*/
+  function linkStatusLabel(c) {
+    return c.status === "accepted" ? "Connected" : c.status === "pending_sent" ? "Invite sent — waiting" : "Pending";
+  }
+  function linkConnectionCardHtml(c) {
+    const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
+    const selected = selectedLinkIds.has(c.id);
+    return '<div class="card ride-card" data-id="' + c.id + '" data-link-card="1">' +
+      (linkSelectMode ? '<span class="card-select-checkbox' + (selected ? " checked" : "") + '" data-action="toggle-link-select" data-id="' + c.id + '">' + (selected ? icon("check", 13) : "") + "</span>" : "") +
+      '<div class="ride-card-icon connect-item-avatar" style="color:inherit;">' + escapeHtml(initial) + "</div>" +
+      '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="fly-to-connection" data-id="' + c.id + '" title="Pan and zoom to their location">' + escapeHtml(c.name) + "</b>" +
+        '<span class="connect-item-status' + (c.status !== "accepted" ? " pending" : "") + '">' + linkStatusLabel(c) + "</span></div>" +
+      '<button class="card-favorite' + (c.favorite ? " favorited" : "") + '" data-action="toggle-favorite-connection" data-id="' + c.id + '" title="' + (c.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      '<button class="ride-card-delete-btn" data-action="remove-connection" data-id="' + c.id + '">' + icon("x", 14) + "</button>" +
+    "</div>";
+  }
+  function linkFolderAccordionHtml(folder) {
+    const items = connections.filter((c) => c.folderId === folder.id);
+    const expanded = expandedLinkFolderIds.has(folder.id);
+    const bodyHtml = expanded
+      ? (items.length === 0
+          ? '<div class="folder-accordion-empty">Empty — no one in this folder yet.</div>'
+          : items.map((c) => ({ name: c.name, html: linkConnectionCardHtml(c) })).sort((a, b) => compareSortNames(a.name, b.name)).map((e) => e.html).join(""))
+      : "";
+    return '<div class="folder-accordion' + (expanded ? " expanded" : "") + '" data-folder-id="' + folder.id + '">' +
+      '<div class="folder-accordion-header" data-action="link-folder-toggle" data-id="' + folder.id + '">' +
+        '<span class="folder-accordion-chevron">' + icon("chevronDown", 14) + "</span>" +
+        '<span class="folder-accordion-icon">' + icon("folder", 16) + "</span>" +
+        '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
+        '<span class="folder-accordion-count">' + items.length + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="link-folder-visibility" data-id="' + folder.id + '" title="' +
+          (folder.hidden ? "Share with this folder" : "Stop sharing with this folder") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="link-folder-rename" data-id="' + folder.id + '" title="Rename folder">' + icon("edit", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="link-folder-delete" data-id="' + folder.id + '" title="Delete folder">' + icon("trash", 14) + "</button>" +
+      "</div>" +
+      '<div class="folder-accordion-body">' + bodyHtml + "</div>" +
+    "</div>";
+  }
+  function renderLinkList() {
+    const query = (linkSearchInput.value || "").trim().toLowerCase();
+    const statusFilter = listIconFilter.link;
+    const favOnly = listFavoriteFilter.link;
+    const matches = (c) => {
+      if (query && !c.name.toLowerCase().includes(query)) return false;
+      if (statusFilter === "accepted" && c.status !== "accepted") return false;
+      if (statusFilter === "pending" && c.status === "accepted") return false;
+      if (favOnly && !c.favorite) return false;
+      return true;
+    };
+    const visibleConnections = connections.filter(matches);
+    const visibleIds = new Set(visibleConnections.map((c) => c.id));
+    const ungrouped = visibleConnections.filter((c) => !c.folderId);
+    const foldersWithMatches = connectFolders.filter((f) => connections.some((c) => c.folderId === f.id && visibleIds.has(c.id)) || (!query && !statusFilter && !favOnly));
+    const entries = foldersWithMatches.map((f) => ({ name: f.name, html: linkFolderAccordionHtml(f) }))
+      .concat(ungrouped.map((c) => ({ name: c.name, html: linkConnectionCardHtml(c) })))
+      .sort((a, b) => compareSortNames(a.name, b.name));
+
+    if (connections.length === 0 && connectFolders.length === 0) {
+      linkPanelList.innerHTML = '<div class="empty-state">' + icon("share", 28) +
+        "<p>No linked people yet. Tap the link icon above to invite someone or accept a code they sent you.</p></div>";
+    } else if (entries.length === 0) {
+      linkPanelList.innerHTML = "";
+    } else {
+      linkPanelList.innerHTML = entries.map((e) => e.html).join("");
+    }
+    linkNoResults.style.display = connections.length > 0 && entries.length === 0 ? "block" : "none";
+    bindLinkListEvents();
+  }
+  function bindLinkListEvents() {
+    linkPanelList.querySelectorAll('[data-action="link-folder-toggle"]').forEach((header) => {
+      header.addEventListener("click", () => {
+        const id = header.dataset.id;
+        if (expandedLinkFolderIds.has(id)) expandedLinkFolderIds.delete(id); else expandedLinkFolderIds.add(id);
+        renderLinkList();
+      });
+    });
+    linkPanelList.querySelectorAll('[data-action="link-folder-visibility"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); setConnectFolderVisibility(btn.dataset.id, !connectFolders.find((f) => f.id === btn.dataset.id).hidden); });
+    });
+    linkPanelList.querySelectorAll('[data-action="link-folder-rename"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); renameConnectFolder(btn.dataset.id); });
+    });
+    linkPanelList.querySelectorAll('[data-action="link-folder-delete"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); deleteConnectFolder(btn.dataset.id); });
+    });
+    linkPanelList.querySelectorAll('[data-action="fly-to-connection"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (linkSelectMode) { toggleLinkSelect(btn.dataset.id); return; }
+        flyToConnection(btn.dataset.id);
+      });
+    });
+    linkPanelList.querySelectorAll('[data-action="toggle-favorite-connection"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); toggleFavoriteConnection(btn.dataset.id); });
+    });
+    linkPanelList.querySelectorAll('[data-action="remove-connection"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); removeConnection(btn.dataset.id); });
+    });
+    linkPanelList.querySelectorAll('[data-action="toggle-link-select"]').forEach((el) => {
+      el.addEventListener("click", (e) => { e.stopPropagation(); toggleLinkSelect(el.dataset.id); });
+    });
+    linkPanelList.querySelectorAll('[data-link-card="1"]').forEach((cardEl) => {
+      cardEl.addEventListener("click", (e) => {
+        if (!linkSelectMode || e.target.closest("[data-action]")) return;
+        toggleLinkSelect(cardEl.dataset.id);
+      });
+    });
+  }
+  function toggleLinkSelect(id) {
+    if (selectedLinkIds.has(id)) selectedLinkIds.delete(id); else selectedLinkIds.add(id);
+    renderLinkList();
+  }
+  linkSearchInput.addEventListener("input", () => {
+    linkSearchClearBtn.style.display = linkSearchInput.value ? "flex" : "none";
+    renderLinkList();
+  });
+  linkSearchClearBtn.addEventListener("click", () => {
+    linkSearchInput.value = "";
+    linkSearchClearBtn.style.display = "none";
+    renderLinkList();
+  });
+  function applyLinkSearchFilter() { renderLinkList(); }
+
   /* ---------- Geofencing on Measurements -----------------------------
      Any measurement can be flagged as a geofence zone. Entry/exit is
-     checked against this device's own live position today (which works
-     right now, with no backend needed) -- the same check extends
-     directly to a connection's position once ConnectBackend actually
-     has one to check, since both are just a {lat,lng} being tested
-     against the same zone.
+     checked against this device's own live position (needs no backend)
+     and, once linkedConnectionIds is populated via the Geofence icon
+     above and a backend actually exists, against each linked person's
+     live position too -- both paths share this exact same check.
   ----------------------------------------------------------------------*/
-  const geofenceInsideState = new Map(); // measurementId -> boolean, last known inside/outside
+  const geofenceInsideState = new Map(); // "measurementId|label" -> boolean, last known inside/outside per zone+person
   function pointInPolygon(lat, lng, latlngs) {
     // Standard ray-casting test. latlngs is an array of [lat, lng] pairs.
     let inside = false;
@@ -6176,10 +6369,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function checkGeofencesForPosition(lat, lng, label) {
     measurements.forEach((m) => {
       if (!m.isGeofenceZone || !isClosedLoop(m.points)) return;
+      const stateKey = m.id + "|" + (label || "");
       const latlngs = m.points.map((p) => [p.lat, p.lng]);
       const isInside = pointInPolygon(lat, lng, latlngs);
-      const wasInside = geofenceInsideState.get(m.id);
-      geofenceInsideState.set(m.id, isInside);
+      const wasInside = geofenceInsideState.get(stateKey);
+      geofenceInsideState.set(stateKey, isInside);
       if (wasInside === undefined) return; // first check just establishes a baseline, not an edge to alert on
       if (isInside && !wasInside && m.geofenceAlertEntry !== false) {
         showToast((label || "You") + " entered \"" + (m.name || "a zone") + "\"");
@@ -10831,35 +11025,44 @@ svg.leaflet-image-layer.leaflet-interactive path {
     panelTabWaypoints.classList.toggle("active", tab === "waypoints");
     panelTabRoutes.classList.toggle("active", tab === "routes");
     panelTabMeasurements.classList.toggle("active", tab === "measurements");
+    panelTabLink.classList.toggle("active", tab === "link");
     panelWaypointsView.classList.toggle("hidden", tab !== "waypoints");
     panelRoutesView.classList.toggle("hidden", tab !== "routes");
     panelMeasurementsView.classList.toggle("hidden", tab !== "measurements");
+    panelLinkView.classList.toggle("hidden", tab !== "link");
     panelSearchRow.classList.toggle("hidden", tab !== "waypoints");
     routesSearchRow.classList.toggle("hidden", tab !== "routes");
     measurementsSearchRow.classList.toggle("hidden", tab !== "measurements");
-    // The New folder / Select buttons are shared across all three tabs (like
+    linkSearchRow.classList.toggle("hidden", tab !== "link");
+    // The New folder / Select buttons are shared across all four tabs (like
     // the icon/favorite filters above them) -- their click handlers below
     // dispatch to whichever tab's folder feature is currently active.
-    waypointSelectModeBtn.title = "Select multiple " + (tab === "waypoints" ? "waypoints" : tab === "routes" ? "routes" : "measurements");
+    waypointSelectModeBtn.title = "Select multiple " + (tab === "waypoints" ? "waypoints" : tab === "routes" ? "routes" : tab === "measurements" ? "measurements" : "people");
     waypointNewTripBtn.classList.toggle("hidden", tab !== "waypoints"); // Trip folders are a Waypoints-tab-only concept
     waypointNewItineraryBtn.classList.toggle("hidden", tab !== "waypoints"); // same -- Itinerary folders only make sense for waypoints
+    linkSetupBtn.classList.toggle("hidden", tab !== "link");
+    linkGeofenceBtn.classList.toggle("hidden", tab !== "link");
     if (tab !== "waypoints") panelNoResults.style.display = "none";
     if (tab !== "routes") routesNoResults.style.display = "none";
     if (tab !== "measurements") measurementsNoResults.style.display = "none";
+    if (tab !== "link") linkNoResults.style.display = "none";
     if (tab !== "waypoints" && waypointSelectMode) setWaypointSelectMode(false);
     if (tab !== "routes" && routeSelectMode) setRouteSelectMode(false);
     if (tab !== "measurements" && measurementSelectMode) setMeasurementSelectMode(false);
+    if (tab !== "link" && linkSelectMode) setLinkSelectMode(false);
     if (tab !== "waypoints" && !waypointFolderCreatePanel.classList.contains("hidden")) closeFolderCreatePanel();
     if (tab !== "routes" && !routeFolderCreatePanel.classList.contains("hidden")) closeRouteFolderCreatePanel();
     if (tab !== "measurements" && !measurementFolderCreatePanel.classList.contains("hidden")) closeMeasurementFolderCreatePanel();
     updatePanelSubtitle();
     if (tab === "routes") renderRoutesList();
     if (tab === "measurements") renderMeasurementsList();
+    if (tab === "link") renderLinkList();
     refreshListFilterControls();
   }
   panelTabWaypoints.addEventListener("click", () => switchPanelTab("waypoints"));
   panelTabRoutes.addEventListener("click", () => switchPanelTab("routes"));
   panelTabMeasurements.addEventListener("click", () => switchPanelTab("measurements"));
+  panelTabLink.addEventListener("click", () => switchPanelTab("link"));
 
   // Bulk-select mode for waypoints: shows a checkbox on every card (CSS-driven
   // via the .select-mode class on panelList) and a bulk-action bar with a
@@ -10884,7 +11087,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   waypointSelectModeBtn.addEventListener("click", () => {
     if (activePanelTab === "waypoints") setWaypointSelectMode(!waypointSelectMode);
     else if (activePanelTab === "routes") setRouteSelectMode(!routeSelectMode);
-    else setMeasurementSelectMode(!measurementSelectMode);
+    else if (activePanelTab === "measurements") setMeasurementSelectMode(!measurementSelectMode);
+    else setLinkSelectMode(!linkSelectMode);
   });
 
   // Shared setup for both entry points below -- resets the panel to a
@@ -11077,7 +11281,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   waypointNewFolderBtn.addEventListener("click", () => {
     if (activePanelTab === "waypoints") openFolderCreatePanel();
     else if (activePanelTab === "routes") openRouteFolderCreatePanel();
-    else openMeasurementFolderCreatePanel();
+    else if (activePanelTab === "measurements") openMeasurementFolderCreatePanel();
+    else {
+      const name = prompt("Folder name (e.g. \"Family\", \"Hiking group\")");
+      if (name && name.trim()) createConnectFolder(name);
+    }
   });
   waypointNewTripBtn.addEventListener("click", () => openFolderCreatePanel(true));
   waypointNewItineraryBtn.addEventListener("click", () => openFolderCreatePanel(false, true));
@@ -16688,7 +16896,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function applyActiveTabFilter() {
     if (activePanelTab === "waypoints") applyWaypointSearchFilter();
     else if (activePanelTab === "routes") applyRoutesSearchFilter();
-    else applyMeasurementsSearchFilter();
+    else if (activePanelTab === "measurements") applyMeasurementsSearchFilter();
+    else applyLinkSearchFilter();
   }
 
   // Rebuilds the icon-filter dropdown's options for whichever tab is
@@ -16714,6 +16923,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
           counts.set(type, { iconContent: '<span style="color:' + info.color + '; display:flex;">' + icon(info.icon, 14) + "</span>", count: 0 });
         }
         counts.get(type).count++;
+        totalCount++;
+      });
+    } else if (activePanelTab === "link") {
+      // People don't have their own icon the way waypoints do, so this
+      // dropdown filters by connection status instead -- same UI slot,
+      // the closest meaningful equivalent for this tab.
+      connections.forEach((c) => {
+        const key = c.status === "accepted" ? "accepted" : "pending";
+        if (!counts.has(key)) {
+          const iconContent = '<span style="color:' + (key === "accepted" ? "var(--cyan)" : "var(--amber)") + '; display:flex;">' + icon(key === "accepted" ? "check" : "sync", 14) + "</span>";
+          counts.set(key, { iconContent, count: 0 });
+        }
+        counts.get(key).count++;
         totalCount++;
       });
     } else {
