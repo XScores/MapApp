@@ -963,12 +963,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .modal-datetime-row{display:flex; align-items:flex-end; gap:10px; margin-bottom:16px;}
   .modal-datetime-row #waypointDateTimeSection{flex:1; min-width:0; margin-bottom:0;}
   .modal-datetime-row #waypointDateTimeSection .field-input{width:100%;}
+  .modal-date-time-fields{display:flex; gap:8px;}
+  .modal-date-time-fields .field-input{flex:1; min-width:0; height:43px;}
   /* Scoped narrower than the standalone weather-snapshot used elsewhere (the
      panel's own Live Weather section) -- this one sits inline next to the
      Forecast button, not stacked as its own full-width block. */
-  #modalWeatherContainer .weather-snapshot{margin-top:0; padding:4px 8px; border-radius:8px;}
+  #modalWeatherContainer .weather-snapshot{margin-top:0; padding:0 8px; border-radius:8px; height:43px; display:flex; align-items:center;}
   #modalWeatherContainer .weather-snapshot-summary b{font-size:13px;}
-  #modalWeatherContainer .layers-accordion-content{position:absolute; right:0; margin-top:4px; z-index:5;
+  #modalWeatherContainer .layers-accordion-content{position:absolute; top:100%; right:0; margin-top:4px; z-index:5;
     background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:8px 12px; width:max-content; max-width:220px;}
   #modalWeatherContainer{position:relative;}
   /* Same compact, inline treatment as #modalWeatherContainer above -- this
@@ -994,6 +996,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .itinerary-date-days-row{display:flex; gap:10px;}
   .itinerary-date-days-col{flex:1; min-width:0;}
   .name-row{display:flex; gap:8px; margin-bottom:14px;}
+  .name-row #nameInput{flex:1; min-width:0; width:auto;}
   .field-input, textarea{width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
     padding:10px 12px; color:var(--text); font-size:14px; outline:none; font-family:inherit;}
   .field-input:focus, textarea:focus{border-color:rgba(245,158,11,.6);}
@@ -1210,12 +1213,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
      included. The fade below is the fallback that actually works
      everywhere, iOS included, since it's just an overlay, not scrollbar
      styling. */
+  .marker-emoji-input-wrap{position:relative;}
+  .marker-emoji-custom-overlay{position:absolute; inset:0; display:flex; align-items:center; gap:8px; padding:0 12px;
+    border-radius:10px; background:var(--surface-2); pointer-events:none; font-size:14px; color:var(--text);}
+  .marker-emoji-custom-overlay.hidden{display:none;}
+  .marker-emoji-custom-overlay img{width:22px; height:22px; object-fit:contain; border-radius:4px; flex-shrink:0;}
   .emoji-quick-pick-wrap{position:relative;}
   .emoji-quick-pick-fade{position:absolute; left:0; right:6px; bottom:0; height:22px; pointer-events:none;
     background:linear-gradient(to bottom, transparent, var(--surface)); border-radius:0 0 10px 10px; transition:opacity .15s;}
   .emoji-quick-pick-fade.hidden{opacity:0;}
   .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:6px;
-    scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2);}
+    scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2); border-radius:10px;}
+  .emoji-quick-pick.paste-armed{outline:none; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
   .emoji-quick-pick::-webkit-scrollbar{width:8px;}
   .emoji-quick-pick::-webkit-scrollbar-track{background:var(--surface-2); border-radius:4px;}
   .emoji-quick-pick::-webkit-scrollbar-thumb{background:var(--border-soft); border-radius:4px;}
@@ -1229,9 +1238,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
      line art on most platforms, which all but disappeared against a dark
      square. A light backdrop keeps every glyph readable regardless of its
      own coloring, the same reasoning most emoji keyboards use. */
-  .emoji-quick-btn{width:100%; height:100%; border-radius:10px; background:#e2e8f0; border:1px solid #cbd5e1;
+  .emoji-quick-btn{width:100%; height:100%; border-radius:10px; background:#c0c5cc; border:1px solid #cbd5e1;
     font-size:26px; display:flex; align-items:center; justify-content:center; cursor:grab; padding:0; user-select:none;}
-  .emoji-quick-btn:hover{background:#cbd5e1; border-color:rgba(245,158,11,.6);}
+  .emoji-quick-btn:hover{background:#adb5bf; border-color:rgba(245,158,11,.6);}
   .emoji-quick-item.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5);}
   .emoji-quick-item.drop-target{transform:scale(1.08);}
   .emoji-quick-item.drop-target .emoji-quick-btn{border-color:var(--amber); background:rgba(245,158,11,.35);}
@@ -1246,6 +1255,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
     display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer; z-index:1;}
   .emoji-favorite-toggle.favorited{color:var(--red);}
   .emoji-favorite-toggle.favorited svg{fill:currentColor;}
+  .emoji-remove-toggle{position:absolute; top:-5px; left:-5px; width:18px; height:18px; border-radius:50%;
+    background:rgba(2,6,23,.85); color:#fff; border:none; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0; font-size:12px; line-height:1; z-index:1;}
+  .emoji-remove-toggle:hover{background:var(--red);}
+  .emoji-quick-add-btn{width:100%; height:100%; border-radius:10px; background:none; border:1.5px dashed var(--border-soft);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-mute); padding:0;}
+  .emoji-quick-add-btn:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
   .wp-emoji-marker{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:28px; line-height:1; box-shadow:0 3px 8px rgba(0,0,0,.4); border:2px solid rgba(15,23,42,.55);}
   .wp-div-icon.wp-selected .wp-pin{
@@ -1715,6 +1731,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .spinner{width:16px; height:16px; border:2px solid rgba(255,255,255,.25); border-top-color:currentColor;
     border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  .tile-download-spinner{width:18px; height:18px; border:2.5px solid rgba(124,58,237,.25); border-top-color:#7c3aed;
+    border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0;}
+  .tile-download-progress-row{display:flex; align-items:center; gap:10px; margin:10px 0 6px;}
+  .tile-download-progress-bar-track{flex:1; height:8px; border-radius:4px; background:var(--surface-2); overflow:hidden;}
+  .tile-download-progress-bar-fill{height:100%; background:#7c3aed; border-radius:4px; transition:width .2s;}
+  .tile-download-percent{font-size:12px; font-weight:700; color:var(--text-mute); flex-shrink:0; width:36px; text-align:right;}
+  .tile-download-stats-row{display:flex; justify-content:space-between; font-size:12px; color:var(--text-mute); margin-bottom:10px;}
 
   /* ---------- leaflet marker + control theming ---------- */
   .wp-div-icon{background:transparent; border:none;}
@@ -1802,12 +1825,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <label class="layers-option"><input type="radio" name="baseLayer" value="street" /><span>Street</span></label>
             <label class="layers-option"><input type="radio" name="baseLayer" value="satellite" /><span>Satellite</span></label>
             <label class="layers-option"><input type="radio" name="baseLayer" value="terrain" /><span>Terrain</span></label>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="cycling" /><span>Cycling</span></label>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="landscape" /><span>Landscape</span></label>
+            <label class="layers-option"><input type="radio" name="baseLayer" value="mobileAtlas" /><span>Mobile Atlas</span></label>
           </div>
           <div>
             <p class="layers-section-title">Live weather</p>
             <label class="layers-option"><input type="checkbox" id="wxPrecip" /><span class="live-dot"></span><span>Precipitation radar</span></label>
             <label class="layers-option"><input type="checkbox" id="wxClouds" /><span class="swatch" style="background:#94a3b8"></span><span>Cloud cover</span></label>
             <label class="layers-option"><input type="checkbox" id="wxTemp" /><span class="swatch" style="background:#f87171"></span><span>Temperature</span></label>
+          </div>
+        </div>
+        <div class="layers-section">
+          <p class="layers-section-title">Offline maps</p>
+          <p class="layers-hint">Save map tiles for an area so viewing it later doesn't use up your map provider's quota.</p>
+          <div class="home-actions">
+            <button type="button" class="home-action-btn" id="drawAreaTilesBtn">Draw an area to download…</button>
+            <button type="button" class="home-action-btn" id="downloadCityTilesBtn">Download tiles for a city…</button>
+          </div>
+          <p class="layers-section-title" style="margin-top:14px;">Downloaded areas</p>
+          <div id="tileSetsList"></div>
+          <p class="layers-hint" id="tileCacheSizeHint"></p>
+          <div class="home-actions">
+            <button type="button" class="home-action-btn" id="clearTileCacheBtn">Clear all downloaded tiles</button>
           </div>
         </div>
         <div class="layers-section">
@@ -1899,6 +1939,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <button class="home-action-btn" id="importAnchorsBtn">Import names</button>
           </div>
           <input type="file" id="importAnchorsFile" accept="application/json" style="display:none;" />
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">Thunderforest API key</p>
+          <div id="thunderforestKeyPrompt">
+            <p class="layers-hint">The Street and Terrain map layers need a free API key from <a href="https://www.thunderforest.com/pricing/" target="_blank" rel="noopener">thunderforest.com</a> (their free "Hobby Project" tier covers this while it's in development). Without a key, tiles will show a "API Key Required" watermark.</p>
+            <div class="owm-key-row">
+              <input id="thunderforestKeyInput" type="text" placeholder="Paste API key…" autocomplete="off" />
+              <button id="thunderforestKeySaveBtn">Save</button>
+            </div>
+          </div>
+          <div id="thunderforestKeySaved" class="owm-key-saved" style="display:none;">
+            <span>Thunderforest key saved</span>
+            <button id="thunderforestKeyForgetBtn">Remove</button>
+          </div>
         </div>
 
         <div class="layers-section">
@@ -2024,17 +2079,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <label class="field-label">Name</label>
         <div class="name-row">
           <input id="nameInput" class="field-input" type="text" placeholder="Name this location" />
+          <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
         </div>
       </div>
 
       <div class="modal-datetime-row">
         <div id="waypointDateTimeSection">
           <label class="field-label">Date &amp; time</label>
-          <input id="waypointDateTimeInput" class="field-input" type="datetime-local" />
+          <div class="modal-date-time-fields">
+            <input id="waypointDateInput" class="field-input" type="date" />
+            <input id="waypointTimeInput" class="field-input" type="time" />
+          </div>
         </div>
         <div class="modal-coords-row-right">
           <div id="modalWeatherContainer"></div>
-          <button class="modal-forecast-btn" id="modalForecastBtn" type="button">Forecast</button>
         </div>
       </div>
 
@@ -2094,11 +2152,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       <div class="field-row" id="markerEmojiField" style="display:none;">
         <label class="field-label">Icons</label>
-        <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
+        <div class="marker-emoji-input-wrap">
+          <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
+          <div class="marker-emoji-custom-overlay hidden" id="markerEmojiCustomOverlay"></div>
+        </div>
         <div class="emoji-quick-pick-wrap">
           <div class="emoji-quick-pick" id="emojiQuickPick"></div>
           <div class="emoji-quick-pick-fade" id="emojiQuickPickFade"></div>
         </div>
+        <input type="file" id="customIconFileInput" accept="image/png,image/jpeg" style="display:none;" />
       </div>
 
       <label class="field-label">Photos (optional)</label>
@@ -2701,6 +2763,68 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="tileDownloadSetupOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Download map tiles</h2>
+        <button type="button" class="icon-btn" id="tileDownloadSetupCloseBtn" data-icon="x" data-icon-size="16"></button>
+      </div>
+      <p class="layers-hint" id="tileDownloadSetupAreaHint"></p>
+      <div class="layers-section">
+        <p class="layers-section-title">Map styles to download</p>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="street" /><span>Street</span></label>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="satellite" /><span>Satellite</span></label>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="terrain" /><span>Terrain</span></label>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="cycling" /><span>Cycling</span></label>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="landscape" /><span>Landscape</span></label>
+        <label class="layers-option"><input type="checkbox" class="tile-dl-layer-checkbox" value="mobileAtlas" /><span>Mobile Atlas</span></label>
+      </div>
+      <div class="layers-section">
+        <p class="layers-section-title">Zoom range</p>
+        <p class="layers-hint">Lower = zoomed out (whole area at once), higher = zoomed in (street-level detail). Each extra level roughly quadruples the tile count, so a wide range at high detail can get large fast.</p>
+        <div class="modal-date-time-fields">
+          <div style="flex:1;">
+            <label class="field-label">Min zoom</label>
+            <input type="number" id="tileDownloadMinZoom" class="field-input" min="0" max="19" value="10" />
+          </div>
+          <div style="flex:1;">
+            <label class="field-label">Max zoom</label>
+            <input type="number" id="tileDownloadMaxZoom" class="field-input" min="0" max="19" value="15" />
+          </div>
+        </div>
+      </div>
+      <div class="layers-section">
+        <div class="home-actions">
+          <button type="button" class="home-action-btn" id="tileDownloadEstimateBtn">Estimate size</button>
+        </div>
+        <p class="layers-hint" id="tileDownloadEstimateResult"></p>
+      </div>
+      <div class="home-actions">
+        <button class="home-action-btn" id="tileDownloadStartBtn" disabled>Start download</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ride-hud hidden" id="tileDownloadHud">
+    <div class="ride-hud-header">
+      <span class="ride-hud-title" id="tileDownloadHudTitle">Downloading map tiles…</span>
+      <div class="ride-hud-header-actions">
+        <button class="panel-close" id="tileDownloadHudCloseBtn" title="Close"></button>
+      </div>
+    </div>
+    <p class="layers-hint">Downloading slowly on purpose, so this doesn't look like a burst of automated traffic to the map provider — a large area can genuinely take a while.</p>
+    <div class="tile-download-progress-row">
+      <div class="tile-download-spinner" id="tileDownloadSpinner"></div>
+      <div class="tile-download-progress-bar-track"><div class="tile-download-progress-bar-fill" id="tileDownloadProgressFill" style="width:0%;"></div></div>
+      <span class="tile-download-percent" id="tileDownloadPercent">0%</span>
+    </div>
+    <div class="tile-download-stats-row">
+      <span id="tileDownloadStatsText">0 / 0 tiles</span>
+      <span id="tileDownloadEtaText"></span>
+    </div>
+    <button type="button" class="ride-hud-stop-btn" id="tileDownloadCancelBtn">Cancel</button>
+  </div>
+
   <div class="ride-hud hidden" id="rideHud">
     <div class="ride-hud-header" id="rideHudHeader">
       <span class="ride-hud-title" id="rideHudTitle"></span>
@@ -3157,15 +3281,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   // the displayed time by the timezone offset, so this does the conversion
   // by hand instead. Parsing back just feeds that same local-time string to
   // `new Date(...)`, which JS already interprets as local time by default.
-  function msToDatetimeLocalValue(ms) {
+  function msToDateValue(ms) {
     const d = new Date(ms);
     const pad = (n) => String(n).padStart(2, "0");
-    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
-      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
-  function datetimeLocalValueToMs(value, fallbackMs) {
-    if (!value) return fallbackMs;
-    const ms = new Date(value).getTime();
+  function msToTimeValue(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    return pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  // Each field can be edited (and cleared) independently, so a missing
+  // piece falls back to that same piece of fallbackMs rather than losing
+  // the whole timestamp -- clearing just the time and saving, for
+  // instance, keeps the original date and only resets the time to
+  // midnight, instead of reverting the date too.
+  function dateTimeValuesToMs(dateValue, timeValue, fallbackMs) {
+    const datePart = dateValue || msToDateValue(fallbackMs);
+    const timePart = timeValue || msToTimeValue(fallbackMs);
+    const ms = new Date(datePart + "T" + timePart).getTime();
     return isNaN(ms) ? fallbackMs : ms;
   }
 
@@ -3311,7 +3445,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "444";
+  const APP_VERSION = "454";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3321,6 +3455,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const MEASUREMENT_FOLDERS_KEY = "waypoint-saver:measurementFolders";
   const CONNECTIONS_KEY = "waypoint-saver:connections";
   const CONNECT_FOLDERS_KEY = "waypoint-saver:connectFolders";
+  const DOWNLOADED_TILE_SETS_KEY = "waypoint-saver:downloadedTileSets";
   const DELETED_IDS_KEY = "waypoint-saver:deletedIds";
 
   // All persisted data now lives in IndexedDB via localForage instead of
@@ -3333,7 +3468,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null } };
+  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", thunderforestApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], customWaypointIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
   // endpoint as the text models used elsewhere in this file, just with
@@ -3469,6 +3604,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     if (!dataStore) { showErrorToast(describeStorageError(null, "your connect folders")); return; }
     dataStore.setItem(CONNECT_FOLDERS_KEY, connectFolders).catch((e) => showErrorToast(describeStorageError(e, "your connect folders")));
   }
+  function saveDownloadedTileSets() {
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your downloaded map areas")); return; }
+    return dataStore.setItem(DOWNLOADED_TILE_SETS_KEY, downloadedTileSets).catch((e) => showErrorToast(describeStorageError(e, "your downloaded map areas")));
+  }
   function saveSettings() {
     if (!dataStore) return;
     dataStore.setItem(SETTINGS_KEY, settings).catch(() => { /* non-fatal: settings just won't persist */ });
@@ -3517,10 +3656,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   async function loadPersistedState() {
     if (!dataStore) {
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], downloadedTileSets: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
     try {
-      const [w, r, m, s, d, wf, rf, mf, cn, cf] = await Promise.all([
+      const [w, r, m, s, d, wf, rf, mf, cn, cf, ts] = await Promise.all([
         dataStore.getItem(STORAGE_KEY),
         dataStore.getItem(RIDES_KEY),
         dataStore.getItem(MEASUREMENTS_KEY),
@@ -3530,12 +3669,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
         dataStore.getItem(RIDE_FOLDERS_KEY),
         dataStore.getItem(MEASUREMENT_FOLDERS_KEY),
         dataStore.getItem(CONNECTIONS_KEY),
-        dataStore.getItem(CONNECT_FOLDERS_KEY)
+        dataStore.getItem(CONNECT_FOLDERS_KEY),
+        dataStore.getItem(DOWNLOADED_TILE_SETS_KEY)
       ]);
-      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), rideFolders: normalizeArray(rf), measurementFolders: normalizeArray(mf), connections: normalizeArray(cn), connectFolders: normalizeArray(cf), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
+      return { waypoints: normalizeArray(w), rides: normalizeArray(r), measurements: normalizeArray(m), waypointFolders: normalizeArray(wf), rideFolders: normalizeArray(rf), measurementFolders: normalizeArray(mf), connections: normalizeArray(cn), connectFolders: normalizeArray(cf), downloadedTileSets: normalizeArray(ts), settings: normalizeSettingsValue(s), deletedIds: normalizeDeletedIds(d) };
     } catch (e) {
       console.error("[storage] failed to load from IndexedDB", e);
-      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
+      return { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [], connections: [], connectFolders: [], downloadedTileSets: [], settings: Object.assign({}, DEFAULT_SETTINGS), deletedIds: { waypoints: [], rides: [], measurements: [], waypointFolders: [], rideFolders: [], measurementFolders: [] } };
     }
   }
 
@@ -3553,6 +3693,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   let measurementFolders = _persisted.measurementFolders;
   let connections = _persisted.connections;
   let connectFolders = _persisted.connectFolders;
+  let downloadedTileSets = _persisted.downloadedTileSets;
   let settings = _persisted.settings;
   // Tombstones: IDs of waypoints/routes/measurements deliberately deleted on
   // this device. Sync payloads include these so a pull can tell "this ID
@@ -3817,6 +3958,27 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const linkGeofencePickerOverlay = el("linkGeofencePickerOverlay");
   const linkGeofencePickerCloseBtn = el("linkGeofencePickerCloseBtn");
   const linkGeofenceZoneList = el("linkGeofenceZoneList");
+  const tileDownloadSetupOverlay = el("tileDownloadSetupOverlay");
+  const tileDownloadSetupCloseBtn = el("tileDownloadSetupCloseBtn");
+  const tileDownloadSetupAreaHint = el("tileDownloadSetupAreaHint");
+  const tileDownloadMinZoom = el("tileDownloadMinZoom");
+  const tileDownloadMaxZoom = el("tileDownloadMaxZoom");
+  const tileDownloadEstimateBtn = el("tileDownloadEstimateBtn");
+  const tileDownloadEstimateResult = el("tileDownloadEstimateResult");
+  const tileDownloadStartBtn = el("tileDownloadStartBtn");
+  const tileDownloadHud = el("tileDownloadHud");
+  const tileDownloadSpinner = el("tileDownloadSpinner");
+  const tileDownloadHudCloseBtn = el("tileDownloadHudCloseBtn");
+  const tileDownloadProgressFill = el("tileDownloadProgressFill");
+  const tileDownloadPercent = el("tileDownloadPercent");
+  const tileDownloadStatsText = el("tileDownloadStatsText");
+  const tileDownloadEtaText = el("tileDownloadEtaText");
+  const tileDownloadCancelBtn = el("tileDownloadCancelBtn");
+  const downloadCityTilesBtn = el("downloadCityTilesBtn");
+  const tileCacheSizeHint = el("tileCacheSizeHint");
+  const clearTileCacheBtn = el("clearTileCacheBtn");
+  const drawAreaTilesBtn = el("drawAreaTilesBtn");
+  const tileSetsList = el("tileSetsList");
   const panelTabLink = el("panelTabLink");
   const panelLinkView = el("panelLinkView");
   const linkPanelList = el("linkPanelList");
@@ -3864,6 +4026,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const anchorNameError = el("anchorNameError");
   const anchorResetBtn = el("anchorResetBtn");
   const anchorSaveBtn = el("anchorSaveBtn");
+  const thunderforestKeyPrompt = el("thunderforestKeyPrompt");
+  const thunderforestKeyInput = el("thunderforestKeyInput");
+  const thunderforestKeySaveBtn = el("thunderforestKeySaveBtn");
+  const thunderforestKeySaved = el("thunderforestKeySaved");
+  const thunderforestKeyForgetBtn = el("thunderforestKeyForgetBtn");
   const owmKeyPrompt = el("owmKeyPrompt");
   const owmKeyInput = el("owmKeyInput");
   const owmKeySaveBtn = el("owmKeySaveBtn");
@@ -3891,7 +4058,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const modalForecastBtn = el("modalForecastBtn");
   const modalWordCode = el("modalWordCode");
   const nameInput = el("nameInput");
-  const waypointDateTimeInput = el("waypointDateTimeInput");
+  const waypointDateInput = el("waypointDateInput");
+  const waypointTimeInput = el("waypointTimeInput");
   const notesInput = el("notesInput");
   const markerStylePinBtn = el("markerStylePinBtn");
   const markerStyleEmojiBtn = el("markerStyleEmojiBtn");
@@ -3900,8 +4068,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const markerColorSwatches = el("markerColorSwatches");
   const markerEmojiField = el("markerEmojiField");
   const markerEmojiInput = el("markerEmojiInput");
+  const markerEmojiCustomOverlay = el("markerEmojiCustomOverlay");
   const emojiQuickPick = el("emojiQuickPick");
   const emojiQuickPickFade = el("emojiQuickPickFade");
+  const customIconFileInput = el("customIconFileInput");
   const photoDropzone = el("photoDropzone");
   const photoDropzoneEmpty = el("photoDropzoneEmpty");
   const photoThumbs = el("photoThumbs");
@@ -4563,15 +4733,87 @@ svg.leaflet-image-layer.leaflet-interactive path {
   window.addEventListener("resize", () => updateMinZoomToFillScreen());
 
   /* ---------- base layers (street / satellite / terrain) ---------- */
+  // Street and Terrain now come from Thunderforest (tile.thunderforest.com)
+  // rather than OpenStreetMap's own tile.openstreetmap.org / OpenTopoMap's
+  // servers. Those are free, donation-funded, volunteer-run services
+  // explicitly meant for light evaluation use, not for powering a
+  // distributed app -- continuing to hit them at any real scale is what
+  // gets an app's traffic blocked outright, independent of anything in
+  // this file's own code. Thunderforest's Atlas/Outdoors styles are
+  // rendered from the same underlying OpenStreetMap data, so the map
+  // looks equivalent; they just come from a service built to be used this
+  // way, with a free tier while this app is still just in development.
+  //
+  // Every base layer is this CachedTileLayer, not a plain L.tileLayer --
+  // it checks the offline tile cache (see the "Offline tile cache" module
+  // further down; referenced here only inside methods that run later, at
+  // actual tile-load time, so it's fine that this class is defined before
+  // that module) before ever hitting the network, and write-through
+  // caches anything it does fetch. That means ordinary browsing alone
+  // gradually builds up offline coverage, not just explicit bulk
+  // downloads -- every tile viewed once is a tile that won't cost quota
+  // again later.
+  const CachedTileLayer = L.TileLayer.extend({
+    initialize: function (layerKey, urlTemplate, options) {
+      this._offlineLayerKey = layerKey;
+      L.TileLayer.prototype.initialize.call(this, urlTemplate, options);
+    },
+    createTile: function (coords, done) {
+      const tile = document.createElement("img");
+      tile.alt = "";
+      const cacheKey = tileCacheKey(this._offlineLayerKey, coords.x, coords.y, coords.z);
+      const url = this.getTileUrl(coords);
+      const finish = (blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        tile.onload = () => { URL.revokeObjectURL(objectUrl); done(null, tile); };
+        tile.onerror = () => { URL.revokeObjectURL(objectUrl); done(new Error("cached tile failed to decode"), tile); };
+        tile.src = objectUrl;
+      };
+      const fetchAndCache = () => {
+        fetch(url).then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.blob();
+        }).then((blob) => {
+          if (tileCacheStore) tileCacheStore.setItem(cacheKey, blob).catch(() => { /* cache write failing shouldn't block showing the tile */ });
+          finish(blob);
+        }).catch((err) => done(err, tile));
+      };
+      if (tileCacheStore) {
+        tileCacheStore.getItem(cacheKey).then((cachedBlob) => {
+          if (cachedBlob) finish(cachedBlob); else fetchAndCache();
+        }).catch(fetchAndCache);
+      } else {
+        fetchAndCache();
+      }
+      return tile;
+    }
+  });
+  function cachedTileLayer(layerKey, urlTemplate, options) {
+    return new CachedTileLayer(layerKey, urlTemplate, options);
+  }
   const baseLayers = {
-    street: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors", noWrap: true
+    street: cachedTileLayer("street", "https://{s}.tile.thunderforest.com/atlas/{z}/{x}/{y}.png?apikey={apikey}", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, &copy; Thunderforest", noWrap: true,
+      apikey: settings.thunderforestApiKey || ""
     }),
-    satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    satellite: cachedTileLayer("satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics", noWrap: true
     }),
-    terrain: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-      maxZoom: 17, attribution: "&copy; OpenStreetMap contributors, SRTM &mdash; style: &copy; OpenTopoMap", noWrap: true
+    terrain: cachedTileLayer("terrain", "https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey={apikey}", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, SRTM, &copy; Thunderforest", noWrap: true,
+      apikey: settings.thunderforestApiKey || ""
+    }),
+    cycling: cachedTileLayer("cycling", "https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey={apikey}", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, &copy; Thunderforest", noWrap: true,
+      apikey: settings.thunderforestApiKey || ""
+    }),
+    landscape: cachedTileLayer("landscape", "https://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png?apikey={apikey}", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, &copy; Thunderforest", noWrap: true,
+      apikey: settings.thunderforestApiKey || ""
+    }),
+    mobileAtlas: cachedTileLayer("mobileAtlas", "https://{s}.tile.thunderforest.com/mobile-atlas/{z}/{x}/{y}.png?apikey={apikey}", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, &copy; Thunderforest", noWrap: true,
+      apikey: settings.thunderforestApiKey || ""
     })
   };
   let activeBaseLayer = null;
@@ -4587,14 +4829,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
     layersPanel.querySelectorAll('input[name="baseLayer"]').forEach((r) => { r.checked = r.value === name; });
     // Caps the map's own zoom to this layer's native max — a layer's maxZoom
     // option only controls which tiles it tries to load, not how far the map
-    // itself can zoom, so without this the map would still zoom in past what
-    // Terrain's tile source actually provides (17) up to Street/Satellite's
-    // higher max (19), requesting tiles that don't exist and rendering black.
+    // itself can zoom, so without this the map would still zoom past what a
+    // layer's own tile source actually provides, requesting tiles that don't
+    // exist and rendering black.
     map.setMaxZoom(activeBaseLayer.options.maxZoom);
     refreshZoomSlider();
     refreshWaypointMarkerDraggability(); // "maximum zoom" varies by base layer, so switching layers can change whether markers are currently draggable
+    if (THUNDERFOREST_BASE_LAYERS.includes(name) && !settings.thunderforestApiKey) {
+      showErrorToast("Add a free Thunderforest API key in Settings to remove the \"API Key Required\" watermark on map tiles.");
+    }
   }
-  const BASE_LAYER_NAMES = { street: "Street", satellite: "Satellite", terrain: "Terrain" };
+  const BASE_LAYER_NAMES = { street: "Street", satellite: "Satellite", terrain: "Terrain", cycling: "Cycling", landscape: "Landscape", mobileAtlas: "Mobile Atlas" };
+  const THUNDERFOREST_BASE_LAYERS = ["street", "terrain", "cycling", "landscape", "mobileAtlas"];
   Object.keys(baseLayers).forEach((name) => {
     baseLayers[name].on("tileerror", () => {
       if (activeBaseLayer !== baseLayers[name] || baseLayerErrorShown) return;
@@ -4732,6 +4978,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
   }
 
+  function refreshThunderforestUi() {
+    const hasKey = !!settings.thunderforestApiKey;
+    thunderforestKeyPrompt.style.display = hasKey ? "none" : "block";
+    thunderforestKeySaved.style.display = hasKey ? "flex" : "none";
+  }
+  function refreshThunderforestTileLayers() {
+    // Leaflet substitutes any {placeholder} found in both the URL template
+    // and this options object -- updating apikey here and redrawing is
+    // enough to make an already-on-screen layer immediately start (or
+    // stop) sending a real key, with no page reload and no rebuilding the
+    // layer object itself.
+    THUNDERFOREST_BASE_LAYERS.forEach((name) => {
+      baseLayers[name].options.apikey = settings.thunderforestApiKey || "";
+      baseLayers[name].redraw();
+    });
+  }
   function refreshOwmUi() {
     const hasKey = !!settings.owmApiKey;
     owmKeyPrompt.style.display = hasKey ? "none" : "block";
@@ -5244,6 +5506,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       closePanel(); // the waypoints/routes/measurements panel would otherwise sit open underneath this one
       refreshStorageStatus();
       switchLayersTab("main");
+      refreshTileCacheSizeHint();
+      renderTileSetsList();
     }
   });
   function switchLayersTab(tab) {
@@ -5284,6 +5548,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
   wxClouds.addEventListener("change", () => { const ok = toggleOwmLayer("clouds", wxClouds.checked); if (!ok) wxClouds.checked = false; settings.weather.clouds = wxClouds.checked; saveSettings(); });
   wxTemp.addEventListener("change", () => { const ok = toggleOwmLayer("temp", wxTemp.checked); if (!ok) wxTemp.checked = false; settings.weather.temp = wxTemp.checked; saveSettings(); });
 
+  thunderforestKeySaveBtn.addEventListener("click", () => {
+    const key = thunderforestKeyInput.value.trim();
+    if (!key) { showToast("Enter a valid API key first."); return; }
+    settings.thunderforestApiKey = key;
+    saveSettings();
+    thunderforestKeyInput.value = "";
+    refreshThunderforestUi();
+    refreshThunderforestTileLayers();
+    showToast("Thunderforest key saved");
+  });
+  thunderforestKeyForgetBtn.addEventListener("click", () => {
+    settings.thunderforestApiKey = "";
+    saveSettings();
+    refreshThunderforestUi();
+    refreshThunderforestTileLayers();
+    showToast("Thunderforest key removed");
+  });
   owmKeySaveBtn.addEventListener("click", () => {
     const key = owmKeyInput.value.trim();
     if (!key) { showToast("Enter a valid API key first."); return; }
@@ -5473,6 +5754,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     markerColorInput.value = color;
     markSwatchSelected(markerColorSwatches, color);
     markerEmojiInput.value = style === "emoji" ? emoji : "";
+    refreshMarkerEmojiCustomDisplay();
     setMarkerStyleUI(style);
     pendingPhotos = (h && h.photos ? h.photos : []).slice();
     photoStatus.style.display = "none";
@@ -6366,6 +6648,403 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
     return inside;
   }
+
+  /* ================================================================ */
+  /*  Offline tile cache -- bulk-download tiles for an area so browsing */
+  /*  it later reads from IndexedDB instead of the tile provider,       */
+  /*  cutting into that provider's monthly quota. Kept in its own       */
+  /*  localforage store, isolated from the app's core data, so tile     */
+  /*  cache growth (which can run into the hundreds of MB) never risks  */
+  /*  crowding out or corrupting actual waypoint/route/measurement data */
+  /*  under a storage-quota squeeze -- clearing the tile cache is       */
+  /*  always safe, and never touches anything else.                    */
+  /* ================================================================ */
+  const tileCacheStore = (typeof localforage !== "undefined")
+    ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_tile_cache" })
+    : null;
+  const THUNDERFOREST_STYLE_BY_LAYER = { street: "atlas", terrain: "outdoors", cycling: "cycle", landscape: "landscape", mobileAtlas: "mobile-atlas" };
+  const OFFLINE_DOWNLOADABLE_LAYERS = ["street", "satellite", "terrain", "cycling", "landscape", "mobileAtlas"];
+
+  function buildRawTileUrl(layerKey, x, y, z, apikey) {
+    if (layerKey === "satellite") {
+      return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x;
+    }
+    const style = THUNDERFOREST_STYLE_BY_LAYER[layerKey];
+    const subdomain = ["a", "b", "c"][(x + y) % 3];
+    return "https://" + subdomain + ".tile.thunderforest.com/" + style + "/" + z + "/" + x + "/" + y + ".png?apikey=" + encodeURIComponent(apikey || "");
+  }
+  function tileCacheKey(layerKey, x, y, z) { return layerKey + "/" + z + "/" + x + "/" + y; }
+
+  // Standard "slippy map" tile math -- lng/lat <-> the x/y tile grid at a
+  // given zoom level. tileXYToLatLng returns a tile's NORTHWEST corner;
+  // called at (x,y) and (x+1,y+1) together, that gives a tile's full
+  // lat/lng bounds.
+  function latLngToTileXY(lat, lng, z) {
+    const n = Math.pow(2, z);
+    const x = Math.floor((lng + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x: Math.max(0, Math.min(n - 1, x)), y: Math.max(0, Math.min(n - 1, y)) };
+  }
+  function tileXYToLatLng(x, y, z) {
+    const n = Math.pow(2, z);
+    const lng = x / n * 360 - 180;
+    const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+    return { lat: latRad * 180 / Math.PI, lng };
+  }
+  // latlngs: the boundary to cover, as [lat,lng] pairs. Exactly 2 points
+  // means "these are opposite corners of a rectangle" (the city-name and
+  // simple-bbox cases); more than 2 means a real drawn shape, and tiles
+  // are filtered to only the ones whose CENTER point actually falls
+  // inside it -- an approximation (not full tile/polygon intersection)
+  // that's good enough to avoid downloading a full rectangle around an
+  // irregular or diagonal boundary, without that added geometric
+  // complexity.
+  function getTilesForArea(latlngs, minZoom, maxZoom) {
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    latlngs.forEach(([lat, lng]) => {
+      minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+    });
+    const isPolygon = latlngs.length > 2;
+    const tiles = [];
+    for (let z = minZoom; z <= maxZoom; z++) {
+      const topLeft = latLngToTileXY(maxLat, minLng, z);
+      const bottomRight = latLngToTileXY(minLat, maxLng, z);
+      for (let x = topLeft.x; x <= bottomRight.x; x++) {
+        for (let y = topLeft.y; y <= bottomRight.y; y++) {
+          if (isPolygon) {
+            const nw = tileXYToLatLng(x, y, z);
+            const se = tileXYToLatLng(x + 1, y + 1, z);
+            const centerLat = (nw.lat + se.lat) / 2, centerLng = (nw.lng + se.lng) / 2;
+            if (!pointInPolygon(centerLat, centerLng, latlngs)) continue;
+          }
+          tiles.push({ x, y, z });
+        }
+      }
+    }
+    return tiles;
+  }
+  // Downloading every sampled tile would be wasteful and slow just to
+  // show an estimate -- a small random sample's average size, scaled up
+  // to the full tile count, is accurate enough to plan by (real tile
+  // sizes vary a lot by area density and zoom level, so this is sampled
+  // fresh each time rather than using one fixed guess for every request).
+  async function estimateTileDownloadSize(tiles, layerKey, apikey) {
+    if (tiles.length === 0) return { sampleCount: 0, avgBytes: 0, estimatedTotalBytes: 0 };
+    const sampleSize = Math.min(8, tiles.length);
+    const sampleIndices = new Set();
+    while (sampleIndices.size < sampleSize) sampleIndices.add(Math.floor(Math.random() * tiles.length));
+    let totalBytes = 0, successCount = 0;
+    await Promise.all([...sampleIndices].map(async (i) => {
+      const t = tiles[i];
+      try {
+        const res = await fetch(buildRawTileUrl(layerKey, t.x, t.y, t.z, apikey));
+        if (!res.ok) return;
+        const blob = await res.blob();
+        totalBytes += blob.size;
+        successCount++;
+      } catch (e) { /* one failed sample shouldn't spoil the estimate -- just excluded from the average */ }
+    }));
+    const avgBytes = successCount > 0 ? totalBytes / successCount : 20000; // fallback guess only if every single sample failed (e.g. genuinely offline right now)
+    return { sampleCount: successCount, avgBytes, estimatedTotalBytes: avgBytes * tiles.length };
+  }
+  function formatByteSize(bytes) {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+  // Deliberately throttled -- CONCURRENCY caps how many tile requests are
+  // ever in flight at once, and the pause between batches keeps the
+  // overall request rate well short of "download everything as fast as
+  // possible," which is exactly the kind of bulk-access pattern that
+  // gets an app's traffic blocked by a tile provider in the first place
+  // (this feature exists to reduce dependence on that quota, not to
+  // trip the same wire on the way to building the cache).
+  let activeTileDownload = null;
+  async function downloadTilesToCache(tiles, layerKeys, apikey, onProgress) {
+    const CONCURRENCY = 4;
+    const BATCH_DELAY_MS = 250;
+    const job = { cancelled: false, tilesTotal: tiles.length * layerKeys.length, tilesDone: 0, tilesSkipped: 0, bytesDone: 0, startedAt: Date.now() };
+    activeTileDownload = job;
+    const allJobs = [];
+    layerKeys.forEach((layerKey) => tiles.forEach((t) => allJobs.push({ layerKey, x: t.x, y: t.y, z: t.z })));
+    for (let i = 0; i < allJobs.length; i += CONCURRENCY) {
+      if (job.cancelled) break;
+      const batch = allJobs.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async (item) => {
+        if (job.cancelled) return;
+        const cacheKey = tileCacheKey(item.layerKey, item.x, item.y, item.z);
+        try {
+          const existing = tileCacheStore ? await tileCacheStore.getItem(cacheKey) : null;
+          if (existing) {
+            job.tilesSkipped++;
+          } else {
+            const res = await fetch(buildRawTileUrl(item.layerKey, item.x, item.y, item.z, apikey));
+            if (res.ok) {
+              const blob = await res.blob();
+              if (tileCacheStore) await tileCacheStore.setItem(cacheKey, blob);
+              job.bytesDone += blob.size;
+            }
+          }
+        } catch (e) { /* one failed tile shouldn't abort the whole download -- just isn't cached, same as if it were never requested */ }
+        job.tilesDone++;
+        if (onProgress) onProgress(job);
+      }));
+      if (i + CONCURRENCY < allJobs.length && !job.cancelled) await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+    }
+    activeTileDownload = null;
+    return job;
+  }
+  async function getTileCacheTotalSize() {
+    if (!tileCacheStore) return { count: 0, bytes: 0 };
+    let count = 0, bytes = 0;
+    await tileCacheStore.iterate((blob) => {
+      count++;
+      bytes += (blob && blob.size) || 0;
+    });
+    return { count, bytes };
+  }
+  async function clearTileCache() {
+    if (tileCacheStore) await tileCacheStore.clear();
+  }
+
+  /* ---------- Offline tile cache: download setup + progress UI ------ */
+  let pendingDownloadArea = null; // { latlngs, label }
+  let pendingDownloadTiles = null; // computed once "Estimate size" runs, consumed by "Start download"
+  function selectedDownloadLayers() {
+    return [...tileDownloadSetupOverlay.querySelectorAll(".tile-dl-layer-checkbox:checked")].map((c) => c.value);
+  }
+  function openTileDownloadSetup(latlngs, areaLabel) {
+    pendingDownloadArea = { latlngs, label: areaLabel };
+    pendingDownloadTiles = null;
+    tileDownloadSetupAreaHint.textContent = "Downloading tiles " + areaLabel + ". Pick which map styles and zoom range to save for offline use.";
+    tileDownloadSetupOverlay.querySelectorAll(".tile-dl-layer-checkbox").forEach((c) => { c.checked = c.value === settings.baseLayer; });
+    tileDownloadMinZoom.value = 10;
+    tileDownloadMaxZoom.value = 15;
+    tileDownloadEstimateResult.textContent = "";
+    tileDownloadStartBtn.disabled = true;
+    tileDownloadSetupOverlay.classList.remove("hidden");
+  }
+  tileDownloadSetupCloseBtn.addEventListener("click", () => tileDownloadSetupOverlay.classList.add("hidden"));
+  tileDownloadEstimateBtn.addEventListener("click", async () => {
+    const layers = selectedDownloadLayers();
+    if (layers.length === 0) { showToast("Pick at least one map style first."); return; }
+    const minZoom = parseInt(tileDownloadMinZoom.value, 10), maxZoom = parseInt(tileDownloadMaxZoom.value, 10);
+    if (isNaN(minZoom) || isNaN(maxZoom) || minZoom > maxZoom || minZoom < 0 || maxZoom > 19) {
+      showToast("Enter a valid zoom range (0–19, min ≤ max).");
+      return;
+    }
+    tileDownloadEstimateBtn.disabled = true;
+    tileDownloadEstimateResult.textContent = "Calculating…";
+    const tiles = getTilesForArea(pendingDownloadArea.latlngs, minZoom, maxZoom);
+    // Sampled per selected layer, not once overall -- different map
+    // styles for the same area can genuinely differ in file size (a
+    // label-dense style vs. a minimal one), so reusing one layer's
+    // sample for all of them would skew the estimate for the others.
+    let totalEstimateBytes = 0, anySampled = false;
+    for (const layerKey of layers) {
+      const result = await estimateTileDownloadSize(tiles, layerKey, settings.thunderforestApiKey);
+      totalEstimateBytes += result.estimatedTotalBytes;
+      if (result.sampleCount > 0) anySampled = true;
+    }
+    pendingDownloadTiles = { tiles, layers, minZoom, maxZoom };
+    const totalTileRequests = tiles.length * layers.length;
+    tileDownloadEstimateResult.textContent = totalTileRequests.toLocaleString() + " tiles across " + layers.length +
+      (layers.length === 1 ? " style" : " styles") + " — approximately " + formatByteSize(totalEstimateBytes) +
+      (anySampled ? "" : " (estimate only -- couldn't reach the tile provider to sample right now)");
+    tileDownloadEstimateBtn.disabled = false;
+    tileDownloadStartBtn.disabled = totalTileRequests === 0;
+  });
+  function formatEta(remainingMs) {
+    if (!isFinite(remainingMs) || remainingMs < 0) return "";
+    const totalSec = Math.round(remainingMs / 1000);
+    if (totalSec < 60) return "~" + totalSec + "s remaining";
+    const min = Math.floor(totalSec / 60), sec = totalSec % 60;
+    return "~" + min + "m " + sec + "s remaining";
+  }
+  function updateTileDownloadHud(job) {
+    const pct = job.tilesTotal > 0 ? Math.round((job.tilesDone / job.tilesTotal) * 100) : 0;
+    tileDownloadProgressFill.style.width = pct + "%";
+    tileDownloadPercent.textContent = pct + "%";
+    tileDownloadStatsText.textContent = job.tilesDone.toLocaleString() + " / " + job.tilesTotal.toLocaleString() + " tiles (" + formatByteSize(job.bytesDone) + ")";
+    const elapsedMs = Date.now() - job.startedAt;
+    if (job.tilesDone > 0) {
+      const estimatedTotalMs = (elapsedMs / job.tilesDone) * job.tilesTotal;
+      tileDownloadEtaText.textContent = formatEta(estimatedTotalMs - elapsedMs);
+    } else {
+      tileDownloadEtaText.textContent = "";
+    }
+  }
+  tileDownloadStartBtn.addEventListener("click", async () => {
+    if (!pendingDownloadTiles) return;
+    const { tiles, layers, minZoom, maxZoom } = pendingDownloadTiles;
+    const defaultName = pendingDownloadArea && pendingDownloadArea.label
+      ? pendingDownloadArea.label.replace(/^for /, "").replace(/^"|"$/g, "")
+      : "Downloaded area " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const setName = prompt("Name this downloaded map area (so you can find and delete it later):", defaultName);
+    // A blank/cancelled name doesn't cancel the download itself -- the
+    // tiles are still worth having cached even if this particular
+    // download won't get its own named, individually-deletable record.
+    tileDownloadSetupOverlay.classList.add("hidden");
+    tileDownloadHud.classList.remove("hidden");
+    tileDownloadSpinner.style.display = "block";
+    tileDownloadCancelBtn.textContent = "Cancel";
+    tileDownloadCancelBtn.disabled = false;
+    updateTileDownloadHud({ tilesDone: 0, tilesTotal: tiles.length * layers.length, bytesDone: 0, startedAt: Date.now() });
+    const job = await downloadTilesToCache(tiles, layers, settings.thunderforestApiKey, updateTileDownloadHud);
+    tileDownloadSpinner.style.display = "none";
+    tileDownloadCancelBtn.disabled = true;
+    if (job.cancelled) {
+      tileDownloadEtaText.textContent = "Cancelled — " + job.tilesDone.toLocaleString() + " tiles saved so far.";
+    } else {
+      tileDownloadEtaText.textContent = "Done — " + formatByteSize(job.bytesDone) + " saved for offline use.";
+      showToast("Downloaded " + job.tilesDone.toLocaleString() + " tiles for offline use.");
+      if (setName && setName.trim()) {
+        const tileKeys = [];
+        layers.forEach((layerKey) => tiles.forEach((t) => tileKeys.push(tileCacheKey(layerKey, t.x, t.y, t.z))));
+        downloadedTileSets.push({
+          id: genConnectId("tset"), name: setName.trim(), areaLabel: pendingDownloadArea ? pendingDownloadArea.label : "",
+          layers: layers.slice(), minZoom, maxZoom, tileKeys, totalTiles: tileKeys.length, totalBytes: job.bytesDone, createdAt: Date.now()
+        });
+        await saveDownloadedTileSets();
+        renderTileSetsList();
+      }
+    }
+    refreshTileCacheSizeHint();
+  });
+  tileDownloadCancelBtn.addEventListener("click", () => {
+    if (activeTileDownload) activeTileDownload.cancelled = true;
+  });
+  tileDownloadHudCloseBtn.addEventListener("click", () => {
+    if (activeTileDownload) activeTileDownload.cancelled = true;
+    tileDownloadHud.classList.add("hidden");
+  });
+
+  // Reuses the same Nominatim endpoint the search bar already calls (see
+  // geocodeNominatim above) -- a separate function only because this one
+  // also needs the boundingbox field, which the search result shape
+  // doesn't carry.
+  async function geocodeCityForDownload(q) {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const r = data[0];
+    const bbox = r.boundingbox; // [south, north, west, east], as strings
+    return {
+      label: r.display_name,
+      latlngs: [[parseFloat(bbox[0]), parseFloat(bbox[2])], [parseFloat(bbox[1]), parseFloat(bbox[3])]]
+    };
+  }
+  async function startCityTileDownload() {
+    const q = prompt("Download map tiles for which city or place?");
+    if (!q || !q.trim()) return;
+    showToast("Looking up \"" + q + "\"…");
+    try {
+      const place = await geocodeCityForDownload(q.trim());
+      if (!place) { showToast("Couldn't find \"" + q + "\" — try a more specific name."); return; }
+      openTileDownloadSetup(place.latlngs, 'for "' + place.label + '"');
+    } catch (e) {
+      showToast("Couldn't look that up — check your connection and try again.");
+    }
+  }
+  downloadCityTilesBtn.addEventListener("click", startCityTileDownload);
+  async function refreshTileCacheSizeHint() {
+    const { count, bytes } = await getTileCacheTotalSize();
+    tileCacheSizeHint.textContent = count === 0
+      ? "No tiles downloaded for offline use yet."
+      : count.toLocaleString() + " tiles saved (" + formatByteSize(bytes) + ") for offline use.";
+  }
+  clearTileCacheBtn.addEventListener("click", async () => {
+    if (!confirm("Remove all downloaded map tiles? This just frees up storage -- the map still works normally online, this only removes the offline copies.")) return;
+    await clearTileCache();
+    downloadedTileSets = [];
+    await saveDownloadedTileSets();
+    renderTileSetsList();
+    await refreshTileCacheSizeHint();
+    showToast("Offline map tiles cleared");
+  });
+
+  /* ---------- Named, individually-deletable downloaded tile sets ---- */
+  function renderTileSetsList() {
+    if (downloadedTileSets.length === 0) {
+      tileSetsList.innerHTML = '<p class="connect-empty-hint">No named downloads yet -- areas you download will show up here.</p>';
+      return;
+    }
+    tileSetsList.innerHTML = downloadedTileSets.map((s) => {
+      const layerNames = s.layers.map((l) => BASE_LAYER_NAMES[l] || l).join(", ");
+      return '<div class="connect-folder-row">' +
+        '<span class="connect-folder-name">' + escapeHtml(s.name) + "</span>" +
+        '<span class="connect-folder-count">' + formatByteSize(s.totalBytes) + "</span>" +
+        '<button type="button" class="folder-accordion-action" data-action="rename-tile-set" data-id="' + s.id + '" title="Rename">' + icon("edit", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="delete-tile-set" data-id="' + s.id + '" title="Delete">' + icon("trash", 14) + "</button>" +
+        "</div>" +
+        '<p class="layers-hint" style="margin:-4px 0 6px 4px;">' + s.totalTiles.toLocaleString() + " tiles, zoom " + s.minZoom + "–" + s.maxZoom + ", " + layerNames + "</p>";
+    }).join("");
+    tileSetsList.querySelectorAll('[data-action="rename-tile-set"]').forEach((btn) => {
+      btn.addEventListener("click", () => renameTileSet(btn.dataset.id));
+    });
+    tileSetsList.querySelectorAll('[data-action="delete-tile-set"]').forEach((btn) => {
+      btn.addEventListener("click", () => deleteTileSet(btn.dataset.id));
+    });
+  }
+  function renameTileSet(setId) {
+    const set = downloadedTileSets.find((s) => s.id === setId);
+    if (!set) return;
+    const name = prompt("Rename this downloaded area", set.name);
+    if (!name || !name.trim()) return;
+    set.name = name.trim();
+    saveDownloadedTileSets();
+    renderTileSetsList();
+  }
+  // Tiles are shared across downloads -- two overlapping areas skip
+  // re-fetching whatever's already cached, so a tile can legitimately
+  // belong to more than one named set. Deleting a set must only remove
+  // tiles that are actually unique to it; removing a tile another set
+  // still lists would silently punch a hole in that other set's offline
+  // coverage without it ever being reflected in that set's own numbers.
+  async function deleteTileSet(setId) {
+    const target = downloadedTileSets.find((s) => s.id === setId);
+    if (!target) return;
+    const otherSets = downloadedTileSets.filter((s) => s.id !== setId);
+    const otherKeys = new Set();
+    otherSets.forEach((s) => s.tileKeys.forEach((k) => otherKeys.add(k)));
+    const uniqueKeys = target.tileKeys.filter((k) => !otherKeys.has(k));
+    let freedBytes = 0;
+    for (const key of uniqueKeys) {
+      const blob = tileCacheStore ? await tileCacheStore.getItem(key) : null;
+      if (blob) freedBytes += blob.size;
+    }
+    const sharedCount = target.tileKeys.length - uniqueKeys.length;
+    const msg = 'Delete "' + target.name + '"? This frees about ' + formatByteSize(freedBytes) + '.' +
+      (sharedCount > 0 ? " " + sharedCount.toLocaleString() + " of its tiles are also used by another downloaded area and will be kept." : "");
+    if (!confirm(msg)) return;
+    for (const key of uniqueKeys) {
+      if (tileCacheStore) await tileCacheStore.removeItem(key);
+    }
+    downloadedTileSets = otherSets;
+    await saveDownloadedTileSets();
+    renderTileSetsList();
+    await refreshTileCacheSizeHint();
+    showToast('Deleted "' + target.name + '"');
+  }
+
+  // "Draw an area to download" -- kicks off the same measurement-drawing
+  // tool used elsewhere in the app (so the closing/point-adding gestures
+  // are identical to what the person already knows), tagged with a flag
+  // that saveMeasurement() checks: once the shape is saved as a normal,
+  // reusable measurement, the tile-download setup opens automatically
+  // right after, using the shape just drawn -- no separate trip to the
+  // Measure tab or hunting down that measurement's own card required.
+  let pendingMeasurementPurpose = null;
+  drawAreaTilesBtn.addEventListener("click", () => {
+    layersPanel.classList.remove("show");
+    startMeasuring();
+    pendingMeasurementPurpose = "tile-download";
+    showToast("Draw a closed shape on the map, then tap Save & Hide.");
+  });
+
   function checkGeofencesForPosition(lat, lng, label) {
     measurements.forEach((m) => {
       if (!m.isGeofenceZone || !isClosedLoop(m.points)) return;
@@ -8217,6 +8896,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   /* restore persisted map/layer settings */
   setBaseLayer(settings.baseLayer);
+  thunderforestKeyInput.value = "";
+  refreshThunderforestUi();
   owmKeyInput.value = "";
   refreshOwmUi();
   geminiKeyInput.value = "";
@@ -8252,7 +8933,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       const html = '<div class="wp-marker-emoji">' +
         (opts.pulsing ? '<span class="wp-pulse-ring" style="border-color:' + color + '"></span>' : "") +
         '<div class="wp-emoji-marker" style="background:' + color + '40; border-color:' + color + ';">' +
-          escapeHtml(opts.emoji || "📍") +
+          iconRefHtml(opts.emoji) +
         "</div></div>";
       return L.divIcon({ html, className: "wp-div-icon", iconSize: [48, 48], iconAnchor: [24, 48] });
     }
@@ -8554,6 +9235,93 @@ svg.leaflet-image-layer.leaflet-interactive path {
     saveSettings();
   }
 
+  // Custom waypoint icons -- uploaded images that slot into the exact same
+  // icon-picker grid as the built-in emoji, selectable the same way. A
+  // custom icon is represented everywhere an emoji character normally
+  // would be (wp.markerEmoji, iconQuickPickOrder, favoriteIcons -- all
+  // already just arrays/fields of plain strings) as "custom:<id>", so
+  // none of that existing string-keyed machinery needs to change shape at
+  // all; it only needs to recognize this one prefix and look the actual
+  // image up by id instead of treating the string as literal glyph text.
+  function isCustomIconRef(ref) {
+    return typeof ref === "string" && ref.indexOf("custom:") === 0;
+  }
+  function getCustomWaypointIconImage(ref) {
+    if (!isCustomIconRef(ref)) return null;
+    const id = ref.slice("custom:".length);
+    const entry = (settings.customWaypointIcons || []).find((c) => c.id === id);
+    return entry ? entry.image : null;
+  }
+  // The field's raw value has to stay the literal "custom:<id>" reference
+  // (everything downstream -- saving, the map marker, the filter dropdown
+  // -- reads it as that), but showing that string as if it were typed
+  // text reads as broken, not as "a custom icon is selected". This swaps
+  // in a small thumbnail + friendly label over the same box instead,
+  // without touching the underlying value at all.
+  function refreshMarkerEmojiCustomDisplay() {
+    const ref = markerEmojiInput.value;
+    const isCustom = isCustomIconRef(ref);
+    markerEmojiInput.readOnly = isCustom;
+    if (!isCustom) {
+      markerEmojiCustomOverlay.classList.add("hidden");
+      markerEmojiCustomOverlay.innerHTML = "";
+      return;
+    }
+    const image = getCustomWaypointIconImage(ref);
+    markerEmojiCustomOverlay.innerHTML = image
+      ? '<img src="' + image + '" alt="" />' + "<span>Custom icon selected</span>"
+      : "<span>Custom icon (no longer available)</span>";
+    markerEmojiCustomOverlay.classList.remove("hidden");
+  }
+  async function addCustomWaypointIcon(file) {
+    if (!file || !/^image\/(png|jpeg)$/.test(file.type)) {
+      showToast("Please use a PNG or JPG image.");
+      return null;
+    }
+    try {
+      const dataUrl = await compressMarkerImageFile(file, 200);
+      const id = genConnectId("cwi");
+      if (!Array.isArray(settings.customWaypointIcons)) settings.customWaypointIcons = [];
+      settings.customWaypointIcons.push({ id, image: dataUrl });
+      const ref = "custom:" + id;
+      getIconQuickPicks().push(ref);
+      saveSettings();
+      renderIconQuickPick();
+      return ref;
+    } catch (e) {
+      showToast(e && e.isHeic ? "HEIC images aren't supported — use PNG or JPG." : "Couldn't read that image.");
+      return null;
+    }
+  }
+  function removeCustomWaypointIcon(ref) {
+    if (!isCustomIconRef(ref)) return;
+    if (!confirm("Remove this custom icon? Any waypoints using it will fall back to the default pin.")) return;
+    const id = ref.slice("custom:".length);
+    settings.customWaypointIcons = (settings.customWaypointIcons || []).filter((c) => c.id !== id);
+    settings.iconQuickPickOrder = getIconQuickPicks().filter((e) => e !== ref);
+    settings.favoriteIcons = getFavoriteIcons().filter((e) => e !== ref);
+    waypoints.forEach((wp) => { if (wp.markerEmoji === ref) wp.markerEmoji = "📍"; });
+    saveSettings();
+    saveWaypoints();
+    renderIconQuickPick();
+    if (markerEmojiInput.value === ref) { markerEmojiInput.value = "📍"; refreshPendingMarkerPreview(); }
+    renderList();
+  }
+  // Renders whichever icon a picker/card/marker actually needs to show --
+  // a real emoji character rendered as text, or an uploaded custom image
+  // rendered as an <img> -- from one single spot, so every place that
+  // displays an icon (the grid, waypoint cards, the map marker itself,
+  // the filter dropdown) stays in agreement about what a given reference
+  // actually looks like.
+  function iconRefHtml(ref, sizePx) {
+    if (isCustomIconRef(ref)) {
+      const image = getCustomWaypointIconImage(ref);
+      if (image) return '<img src="' + image + '" alt="" draggable="false" style="max-width:100%; max-height:100%; width:auto; height:auto; min-width:0; min-height:0; display:block;" />';
+      return escapeHtml("📍"); // the referenced custom icon no longer exists -- fall back rather than show nothing
+    }
+    return escapeHtml(ref || "📍");
+  }
+
   function renderColorSwatches(container, input, presets) {
     container.innerHTML = presets.map((c) =>
       '<button type="button" class="color-swatch" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>'
@@ -8662,19 +9430,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     function itemHtml(e) {
       const isFav = favSet.has(e);
+      const isCustom = isCustomIconRef(e);
       return '<div class="emoji-quick-item" data-emoji="' + e + '">' +
-        '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + e + "</button>" +
+        '<button type="button" class="emoji-quick-btn" data-emoji="' + e + '">' + iconRefHtml(e) + "</button>" +
         '<button type="button" class="emoji-favorite-toggle' + (isFav ? " favorited" : "") + '" data-emoji="' + e +
           '" title="' + (isFav ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 11) + "</button>" +
+        (isCustom ? '<button type="button" class="emoji-remove-toggle" data-remove-custom-emoji="' + e + '" title="Remove this custom icon">' + icon("x", 10) + "</button>" : "") +
       "</div>";
     }
+
+    // The "+" upload tile always renders first, outside the favorites/all
+    // split below -- adding a new custom icon isn't itself a pick to
+    // favorite or reorder, so it doesn't belong inside that grouping.
+    let html = '<div class="emoji-quick-item"><button type="button" class="emoji-quick-add-btn" id="addCustomIconBtn" title="Add your own icon image">' + icon("plus", 18) + "</button></div>";
 
     // Favorites (if any) render as their own labeled group up front, ahead
     // of the full set below -- keeps the ones used most within reach
     // without scrolling, while favoriting itself stays independent of drag
     // order: the star toggles a separate list, it doesn't move anything in
     // the underlying iconQuickPickOrder array.
-    let html = "";
     if (favoritedPicks.length > 0) {
       html += '<div class="emoji-quick-pick-label">Favorites</div>';
       html += favoritedPicks.map(itemHtml).join("");
@@ -8685,6 +9459,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     emojiQuickPick.querySelectorAll(".emoji-quick-item").forEach((item) => {
       const btn = item.querySelector(".emoji-quick-btn");
+      if (!btn) return; // the "+" upload tile has its own button (.emoji-quick-add-btn), not a draggable pick
       // pan-y, not none -- none blocked the browser's native vertical
       // scroll on every touch that started on any icon, which is
       // effectively the whole grid. That's what made the icon set seem to
@@ -8698,6 +9473,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         };
         btn.setPointerCapture(e.pointerId);
       });
+    });
+    const addCustomIconBtn = emojiQuickPick.querySelector("#addCustomIconBtn");
+    if (addCustomIconBtn) addCustomIconBtn.addEventListener("click", (e) => { e.stopPropagation(); customIconFileInput.click(); });
+    emojiQuickPick.querySelectorAll("[data-remove-custom-emoji]").forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); removeCustomWaypointIcon(btn.dataset.removeCustomEmoji); });
     });
     emojiQuickPick.querySelectorAll(".emoji-favorite-toggle").forEach((star) => {
       // A separate sibling button, not nested inside .emoji-quick-btn --
@@ -8778,6 +9558,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   }
   emojiQuickPick.addEventListener("pointerup", finishIconDrag);
   emojiQuickPick.addEventListener("pointercancel", finishIconDrag);
+  customIconFileInput.addEventListener("change", () => {
+    const file = customIconFileInput.files && customIconFileInput.files[0];
+    customIconFileInput.value = "";
+    if (!file) return;
+    addCustomWaypointIcon(file).then((ref) => {
+      if (ref) { markerEmojiInput.value = ref; markerEmojiInput.dispatchEvent(new Event("input")); }
+    });
+  });
+  emojiQuickPick.addEventListener("dragover", (e) => { e.preventDefault(); emojiQuickPick.classList.add("paste-armed"); });
+  emojiQuickPick.addEventListener("dragleave", () => emojiQuickPick.classList.remove("paste-armed"));
+  emojiQuickPick.addEventListener("drop", (e) => {
+    e.preventDefault();
+    emojiQuickPick.classList.remove("paste-armed");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    addCustomWaypointIcon(f).then((ref) => {
+      if (ref) { markerEmojiInput.value = ref; markerEmojiInput.dispatchEvent(new Event("input")); }
+    });
+  });
 
   renderIconQuickPick();
 
@@ -10350,6 +11149,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   function startMeasuring() {
     if (rideTracking) { showToast("Stop your current route before measuring."); return; }
+    pendingMeasurementPurpose = null; // reset here so any OTHER, unrelated "start measuring" entry point never accidentally inherits a stale flag from a previous draw-to-download attempt
     measuringActive = true;
     measurePoints = [];
     lastMeasureClickTime = 0;
@@ -10468,6 +11268,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   function cancelMeasuring() {
     measuringActive = false;
+    pendingMeasurementPurpose = null;
     mapEl.classList.remove("measuring-active");
     if (map.doubleClickZoom) map.doubleClickZoom.enable();
     if (measurePolyline) { map.removeLayer(measurePolyline); measurePolyline = null; }
@@ -10569,6 +11370,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
     closeMeasureModal();
     showToast('Saved "' + name + '"');
     renderMeasurementsList();
+    if (pendingMeasurementPurpose === "tile-download") {
+      pendingMeasurementPurpose = null;
+      if (isClosedLoop(m.points)) {
+        openTileDownloadSetup(m.points.map((p) => [p.lat, p.lng]), 'for "' + name + '"');
+      } else {
+        showToast('"' + name + '" was saved, but tap back to your starting point next time to close the shape before downloading tiles for it.');
+      }
+    }
   }
   measureDoneBtn.addEventListener("click", saveMeasurement);
 
@@ -11853,6 +12662,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
       (isClosedLoop(m.points) ? '<button class="card-favorite' + (m.isGeofenceZone ? " favorited" : "") + '" data-action="toggle-geofence-zone" data-id="' + m.id + '" title="' + (m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone") + '">' + icon("crosshair", 15) + "</button>" : "") +
+      (isClosedLoop(m.points) ? '<button class="card-favorite" data-action="download-tiles-for-area" data-id="' + m.id + '" title="Download map tiles for this area (offline use)">' + icon("fileDown", 15) + "</button>" : "") +
       '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
       '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
     "</div>";
@@ -11933,6 +12743,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
         btn.classList.toggle("favorited", m.isGeofenceZone);
         btn.title = m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone";
         showToast(m.isGeofenceZone ? '"' + m.name + '" is now a geofence zone' : '"' + m.name + '" is no longer a geofence zone');
+      });
+    });
+    measurementsPanelList.querySelectorAll("[data-action='download-tiles-for-area']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const m = measurements.find((mm) => mm.id === btn.dataset.id);
+        if (!m) return;
+        openTileDownloadSetup(m.points.map((p) => [p.lat, p.lng]), 'for "' + m.name + '"');
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='edit-measurement-points']").forEach((btn) => {
@@ -12460,7 +13278,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
         if (f) files.push(f);
       }
     }
-    if (files.length) { e.preventDefault(); addPhotoFiles(files); }
+    if (!files.length) return;
+    e.preventDefault();
+    // The icon picker and the photo dropzone both live in this same
+    // modal and both accept a pasted image, so a paste has to go to
+    // exactly one of them, not both at once -- routed by which one is
+    // actually visible right now (the icon grid only shows once "Icons"
+    // marker style is selected), rather than risking a second, separate
+    // paste listener racing this one for the same clipboard event.
+    if (markerEmojiField.style.display !== "none") {
+      addCustomWaypointIcon(files[0]).then((ref) => {
+        if (ref) { markerEmojiInput.value = ref; markerEmojiInput.dispatchEvent(new Event("input")); }
+      });
+    } else {
+      addPhotoFiles(files);
+    }
   });
 
   let pendingMarkerStyle = "pin";
@@ -12483,7 +13315,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   markerStylePinBtn.addEventListener("click", () => setMarkerStyleUI("pin"));
   markerStyleEmojiBtn.addEventListener("click", () => setMarkerStyleUI("emoji"));
   markerColorInput.addEventListener("input", () => { markSwatchSelected(markerColorSwatches, markerColorInput.value); refreshPendingMarkerPreview(); });
-  markerEmojiInput.addEventListener("input", refreshPendingMarkerPreview);
+  markerEmojiInput.addEventListener("input", () => {
+    // A custom icon's value is its internal "custom:<id>" reference, not
+    // something meant to be hand-typed or edited -- selection happens by
+    // tapping the grid below, so the field is locked while one is active
+    // to avoid the raw id string looking like editable text it isn't.
+    refreshMarkerEmojiCustomDisplay();
+    refreshPendingMarkerPreview();
+  });
 
   function handleMapPick(lat, lng, isCurrentLocation) {
     const color = isCurrentLocation ? "#22d3ee" : "#f59e0b";
@@ -12833,7 +13672,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
     modalTitle.textContent = pendingPoint.isCurrentLocation ? "Save current location" : "New waypoint";
     modalCoords.textContent = pendingPoint.lat.toFixed(6) + ", " + pendingPoint.lng.toFixed(6);
     modalWordCode.textContent = generateWordCode(pendingPoint.lat, pendingPoint.lng);
-    waypointDateTimeInput.value = msToDatetimeLocalValue(Date.now());
+    waypointDateInput.value = msToDateValue(Date.now());
+    waypointTimeInput.value = msToTimeValue(Date.now());
     if (pendingPoint.isCurrentLocation) {
       nameInput.value = "";
       nameInput.placeholder = "My Location";
@@ -12888,13 +13728,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
     modalTitle.textContent = isStoryWp ? "Edit " + storyEntryTitle(wp) : "Edit waypoint";
     modalCoords.textContent = wp.lat.toFixed(6) + ", " + wp.lng.toFixed(6);
     modalWordCode.textContent = wp.code;
-    waypointDateTimeInput.value = msToDatetimeLocalValue(wp.createdAt || Date.now());
+    waypointDateInput.value = msToDateValue(wp.createdAt || Date.now());
+    waypointTimeInput.value = msToTimeValue(wp.createdAt || Date.now());
     nameInput.value = wp.name;
     notesInput.value = wp.notes || "";
     urlInput.value = wp.url || "";
     markerColorInput.value = color;
     markSwatchSelected(markerColorSwatches, color);
     markerEmojiInput.value = wp.markerStyle === "emoji" ? emoji : "";
+    refreshMarkerEmojiCustomDisplay();
     setMarkerStyleUI(style);
     pendingPhotos = (wp.photos || []).slice();
     pendingReview = wp.review ? Object.assign(emptyReview(), JSON.parse(JSON.stringify(wp.review))) : emptyReview();
@@ -12947,7 +13789,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       name: nameInput.value,
       notes: notesInput.value,
       url: urlInput.value,
-      dateTime: waypointDateTimeInput.value,
+      dateTime: waypointDateInput.value + "T" + waypointTimeInput.value,
       markerStyle: pendingMarkerStyle,
       markerColor: markerColorInput.value,
       markerEmoji: markerEmojiInput.value,
@@ -13035,7 +13877,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         wp.notes = notes;
         wp.url = url;
         wp.review = reviewHasContent(pendingReview) ? pendingReview : null;
-        wp.createdAt = datetimeLocalValueToMs(waypointDateTimeInput.value, wp.createdAt || Date.now());
+        wp.createdAt = dateTimeValuesToMs(waypointDateInput.value, waypointTimeInput.value, wp.createdAt || Date.now());
         wp.markerStyle = markerStyle;
         wp.markerColor = markerColor;
         wp.markerEmoji = markerEmoji;
@@ -13060,7 +13902,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(), folderId: getOpenFolderId(),
       review: reviewHasContent(pendingReview) ? pendingReview : null,
-      createdAt: datetimeLocalValueToMs(waypointDateTimeInput.value, Date.now()), updatedAt: Date.now(), weather: null
+      createdAt: dateTimeValuesToMs(waypointDateInput.value, waypointTimeInput.value, Date.now()), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
     waypoints.push(wp);
@@ -15159,17 +16001,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   // Real basemap tile sources for the PDF export, matching the exact URL
   // templates the live map already uses (so the imagery is identical, and
   // proven-working). ArcGIS uses {z}/{y}/{x} order -- different from the
-  // standard XYZ order OSM/OpenTopoMap use -- so each source builds its
+  // standard XYZ order OSM/Thunderforest use -- so each source builds its
   // own URL rather than assuming one shared format.
   const PDF_BASEMAP_SOURCES = {
-    street: { subdomains: ["a", "b", "c"], maxZoom: 19, url: (s, z, x, y) => "https://" + s + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png" },
+    street: { subdomains: ["a", "b", "c"], maxZoom: 19, url: (s, z, x, y) => "https://" + s + ".tile.thunderforest.com/atlas/" + z + "/" + x + "/" + y + ".png?apikey=" + encodeURIComponent(settings.thunderforestApiKey || "") },
     satellite: { subdomains: [""], maxZoom: 19, url: (s, z, x, y) => "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x },
-    terrain: { subdomains: ["a", "b", "c"], maxZoom: 17, url: (s, z, x, y) => "https://" + s + ".tile.opentopomap.org/" + z + "/" + x + "/" + y + ".png" },
+    terrain: { subdomains: ["a", "b", "c"], maxZoom: 19, url: (s, z, x, y) => "https://" + s + ".tile.thunderforest.com/outdoors/" + z + "/" + x + "/" + y + ".png?apikey=" + encodeURIComponent(settings.thunderforestApiKey || "") },
   };
   const PDF_BASEMAP_ATTRIBUTION = {
-    street: "\u00a9 OpenStreetMap contributors",
+    street: "\u00a9 OpenStreetMap contributors, \u00a9 Thunderforest",
     satellite: "Imagery \u00a9 Esri, Maxar, Earthstar Geographics",
-    terrain: "\u00a9 OpenStreetMap contributors, SRTM \u2014 style: \u00a9 OpenTopoMap",
+    terrain: "\u00a9 OpenStreetMap contributors, SRTM, \u00a9 Thunderforest",
   };
 
   // Standard Web Mercator projection to a pixel position in the full
@@ -16943,7 +17785,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const key = waypointIconKey(wp);
         if (!counts.has(key)) {
           const iconContent = wp.markerStyle === "emoji"
-            ? '<span class="card-icon-emoji-badge"><span style="font-size:14px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span></span>"
+            ? '<span class="card-icon-emoji-badge"><span style="font-size:14px; line-height:1;">' + iconRefHtml(wp.markerEmoji) + "</span></span>"
             : '<span style="color:' + (wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)")) + '; display:flex;">' + icon("mapPin", 14) + "</span>";
           counts.set(key, { iconContent, count: 0 });
         }
@@ -17077,7 +17919,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       // used for Bike Path waypoints) render as solid black or dark line
       // art on most platforms, which all but disappears directly against
       // this app's own dark card background.
-      return '<span class="card-icon-emoji-badge"><span class="icon" style="font-size:16px; line-height:1;">' + escapeHtml(wp.markerEmoji || "📍") + "</span></span>";
+      return '<span class="card-icon-emoji-badge"><span class="icon" style="font-size:16px; line-height:1;">' + iconRefHtml(wp.markerEmoji) + "</span></span>";
     }
     const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
     return '<span class="icon" style="color:' + pinColor + '">' + icon("mapPin", 16) + "</span>";
