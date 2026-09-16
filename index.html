@@ -1775,6 +1775,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .tile-download-progress-bar-fill{height:100%; background:#7c3aed; border-radius:4px; transition:width .2s;}
   .tile-download-percent{font-size:12px; font-weight:700; color:var(--text-mute); flex-shrink:0; width:36px; text-align:right;}
   .tile-download-stats-row{display:flex; justify-content:space-between; font-size:12px; color:var(--text-mute); margin-bottom:10px;}
+  .directions-mode-row{display:flex; gap:8px; margin-bottom:16px;}
+  .directions-mode-btn{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 4px;
+    border-radius:10px; border:1.5px solid var(--border-soft); background:none; color:var(--text-dim); font-size:12px; cursor:pointer;}
+  .directions-mode-btn.active{border-color:var(--amber); color:var(--amber-light); background:rgba(245,158,11,.1);}
+  .directions-input-row{display:flex; gap:8px; align-items:center; margin-bottom:12px;}
+  .directions-input-row .field-input{flex:1; margin-bottom:0;}
+  .directions-current-loc-btn{flex-shrink:0; width:43px; height:43px; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; border:1.5px solid var(--border-soft); background:none; color:var(--text-dim); cursor:pointer;}
+  .directions-current-loc-btn:hover, .directions-current-loc-btn.active{color:var(--cyan); border-color:var(--cyan);}
   /* Draggable handle for adjusting the tile-download preview's shape --
      a plain L.divIcon (no built-in styling of its own), so the visual
      appearance is defined entirely here. */
@@ -1844,6 +1853,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="ride-dropdown-divider"></div>
         <button class="ride-dropdown-option" id="rideDropdownViewRoutesBtn"><span class="icon"></span><span>View Routes</span></button>
         <div class="ride-dropdown-divider"></div>
+        <button class="ride-dropdown-option" id="rideDropdownDirectionsBtn"><span class="icon"></span><span>Get Directions</span></button>
         <button class="ride-dropdown-option" id="rideDropdownMeasureBtn"><span class="icon"></span><span>Measure Distance</span></button>
       </div>
     </div>
@@ -2436,6 +2446,40 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="directionsModalOverlay">
+    <div class="modal-card" style="max-width:380px;">
+      <div class="modal-header">
+        <h2>Get Directions</h2>
+        <button class="icon-btn" id="directionsModalCloseBtn" data-icon="x"></button>
+      </div>
+      <div class="directions-mode-row">
+        <button type="button" class="directions-mode-btn active" data-mode="driving"><span class="icon"></span>Drive</button>
+        <button type="button" class="directions-mode-btn" data-mode="cycling"><span class="icon"></span>Bike</button>
+        <button type="button" class="directions-mode-btn" data-mode="walking"><span class="icon"></span>Walk</button>
+      </div>
+      <label class="field-label">From</label>
+      <div class="directions-input-row">
+        <input type="text" id="directionsFromInput" class="field-input" placeholder="Address, place, or leave blank for current location" autocomplete="off" />
+        <button type="button" class="directions-current-loc-btn" id="directionsFromCurrentBtn" title="Use current location"><span class="icon"></span></button>
+      </div>
+      <label class="field-label">To</label>
+      <input type="text" id="directionsToInput" class="field-input" placeholder="Address or place" autocomplete="off" style="margin-bottom:16px;" />
+      <button type="button" class="btn btn-primary" id="directionsGoBtn" style="width:100%;">Get Directions</button>
+      <p class="layers-hint" id="directionsStatusText" style="min-height:16px;"></p>
+    </div>
+  </div>
+
+  <div class="ride-hud hidden" id="directionsResultHud">
+    <div class="ride-hud-header">
+      <span class="ride-hud-title" id="directionsResultTitle">Directions</span>
+      <button class="panel-close" id="directionsResultCloseBtn" data-icon="x" data-icon-size="16"></button>
+    </div>
+    <p class="layers-hint" id="directionsResultSummary"></p>
+    <div class="home-actions">
+      <button type="button" class="home-action-btn" id="directionsResultSaveBtn">Save as route</button>
+    </div>
+  </div>
+
   <!-- folder-picker modal (reusable -- bulk move) -->
   <div class="modal-overlay hidden" id="folderPickerModalOverlay">
     <div class="modal-card" style="max-width:340px;">
@@ -3003,6 +3047,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
     x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
     navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
+    directions: '<circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle>',
     menu: '<line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>',
     mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line>',
     micOff: '<path d="M12 1a3 3 0 0 0-3 3v6"></path><path d="M15.5 9.5V4a3 3 0 0 0-5.9-.8"></path><path d="M19 10v2a7 7 0 0 1-9.9 6.4"></path><path d="M5 10v2a7 7 0 0 0 1.4 4.2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line><line x1="1" y1="1" x2="23" y2="23"></line>',
@@ -3502,7 +3547,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "478";
+  const APP_VERSION = "482";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4200,6 +4245,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const confirmModalCancelBtn = el("confirmModalCancelBtn");
   const confirmModalConfirmBtn = el("confirmModalConfirmBtn");
   const promptModalOverlay = el("promptModalOverlay");
+  const directionsModalOverlay = el("directionsModalOverlay");
+  const directionsModalCloseBtn = el("directionsModalCloseBtn");
+  const directionsFromInput = el("directionsFromInput");
+  const directionsFromCurrentBtn = el("directionsFromCurrentBtn");
+  const directionsToInput = el("directionsToInput");
+  const directionsGoBtn = el("directionsGoBtn");
+  const directionsStatusText = el("directionsStatusText");
+  const directionsResultHud = el("directionsResultHud");
+  const directionsResultTitle = el("directionsResultTitle");
+  const directionsResultSummary = el("directionsResultSummary");
+  const directionsResultCloseBtn = el("directionsResultCloseBtn");
+  const directionsResultSaveBtn = el("directionsResultSaveBtn");
   const promptModalCloseBtn = el("promptModalCloseBtn");
   const promptModalTitle = el("promptModalTitle");
   const promptModalInput = el("promptModalInput");
@@ -4278,6 +4335,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const forecastErrorState = el("forecastErrorState");
   const forecastDaysContainer = el("forecastDaysContainer");
   const rideDropdownMeasureBtn = el("rideDropdownMeasureBtn");
+  const rideDropdownDirectionsBtn = el("rideDropdownDirectionsBtn");
   const measureModalOverlay = el("measureModalOverlay");
   const measureModalCloseBtn = el("measureModalCloseBtn");
   const measureModalTitle = el("measureModalTitle");
@@ -10521,6 +10579,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
   viewRoutesBtn.querySelector(".icon").innerHTML = icon("list", 16);
   rideDropdownMeasureBtn.querySelector(".icon").innerHTML = icon("ruler", 16);
+  rideDropdownDirectionsBtn.querySelector(".icon").innerHTML = icon("directions", 16);
   rideBtn.innerHTML = icon(activityInfo(currentActivityType).icon, 18);
 
   function formatDuration(ms) {
@@ -11785,6 +11844,232 @@ svg.leaflet-image-layer.leaflet-interactive path {
     e.stopPropagation();
     closeRideDropdown();
     startMeasuring();
+  });
+  rideDropdownDirectionsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeRideDropdown();
+    openDirectionsModal();
+  });
+
+  /* ---------- Directions (A to B routing via OSRM) ---------- */
+  let directionsSelectedProfile = "driving";
+  let directionsUseCurrentLocation = false;
+  let directionsRouteLayer = null;
+  let directionsPendingSave = null; // { fromLabel, toLabel, profile, distanceMeters, durationSeconds, latlngs }
+
+  function openDirectionsModal() {
+    directionsStatusText.textContent = "";
+    directionsModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeDirectionsModal() {
+    directionsModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  directionsModalCloseBtn.addEventListener("click", closeDirectionsModal);
+  directionsModalOverlay.addEventListener("click", (e) => { if (e.target === directionsModalOverlay) closeDirectionsModal(); });
+
+  directionsModalOverlay.querySelectorAll(".directions-mode-btn").forEach((btn) => {
+    btn.querySelector(".icon").innerHTML = icon(btn.dataset.mode === "driving" ? "car" : btn.dataset.mode === "cycling" ? "bike" : "hike", 18);
+    btn.addEventListener("click", () => {
+      directionsSelectedProfile = btn.dataset.mode;
+      directionsModalOverlay.querySelectorAll(".directions-mode-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+  directionsFromCurrentBtn.querySelector(".icon").innerHTML = icon("crosshair", 16);
+  directionsFromCurrentBtn.addEventListener("click", () => {
+    directionsUseCurrentLocation = !directionsUseCurrentLocation;
+    directionsFromCurrentBtn.classList.toggle("active", directionsUseCurrentLocation);
+    directionsFromInput.disabled = directionsUseCurrentLocation;
+    directionsFromInput.placeholder = directionsUseCurrentLocation ? "Using current location" : "Address, place, or leave blank for current location";
+  });
+
+  // Accepts a typed "lat,lng" pair directly (no network round-trip needed
+  // for something already precise), then checks it against saved
+  // waypoints and Home (see findNamedLocation) before ever reaching the
+  // network, and only geocodes it as a place name -- via the same
+  // Nominatim service already used for city tile downloads -- once none
+  // of those match.
+  // Biased toward the map's current area (roughly the user's own city,
+  // since this app already centers there on load) so an underspecified
+  // search like "Elgin Street" finds the nearby one rather than a
+  // same-named street somewhere else in the world. This is a soft
+  // preference, not a hard filter -- Nominatim's own viewbox parameter
+  // reorders results toward that area without excluding anything, so a
+  // query that already names its own city/province/country (e.g. "Elgin
+  // Street, Chicago") still finds that specific place correctly rather
+  // than being forced toward the biased area.
+  // Checks the query against saved waypoints and the configured Home
+  // location before ever reaching the network -- typing "Home" or a
+  // waypoint's own name (like "Andy & Cathy's") should always resolve to
+  // exactly that saved point, not whatever a text search happens to guess
+  // at for the same words. Returns null (not a rejection) when nothing
+  // matches, so the caller falls through to real geocoding.
+  function findNamedLocation(q) {
+    const query = q.trim().toLowerCase();
+    if (!query) return null;
+    // Exact name match first, since it's unambiguous -- covers a waypoint
+    // literally named "Home" too, which takes priority over the Home
+    // setting below, since saving a waypoint under that name is a more
+    // deliberate, specific choice than the app's general default.
+    const exactWaypoint = waypoints.find((wp) => (wp.name || "").trim().toLowerCase() === query);
+    if (exactWaypoint) return { lat: exactWaypoint.lat, lng: exactWaypoint.lng, label: exactWaypoint.name };
+    // "Home" as a bare word, when no waypoint by that exact name exists,
+    // falls back to the app's own configured Home location.
+    if (query === "home" && settings.home) {
+      return { lat: settings.home.lat, lng: settings.home.lng, label: settings.home.name || "Home" };
+    }
+    // A looser, partial match as a last resort before falling through to
+    // real geocoding -- forgiving of a shorter or slightly different
+    // typed form of a saved name, picking whichever saved waypoint's name
+    // the typed text is a part of.
+    const partialWaypoint = waypoints.find((wp) => (wp.name || "").trim().toLowerCase().includes(query));
+    if (partialWaypoint) return { lat: partialWaypoint.lat, lng: partialWaypoint.lng, label: partialWaypoint.name };
+    return null;
+  }
+  async function geocodePoint(q) {
+    const direct = q.trim().match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+    if (direct) return { lat: parseFloat(direct[1]), lng: parseFloat(direct[2]), label: q.trim() };
+    const named = findNamedLocation(q);
+    if (named) return named;
+    const center = map.getCenter();
+    const buffer = 0.5; // roughly city/metro scale, not so wide it swamps the actual query text
+    const viewbox = (center.lng - buffer) + "," + (center.lat + buffer) + "," + (center.lng + buffer) + "," + (center.lat - buffer);
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q) + "&viewbox=" + viewbox;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const r = data[0];
+    return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), label: r.display_name };
+  }
+  function getCurrentLocationPoint() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) { reject(new Error("Geolocation not available")); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "Current location" }),
+        () => reject(new Error("Couldn't get current location")),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+  }
+  // Genuinely mode-aware routing needs a server that actually serves
+  // separate bike/foot/car datasets -- the OTHER public OSRM demo
+  // (router.project-osrm.org) only ever hosts the car profile and
+  // silently answers every request with driving directions regardless
+  // of what profile is requested in the URL, which is why "Bike" was
+  // coming back as a driving route. This FOSSGIS-run demo genuinely
+  // serves all three, worldwide, but selects between them via a URL
+  // PREFIX (routed-car / routed-bike / routed-foot) rather than the
+  // profile name in the path itself -- that path segment stays the
+  // literal word "driving" no matter which prefix is used, since it's
+  // just this particular server's own routing convention. Free, no API
+  // key, but rate-limited (1 request/second) and meant for light,
+  // non-commercial use, same trade-off as before.
+  const OSRM_MODE_PREFIXES = { driving: "routed-car", cycling: "routed-bike", walking: "routed-foot" };
+  async function fetchDirectionsRoute(fromPoint, toPoint, profile) {
+    const coords = fromPoint.lng + "," + fromPoint.lat + ";" + toPoint.lng + "," + toPoint.lat;
+    const prefix = OSRM_MODE_PREFIXES[profile] || "routed-car";
+    const url = "https://routing.openstreetmap.de/" + prefix + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data.routes || data.routes.length === 0) return null;
+    const route = data.routes[0];
+    return {
+      distanceMeters: route.distance,
+      durationSeconds: route.duration,
+      // GeoJSON coordinates are [lng, lat] -- flipped here to the [lat, lng]
+      // pairs Leaflet expects everywhere else in this app.
+      latlngs: route.geometry.coordinates.map(([lng, lat]) => [lat, lng])
+    };
+  }
+  async function runDirections() {
+    const toQuery = directionsToInput.value.trim();
+    if (!toQuery) { directionsStatusText.textContent = "Enter a destination."; return; }
+    const fromQuery = directionsFromInput.value.trim();
+    if (!directionsUseCurrentLocation && !fromQuery) {
+      directionsStatusText.textContent = "Enter a starting point, or tap the crosshair to use your current location.";
+      return;
+    }
+    directionsGoBtn.disabled = true;
+    directionsStatusText.textContent = "Looking up locations…";
+    try {
+      const fromPoint = directionsUseCurrentLocation ? await getCurrentLocationPoint() : await geocodePoint(fromQuery);
+      if (!fromPoint) { directionsStatusText.textContent = "Couldn't find that starting point -- try a more specific name."; directionsGoBtn.disabled = false; return; }
+      const toPoint = await geocodePoint(toQuery);
+      if (!toPoint) { directionsStatusText.textContent = "Couldn't find that destination -- try a more specific name."; directionsGoBtn.disabled = false; return; }
+      directionsStatusText.textContent = "Calculating route…";
+      const route = await fetchDirectionsRoute(fromPoint, toPoint, directionsSelectedProfile);
+      if (!route) { directionsStatusText.textContent = "Couldn't find a route between those points."; directionsGoBtn.disabled = false; return; }
+      showDirectionsResult(fromPoint, toPoint, route);
+    } catch (e) {
+      directionsStatusText.textContent = "Something went wrong -- check your connection and try again.";
+    }
+    directionsGoBtn.disabled = false;
+  }
+  directionsGoBtn.addEventListener("click", runDirections);
+  directionsToInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runDirections(); });
+  directionsFromInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runDirections(); });
+
+  function showDirectionsResult(fromPoint, toPoint, route) {
+    if (directionsRouteLayer) map.removeLayer(directionsRouteLayer);
+    directionsRouteLayer = L.polyline(route.latlngs, { color: "#38bdf8", weight: 5, opacity: 0.85 }).addTo(map);
+    closeDirectionsModal();
+    const fromLabel = fromPoint.label || "Start";
+    const toLabel = toPoint.label || "Destination";
+    directionsResultTitle.textContent = shortenPlaceLabel(fromLabel) + " → " + shortenPlaceLabel(toLabel);
+    directionsResultSummary.textContent = formatDistance(route.distanceMeters) + " — about " + formatDuration(route.durationSeconds * 1000);
+    directionsResultHud.classList.remove("hidden");
+    directionsPendingSave = {
+      fromLabel, toLabel, profile: directionsSelectedProfile,
+      distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds, latlngs: route.latlngs
+    };
+    // Same "measure the panel, then pad the map around it" approach used
+    // elsewhere in this app for a HUD that stays open over the map.
+    try {
+      const hudRect = directionsResultHud.getBoundingClientRect();
+      map.fitBounds(directionsRouteLayer.getBounds(), { paddingTopLeft: [24, hudRect.bottom + 20], paddingBottomRight: [24, 24] });
+    } catch (e) {
+      map.fitBounds(directionsRouteLayer.getBounds().pad(0.1));
+    }
+  }
+  // Nominatim's full display_name can run to a whole address string --
+  // trimmed to its first couple of segments so the result title stays
+  // readable in the HUD's limited width.
+  function shortenPlaceLabel(label) {
+    const parts = label.split(",").map((p) => p.trim());
+    return parts.slice(0, 2).join(", ");
+  }
+  function closeDirectionsResult() {
+    if (directionsRouteLayer) { map.removeLayer(directionsRouteLayer); directionsRouteLayer = null; }
+    directionsResultHud.classList.add("hidden");
+    directionsPendingSave = null;
+  }
+  directionsResultCloseBtn.addEventListener("click", closeDirectionsResult);
+  directionsResultSaveBtn.addEventListener("click", () => {
+    if (!directionsPendingSave) return;
+    const p = directionsPendingSave;
+    const activityType = p.profile === "cycling" ? "bike" : p.profile === "walking" ? "hike" : "car";
+    const now = Date.now();
+    const ride = {
+      id: now + "-" + Math.random().toString(36).slice(2, 8),
+      activityType,
+      name: shortenPlaceLabel(p.fromLabel) + " to " + shortenPlaceLabel(p.toLabel),
+      notes: "Directions calculated with OSRM, not a recorded track.",
+      startTime: now, endTime: now,
+      points: p.latlngs.map(([lat, lng]) => ({ lat, lng, t: now })),
+      distanceMeters: p.distanceMeters,
+      durationMs: p.durationSeconds * 1000,
+      weather: null,
+      folderId: getOpenRouteFolderId(),
+      updatedAt: now
+    };
+    rides.push(ride);
+    saveRides();
+    renderRoutesList();
+    showToast('Saved "' + ride.name + '" to your routes.');
+    closeDirectionsResult();
   });
 
   function saveMeasurement() {
