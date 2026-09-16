@@ -1125,7 +1125,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .photo-view-next{right:10px;}
   .photo-view-counter{text-align:center; font-size:12px; color:var(--text-mute); margin-top:8px;}
   .photo-view-counter.hidden{display:none;}
-  .card-photos{display:flex; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
+  .card-photos{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
   .card-photo-thumb{width:38px; height:38px; border-radius:6px; overflow:hidden; cursor:grab; touch-action:none;
     border:1px solid var(--border); flex-shrink:0;}
   .card-photo-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
@@ -1135,7 +1135,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-photo-add:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
   .card.drag-over{border-color:var(--amber); background:rgba(245,158,11,.07);}
   .card-photo-drop-empty{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-mute);
-    margin:8px 0 0 24px; padding:6px 10px; border-radius:8px; border:1.5px dashed var(--border-soft);
+    margin:8px 0 0 0; padding:6px 10px; border-radius:8px; border:1.5px dashed var(--border-soft);
     cursor:pointer; background:none;}
   .card-photo-drop-empty:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
   .card-photo-drop-link{background:none; border:none; padding:0; font:inherit; color:var(--amber-light);
@@ -1184,6 +1184,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .connect-accept-row .field-input{flex:1;}
   .connect-folder-row{display:flex; align-items:center; gap:8px; padding:10px 4px; border-bottom:1px solid #1e293b;}
   .connect-folder-row:last-child{border-bottom:none;}
+  /* A full, selectable-looking border box around each downloaded tile
+     set, matching this app's established card styling elsewhere -- the
+     inner row's own border/padding are turned off here since the outer
+     box now owns that spacing instead. */
+  .tile-set-item{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:10px 12px;
+    margin-bottom:8px; transition:border-color .15s;}
+  .tile-set-item:hover{border-color:rgba(245,158,11,.35);}
+  .tile-set-item:last-child{margin-bottom:0;}
+  .tile-set-item .connect-folder-row{border-bottom:none; padding:0 0 4px;}
   .connect-folder-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .connect-folder-count{font-size:11px; color:var(--text-mute); flex-shrink:0;}
   .connect-item-row{display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid #1e293b;}
@@ -1408,9 +1417,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /* Waypoint drag-and-drop reordering inside Itinerary/Day folders --
      the handle is a separate sibling next to cardHtml's own unmodified
      output, the same reasoning as elsewhere in this app: nesting a second
-     button inside .card-main (itself a button) isn't valid HTML, and
-     keeping the handle separate means cardHtml never needs to know this
-     context exists at all. */
+     button inside card-main-icon or card-title-row (both real buttons)
+     isn't valid HTML, and keeping the handle separate means cardHtml
+     never needs to know this context exists at all. */
   .itinerary-draggable-item{display:flex; align-items:stretch; gap:0;}
   .itinerary-drag-handle{flex-shrink:0; width:22px; display:flex; align-items:center; justify-content:center;
     background:none; border:none; color:var(--text-mute); cursor:grab; padding:0; touch-action:none;}
@@ -1428,7 +1437,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .bulk-select-actions .home-action-btn{padding:6px 12px; font-size:12.5px;}
   .card-select-checkbox{display:none; flex-shrink:0; width:20px; height:20px; accent-color:var(--cyan); cursor:pointer; margin-right:2px;}
   .select-mode .card-select-checkbox{display:block;}
-  .select-mode .card-main{pointer-events:none;}
+  .select-mode .card-main-icon, .select-mode .card-title-row{pointer-events:none;}
   .folder-create-select-mode .card{cursor:pointer;}
   .folder-remove-select-mode .folder-accordion-body .card{cursor:pointer;}
 
@@ -1469,13 +1478,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
   .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
-  .card-main{display:flex; gap:8px; flex:1; min-width:0; cursor:pointer; background:none; border:none; padding:0; text-align:left;}
-  /* Matches the icon picker's own light backdrop in the New/Edit Waypoint
-     modal -- same fix, same reason: dark-colored emoji need a light
-     background to stay visible, and this app's cards are dark. */
-  .card-icon-emoji-badge{flex-shrink:0; width:28px; height:28px; border-radius:8px; background:#e2e8f0;
-    display:flex; align-items:center; justify-content:center;}
-  .card-main .icon{margin-top:2px; flex-shrink:0;}
+  /* As with ride-card-stacked (waypoint cards use a different class
+     family, hence the separate names), the icon stays on the top row
+     with the action buttons, and the name/meta move to their own row
+     underneath -- flush with the card's own left edge (same as the icon
+     circle's left edge), along with every other section below it
+     (word-code, link, notes, photos), rather than indented under where
+     the icon sits. */
+  .card-main-icon{flex-shrink:0; display:flex; cursor:pointer; background:none; border:none; padding:0; margin-right:auto;}
+  .card-title-row{display:block; width:100%; cursor:pointer; background:none; border:none; padding:0; text-align:left; margin-top:2px;}
+  /* Circular badge in the waypoint's own marker color -- replaces the old
+     fixed light-grey square. Shrunk twice at the user's request: first to
+     34px (15% smaller than ride-card-icon's 40px, used by route/
+     measurement cards), then to 27px (a further 20% off 34px) -- the icon
+     glyph inside stays the same size (16px, set where it's rendered) both
+     times, only the surrounding circle shrinks. contrastIconColor() picks
+     a readable icon color against whatever that background ends up being
+     (marker colors range from near-white to fully saturated). */
+  .card-icon-circle{flex-shrink:0; width:27px; height:27px; border-radius:50%; display:flex; align-items:center; justify-content:center;}
   .card-name{font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; margin:0;}
   .ride-card-name-editable{cursor:text;}
@@ -1497,27 +1517,34 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-waypoint-visibility-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-waypoint-visibility-btn:hover{color:var(--amber-light);}
   .card-waypoint-visibility-btn.hidden-state{color:var(--red);}
+  .card-icon-action-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-icon-action-btn:hover{color:var(--cyan);}
   .card-edit{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-edit:hover{color:var(--amber-light);}
-  .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; margin-left:24px; flex-wrap:wrap;}
+  /* Circular treatment specifically for the waypoint card's own delete
+     button -- scoped to its own class rather than reusing
+     ride-card-delete-btn (the plain, uncircled delete "x" that route and
+     measurement cards use), since only this one was asked to change. */
+  .card-delete-circle-btn{flex-shrink:0; width:24px; height:24px; border-radius:50%; background:rgba(255,255,255,.06);
+    color:var(--text-mute); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    border:none; padding:0;}
+  .card-delete-circle-btn:hover{background:rgba(248,113,113,.15); color:var(--red);}
+  .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;}
   .card-codes .code-badge{font-size:10px; padding:3px 6px;}
   .card-copy-code{margin-left:auto; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-copy-code:hover{color:var(--text-dim);}
-  .card-notes{margin-left:24px; margin-top:6px;}
+  .card-notes{margin-top:6px;}
   .card-notes-tab-row{display:flex; gap:14px; margin-bottom:4px;}
   .card-notes-tab-btn{background:none; border:none; padding:0 0 2px; margin:0; font-size:11px; font-weight:600;
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
   .card-notes-tab-btn.active{color:var(--text-dim); border-bottom-color:var(--amber-light);}
   .card-notes-tab-btn.has-review{color:var(--text);}
   .story-title-label{cursor:pointer; color:#a78bfa; border-bottom-color:#a78bfa;}
-  .card-url{margin-left:24px; margin-top:6px; display:flex; align-items:center; gap:6px;}
+  .card-url{margin-top:6px; display:flex; align-items:center; gap:6px;}
   .card-url-link{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--cyan); text-decoration:none;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
   .card-url-link:hover{text-decoration:underline;}
   .card-url-link .icon{flex-shrink:0;}
-  .card-url-edit-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:2px; display:flex;
-    background:none; border:none;}
-  .card-url-edit-btn:hover{color:var(--amber-light);}
   .card-url-btn{display:flex; gap:6px; align-items:center; font-size:12px; color:var(--text-mute); cursor:text;
     background:none; border:none; padding:0; text-align:left; font-style:italic;}
   .card-url-btn:hover{color:var(--amber-light);}
@@ -1525,7 +1552,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     padding:2px 6px; font-size:12px; color:var(--text); outline:none; width:100%;}
   .card-notes-btn{display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:text;
     background:none; border:none; padding:0; width:100%; text-align:left;}
-  .card-notes-btn .icon{margin-top:2px; color:var(--text-mute); flex-shrink:0;}
   .card-notes-btn.placeholder{color:var(--text-mute); font-style:italic;}
   .card-notes-content{max-height:4.6em; overflow:hidden;}
   .card-notes-content p{margin:0 0 4px;}
@@ -1705,6 +1731,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .ride-card-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
   .ride-card-info b{font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ride-card-info span{font-size:12.5px; color:var(--text-mute);}
+  /* Applies to waypoint, route, and measurement cards alike, for visual
+     consistency across all three: as more action icons accumulate on a
+     card (favorite, visibility, geofence, download-tiles, edit...), a
+     single row runs out of room fast. This keeps the top row reserved
+     purely for icons and drops the title to its own row underneath,
+     flush with the icon's own left edge (matching the waypoint card's
+     alignment) rather than indented under where the icon sits. */
+  .ride-card.ride-card-stacked{flex-direction:column; align-items:stretch; gap:4px;}
+  .ride-card-icons-row{display:flex; align-items:center; gap:8px;}
+  .ride-card-icons-row .ride-card-icon{margin-right:auto;}
+  .ride-card-title-row{padding-left:0; display:flex; flex-direction:column; gap:2px; min-width:0;}
   .ride-card-notes{display:block; font-size:12px; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ride-card-delete-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute); cursor:pointer;
     display:flex; padding:6px;}
@@ -1738,6 +1775,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .tile-download-progress-bar-fill{height:100%; background:#7c3aed; border-radius:4px; transition:width .2s;}
   .tile-download-percent{font-size:12px; font-weight:700; color:var(--text-mute); flex-shrink:0; width:36px; text-align:right;}
   .tile-download-stats-row{display:flex; justify-content:space-between; font-size:12px; color:var(--text-mute); margin-bottom:10px;}
+  /* Draggable handle for adjusting the tile-download preview's shape --
+     a plain L.divIcon (no built-in styling of its own), so the visual
+     appearance is defined entirely here. */
+  .tile-preview-vertex-handle{width:18px; height:18px; border-radius:50%; background:#22d3ee;
+    border:2.5px solid #ffffff; box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:grab;}
 
   /* ---------- leaflet marker + control theming ---------- */
   .wp-div-icon{background:transparent; border:none;}
@@ -1814,6 +1856,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="layers-panel-header">
           <div class="layers-tabs" id="layersTabs">
             <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
+            <button class="layers-tab" id="layersTabOfflineBtn" data-layers-tab="offline">Offline Maps</button>
             <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
           </div>
           <button class="icon-btn" id="layersPanelCloseBtn" data-icon="x" data-icon-size="16"></button>
@@ -1837,6 +1880,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
         </div>
         <div class="layers-section">
+          <p class="layers-section-title">Reference grid</p>
+          <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
+          <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
+          <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
+          <label class="layers-option"><input type="checkbox" id="res1HexToggle" /><span class="swatch" style="background:#a78bfa"></span><span>Resolution 1 hexes</span></label>
+          <label class="layers-option"><input type="checkbox" id="res1ShowIndexToggle" /><span>Show H3 index names</span></label>
+          <label class="layers-option"><input type="checkbox" id="res1ShowWordToggle" /><span>Show 3 word names</span></label>
+          <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide. Mousing over one shows its raw H3 cell index (e.g. 81a8fffffffffff) and/or its curated 3-word name, depending on which options above are on. "Show 3 word names" also labels Precision hexes on hover with their derived 3-word address.</p>
+        </div>
+        </div>
+        <div class="layers-panel-body hidden" id="layersViewOffline">
+        <div class="layers-section">
           <p class="layers-section-title">Offline maps</p>
           <p class="layers-hint">Save map tiles for an area so viewing it later doesn't use up your map provider's quota.</p>
           <div class="home-actions">
@@ -1849,16 +1904,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="home-actions">
             <button type="button" class="home-action-btn" id="clearTileCacheBtn">Clear all downloaded tiles</button>
           </div>
-        </div>
-        <div class="layers-section">
-          <p class="layers-section-title">Reference grid</p>
-          <label class="layers-option"><input type="checkbox" id="precisionHexToggle" /><span class="swatch" style="background:#3b82f6"></span><span>Precision hexes</span></label>
-          <label class="layers-option"><input type="checkbox" id="precisionHexMaxZoomOnlyToggle" /><span>Show Precision hexes at Maximum Zoom levels</span></label>
-          <p class="layers-hint">Precision hexes (blue) show the H3 grid at a finer resolution for your current view — zoom in for more detail. Turning the option above on limits them to only your maximum zoom level, so they don't clutter zoomed-out views.</p>
-          <label class="layers-option"><input type="checkbox" id="res1HexToggle" /><span class="swatch" style="background:#a78bfa"></span><span>Resolution 1 hexes</span></label>
-          <label class="layers-option"><input type="checkbox" id="res1ShowIndexToggle" /><span>Show H3 index names</span></label>
-          <label class="layers-option"><input type="checkbox" id="res1ShowWordToggle" /><span>Show 3 word names</span></label>
-          <p class="layers-hint">Resolution 1 hexes (violet) show the 842 top-level H3 cells worldwide. Mousing over one shows its raw H3 cell index (e.g. 81a8fffffffffff) and/or its curated 3-word name, depending on which options above are on. "Show 3 word names" also labels Precision hexes on hover with their derived 3-word address.</p>
         </div>
         </div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
@@ -2800,7 +2845,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <p class="layers-hint" id="tileDownloadEstimateResult"></p>
       </div>
       <div class="home-actions">
-        <button class="home-action-btn" id="tileDownloadStartBtn" disabled>Start download</button>
+        <button class="home-action-btn" id="tileDownloadStartBtn">Preview area…</button>
       </div>
     </div>
   </div>
@@ -2809,7 +2854,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="ride-hud-header">
       <span class="ride-hud-title" id="tileDownloadHudTitle">Downloading map tiles…</span>
       <div class="ride-hud-header-actions">
-        <button class="panel-close" id="tileDownloadHudCloseBtn" title="Close"></button>
+        <button class="panel-close" id="tileDownloadHudCloseBtn" title="Close" data-icon="x" data-icon-size="16"></button>
       </div>
     </div>
     <p class="layers-hint">Downloading slowly on purpose, so this doesn't look like a burst of automated traffic to the map provider — a large area can genuinely take a while.</p>
@@ -2823,6 +2868,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <span id="tileDownloadEtaText"></span>
     </div>
     <button type="button" class="ride-hud-stop-btn" id="tileDownloadCancelBtn">Cancel</button>
+  </div>
+
+  <div class="ride-hud hidden" id="tileDownloadPreviewHud">
+    <div class="ride-hud-header">
+      <span class="ride-hud-title">Preview: what will actually download</span>
+    </div>
+    <p class="layers-hint">Map tiles are square, so the real download (solid amber squares) won't exactly match the shape you drew (dashed cyan outline) — edge tiles get included or left out based on whether their center falls inside your shape. You can drag the white dots on the map right now to adjust the shape if the coverage isn't quite right.</p>
+    <p class="layers-hint" id="tileDownloadPreviewTileCountText" style="font-weight:600;"></p>
+    <div class="home-actions">
+      <button type="button" class="home-action-btn" id="tileDownloadPreviewBackBtn">Zoom &amp; layers</button>
+      <button type="button" class="home-action-btn" id="tileDownloadPreviewConfirmBtn">Confirm &amp; download</button>
+    </div>
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
@@ -3445,7 +3502,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "454";
+  const APP_VERSION = "478";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -3942,8 +3999,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const layersPanel = el("layersPanel");
   const layersPanelCloseBtn = el("layersPanelCloseBtn");
   const layersTabMainBtn = el("layersTabMainBtn");
+  const layersTabOfflineBtn = el("layersTabOfflineBtn");
   const layersTabSettingsBtn = el("layersTabSettingsBtn");
   const layersViewMain = el("layersViewMain");
+  const layersViewOffline = el("layersViewOffline");
   const layersViewSettings = el("layersViewSettings");
   const linkSetupOverlay = el("linkSetupOverlay");
   const linkSetupCloseBtn = el("linkSetupCloseBtn");
@@ -3974,6 +4033,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const tileDownloadStatsText = el("tileDownloadStatsText");
   const tileDownloadEtaText = el("tileDownloadEtaText");
   const tileDownloadCancelBtn = el("tileDownloadCancelBtn");
+  const tileDownloadPreviewHud = el("tileDownloadPreviewHud");
+  const tileDownloadPreviewTileCountText = el("tileDownloadPreviewTileCountText");
+  const tileDownloadPreviewBackBtn = el("tileDownloadPreviewBackBtn");
+  const tileDownloadPreviewConfirmBtn = el("tileDownloadPreviewConfirmBtn");
   const downloadCityTilesBtn = el("downloadCityTilesBtn");
   const tileCacheSizeHint = el("tileCacheSizeHint");
   const clearTileCacheBtn = el("clearTileCacheBtn");
@@ -4424,11 +4487,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   // silently falling back to a placeholder name would be more confusing
   // than just not creating anything.
   let promptModalCallback = null;
-  function openPromptModal(title, initialValue, confirmLabel, onConfirm) {
+  let promptModalCancelCallback = null;
+  function openPromptModal(title, initialValue, confirmLabel, onConfirm, onCancel) {
     promptModalTitle.textContent = title;
     promptModalInput.value = initialValue || "";
     promptModalConfirmBtn.textContent = confirmLabel || "Save";
     promptModalCallback = onConfirm;
+    // Optional, and only used by callers (like the tile-download naming
+    // flow) that need to proceed either way rather than treating a
+    // cancel as "do nothing" -- existing callers that don't pass this
+    // are completely unaffected, since it's simply never invoked for them.
+    promptModalCancelCallback = onCancel || null;
     promptModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
     setTimeout(() => { promptModalInput.focus(); promptModalInput.select(); }, 30);
@@ -4437,18 +4506,34 @@ svg.leaflet-image-layer.leaflet-interactive path {
     promptModalOverlay.classList.add("hidden");
     document.body.classList.remove("modal-open");
     promptModalCallback = null;
+    promptModalCancelCallback = null;
   }
   function submitPromptModal() {
     const value = promptModalInput.value.trim();
     const cb = promptModalCallback;
+    const cancelCb = promptModalCancelCallback;
     closePromptModal();
     if (value && cb) cb(value);
+    else if (!value && cancelCb) cancelCb();
   }
-  promptModalCloseBtn.addEventListener("click", closePromptModal);
-  promptModalCancelBtn.addEventListener("click", closePromptModal);
+  promptModalCloseBtn.addEventListener("click", () => {
+    const cancelCb = promptModalCancelCallback;
+    closePromptModal();
+    if (cancelCb) cancelCb();
+  });
+  promptModalCancelBtn.addEventListener("click", () => {
+    const cancelCb = promptModalCancelCallback;
+    closePromptModal();
+    if (cancelCb) cancelCb();
+  });
   promptModalConfirmBtn.addEventListener("click", submitPromptModal);
   promptModalInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitPromptModal(); });
-  promptModalOverlay.addEventListener("click", (e) => { if (e.target === promptModalOverlay) closePromptModal(); });
+  promptModalOverlay.addEventListener("click", (e) => {
+    if (e.target !== promptModalOverlay) return;
+    const cancelCb = promptModalCancelCallback;
+    closePromptModal();
+    if (cancelCb) cancelCb();
+  });
 
   // Reusable folder-picker modal -- lists every folder of the given kind as
   // a tappable row, plus "No folder" (ungroup) and "+ New folder" (which
@@ -5506,17 +5591,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
       closePanel(); // the waypoints/routes/measurements panel would otherwise sit open underneath this one
       refreshStorageStatus();
       switchLayersTab("main");
-      refreshTileCacheSizeHint();
-      renderTileSetsList();
     }
   });
   function switchLayersTab(tab) {
     layersTabMainBtn.classList.toggle("active", tab === "main");
+    layersTabOfflineBtn.classList.toggle("active", tab === "offline");
     layersTabSettingsBtn.classList.toggle("active", tab === "settings");
     layersViewMain.classList.toggle("hidden", tab !== "main");
+    layersViewOffline.classList.toggle("hidden", tab !== "offline");
     layersViewSettings.classList.toggle("hidden", tab !== "settings");
+    if (tab === "offline") { refreshTileCacheSizeHint(); renderTileSetsList(); }
   }
   layersTabMainBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("main"); });
+  layersTabOfflineBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("offline"); });
   layersTabSettingsBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("settings"); });
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
@@ -6814,29 +6901,66 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function selectedDownloadLayers() {
     return [...tileDownloadSetupOverlay.querySelectorAll(".tile-dl-layer-checkbox:checked")].map((c) => c.value);
   }
-  function openTileDownloadSetup(latlngs, areaLabel) {
-    pendingDownloadArea = { latlngs, label: areaLabel };
+  // A closed-loop measurement's last point is snapped to sit exactly on
+  // its first (see finishMeasuring), but stays as its own separate array
+  // entry rather than being merged away -- passed straight through, that
+  // means two independently-draggable vertex handles end up stacked on
+  // the same spot, and dragging just one of them tears the shape open at
+  // that seam instead of moving a single, shared corner. Dropping the
+  // redundant duplicate here doesn't change the polygon's actual shape
+  // or area at all, since getTilesForArea's polygon test already treats
+  // any 3+-point list as implicitly closed on its own.
+  // Wraps the shared, styled prompt modal in a Promise so it can be
+  // awaited like the native prompt() it replaces -- resolves with the
+  // trimmed name on Save, or null on Cancel/close/blank-submit, letting
+  // callers that want to proceed either way (like naming a finished
+  // download) do so without treating a cancel as "stop everything".
+  function promptForNameOrNull(title, initialValue, confirmLabel) {
+    return new Promise((resolve) => {
+      openPromptModal(title, initialValue, confirmLabel, (value) => resolve(value), () => resolve(null));
+    });
+  }
+  function dedupeClosingPoint(latlngs) {
+    if (latlngs.length > 2) {
+      const first = latlngs[0], last = latlngs[latlngs.length - 1];
+      if (first[0] === last[0] && first[1] === last[1]) return latlngs.slice(0, -1);
+    }
+    return latlngs;
+  }
+  function openTileDownloadSetup(latlngs, areaLabel, sourceMeasurementId) {
+    pendingDownloadArea = { latlngs, label: areaLabel, sourceMeasurementId: sourceMeasurementId || null };
     pendingDownloadTiles = null;
     tileDownloadSetupAreaHint.textContent = "Downloading tiles " + areaLabel + ". Pick which map styles and zoom range to save for offline use.";
     tileDownloadSetupOverlay.querySelectorAll(".tile-dl-layer-checkbox").forEach((c) => { c.checked = c.value === settings.baseLayer; });
     tileDownloadMinZoom.value = 10;
     tileDownloadMaxZoom.value = 15;
     tileDownloadEstimateResult.textContent = "";
-    tileDownloadStartBtn.disabled = true;
     tileDownloadSetupOverlay.classList.remove("hidden");
   }
   tileDownloadSetupCloseBtn.addEventListener("click", () => tileDownloadSetupOverlay.classList.add("hidden"));
-  tileDownloadEstimateBtn.addEventListener("click", async () => {
+  // Shared between "Estimate size" (which also samples real tile bytes
+  // afterward, over the network) and "Preview area" (which only needs
+  // the tile list itself, a fast local computation) -- both validate and
+  // compute pendingDownloadTiles the same way, so Preview no longer
+  // requires Estimate to have been run first.
+  function computePendingDownloadTiles() {
     const layers = selectedDownloadLayers();
-    if (layers.length === 0) { showToast("Pick at least one map style first."); return; }
+    if (layers.length === 0) { showToast("Pick at least one map style first."); return false; }
     const minZoom = parseInt(tileDownloadMinZoom.value, 10), maxZoom = parseInt(tileDownloadMaxZoom.value, 10);
     if (isNaN(minZoom) || isNaN(maxZoom) || minZoom > maxZoom || minZoom < 0 || maxZoom > 19) {
       showToast("Enter a valid zoom range (0–19, min ≤ max).");
-      return;
+      return false;
     }
+    const tiles = getTilesForArea(pendingDownloadArea.latlngs, minZoom, maxZoom);
+    if (tiles.length === 0) { showToast("This area and zoom range doesn't cover any tiles."); return false; }
+    pendingDownloadTiles = { tiles, layers, minZoom, maxZoom };
+    return true;
+  }
+  tileDownloadEstimateBtn.addEventListener("click", async () => {
+    if (!computePendingDownloadTiles()) return;
+    const { tiles, layers } = pendingDownloadTiles;
     tileDownloadEstimateBtn.disabled = true;
     tileDownloadEstimateResult.textContent = "Calculating…";
-    const tiles = getTilesForArea(pendingDownloadArea.latlngs, minZoom, maxZoom);
     // Sampled per selected layer, not once overall -- different map
     // styles for the same area can genuinely differ in file size (a
     // label-dense style vs. a minimal one), so reusing one layer's
@@ -6847,13 +6971,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
       totalEstimateBytes += result.estimatedTotalBytes;
       if (result.sampleCount > 0) anySampled = true;
     }
-    pendingDownloadTiles = { tiles, layers, minZoom, maxZoom };
     const totalTileRequests = tiles.length * layers.length;
     tileDownloadEstimateResult.textContent = totalTileRequests.toLocaleString() + " tiles across " + layers.length +
       (layers.length === 1 ? " style" : " styles") + " — approximately " + formatByteSize(totalEstimateBytes) +
       (anySampled ? "" : " (estimate only -- couldn't reach the tile provider to sample right now)");
     tileDownloadEstimateBtn.disabled = false;
-    tileDownloadStartBtn.disabled = totalTileRequests === 0;
+    tileDownloadStartBtn.disabled = false;
   });
   function formatEta(remainingMs) {
     if (!isFinite(remainingMs) || remainingMs < 0) return "";
@@ -6875,17 +6998,191 @@ svg.leaflet-image-layer.leaflet-interactive path {
       tileDownloadEtaText.textContent = "";
     }
   }
-  tileDownloadStartBtn.addEventListener("click", async () => {
+  let tileDownloadPreviewLayers = null;
+  let tileDownloadPreviewVertexMarkers = [];
+  // Renders whichever zoom level in the tile list actually HAS tiles at
+  // the coarsest available level, rather than blindly trusting minZoom
+  // to be that level -- for a small, precisely-drawn area, the coarsest
+  // requested zoom can easily have zero tiles at all (each tile covers a
+  // huge area at low zoom, so a small polygon's tiles only start
+  // appearing at some finer zoom), while the download itself is
+  // completely valid using tiles from that finer level. Filtering
+  // strictly by minZoom in that case silently drew nothing, even though
+  // the tile count shown alongside it (computed from the unfiltered
+  // list) was correct the whole time.
+  function computeTileFootprintRectangles(tiles, preferredZoom) {
+    if (tiles.length === 0) return [];
+    const zoomToUse = tiles.some((t) => t.z === preferredZoom)
+      ? preferredZoom
+      : Math.min(...tiles.map((t) => t.z));
+    return tiles.filter((t) => t.z === zoomToUse).map((t) => {
+      const nw = tileXYToLatLng(t.x, t.y, zoomToUse);
+      const se = tileXYToLatLng(t.x + 1, t.y + 1, zoomToUse);
+      return L.latLngBounds([nw.lat, nw.lng], [se.lat, se.lng]);
+    });
+  }
+  // Redraws just the outline + tile-footprint squares -- not the
+  // draggable vertex handles, which stay put across a redraw so dragging
+  // one doesn't visually disturb the others. Called on first showing the
+  // preview and again after every point drag, since moving a point
+  // changes which tiles actually fall inside the shape.
+  function rebuildTileDownloadPreviewShapes() {
+    if (tileDownloadPreviewLayers) map.removeLayer(tileDownloadPreviewLayers);
+    const { layers, minZoom, maxZoom } = pendingDownloadTiles;
+    const tiles = getTilesForArea(pendingDownloadArea.latlngs, minZoom, maxZoom);
+    pendingDownloadTiles.tiles = tiles; // keeps the actual download in sync with whatever shape the user leaves it at
+    const group = L.featureGroup();
+    // The shape actually drawn (or the simple rectangle from a city
+    // lookup) -- dashed, unfilled, so it reads as an outline to compare
+    // against, not competing visually with the real tile squares.
+    if (pendingDownloadArea.latlngs.length > 2) {
+      L.polygon(pendingDownloadArea.latlngs, { color: "#22d3ee", weight: 2, fill: false, dashArray: "6,4" }).addTo(group);
+    } else if (pendingDownloadArea.latlngs.length === 2) {
+      L.rectangle(L.latLngBounds(pendingDownloadArea.latlngs[0], pendingDownloadArea.latlngs[1]), { color: "#22d3ee", weight: 2, fill: false, dashArray: "6,4" }).addTo(group);
+    }
+    // The real tile squares that will actually be fetched.
+    computeTileFootprintRectangles(tiles, minZoom).forEach((bounds) => {
+      L.rectangle(bounds, { color: "#f59e0b", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.25 }).addTo(group);
+    });
+    group.addTo(map);
+    tileDownloadPreviewLayers = group;
+    const totalTileRequests = tiles.length * layers.length;
+    tileDownloadPreviewTileCountText.textContent = totalTileRequests.toLocaleString() + " tiles across " + layers.length + (layers.length === 1 ? " style" : " styles");
+  }
+  // Draggable handles on each point of the shape, so a boundary that
+  // doesn't quite cover everything wanted can be adjusted right here
+  // rather than backing out and redrawing the whole thing from scratch.
+  function addTileDownloadPreviewVertexHandles() {
+    tileDownloadPreviewVertexMarkers.forEach((m) => map.removeLayer(m));
+    tileDownloadPreviewVertexMarkers = [];
+    pendingDownloadArea.latlngs.forEach((ll, idx) => {
+      const marker = L.marker(ll, {
+        draggable: true,
+        icon: L.divIcon({ className: "tile-preview-vertex-handle", iconSize: [18, 18], iconAnchor: [9, 9] })
+      }).addTo(map);
+      marker.on("drag", (e) => {
+        // Live-update just the outline while actively dragging (cheap --
+        // no tile recompute yet) so the point doesn't feel disconnected
+        // from the shape while moving.
+        pendingDownloadArea.latlngs[idx] = [e.latlng.lat, e.latlng.lng];
+        if (tileDownloadPreviewLayers) {
+          const outline = tileDownloadPreviewLayers.getLayers().find((l) => l.options.dashArray);
+          if (outline && outline.setLatLngs) outline.setLatLngs(pendingDownloadArea.latlngs);
+        }
+      });
+      marker.on("dragend", () => {
+        // The tile recompute itself only runs once the drag actually
+        // finishes, not on every intermediate frame -- recomputing which
+        // tiles fall inside the shape is real work, and doing it
+        // continuously mid-drag would make dragging feel laggy for no
+        // benefit until the point is actually released.
+        rebuildTileDownloadPreviewShapes();
+      });
+      tileDownloadPreviewVertexMarkers.push(marker);
+    });
+  }
+  function clearTileDownloadPreviewVertexHandles() {
+    tileDownloadPreviewVertexMarkers.forEach((m) => map.removeLayer(m));
+    tileDownloadPreviewVertexMarkers = [];
+  }
+  // The shape that triggered this preview, if it came from a saved
+  // A tile-download preview shows its own outline and draggable handles
+  // for the shape being downloaded, but ANY other saved measurement --
+  // not just the one this download came from -- keeps its own permanent
+  // markers on the map too via renderSavedMeasurement. If one happens to
+  // sit nearby or overlap the preview's area, its markers get mixed in
+  // with the preview's own, looking like extra, misplaced dots that
+  // don't match the shape actually being downloaded. Hiding every saved
+  // measurement's layers for the preview's duration and restoring them
+  // afterward guarantees only the preview's own shape is ever visible
+  // while it's open.
+  function hideAllMeasurementLayersForPreview() {
+    Object.values(savedMeasurementLayers).forEach((entry) => {
+      map.removeLayer(entry.polyline);
+      if (entry.hitbox) map.removeLayer(entry.hitbox);
+      entry.vertexMarkers.forEach((mk) => map.removeLayer(mk));
+    });
+  }
+  function restoreAllMeasurementLayersAfterPreview() {
+    const sourceId = pendingDownloadArea && pendingDownloadArea.sourceMeasurementId;
+    measurements.forEach((m) => {
+      if (m.id === sourceId) {
+        // If THIS measurement's shape was dragged during preview, its own
+        // points are brought in line with it before rebuilding, rather
+        // than reappearing at stale, pre-adjustment positions. The
+        // duplicate closing point dedupeClosingPoint removed on the way
+        // in is re-added here on the way out (tile-download areas are
+        // always meant to be closed shapes), so isClosedLoop and
+        // renderSavedMeasurement continue to treat this as the same kind
+        // of closed polygon it was before, not a downgrade to an open
+        // line.
+        const restoredLatlngs = pendingDownloadArea.latlngs.slice();
+        if (restoredLatlngs.length > 2) restoredLatlngs.push(restoredLatlngs[0]);
+        m.points = restoredLatlngs.map(([lat, lng]) => ({ lat, lng }));
+        m.updatedAt = Date.now();
+        renderSavedMeasurement(m);
+      } else {
+        // Every other measurement's shape never changed, so its existing
+        // layers are simply re-added rather than rebuilt from scratch.
+        const entry = savedMeasurementLayers[m.id];
+        if (entry) {
+          map.addLayer(entry.polyline);
+          if (entry.hitbox) map.addLayer(entry.hitbox);
+          entry.vertexMarkers.forEach((mk) => map.addLayer(mk));
+        }
+      }
+    });
+    if (sourceId) saveMeasurements();
+  }
+  function showTileDownloadPreview() {
+    if (!pendingDownloadTiles || !pendingDownloadArea) return;
+    hideAllMeasurementLayersForPreview();
+    rebuildTileDownloadPreviewShapes();
+    addTileDownloadPreviewVertexHandles();
+    tileDownloadSetupOverlay.classList.add("hidden");
+    tileDownloadPreviewHud.classList.remove("hidden");
+    // Same "measure the card, pad the map around it" approach used
+    // elsewhere for the ride HUD -- the panel is shown FIRST so it has
+    // its real, rendered height to measure; fitting the map before that
+    // would read a hidden element's height as zero, leaving no room
+    // reserved at the top and letting the shape (including some of its
+    // draggable vertex handles) end up rendered underneath the opaque
+    // panel, unreachable.
+    try {
+      const hudRect = tileDownloadPreviewHud.getBoundingClientRect();
+      map.fitBounds(tileDownloadPreviewLayers.getBounds(), { paddingTopLeft: [24, hudRect.bottom + 20], paddingBottomRight: [24, 24] });
+    } catch (e) {
+      map.fitBounds(tileDownloadPreviewLayers.getBounds(), { padding: [40, 40] });
+    }
+  }
+  function clearTileDownloadPreview() {
+    if (tileDownloadPreviewLayers) {
+      map.removeLayer(tileDownloadPreviewLayers);
+      tileDownloadPreviewLayers = null;
+    }
+    clearTileDownloadPreviewVertexHandles();
+    tileDownloadPreviewHud.classList.add("hidden");
+    restoreAllMeasurementLayersAfterPreview();
+  }
+  tileDownloadStartBtn.addEventListener("click", () => {
+    if (!pendingDownloadTiles && !computePendingDownloadTiles()) return;
+    showTileDownloadPreview();
+  });
+  tileDownloadPreviewBackBtn.addEventListener("click", () => {
+    clearTileDownloadPreview();
+    tileDownloadSetupOverlay.classList.remove("hidden");
+  });
+  tileDownloadPreviewConfirmBtn.addEventListener("click", async () => {
     if (!pendingDownloadTiles) return;
+    clearTileDownloadPreview();
     const { tiles, layers, minZoom, maxZoom } = pendingDownloadTiles;
     const defaultName = pendingDownloadArea && pendingDownloadArea.label
       ? pendingDownloadArea.label.replace(/^for /, "").replace(/^"|"$/g, "")
       : "Downloaded area " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    const setName = prompt("Name this downloaded map area (so you can find and delete it later):", defaultName);
+    const setName = await promptForNameOrNull("Name this downloaded map area (so you can find and delete it later):", defaultName, "Save");
     // A blank/cancelled name doesn't cancel the download itself -- the
     // tiles are still worth having cached even if this particular
     // download won't get its own named, individually-deletable record.
-    tileDownloadSetupOverlay.classList.add("hidden");
     tileDownloadHud.classList.remove("hidden");
     tileDownloadSpinner.style.display = "block";
     tileDownloadCancelBtn.textContent = "Cancel";
@@ -6904,10 +7201,32 @@ svg.leaflet-image-layer.leaflet-interactive path {
         layers.forEach((layerKey) => tiles.forEach((t) => tileKeys.push(tileCacheKey(layerKey, t.x, t.y, t.z))));
         downloadedTileSets.push({
           id: genConnectId("tset"), name: setName.trim(), areaLabel: pendingDownloadArea ? pendingDownloadArea.label : "",
-          layers: layers.slice(), minZoom, maxZoom, tileKeys, totalTiles: tileKeys.length, totalBytes: job.bytesDone, createdAt: Date.now()
+          layers: layers.slice(), minZoom, maxZoom, tileKeys, totalTiles: tileKeys.length, totalBytes: job.bytesDone, createdAt: Date.now(),
+          // The actual boundary drawn (or the simple 2-point rectangle
+          // from a city-name lookup) -- kept as-is so the visibility
+          // toggle can later show the real shape the user drew, not a
+          // reconstructed bounding box around whichever tiles happened
+          // to fall inside it.
+          latlngs: pendingDownloadArea ? pendingDownloadArea.latlngs : null,
+          // So the visibility toggle can later also hide/show the source
+          // measurement's own persistent markers, the same way the
+          // preview screen already does -- without this, that
+          // measurement (if any) stays independently visible on the map
+          // regardless of what the tile set's own eye icon is set to,
+          // which looks like the toggle silently failing to do anything.
+          sourceMeasurementId: pendingDownloadArea ? pendingDownloadArea.sourceMeasurementId : null
         });
         await saveDownloadedTileSets();
         renderTileSetsList();
+        // The measurement was only ever a means to define this download's
+        // boundary, not something meant to persist as its own visible
+        // shape on the map -- left showing, it would sit underneath the
+        // tile set's own eye-icon overlay indefinitely, blending with it
+        // when shown and remaining visible on its own once that overlay
+        // is turned back off, which looks like the toggle doing nothing.
+        if (pendingDownloadArea && pendingDownloadArea.sourceMeasurementId) {
+          removeMeasurementVisibilityLayer(pendingDownloadArea.sourceMeasurementId);
+        }
       }
     }
     refreshTileCacheSizeHint();
@@ -6938,7 +7257,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     };
   }
   async function startCityTileDownload() {
-    const q = prompt("Download map tiles for which city or place?");
+    const q = await promptForNameOrNull("Download map tiles for which city or place?", "", "Search");
     if (!q || !q.trim()) return;
     showToast("Looking up \"" + q + "\"…");
     try {
@@ -6956,17 +7275,117 @@ svg.leaflet-image-layer.leaflet-interactive path {
       ? "No tiles downloaded for offline use yet."
       : count.toLocaleString() + " tiles saved (" + formatByteSize(bytes) + ") for offline use.";
   }
-  clearTileCacheBtn.addEventListener("click", async () => {
-    if (!confirm("Remove all downloaded map tiles? This just frees up storage -- the map still works normally online, this only removes the offline copies.")) return;
-    await clearTileCache();
-    downloadedTileSets = [];
-    await saveDownloadedTileSets();
-    renderTileSetsList();
-    await refreshTileCacheSizeHint();
-    showToast("Offline map tiles cleared");
+  clearTileCacheBtn.addEventListener("click", () => {
+    openConfirmModal(
+      "Clear all downloaded tiles?",
+      "This just frees up storage -- the map still works normally online, this only removes the offline copies.",
+      async () => {
+        await clearTileCache();
+        Object.values(tileSetBoundaryLayers).forEach((layer) => map.removeLayer(layer));
+        tileSetBoundaryLayers = {};
+        downloadedTileSets = [];
+        await saveDownloadedTileSets();
+        renderTileSetsList();
+        await refreshTileCacheSizeHint();
+        showToast("Offline map tiles cleared");
+      }
+    );
   });
 
   /* ---------- Named, individually-deletable downloaded tile sets ---- */
+  let tileSetBoundaryLayers = {};
+  // Downloaded sets don't keep their original drawn shape or city
+  // geocode result -- only the actual tile keys they cover -- so the
+  // visibility toggle reconstructs a bounding box from those instead of
+  // relying on geometry that was never stored. Using only the tiles at
+  // the set's own minZoom keeps this to one clean rectangle rather than
+  // mixing bounds from multiple zoom levels of the same area.
+  // Derives the zoom level to use directly from the tile keys themselves,
+  // rather than trusting set.minZoom to exactly match what's actually in
+  // tileKeys -- a stray type mismatch (e.g. a stored zoom that ended up
+  // a string instead of a number after being round-tripped through
+  // storage) would otherwise make every tile fail a strict equality
+  // check, leaving no bounds at all and this whole fallback silently
+  // unusable.
+  function getTileSetLatLngBounds(set) {
+    if (!set.tileKeys || set.tileKeys.length === 0) return null;
+    const parsed = set.tileKeys.map((key) => {
+      const parts = key.split("/");
+      return { z: parseInt(parts[1], 10), x: parseInt(parts[2], 10), y: parseInt(parts[3], 10) };
+    }).filter((t) => isFinite(t.z) && isFinite(t.x) && isFinite(t.y));
+    if (parsed.length === 0) return null;
+    const targetZ = Math.min(...parsed.map((t) => t.z));
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    parsed.forEach((t) => {
+      if (t.z !== targetZ) return;
+      minX = Math.min(minX, t.x); maxX = Math.max(maxX, t.x);
+      minY = Math.min(minY, t.y); maxY = Math.max(maxY, t.y);
+    });
+    if (!isFinite(minX)) return null;
+    const nw = tileXYToLatLng(minX, minY, targetZ);
+    const se = tileXYToLatLng(maxX + 1, maxY + 1, targetZ);
+    return L.latLngBounds([nw.lat, nw.lng], [se.lat, se.lng]);
+  }
+  function toggleTileSetVisibility(setId) {
+    if (tileSetBoundaryLayers[setId]) {
+      map.removeLayer(tileSetBoundaryLayers[setId]);
+      delete tileSetBoundaryLayers[setId];
+      renderTileSetsList();
+      return;
+    }
+    const set = downloadedTileSets.find((s) => s.id === setId);
+    if (!set) return;
+    const style = { color: "#7c3aed", weight: 2, fillOpacity: 0.08, dashArray: "6,4" };
+    const group = L.featureGroup();
+    if (set.latlngs && set.latlngs.length > 2) {
+      // The actual shape drawn with the polyline tool -- shows the real
+      // boundary, not an approximation.
+      L.polygon(set.latlngs, style).addTo(group);
+    } else if (set.latlngs && set.latlngs.length === 2) {
+      // A simple 2-point rectangle (the city-name download path).
+      L.rectangle(L.latLngBounds(set.latlngs[0], set.latlngs[1]), style).addTo(group);
+    } else {
+      // Sets saved before this boundary was stored -- fall back to a
+      // reconstructed bounding box from the tiles themselves, the best
+      // that can be done without the original shape.
+      const bounds = getTileSetLatLngBounds(set);
+      if (!bounds) { showToast("Couldn't determine this area's boundary."); return; }
+      L.rectangle(bounds, style).addTo(group);
+    }
+    // The real, downloaded tile squares themselves -- the same amber
+    // footprint shown during the original download preview -- not just
+    // the boundary outline on its own, which doesn't show which
+    // specific tiles actually got saved. Uses the coarsest zoom level
+    // that actually has tiles present, the same fix already applied to
+    // the preview screen's own footprint, for the same reason: a small,
+    // precisely-drawn area can have zero tiles at its nominal minZoom.
+    const parsedTiles = (set.tileKeys || []).map((key) => {
+      const parts = key.split("/");
+      return { z: parseInt(parts[1], 10), x: parseInt(parts[2], 10), y: parseInt(parts[3], 10) };
+    }).filter((t) => isFinite(t.z) && isFinite(t.x) && isFinite(t.y));
+    if (parsedTiles.length > 0) {
+      const targetZ = Math.min(...parsedTiles.map((t) => t.z));
+      parsedTiles.filter((t) => t.z === targetZ).forEach((t) => {
+        const nw = tileXYToLatLng(t.x, t.y, targetZ);
+        const se = tileXYToLatLng(t.x + 1, t.y + 1, targetZ);
+        L.rectangle(L.latLngBounds([nw.lat, nw.lng], [se.lat, se.lng]), { color: "#f59e0b", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.25 }).addTo(group);
+      });
+    }
+    group.addTo(map);
+    tileSetBoundaryLayers[setId] = group;
+    // Same "measure the panel, then pad the map around it" approach used
+    // for the tile-download preview -- the Offline Maps panel stays open
+    // here (unlike the preview flow, which hides its own setup modal
+    // first), so without this the boundary and tile squares could end up
+    // partially hidden underneath it.
+    try {
+      const panelRect = layersPanel.getBoundingClientRect();
+      map.fitBounds(group.getBounds(), { paddingTopLeft: [24, panelRect.bottom + 20], paddingBottomRight: [24, 24] });
+    } catch (e) {
+      map.fitBounds(group.getBounds(), { padding: [40, 40] });
+    }
+    renderTileSetsList();
+  }
   function renderTileSetsList() {
     if (downloadedTileSets.length === 0) {
       tileSetsList.innerHTML = '<p class="connect-empty-hint">No named downloads yet -- areas you download will show up here.</p>';
@@ -6974,14 +7393,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
     tileSetsList.innerHTML = downloadedTileSets.map((s) => {
       const layerNames = s.layers.map((l) => BASE_LAYER_NAMES[l] || l).join(", ");
-      return '<div class="connect-folder-row">' +
+      const isVisible = !!tileSetBoundaryLayers[s.id];
+      return '<div class="tile-set-item">' +
+        '<div class="connect-folder-row">' +
         '<span class="connect-folder-name">' + escapeHtml(s.name) + "</span>" +
         '<span class="connect-folder-count">' + formatByteSize(s.totalBytes) + "</span>" +
+        '<button type="button" class="folder-accordion-action' + (isVisible ? " active" : "") + '" data-action="toggle-tile-set-visibility" data-id="' + s.id + '" title="' + (isVisible ? "Hide area on map" : "Show area on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="rename-tile-set" data-id="' + s.id + '" title="Rename">' + icon("edit", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="delete-tile-set" data-id="' + s.id + '" title="Delete">' + icon("trash", 14) + "</button>" +
         "</div>" +
-        '<p class="layers-hint" style="margin:-4px 0 6px 4px;">' + s.totalTiles.toLocaleString() + " tiles, zoom " + s.minZoom + "–" + s.maxZoom + ", " + layerNames + "</p>";
+        '<p class="layers-hint" style="margin:-4px 0 6px 4px;">' + s.totalTiles.toLocaleString() + " tiles, zoom " + s.minZoom + "–" + s.maxZoom + ", " + layerNames + "</p>" +
+        "</div>";
     }).join("");
+    tileSetsList.querySelectorAll('[data-action="toggle-tile-set-visibility"]').forEach((btn) => {
+      btn.addEventListener("click", () => toggleTileSetVisibility(btn.dataset.id));
+    });
     tileSetsList.querySelectorAll('[data-action="rename-tile-set"]').forEach((btn) => {
       btn.addEventListener("click", () => renameTileSet(btn.dataset.id));
     });
@@ -6992,11 +7418,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function renameTileSet(setId) {
     const set = downloadedTileSets.find((s) => s.id === setId);
     if (!set) return;
-    const name = prompt("Rename this downloaded area", set.name);
-    if (!name || !name.trim()) return;
-    set.name = name.trim();
-    saveDownloadedTileSets();
-    renderTileSetsList();
+    openPromptModal("Rename this downloaded area", set.name, "Save", (name) => {
+      set.name = name;
+      saveDownloadedTileSets();
+      renderTileSetsList();
+    });
   }
   // Tiles are shared across downloads -- two overlapping areas skip
   // re-fetching whatever's already cached, so a tile can legitimately
@@ -7017,17 +7443,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
       if (blob) freedBytes += blob.size;
     }
     const sharedCount = target.tileKeys.length - uniqueKeys.length;
-    const msg = 'Delete "' + target.name + '"? This frees about ' + formatByteSize(freedBytes) + '.' +
+    const msg = "This frees about " + formatByteSize(freedBytes) + "." +
       (sharedCount > 0 ? " " + sharedCount.toLocaleString() + " of its tiles are also used by another downloaded area and will be kept." : "");
-    if (!confirm(msg)) return;
-    for (const key of uniqueKeys) {
-      if (tileCacheStore) await tileCacheStore.removeItem(key);
-    }
-    downloadedTileSets = otherSets;
-    await saveDownloadedTileSets();
-    renderTileSetsList();
-    await refreshTileCacheSizeHint();
-    showToast('Deleted "' + target.name + '"');
+    openConfirmModal('Delete "' + target.name + '"?', msg, async () => {
+      if (tileSetBoundaryLayers[setId]) {
+        map.removeLayer(tileSetBoundaryLayers[setId]);
+        delete tileSetBoundaryLayers[setId];
+      }
+      for (const key of uniqueKeys) {
+        if (tileCacheStore) await tileCacheStore.removeItem(key);
+      }
+      downloadedTileSets = otherSets;
+      await saveDownloadedTileSets();
+      renderTileSetsList();
+      await refreshTileCacheSizeHint();
+      showToast('Deleted "' + target.name + '"');
+    });
   }
 
   // "Draw an area to download" -- kicks off the same measurement-drawing
@@ -11372,10 +11803,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
     renderMeasurementsList();
     if (pendingMeasurementPurpose === "tile-download") {
       pendingMeasurementPurpose = null;
-      if (isClosedLoop(m.points)) {
-        openTileDownloadSetup(m.points.map((p) => [p.lat, p.lng]), 'for "' + name + '"');
+      // getTilesForArea's polygon test already treats any 3+-point shape
+      // as implicitly closed (it wraps from the last point back to the
+      // first on its own), so requiring a literal snap-back-to-start
+      // here was an unnecessary, stricter gate than the actual tile
+      // math needs -- it silently skipped the whole download setup for
+      // any shape that wasn't exactly closed, which is confusing since
+      // nothing visibly failed.
+      if (m.points.length >= 3) {
+        openTileDownloadSetup(dedupeClosingPoint(m.points.map((p) => [p.lat, p.lng])), 'for "' + name + '"', m.id);
       } else {
-        showToast('"' + name + '" was saved, but tap back to your starting point next time to close the shape before downloading tiles for it.');
+        showToast('"' + name + '" was saved, but needs at least 3 points to define an area to download tiles for.');
       }
     }
   }
@@ -12556,13 +12994,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const notesPreview = r.notes ? '<span class="ride-card-notes">' + escapeHtml(r.notes.length > 80 ? r.notes.slice(0, 80) + "…" : r.notes) + "</span>" : "";
     const isVisible = !!visibleRouteLayers[r.id];
     const weatherBadge = r.weather ? '<span class="card-meta">' + formatWeatherBadge(r.weather) + "</span>" : "";
-    return '<div class="card ride-card" data-id="' + r.id + '">' +
+    return '<div class="card ride-card ride-card-stacked" data-id="' + r.id + '">' +
+      '<div class="ride-card-icons-row">' +
       '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
-      '<div class="ride-card-info"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + weatherBadge + notesPreview + "</div>" +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
       '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
       '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("x", 14) + "</button>" +
+      "</div>" +
+      '<div class="ride-card-title-row"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + "</span>" + weatherBadge + notesPreview + "</div>" +
     "</div>";
   }
   function renderRoutesList() {
@@ -12656,15 +13096,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
       ? formatDistance(totalM) + " perimeter · " + Math.round(computePolygonAreaSqMeters(m.points)).toLocaleString() + " m² area"
       : formatDistance(totalM) + " · " + dateStr;
     const isVisible = !!savedMeasurementLayers[m.id];
-    return '<div class="card ride-card" data-id="' + m.id + '">' +
+    return '<div class="card ride-card ride-card-stacked" data-id="' + m.id + '">' +
+      '<div class="ride-card-icons-row">' +
       '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
-      '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
       (isClosedLoop(m.points) ? '<button class="card-favorite' + (m.isGeofenceZone ? " favorited" : "") + '" data-action="toggle-geofence-zone" data-id="' + m.id + '" title="' + (m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone") + '">' + icon("crosshair", 15) + "</button>" : "") +
       (isClosedLoop(m.points) ? '<button class="card-favorite" data-action="download-tiles-for-area" data-id="' + m.id + '" title="Download map tiles for this area (offline use)">' + icon("fileDown", 15) + "</button>" : "") +
       '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
       '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("x", 14) + "</button>" +
+      "</div>" +
+      '<div class="ride-card-title-row"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + "</span></div>" +
     "</div>";
   }
   function renderMeasurementsList() {
@@ -12750,7 +13192,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         e.stopPropagation();
         const m = measurements.find((mm) => mm.id === btn.dataset.id);
         if (!m) return;
-        openTileDownloadSetup(m.points.map((p) => [p.lat, p.lng]), 'for "' + m.name + '"');
+        openTileDownloadSetup(dedupeClosingPoint(m.points.map((p) => [p.lat, p.lng])), 'for "' + m.name + '"', m.id);
       });
     });
     measurementsPanelList.querySelectorAll("[data-action='edit-measurement-points']").forEach((btn) => {
@@ -15573,8 +16015,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripStoryBtn +
-        shareFolderBtn +
         visibilityBtn +
+        shareFolderBtn +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -15628,12 +16070,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
       itemEl.addEventListener("pointerdown", (e) => {
         // Excludes the smaller action buttons (favorite, edit, share,
         // visibility, delete, etc.) so they stay normally clickable, but
-        // NOT the main card button itself (waypoint cards wrap their
-        // entire name/icon area in a real <button class="card-main">,
-        // which covers most of the card's surface) -- excluding that too
-        // would have left almost nowhere on a waypoint card where a drag
-        // could actually begin, which is exactly the bug this fixes.
-        if (e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main")) return;
+        // NOT the icon or title buttons (waypoint cards wrap the icon in
+        // <button class="card-main-icon"> and the name/meta in a
+        // separate <button class="card-title-row">, together covering
+        // most of the card's surface now that they're two stacked rows
+        // instead of one combined button) -- excluding those too would
+        // have left almost nowhere on a waypoint card where a drag could
+        // actually begin, which is exactly the bug this fixes.
+        if (e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main-icon") && !e.target.closest(".card-title-row")) return;
         if (e.pointerType === "mouse" && e.button !== 0) return;
         const itemId = config.getItemId(itemEl);
         if (!itemId) return;
@@ -17385,8 +17829,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
-        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -17545,8 +17989,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         '<span class="folder-accordion-icon"' + (folder.color ? ' style="color:' + folder.color + '"' : "") + '>' + icon("folder", 16) + "</span>" +
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
-        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' + (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>" +
+        '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>" +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
@@ -17784,10 +18228,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
       waypoints.forEach((wp) => {
         const key = waypointIconKey(wp);
         if (!counts.has(key)) {
-          const iconContent = wp.markerStyle === "emoji"
-            ? '<span class="card-icon-emoji-badge"><span style="font-size:14px; line-height:1;">' + iconRefHtml(wp.markerEmoji) + "</span></span>"
-            : '<span style="color:' + (wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)")) + '; display:flex;">' + icon("mapPin", 14) + "</span>";
-          counts.set(key, { iconContent, count: 0 });
+          // Reuses the real card icon renderer directly rather than a
+          // second, separately-maintained copy of its logic, so this
+          // filter dropdown's sample icons always exactly match what the
+          // actual waypoint cards show, including their marker-color
+          // circle backgrounds.
+          counts.set(key, { iconContent: cardIconHtml(wp), count: 0 });
         }
         counts.get(key).count++;
         totalCount++;
@@ -17912,24 +18358,37 @@ svg.leaflet-image-layer.leaflet-interactive path {
   }
   renderAzPicker();
 
+  // Standard YIQ perceived-brightness approximation -- picks a light or
+  // dark icon color so it stays readable against whatever background
+  // color the badge ends up being, since marker colors range from very
+  // light (e.g. the near-white preset) to fully saturated, and a single
+  // fixed icon color would disappear against at least one of them.
+  function contrastIconColor(hex) {
+    const clean = (hex || "").replace("#", "");
+    if (clean.length !== 6) return "#ffffff";
+    const r = parseInt(clean.slice(0, 2), 16), g = parseInt(clean.slice(2, 4), 16), b = parseInt(clean.slice(4, 6), 16);
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 150 ? "#0f172a" : "#ffffff";
+  }
   function cardIconHtml(wp) {
+    const bgColor = wp.markerColor || (wp.isCurrentLocation ? "#22d3ee" : "#f59e0b");
     if (wp.markerStyle === "emoji") {
-      // Same light backdrop as the icon picker in the New/Edit Waypoint
-      // modal, and for the same reason -- plenty of emoji (like the bike
-      // used for Bike Path waypoints) render as solid black or dark line
-      // art on most platforms, which all but disappears directly against
-      // this app's own dark card background.
-      return '<span class="card-icon-emoji-badge"><span class="icon" style="font-size:16px; line-height:1;">' + iconRefHtml(wp.markerEmoji) + "</span></span>";
+      // The badge itself carries the waypoint's own marker color now
+      // (matching the pin badge below), rather than a fixed light
+      // backdrop -- emoji/custom images are already multi-color, so
+      // unlike the plain pin icon they don't need a computed foreground
+      // color layered on top, just the colored circle underneath them.
+      return '<span class="card-icon-circle" style="background:' + bgColor + '"><span class="icon" style="font-size:16px; line-height:1;">' + iconRefHtml(wp.markerEmoji) + "</span></span>";
     }
-    const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
-    return '<span class="icon" style="color:' + pinColor + '">' + icon("mapPin", 16) + "</span>";
+    const fgColor = contrastIconColor(bgColor);
+    return '<span class="card-icon-circle" style="background:' + bgColor + '; color:' + fgColor + '">' + icon("mapPin", 16) + "</span>";
   }
   // Matches cardIconHtml's exact color fallback, so two waypoints with no
   // markerColor set still get grouped by whatever color they'd actually
   // display (isCurrentLocation vs not), not lumped together incorrectly.
   function waypointIconKey(wp) {
     if (wp.markerStyle === "emoji") return "emoji:" + (wp.markerEmoji || "📍");
-    const pinColor = wp.markerColor || (wp.isCurrentLocation ? "var(--cyan)" : "var(--amber)");
+    const pinColor = wp.markerColor || (wp.isCurrentLocation ? "#22d3ee" : "#f59e0b");
     return "pin:" + pinColor;
   }
 
@@ -17943,21 +18402,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
       '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (isStory ? " story-card" : "") + '" data-id="' + wp.id + '">' +
         '<div class="card-top">' +
           '<input type="checkbox" class="card-select-checkbox" data-id="' + wp.id + '"' + (selectedWaypointIdsForMove.has(wp.id) ? " checked" : "") + " />" +
-          '<button class="card-main" data-action="flyto" data-id="' + wp.id + '">' +
+          '<button class="card-main-icon" data-action="flyto" data-id="' + wp.id + '">' +
             cardIconHtml(wp) +
-            '<div style="min-width:0; flex:1;">' +
-              '<p class="card-name" data-id="' + wp.id + '">' + escapeHtml(wp.name) + "</p>" +
-              formatCardMeta(wp.createdAt, wp.weather) +
-            "</div>" +
           "</button>" +
           '<div class="card-top-actions">' +
+            (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
             '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
             (wp.review && wp.review.rating ? '<span class="card-rating-badge" title="Review rating">' + wp.review.rating.toFixed(1) + " \u2605</span>" : "") +
             (isStory ? "" : '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>") +
-            (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
+            (isStory ? "" : '<button class="card-icon-action-btn" data-action="forecast" data-id="' + wp.id + '" title="Forecast">' + icon("cloudSun", 15) + "</button>") +
+            (isStory ? "" : '<button class="card-icon-action-btn" data-action="share" data-id="' + wp.id + '" title="Share">' + icon("share", 15) + "</button>") +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
+            '<button class="card-delete-circle-btn" data-action="delete-waypoint" data-id="' + wp.id + '">' + icon("x", 14) + "</button>" +
           "</div>" +
         "</div>" +
+        '<button class="card-title-row" data-action="flyto" data-id="' + wp.id + '">' +
+          '<p class="card-name" data-id="' + wp.id + '">' + escapeHtml(wp.name) + "</p>" +
+          formatCardMeta(wp.createdAt, wp.weather) +
+        "</button>" +
         (isStory ? "" :
         '<div class="card-codes">' +
           '<span class="code-badge amber mono">' + escapeHtml(wp.code) + "</span>" +
@@ -17966,8 +18428,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         (isStory ? "" :
         '<div class="card-url" data-id="' + wp.id + '">' +
           (wp.url
-            ? '<a class="card-url-link" href="' + escapeHtml(wp.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(wp.url) + '">' + icon("link", 12) + '<span>' + escapeHtml(formatUrlDisplay(wp.url)) + "</span></a>" +
-              '<button class="card-url-edit-btn" data-action="edit-url" data-id="' + wp.id + '" title="Edit link">' + icon("edit", 12) + "</button>"
+            ? '<a class="card-url-link" href="' + escapeHtml(wp.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(wp.url) + '">' + icon("link", 12) + '<span>' + escapeHtml(formatUrlDisplay(wp.url)) + "</span></a>"
             : '<button class="card-url-btn placeholder" data-action="edit-url" data-id="' + wp.id + '">' + icon("link", 12) + "<span>Add a link</span></button>") +
         "</div>") +
         '<div class="card-notes">' +
@@ -17978,7 +18439,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 '<button type="button" class="card-notes-tab-btn' + (wp.review && wp.review.rating ? " has-review" : "") + '" data-action="edit-reviews" data-id="' + wp.id + '">Reviews</button>' +
               "</div>") +
           '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
-            icon("note", 12) + '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
+            '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
           "</button>" +
         "</div>" +
         (wp.photos && wp.photos.length ?
@@ -17991,16 +18452,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
           "</div>" :
           '<div class="card-photo-drop-empty" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
             icon("image", 13) + '<span>Drop, paste (Ctrl/Cmd+V), or <button type="button" class="card-photo-drop-link" data-action="add-photo" data-id="' + wp.id + '">click to add a photo</button></span></div>') +
+        (isStory ?
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
-          (isStory ?
-            '<div class="card-action-split">' +
-              '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" +
-              '<button class="card-action-btn card-action-gear" data-action="voice-settings" data-id="' + wp.id + '" title="A.I. voice settings">' + icon("gear", 14) + "</button>" +
-            "</div>"
-            : "") +
-          (isStory ? "" : '<button class="card-action-btn" data-action="forecast" data-id="' + wp.id + '">' + icon("cloudSun", 14) + " Forecast</button>") +
-        "</div>" +
+          '<div class="card-action-split">' +
+            '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" +
+            '<button class="card-action-btn card-action-gear" data-action="voice-settings" data-id="' + wp.id + '" title="A.I. voice settings">' + icon("gear", 14) + "</button>" +
+          "</div>" +
+        "</div>"
+        : "") +
       "</div>"
     );
   }
@@ -18015,6 +18475,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
         switch (action) {
           case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); break;
           case "edit": e.stopPropagation(); openEditModal(wp); break;
+          case "delete-waypoint":
+            e.stopPropagation();
+            // Matches the exact confirmation wording already used by the
+            // Edit modal's own Delete button -- same destructive action,
+            // same guard, just a second, more direct entry point to it
+            // right from the card.
+            openConfirmModal(
+              wp.isStoryEntry ? "Delete " + storyEntryTitle(wp) + "?" : "Delete waypoint?",
+              'Delete "' + wp.name + '"? This can\'t be undone.',
+              () => deleteWaypoint(wp.id)
+            );
+            break;
           case "toggle-waypoint-visibility": e.stopPropagation(); setWaypointVisibility(wp.id, !wp.hidden); break;
           case "toggle-favorite":
             e.stopPropagation();
