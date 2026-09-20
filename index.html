@@ -1599,6 +1599,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #voiceSettingsGeminiOptions select.field-input{margin-bottom:2px;}
   .journal-textarea{width:100%; min-height:48vh; min-height:48dvh; resize:vertical; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:12px; color:var(--text); font-size:14px; line-height:1.6; font-family:inherit; margin-bottom:14px;}
+  .journal-narrations-section{margin:-4px 0 14px;}
+  .journal-narrations-section.hidden{display:none;}
+  .journal-narrations-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .journal-narrations-list{display:flex; flex-direction:column; gap:6px;}
+  .journal-narration-row{display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px;
+    background:var(--surface); border:1px solid var(--border-soft);}
+  .journal-narration-row .icon{flex-shrink:0; color:#a78bfa;}
+  .journal-narration-label-input{flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:13px;
+    padding:2px 4px; border-radius:4px;}
+  .journal-narration-label-input:hover, .journal-narration-label-input:focus{background:rgba(255,255,255,.06); outline:none;}
+  .journal-narration-play-btn, .journal-narration-delete-btn{flex-shrink:0; background:none; border:none; color:var(--text-mute);
+    cursor:pointer; padding:3px; display:flex; align-items:center;}
+  .journal-narration-play-btn:hover{color:#a78bfa;}
+  .journal-narration-play-btn.playing{color:#a78bfa;}
+  .journal-narration-delete-btn:hover{color:var(--red);}
   .journal-tab-row{display:flex; gap:18px; margin-bottom:14px;}
   .journal-tab-btn{background:none; border:none; padding:0 0 4px; margin:0; font-size:14px; font-weight:600;
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
@@ -1645,6 +1660,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-action-btn:hover{background:var(--surface);}
   .card-action-btn.listening{color:#a78bfa; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.1);}
   .card-action-btn.loading{color:#a78bfa; animation:story-generating-pulse 1.1s ease-in-out infinite;}
+  .card-action-btn.loading svg, #journalListenBtn.loading svg{animation:panel-sync-spin 1s linear infinite;}
   .card-action-split{flex:1; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
   .card-action-split .card-action-btn{border:none; border-radius:0;}
   .card-action-split .card-action-gear{flex:0 0 auto; padding:7px 10px; border-left:1px solid var(--border);}
@@ -2067,7 +2083,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
         <div class="layers-section">
           <p class="layers-section-title">Story Narration</p>
-          <label class="layers-option"><input type="checkbox" id="ttsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Listen"</span></label>
+          <label class="layers-option"><input type="checkbox" id="ttsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Narrate"</span></label>
           <p class="layers-hint">On by default for a natural A.I. voice — needs your Gemini key above (free tier works) and takes a few seconds to generate each time. Turn this off to use your device's own voice instead (free, instant, no setup).</p>
           <div id="ttsGeminiOptions" class="hidden">
             <label class="field-label">Voice style</label>
@@ -2403,7 +2419,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="journal-tab-row" id="journalTabRow">
           <button type="button" class="journal-tab-btn active" id="journalTabNotesBtn" data-tab="notes">Notes</button>
           <button type="button" class="journal-tab-btn" id="journalTabReviewsBtn" data-tab="reviews">Reviews</button>
-          <button type="button" class="icon-btn hidden" id="journalListenBtn" title="Listen to this story" data-icon="play" data-icon-size="15"></button>
+          <button type="button" class="icon-btn hidden" id="journalListenBtn" title="Narrate this story" data-icon="play" data-icon-size="15"></button>
         </div>
         <button class="icon-btn" id="journalCloseBtn" data-icon="x"></button>
       </div>
@@ -2417,6 +2433,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <button type="button" class="rte-btn" data-cmd="ol" title="Numbered list">1.≡</button>
         </div>
         <textarea id="journalTextarea" class="journal-textarea" placeholder="Write your journal entry…"></textarea>
+        <div id="journalNarrationsSection" class="journal-narrations-section hidden">
+          <div class="journal-narrations-header">
+            <span class="field-label" style="margin:0;">Narrations</span>
+            <button type="button" class="home-action-btn" id="journalGenerateNarrationBtn" style="padding:4px 10px; font-size:12px; flex:0 0 auto;">+ Generate</button>
+          </div>
+          <div id="journalNarrationsList" class="journal-narrations-list"></div>
+        </div>
       </div>
 
       <div id="journalReviewsPanel" class="hidden">
@@ -2653,7 +2676,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <h2>A.I. Voice Settings</h2>
         <button class="icon-btn" id="voiceSettingsModalCloseBtn" data-icon="x"></button>
       </div>
-      <label class="layers-option"><input type="checkbox" id="voiceSettingsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Listen"</span></label>
+      <label class="layers-option"><input type="checkbox" id="voiceSettingsUseGeminiToggle" /><span>Use Gemini A.I. voice for "Narrate"</span></label>
       <p class="layers-hint">On by default for a natural A.I. voice — needs your Gemini key (Settings → Gemini API, free tier works) and takes a few seconds to generate each time. Turn this off to use your device's own voice instead (free, instant, no setup).</p>
       <div id="voiceSettingsGeminiOptions" class="hidden">
         <label class="field-label">Voice style</label>
@@ -3991,7 +4014,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "495";
+  const APP_VERSION = "497";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4695,6 +4718,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const journalTabNotesBtn = el("journalTabNotesBtn");
   const journalTabReviewsBtn = el("journalTabReviewsBtn");
   const journalListenBtn = el("journalListenBtn");
+  const journalNarrationsSection = el("journalNarrationsSection");
+  const journalNarrationsList = el("journalNarrationsList");
+  const journalGenerateNarrationBtn = el("journalGenerateNarrationBtn");
   const journalNotesPanel = el("journalNotesPanel");
   const journalReviewsPanel = el("journalReviewsPanel");
   const reviewNameInput = el("reviewNameInput");
@@ -15098,6 +15124,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     journalTabReviewsBtn.classList.toggle("hidden", isStoryWp);
     journalTabNotesBtn.textContent = isStoryWp ? storyEntryTitle(editingWp) : "Notes";
     journalListenBtn.classList.toggle("hidden", !isStoryWp);
+    journalNarrationsSection.classList.toggle("hidden", !isStoryWp);
+    if (isStoryWp) renderJournalNarrationsList(editingWp);
     updateListenButtons();
     if (isStoryWp) tab = "notes"; // there's no Reviews tab to land on for a generated story
     journalTextarea.value = notesInput.value;
@@ -15651,18 +15679,20 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function updateListenButtons() {
     document.querySelectorAll('[data-action="listen-story"]').forEach((btn) => {
       const isThis = btn.dataset.id === currentStorySpeechId;
-      const label = isThis && currentStorySpeechState === "loading" ? "Loading…" : (isThis && currentStorySpeechState === "playing" ? "Stop" : "Listen");
-      btn.classList.toggle("listening", isThis && currentStorySpeechState === "playing");
-      btn.classList.toggle("loading", isThis && currentStorySpeechState === "loading");
-      btn.innerHTML = icon(isThis && currentStorySpeechState === "playing" ? "stop" : "play", 14) + " " + label;
+      const isLoading = isThis && currentStorySpeechState === "loading";
+      const isPlaying = isThis && currentStorySpeechState === "playing";
+      const label = isLoading ? "Processing…" : (isPlaying ? "Stop" : "Narrate");
+      btn.classList.toggle("listening", isPlaying);
+      btn.classList.toggle("loading", isLoading);
+      btn.innerHTML = icon(isLoading ? "sync" : (isPlaying ? "stop" : "play"), 14) + " " + label;
     });
     const isModalThis = !!editingWaypointId && editingWaypointId === currentStorySpeechId;
     const modalPlaying = isModalThis && currentStorySpeechState === "playing";
     const modalLoading = isModalThis && currentStorySpeechState === "loading";
     journalListenBtn.classList.toggle("listening", modalPlaying);
     journalListenBtn.classList.toggle("loading", modalLoading);
-    journalListenBtn.innerHTML = icon(modalPlaying ? "stop" : "play", 15);
-    journalListenBtn.title = modalPlaying ? "Stop reading" : (modalLoading ? "Generating audio…" : "Listen to this story");
+    journalListenBtn.innerHTML = icon(modalLoading ? "sync" : (modalPlaying ? "stop" : "play"), 15);
+    journalListenBtn.title = modalPlaying ? "Stop reading" : (modalLoading ? "Processing…" : "Narrate this story");
   }
   function stopStorySpeech() {
     if (currentStoryUsesGemini) {
@@ -15743,6 +15773,165 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       console.warn("[story-audio-cache] failed to cache narration:", e && e.message);
     }
   }
+
+  /* ---------- Per-story narration library (multiple voices/speeds) ---------- */
+  // wp.narrations is an array of { id, cacheKey, voiceName, label, styleId,
+  // speed, createdAt } -- the actual MP3 bytes live in storyAudioCacheStore
+  // under cacheKey (the same content-hash-based key used everywhere else),
+  // while this array is what's persisted on the waypoint and lets several
+  // different voice/speed variants of the same story coexist side by side,
+  // each independently playable, renameable, and deletable.
+  function recordNarrationEntry(wp, voiceName, styleId, speed) {
+    const cacheKey = hashPhotoContent(wp.notes) + "::" + voiceName + "::" + styleId;
+    if (!wp.narrations) wp.narrations = [];
+    if (wp.narrations.some((n) => n.cacheKey === cacheKey)) return; // already listed
+    wp.narrations.push({
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      cacheKey, voiceName, label: voiceName, styleId, speed,
+      createdAt: Date.now()
+    });
+    saveWaypoints();
+    if (editingWaypointId === wp.id) renderJournalNarrationsList(wp);
+  }
+  // A fully-awaited generate-and-cache, unlike synthesizeGeminiSpeech's own
+  // fire-and-forget background encode -- this is for the explicit
+  // "+ Generate" button below, a deliberate "add this to my library"
+  // action rather than "play this now", so it's fine (expected, even) for
+  // it to wait until the MP3 is genuinely ready before reporting success.
+  async function generateAndCacheNarration(text, voiceName, styleId) {
+    const cacheKey = hashPhotoContent(text) + "::" + voiceName + "::" + styleId;
+    if (storyAudioCacheStore) {
+      const alreadyCached = await storyAudioCacheStore.getItem(cacheKey).catch(() => null);
+      if (alreadyCached) return cacheKey;
+    }
+    const inline = await callGeminiTtsWithRetry(buildTtsPrompt(text, styleId), voiceName);
+    const rateMatch = /rate=(\d+)/.exec(inline.mimeType || "");
+    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+    if (storyAudioCacheStore) {
+      const mp3Blob = pcmBase64ToMp3Blob(inline.data, sampleRate, 1);
+      await storyAudioCacheStore.setItem(cacheKey, mp3Blob);
+    }
+    return cacheKey;
+  }
+  let currentlyPlayingNarrationId = null;
+  let currentlyPlayingNarrationAudioEl = null;
+  function renderJournalNarrationsList(wp) {
+    const narrations = wp.narrations || [];
+    if (narrations.length === 0) {
+      journalNarrationsList.innerHTML = '<p class="layers-hint" style="margin:0;">No narrations generated yet.</p>';
+      return;
+    }
+    journalNarrationsList.innerHTML = narrations.map((n) =>
+      '<div class="journal-narration-row" data-narration-id="' + n.id + '">' +
+        '<span class="icon">' + icon("music", 15) + '</span>' +
+        '<input type="text" class="journal-narration-label-input" data-narration-id="' + n.id + '" value="' + escapeHtml(n.label || n.voiceName) + '" />' +
+        '<button type="button" class="journal-narration-play-btn" data-action="play-narration" data-narration-id="' + n.id + '" title="Play">' + icon("play", 15) + '</button>' +
+        '<button type="button" class="journal-narration-delete-btn" data-action="delete-narration" data-narration-id="' + n.id + '" title="Delete">' + icon("trash", 15) + '</button>' +
+      '</div>'
+    ).join("");
+    journalNarrationsList.querySelectorAll(".journal-narration-label-input").forEach((input) => {
+      input.addEventListener("change", () => {
+        const entry = (wp.narrations || []).find((n) => n.id === input.dataset.narrationId);
+        if (!entry) return;
+        entry.label = input.value.trim() || entry.voiceName;
+        input.value = entry.label;
+        saveWaypoints();
+      });
+    });
+    journalNarrationsList.querySelectorAll('[data-action="play-narration"]').forEach((btn) => {
+      btn.addEventListener("click", () => toggleNarrationPlayback(wp, btn.dataset.narrationId, btn));
+    });
+    journalNarrationsList.querySelectorAll('[data-action="delete-narration"]').forEach((btn) => {
+      btn.addEventListener("click", () => deleteNarration(wp, btn.dataset.narrationId));
+    });
+  }
+  async function toggleNarrationPlayback(wp, narrationId, btn) {
+    if (currentlyPlayingNarrationId === narrationId) { stopNarrationPlayback(); return; }
+    stopNarrationPlayback();
+    stopStorySpeech(); // don't let this overlap with the top-level Listen button's own playback
+    const entry = (wp.narrations || []).find((n) => n.id === narrationId);
+    if (!entry) return;
+    if (!storyAudioCacheStore) { showToast("Playback storage isn't available."); return; }
+    try {
+      const mp3Blob = await storyAudioCacheStore.getItem(entry.cacheKey);
+      if (!mp3Blob) { showToast("That narration's audio couldn't be found — try generating it again."); return; }
+      const url = URL.createObjectURL(mp3Blob);
+      const audioEl = new Audio(url);
+      audioEl.playbackRate = entry.speed || 1;
+      currentlyPlayingNarrationId = narrationId;
+      currentlyPlayingNarrationAudioEl = audioEl;
+      btn.classList.add("playing");
+      btn.innerHTML = icon("stop", 15);
+      audioEl.onended = () => stopNarrationPlayback();
+      audioEl.onerror = () => { showToast("That narration's audio couldn't be played."); stopNarrationPlayback(); };
+      audioEl.play();
+    } catch (e) {
+      showToast("That narration's audio couldn't be loaded.");
+    }
+  }
+  function stopNarrationPlayback() {
+    if (currentlyPlayingNarrationAudioEl) {
+      currentlyPlayingNarrationAudioEl.pause();
+      currentlyPlayingNarrationAudioEl.currentTime = 0;
+    }
+    currentlyPlayingNarrationAudioEl = null;
+    if (currentlyPlayingNarrationId) {
+      const btn = journalNarrationsList.querySelector('[data-action="play-narration"][data-narration-id="' + currentlyPlayingNarrationId + '"]');
+      if (btn) { btn.classList.remove("playing"); btn.innerHTML = icon("play", 15); }
+    }
+    currentlyPlayingNarrationId = null;
+  }
+  async function deleteNarration(wp, narrationId) {
+    const idx = (wp.narrations || []).findIndex((n) => n.id === narrationId);
+    if (idx === -1) return;
+    const entry = wp.narrations[idx];
+    if (currentlyPlayingNarrationId === narrationId) stopNarrationPlayback();
+    wp.narrations.splice(idx, 1);
+    saveWaypoints();
+    renderJournalNarrationsList(wp);
+    // Only removes the underlying audio blob if no OTHER narration entry
+    // (on this or any other waypoint) still references the same cacheKey
+    // -- since the key is content-based (same text+voice+style), a
+    // duplicated story or a re-generated entry could legitimately share
+    // it, and deleting the blob out from under that would break it too.
+    const stillReferenced = waypoints.some((w) => (w.narrations || []).some((n) => n.cacheKey === entry.cacheKey));
+    if (!stillReferenced && storyAudioCacheStore) {
+      try { await storyAudioCacheStore.removeItem(entry.cacheKey); } catch (e) { /* non-fatal */ }
+    }
+    showToast("Narration deleted.");
+  }
+  journalGenerateNarrationBtn.addEventListener("click", async () => {
+    if (!editingWaypointId) return;
+    const wp = waypoints.find((w) => w.id === editingWaypointId);
+    if (!wp || !wp.notes) { showToast("Nothing to narrate yet."); return; }
+    if (!settings.geminiApiKey) { showToast("Add a Gemini API key in Settings to generate narration."); return; }
+    journalGenerateNarrationBtn.disabled = true;
+    journalGenerateNarrationBtn.textContent = "Generating…";
+    try {
+      const styleId = settings.ttsVoiceStyle;
+      const voiceName = settings.ttsVoiceName;
+      const cacheKey = hashPhotoContent(wp.notes) + "::" + voiceName + "::" + styleId;
+      const alreadyExists = (wp.narrations || []).some((n) => n.cacheKey === cacheKey);
+      await generateAndCacheNarration(wp.notes, voiceName, styleId);
+      if (!alreadyExists) {
+        if (!wp.narrations) wp.narrations = [];
+        wp.narrations.push({
+          id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          cacheKey, voiceName, label: voiceName, styleId, speed: settings.ttsSpeed,
+          createdAt: Date.now()
+        });
+        saveWaypoints();
+        renderJournalNarrationsList(wp);
+        showToast('Generated a new narration using "' + voiceName + '".');
+      } else {
+        showToast("A narration with this exact voice and style already exists.");
+      }
+    } catch (e) {
+      showToast("Couldn't generate narration — check your Gemini API key and connection.");
+    }
+    journalGenerateNarrationBtn.disabled = false;
+    journalGenerateNarrationBtn.textContent = "+ Generate";
+  });
 
   function buildTtsPrompt(text, styleIdOverride) {
     const style = TTS_VOICE_STYLES.find((s) => s.id === (styleIdOverride || settings.ttsVoiceStyle)) || TTS_VOICE_STYLES[0];
@@ -15854,6 +16043,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         currentStoryAudioEl = audioEl;
         currentStorySpeechState = "playing";
         updateListenButtons();
+        // Also records this exact voice/style combination into the
+        // waypoint's own narrations list (if it isn't already there),
+        // so a narration generated from this "Listen" button shows up
+        // in the same list as ones made with the dedicated "+ Generate"
+        // button below, rather than only existing as an anonymous,
+        // unlisted cache entry.
+        recordNarrationEntry(wp, settings.ttsVoiceName, settings.ttsVoiceStyle, settings.ttsSpeed);
         // Falls back to device voice here too, not just on a failed
         // synthesizeGeminiSpeech call above -- that only covers the
         // network/API request itself. The audio can still fail once it
@@ -20094,7 +20290,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         '<div class="card-actions">' +
           '<button class="card-action-btn" data-action="share" data-id="' + wp.id + '">' + icon("share", 14) + " Share</button>" +
           '<div class="card-action-split">' +
-            '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Listen</button>" +
+            '<button class="card-action-btn" data-action="listen-story" data-id="' + wp.id + '">' + icon("play", 14) + " Narrate</button>" +
             '<button class="card-action-btn card-action-gear" data-action="voice-settings" data-id="' + wp.id + '" title="A.I. voice settings">' + icon("gear", 14) + "</button>" +
           "</div>" +
         "</div>"
