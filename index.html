@@ -1654,14 +1654,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .review-tag-chip button{background:none; border:none; color:var(--text-mute); cursor:pointer; display:flex; align-items:center;
     justify-content:center; width:18px; height:18px; border-radius:50%; padding:0; font-size:14px; line-height:1;}
   .review-tag-chip button:hover{background:rgba(248,113,113,.15); color:var(--red);}
-  .card-actions{display:flex; gap:6px; margin-top:8px; margin-left:24px;}
-  .card-action-btn{flex:1; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;
-    color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;}
+  .card-actions{display:flex; gap:6px; margin-top:8px;}
+  .card-action-btn{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;
+    color:#cbd5e1; background:rgba(15,23,42,.7); border:1px solid var(--border); border-radius:8px; padding:7px; cursor:pointer;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .card-action-btn:hover{background:var(--surface);}
   .card-action-btn.listening{color:#a78bfa; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.1);}
   .card-action-btn.loading{color:#a78bfa; animation:story-generating-pulse 1.1s ease-in-out infinite;}
   .card-action-btn.loading svg, #journalListenBtn.loading svg{animation:panel-sync-spin 1s linear infinite;}
-  .card-action-split{flex:1; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+  .card-action-split{flex:1; min-width:0; display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
   .card-action-split .card-action-btn{border:none; border-radius:0;}
   .card-action-split .card-action-gear{flex:0 0 auto; padding:7px 10px; border-left:1px solid var(--border);}
   .card-action-split .card-action-gear:hover{color:var(--amber-light);}
@@ -2107,6 +2108,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <label class="field-label" style="margin:0; white-space:nowrap;">Import Waypoints from:</label>
             <button class="home-action-btn" id="layersImportTextBtn" style="flex:0 0 auto; min-width:0; padding-left:16px; padding-right:16px;">Text</button>
             <button class="home-action-btn" id="layersImportCsvBtn" style="flex:0 0 auto; min-width:0; padding-left:16px; padding-right:16px;">CSV</button>
+            <button class="home-action-btn" id="layersImportGpxBtn" style="flex:0 0 auto; min-width:0; padding-left:16px; padding-right:16px;">GPX</button>
           </div>
           <input type="file" id="importBackupFile" accept="application/json" style="display:none;" />
 
@@ -2231,6 +2233,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div id="urlFieldSection">
         <label class="field-label">Link</label>
         <input id="urlInput" class="field-input" type="url" placeholder="Paste a link related to this waypoint…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      </div>
+
+      <div id="modalNarrationsSection" class="journal-narrations-section hidden">
+        <div class="journal-narrations-header">
+          <span class="field-label" style="margin:0;">Narrations</span>
+          <button type="button" class="home-action-btn" id="modalGenerateNarrationBtn" style="padding:4px 10px; font-size:12px; flex:0 0 auto;">+ Generate</button>
+        </div>
+        <div id="modalNarrationsList" class="journal-narrations-list"></div>
       </div>
 
       <label class="field-label">Marker style</label>
@@ -2394,10 +2404,47 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
-  <!-- nested folder picker for imports (shared by the CSV and Text import
-       modals) -- browses a region's folder tree level by level, letting
-       the user drill into a subfolder, land on the current level, or
-       create a new subfolder right where they're standing -->
+  <!-- import waypoints from GPX modal -->
+  <div class="modal-overlay hidden" id="importGpxModalOverlay">
+    <div class="modal-card import-modal-card">
+      <div class="modal-header">
+        <h2>Import waypoints from GPX</h2>
+        <button class="icon-btn" id="importGpxModalCloseBtn" data-icon="x"></button>
+      </div>
+      <label class="field-label">Add these waypoints to</label>
+      <div class="directions-mode-row" style="margin-bottom:16px;">
+        <button type="button" class="directions-mode-btn active" id="importGpxRegionPersonalBtn" data-region="personal">Personal</button>
+        <button type="button" class="directions-mode-btn" id="importGpxRegionCanadaBtn" data-region="canada">Canada</button>
+        <button type="button" class="directions-mode-btn" id="importGpxRegionUsaBtn" data-region="usa">USA</button>
+      </div>
+      <label class="field-label">Into folder (optional)</label>
+      <button type="button" class="import-target-folder-btn" id="importGpxTargetFolderBtn" style="margin-bottom:16px;">
+        <span class="icon" data-icon="folder" data-icon-size="15"></span><span id="importGpxTargetFolderLabel">Top level</span><span class="icon" data-icon="chevronDown" data-icon-size="14"></span>
+      </button>
+      <p class="layers-hint">
+        Imports every <code>&lt;wpt&gt;</code> waypoint from a standard <code>.gpx</code> file (exported by most GPS devices and apps -- Garmin, Gaia GPS, CalTopo, and others), all marked with the ⛺ tent emoji.
+        Reads each waypoint's name, description/comment, elevation, and link if present -- tracks and routes in the file are not imported, only individual waypoints.
+      </p>
+
+      <div class="photo-dropzone" id="importGpxDropzone" tabindex="0">
+        <div class="photo-dropzone-empty" id="importGpxDropzoneEmpty">
+          <span class="icon"></span>
+          <p>Drag &amp; drop a .gpx file, or <span class="photo-dropzone-link">click to choose one</span></p>
+        </div>
+      </div>
+      <input type="file" id="importGpxFileInput" accept=".gpx,application/gpx+xml" style="display:none;" />
+      <p id="importGpxStatus" class="layers-hint" style="display:none;"></p>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-secondary" id="importGpxCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- nested folder picker for imports (shared by the Text, CSV, and GPX
+       import modals) -- browses a region's folder tree level by level,
+       letting the user drill into a subfolder, land on the current
+       level, or create a new subfolder right where they're standing -->
   <div class="modal-overlay hidden" id="importFolderPickerOverlay" style="z-index:60;">
     <div class="modal-card" style="max-width:380px;">
       <div class="modal-header">
@@ -2692,6 +2739,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
       <label class="field-label">Speed <span id="voiceSettingsSpeedValueLabel"></span></label>
       <input type="range" id="voiceSettingsSpeedSlider" class="field-input" min="0.5" max="2" step="0.05" />
+      <label class="field-label">Saved Narrations</label>
+      <div id="voiceSettingsNarrationsList" class="journal-narrations-list" style="margin-bottom:12px; max-height:180px; overflow-y:auto;"></div>
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-secondary" id="voiceSettingsSetDefaultBtn">Set as Default</button>
         <button type="button" class="btn btn-primary" id="voiceSettingsDoneBtn">Done</button>
@@ -4014,7 +4063,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "497";
+  const APP_VERSION = "502";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -4692,6 +4741,18 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const importCsvFileInput = el("importCsvFileInput");
   const importCsvStatus = el("importCsvStatus");
   const importCsvCancelBtn = el("importCsvCancelBtn");
+  const importGpxModalOverlay = el("importGpxModalOverlay");
+  const importGpxModalCloseBtn = el("importGpxModalCloseBtn");
+  const importGpxRegionPersonalBtn = el("importGpxRegionPersonalBtn");
+  const importGpxRegionCanadaBtn = el("importGpxRegionCanadaBtn");
+  const importGpxRegionUsaBtn = el("importGpxRegionUsaBtn");
+  const importGpxTargetFolderBtn = el("importGpxTargetFolderBtn");
+  const importGpxTargetFolderLabel = el("importGpxTargetFolderLabel");
+  const importGpxDropzone = el("importGpxDropzone");
+  const importGpxDropzoneEmpty = el("importGpxDropzoneEmpty");
+  const importGpxFileInput = el("importGpxFileInput");
+  const importGpxStatus = el("importGpxStatus");
+  const importGpxCancelBtn = el("importGpxCancelBtn");
   const importCsvTargetFolderBtn = el("importCsvTargetFolderBtn");
   const importCsvTargetFolderLabel = el("importCsvTargetFolderLabel");
   const importTextRegionPersonalBtn = el("importTextRegionPersonalBtn");
@@ -4719,6 +4780,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const journalTabReviewsBtn = el("journalTabReviewsBtn");
   const journalListenBtn = el("journalListenBtn");
   const journalNarrationsSection = el("journalNarrationsSection");
+  const modalNarrationsSection = el("modalNarrationsSection");
+  const modalNarrationsList = el("modalNarrationsList");
+  const modalGenerateNarrationBtn = el("modalGenerateNarrationBtn");
   const journalNarrationsList = el("journalNarrationsList");
   const journalGenerateNarrationBtn = el("journalGenerateNarrationBtn");
   const journalNotesPanel = el("journalNotesPanel");
@@ -5690,6 +5754,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const voiceSettingsSpeedValueLabel = el("voiceSettingsSpeedValueLabel");
   const voiceSettingsTestText = el("voiceSettingsTestText");
   const voiceSettingsTestBtn = el("voiceSettingsTestBtn");
+  const voiceSettingsNarrationsList = el("voiceSettingsNarrationsList");
   const voiceSettingsTestStatus = el("voiceSettingsTestStatus");
   const voiceSettingsSetDefaultBtn = el("voiceSettingsSetDefaultBtn");
   const voiceSettingsDoneBtn = el("voiceSettingsDoneBtn");
@@ -5861,6 +5926,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     voiceSettingsDraftSpeed = settings.ttsSpeed;
     applyVoiceSettingsDraftToUI();
     setVoiceTestStatus("");
+    renderVoiceSettingsNarrationsList();
     voiceSettingsModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
   }
@@ -15242,6 +15308,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     urlFieldSection.style.display = isStoryWp ? "none" : "block";
     reviewFieldLabelBtn.classList.toggle("hidden", isStoryWp);
     notesFieldLabelBtn.textContent = isStoryWp ? storyEntryTitle(wp) : "Notes";
+    modalNarrationsSection.classList.toggle("hidden", !isStoryWp);
+    if (isStoryWp) renderModalNarrationsList(wp);
     const existingMarker = markers[wp.id];
     if (existingMarker) { map.removeLayer(existingMarker); delete markers[wp.id]; }
 
@@ -15693,6 +15761,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     journalListenBtn.classList.toggle("loading", modalLoading);
     journalListenBtn.innerHTML = icon(modalLoading ? "sync" : (modalPlaying ? "stop" : "play"), 15);
     journalListenBtn.title = modalPlaying ? "Stop reading" : (modalLoading ? "Processing…" : "Narrate this story");
+    // Refreshed here too, not just from recordNarrationEntry's own,
+    // narrower check -- this runs on every single state transition
+    // (loading -> playing -> stopped), across BOTH the journal modal and
+    // the main Edit modal's own narrations lists, so neither can ever
+    // fall out of sync with the actual data no matter what order things
+    // happen in, rather than depending on one specific call site's timing.
+    refreshAllNarrationDisplays();
   }
   function stopStorySpeech() {
     if (currentStoryUsesGemini) {
@@ -15791,7 +15866,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       createdAt: Date.now()
     });
     saveWaypoints();
-    if (editingWaypointId === wp.id) renderJournalNarrationsList(wp);
+    refreshAllNarrationDisplays();
   }
   // A fully-awaited generate-and-cache, unlike synthesizeGeminiSpeech's own
   // fire-and-forget background encode -- this is for the explicit
@@ -15815,13 +15890,18 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   let currentlyPlayingNarrationId = null;
   let currentlyPlayingNarrationAudioEl = null;
-  function renderJournalNarrationsList(wp) {
+  // Shared rendering logic for a per-story narrations list -- used by
+  // both the journal ("expanded writing view") modal and the main Edit
+  // modal, since both can show a story's own narrations and both need to
+  // stay in sync with each other and with the global list in Voice
+  // Settings whenever anything changes.
+  function renderNarrationsListInto(listEl, wp) {
     const narrations = wp.narrations || [];
     if (narrations.length === 0) {
-      journalNarrationsList.innerHTML = '<p class="layers-hint" style="margin:0;">No narrations generated yet.</p>';
+      listEl.innerHTML = '<p class="layers-hint" style="margin:0;">No narrations generated yet.</p>';
       return;
     }
-    journalNarrationsList.innerHTML = narrations.map((n) =>
+    listEl.innerHTML = narrations.map((n) =>
       '<div class="journal-narration-row" data-narration-id="' + n.id + '">' +
         '<span class="icon">' + icon("music", 15) + '</span>' +
         '<input type="text" class="journal-narration-label-input" data-narration-id="' + n.id + '" value="' + escapeHtml(n.label || n.voiceName) + '" />' +
@@ -15829,7 +15909,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         '<button type="button" class="journal-narration-delete-btn" data-action="delete-narration" data-narration-id="' + n.id + '" title="Delete">' + icon("trash", 15) + '</button>' +
       '</div>'
     ).join("");
-    journalNarrationsList.querySelectorAll(".journal-narration-label-input").forEach((input) => {
+    listEl.querySelectorAll(".journal-narration-label-input").forEach((input) => {
       input.addEventListener("change", () => {
         const entry = (wp.narrations || []).find((n) => n.id === input.dataset.narrationId);
         if (!entry) return;
@@ -15838,11 +15918,84 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         saveWaypoints();
       });
     });
-    journalNarrationsList.querySelectorAll('[data-action="play-narration"]').forEach((btn) => {
+    listEl.querySelectorAll('[data-action="play-narration"]').forEach((btn) => {
       btn.addEventListener("click", () => toggleNarrationPlayback(wp, btn.dataset.narrationId, btn));
     });
-    journalNarrationsList.querySelectorAll('[data-action="delete-narration"]').forEach((btn) => {
+    listEl.querySelectorAll('[data-action="delete-narration"]').forEach((btn) => {
       btn.addEventListener("click", () => deleteNarration(wp, btn.dataset.narrationId));
+    });
+  }
+  function renderJournalNarrationsList(wp) { renderNarrationsListInto(journalNarrationsList, wp); }
+  function renderModalNarrationsList(wp) { renderNarrationsListInto(modalNarrationsList, wp); }
+  // Re-renders whichever of the three narration displays (the journal
+  // modal's own list, the main Edit modal's own list, and the global
+  // Voice Settings list) are actually relevant right now, so every call
+  // site that adds, deletes, or otherwise changes a narration can call
+  // this ONE function instead of needing to know which specific
+  // display(s) currently apply.
+  function refreshAllNarrationDisplays() {
+    if (editingWaypointId) {
+      const wp = waypoints.find((w) => w.id === editingWaypointId);
+      if (wp) {
+        if (!journalNarrationsSection.classList.contains("hidden")) renderJournalNarrationsList(wp);
+        if (!modalNarrationsSection.classList.contains("hidden")) renderModalNarrationsList(wp);
+      }
+    }
+    if (!voiceSettingsModalOverlay.classList.contains("hidden")) renderVoiceSettingsNarrationsList();
+  }
+  // A second, global view of the SAME per-waypoint narrations -- every
+  // story's saved MP3s in one place, in the Voice Settings modal, each
+  // labeled with which story it belongs to. Reuses toggleNarrationPlayback
+  // and deleteNarration as-is (both already take the owning waypoint as a
+  // parameter rather than assuming editingWaypointId), so playing or
+  // deleting a narration here does exactly what it does in the story's
+  // own Edit modal, just reached from a different, story-independent entry
+  // point for anyone managing their whole library rather than one story
+  // at a time.
+  function renderVoiceSettingsNarrationsList() {
+    const entries = [];
+    waypoints.forEach((wp) => {
+      (wp.narrations || []).forEach((n) => entries.push({ wp, n }));
+    });
+    if (entries.length === 0) {
+      voiceSettingsNarrationsList.innerHTML = '<p class="layers-hint" style="margin:0;">No narrations generated yet.</p>';
+      return;
+    }
+    voiceSettingsNarrationsList.innerHTML = entries.map(({ wp, n }) =>
+      '<div class="journal-narration-row" data-narration-id="' + n.id + '" data-wp-id="' + wp.id + '">' +
+        '<span class="icon">' + icon("music", 15) + '</span>' +
+        '<div style="flex:1; min-width:0;">' +
+          '<div style="font-size:10px; color:var(--text-mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(wp.name || "Untitled story") + '</div>' +
+          '<input type="text" class="journal-narration-label-input" data-narration-id="' + n.id + '" value="' + escapeHtml(n.label || n.voiceName) + '" style="padding:0;" />' +
+        '</div>' +
+        '<button type="button" class="journal-narration-play-btn" data-action="play-narration" data-narration-id="' + n.id + '" title="Play">' + icon("play", 15) + '</button>' +
+        '<button type="button" class="journal-narration-delete-btn" data-action="delete-narration" data-narration-id="' + n.id + '" title="Delete">' + icon("trash", 15) + '</button>' +
+      '</div>'
+    ).join("");
+    voiceSettingsNarrationsList.querySelectorAll(".journal-narration-label-input").forEach((input) => {
+      input.addEventListener("change", () => {
+        const row = input.closest("[data-wp-id]");
+        const wp = waypoints.find((w) => w.id === row.dataset.wpId);
+        const entry = wp && (wp.narrations || []).find((n) => n.id === input.dataset.narrationId);
+        if (!entry) return;
+        entry.label = input.value.trim() || entry.voiceName;
+        input.value = entry.label;
+        saveWaypoints();
+      });
+    });
+    voiceSettingsNarrationsList.querySelectorAll('[data-action="play-narration"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = btn.closest("[data-wp-id]");
+        const wp = waypoints.find((w) => w.id === row.dataset.wpId);
+        if (wp) toggleNarrationPlayback(wp, btn.dataset.narrationId, btn);
+      });
+    });
+    voiceSettingsNarrationsList.querySelectorAll('[data-action="delete-narration"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = btn.closest("[data-wp-id]");
+        const wp = waypoints.find((w) => w.id === row.dataset.wpId);
+        if (wp) deleteNarration(wp, btn.dataset.narrationId);
+      });
     });
   }
   async function toggleNarrationPlayback(wp, narrationId, btn) {
@@ -15888,7 +16041,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if (currentlyPlayingNarrationId === narrationId) stopNarrationPlayback();
     wp.narrations.splice(idx, 1);
     saveWaypoints();
-    renderJournalNarrationsList(wp);
+    // refreshAllNarrationDisplays only touches the journal/modal lists if
+    // THEY'RE currently showing this exact waypoint -- this can be called
+    // from the global Voice Settings list for a DIFFERENT story than
+    // whichever one (if any) is open in an edit view, and unconditionally
+    // overwriting that view would show the wrong story's narrations in it.
+    refreshAllNarrationDisplays();
     // Only removes the underlying audio blob if no OTHER narration entry
     // (on this or any other waypoint) still references the same cacheKey
     // -- since the key is content-based (same text+voice+style), a
@@ -15900,13 +16058,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     }
     showToast("Narration deleted.");
   }
-  journalGenerateNarrationBtn.addEventListener("click", async () => {
+  // Shared by both "+ Generate" buttons (journal modal and main Edit
+  // modal) -- identical behavior either way, just triggered from whichever
+  // view the person happens to be using for this particular story.
+  async function handleGenerateNarrationClick(btn) {
     if (!editingWaypointId) return;
     const wp = waypoints.find((w) => w.id === editingWaypointId);
     if (!wp || !wp.notes) { showToast("Nothing to narrate yet."); return; }
     if (!settings.geminiApiKey) { showToast("Add a Gemini API key in Settings to generate narration."); return; }
-    journalGenerateNarrationBtn.disabled = true;
-    journalGenerateNarrationBtn.textContent = "Generating…";
+    btn.disabled = true;
+    btn.textContent = "Generating…";
     try {
       const styleId = settings.ttsVoiceStyle;
       const voiceName = settings.ttsVoiceName;
@@ -15921,7 +16082,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           createdAt: Date.now()
         });
         saveWaypoints();
-        renderJournalNarrationsList(wp);
+        refreshAllNarrationDisplays();
         showToast('Generated a new narration using "' + voiceName + '".');
       } else {
         showToast("A narration with this exact voice and style already exists.");
@@ -15929,9 +16090,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     } catch (e) {
       showToast("Couldn't generate narration — check your Gemini API key and connection.");
     }
-    journalGenerateNarrationBtn.disabled = false;
-    journalGenerateNarrationBtn.textContent = "+ Generate";
-  });
+    btn.disabled = false;
+    btn.textContent = "+ Generate";
+  }
+  journalGenerateNarrationBtn.addEventListener("click", () => handleGenerateNarrationClick(journalGenerateNarrationBtn));
+  modalGenerateNarrationBtn.addEventListener("click", () => handleGenerateNarrationClick(modalGenerateNarrationBtn));
 
   function buildTtsPrompt(text, styleIdOverride) {
     const style = TTS_VOICE_STYLES.find((s) => s.id === (styleIdOverride || settings.ttsVoiceStyle)) || TTS_VOICE_STYLES[0];
@@ -17357,6 +17520,146 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   });
   importCsvDropzone.addEventListener("drop", (e) => {
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handleImportCsvFile(e.dataTransfer.files[0]);
+  });
+
+  /* ================================================================ */
+  /*  Import waypoints from a GPX file                                 */
+  /* ================================================================ */
+
+  let importGpxSelectedRegion = "personal";
+  let importGpxTargetFolderId = null;
+
+  // GPX is XML with a fixed, standard schema (unlike CSV, its field order
+  // and names are the same across every device/app that produces it), so
+  // this reads directly by tag name rather than needing any
+  // user-configurable column mapping.
+  function parseImportGpx(text, region, folderId) {
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(text, "application/xml");
+      if (doc.querySelector("parsererror")) throw new Error("Invalid XML");
+    } catch (e) {
+      return { imported: [], skipped: 0, notes: ["Couldn't read this file as GPX -- make sure it's a valid, unmodified .gpx export."] };
+    }
+    const wpts = doc.querySelectorAll("wpt");
+    if (wpts.length === 0) return { imported: [], skipped: 0, notes: ["No <wpt> waypoints were found in this file -- only individual waypoints are imported, not tracks or routes."] };
+    const imported = [];
+    let skipped = 0;
+    const notes = [];
+    wpts.forEach((wptEl, idx) => {
+      const lat = parseFloat(wptEl.getAttribute("lat"));
+      const lng = parseFloat(wptEl.getAttribute("lon"));
+      if (!isFinite(lat) || !isFinite(lng)) { skipped++; notes.push("Waypoint " + (idx + 1) + " had an unreadable latitude/longitude — skipped."); return; }
+      const textOf = (tag) => {
+        const el = wptEl.querySelector(tag);
+        return el ? el.textContent.trim() : "";
+      };
+      const name = textOf("name") || "Waypoint " + (idx + 1);
+      const desc = textOf("desc");
+      const cmt = textOf("cmt");
+      const ele = textOf("ele");
+      const sym = textOf("sym");
+      const noteParts = [];
+      if (desc) noteParts.push(desc);
+      if (cmt && cmt !== desc) noteParts.push("Comment: " + cmt);
+      if (sym) noteParts.push("Type: " + sym);
+      if (ele) noteParts.push("Elevation: " + ele + "m");
+      const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "-" + idx;
+      const wp = {
+        id, lat, lng, name,
+        notes: noteParts.join("\n"),
+        code: generateWordCode(lat, lng),
+        isCurrentLocation: false,
+        markerStyle: "emoji", markerColor: TENT_IMPORT_COLOR, markerEmoji: "⛺",
+        photos: [],
+        region, folderId
+      };
+      const linkEl = wptEl.querySelector("link");
+      const linkHref = linkEl ? linkEl.getAttribute("href") : null;
+      if (linkHref && /^https?:\/\//i.test(linkHref)) wp.url = linkHref;
+      imported.push(wp);
+    });
+    return { imported, skipped, notes };
+  }
+  async function handleImportGpxFile(file) {
+    importGpxStatus.style.display = "none";
+    let text;
+    try {
+      text = await file.text();
+    } catch (e) {
+      importGpxStatus.textContent = "Couldn't read that file. Make sure it's a plain .gpx file.";
+      importGpxStatus.style.display = "block";
+      return;
+    }
+    const result = parseImportGpx(text, importGpxSelectedRegion, importGpxTargetFolderId);
+    if (result.imported.length === 0) {
+      importGpxStatus.textContent = result.notes[0] || "No valid waypoints found in this file.";
+      importGpxStatus.style.display = "block";
+      return;
+    }
+    result.imported.forEach((wp) => {
+      addSavedMarker(wp);
+      waypoints.push(wp);
+    });
+    saveWaypoints();
+    renderList();
+    updateCounters();
+    const regionLabel = importGpxSelectedRegion === "canada" ? "Canada" : importGpxSelectedRegion === "usa" ? "USA" : "Personal";
+    let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + " into " + regionLabel + ".";
+    if (result.skipped) msg += " Skipped " + result.skipped + ".";
+    showToast(msg);
+    closeImportGpxModal();
+  }
+  function openImportGpxModal() {
+    importGpxStatus.style.display = "none";
+    importGpxSelectedRegion = "personal";
+    importGpxTargetFolderId = null;
+    [importGpxRegionPersonalBtn, importGpxRegionCanadaBtn, importGpxRegionUsaBtn].forEach((b) => b.classList.toggle("active", b === importGpxRegionPersonalBtn));
+    updateImportGpxTargetFolderLabel();
+    importGpxModalOverlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeImportGpxModal() {
+    importGpxModalOverlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  function updateImportGpxTargetFolderLabel() {
+    importGpxTargetFolderLabel.textContent = folderPathLabel(importGpxTargetFolderId, importGpxSelectedRegion);
+  }
+  importGpxDropzoneEmpty.querySelector(".icon").innerHTML = icon("upload", 22);
+  el("layersImportGpxBtn").addEventListener("click", openImportGpxModal);
+  importGpxModalCloseBtn.addEventListener("click", closeImportGpxModal);
+  importGpxCancelBtn.addEventListener("click", closeImportGpxModal);
+  [importGpxRegionPersonalBtn, importGpxRegionCanadaBtn, importGpxRegionUsaBtn].forEach((btn) => {
+    btn.addEventListener("click", () => {
+      importGpxSelectedRegion = btn.dataset.region;
+      [importGpxRegionPersonalBtn, importGpxRegionCanadaBtn, importGpxRegionUsaBtn].forEach((b) => b.classList.toggle("active", b === btn));
+      importGpxTargetFolderId = null;
+      updateImportGpxTargetFolderLabel();
+    });
+  });
+  importGpxTargetFolderBtn.addEventListener("click", () => {
+    openImportFolderPicker(importGpxSelectedRegion, (folderId) => {
+      importGpxTargetFolderId = folderId;
+      updateImportGpxTargetFolderLabel();
+    });
+  });
+  importGpxDropzone.addEventListener("click", () => importGpxFileInput.click());
+  importGpxDropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); importGpxFileInput.click(); }
+  });
+  importGpxFileInput.addEventListener("change", () => {
+    if (importGpxFileInput.files && importGpxFileInput.files[0]) handleImportGpxFile(importGpxFileInput.files[0]);
+    importGpxFileInput.value = "";
+  });
+  ["dragenter", "dragover"].forEach((evt) => {
+    importGpxDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); importGpxDropzone.classList.add("drag-over"); });
+  });
+  ["dragleave", "drop"].forEach((evt) => {
+    importGpxDropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); importGpxDropzone.classList.remove("drag-over"); });
+  });
+  importGpxDropzone.addEventListener("drop", (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handleImportGpxFile(e.dataTransfer.files[0]);
   });
 
   function deleteWaypoint(id) {
