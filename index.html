@@ -4063,7 +4063,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "502";
+  const APP_VERSION = "503";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -17169,8 +17169,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     ).sort((a, b) => compareSortNames(a.name, b.name));
     importFolderPickerList.innerHTML =
       '<div class="folder-picker-row" data-action="select-here"><span class="icon">' + icon("checkSquare", 16) + '</span><span>Import into "' + escapeHtml(breadcrumbText) + '"</span></div>' +
-      children.map((f) => '<div class="folder-picker-row" data-action="drill-in" data-id="' + f.id + '"><span class="icon">' + icon("folder", 16) + '</span><span>' + escapeHtml(f.name) + '</span></div>').join("") +
-      '<div class="folder-picker-row folder-picker-new" data-action="new-subfolder"><span class="icon">' + icon("plus", 16) + '</span><span>New folder here…</span></div>';
+      '<div class="folder-picker-row folder-picker-new" data-action="new-subfolder"><span class="icon">' + icon("plus", 16) + '</span><span>New folder here…</span></div>' +
+      children.map((f) => '<div class="folder-picker-row" data-action="drill-in" data-id="' + f.id + '"><span class="icon">' + icon("folder", 16) + '</span><span>' + escapeHtml(f.name) + '</span></div>').join("");
     importFolderPickerList.querySelectorAll("[data-action]").forEach((row) => {
       row.addEventListener("click", () => {
         const action = row.dataset.action;
