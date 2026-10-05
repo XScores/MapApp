@@ -78086,7 +78086,7 @@ module.exports.zip = require('./src/zip')
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "533";
+  const APP_VERSION = "534";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -81068,13 +81068,17 @@ module.exports.zip = require('./src/zip')
     // the underlying images array at all, so it can't be picked up and
     // moved, though it stays a valid drop target: dropping an image onto
     // it moves that image to the very front of the list instead.
+    // Every item gets the tap handling, including the default dot: taps
+    // select through this same gesture, so leaving the dot out (as before)
+    // made it impossible to select, whether favourited or not. The dot
+    // only opts out of being dragged.
     locationMarkerGallery.querySelectorAll(".location-marker-gallery-item-wrap").forEach((wrap) => {
-      if (!wrap.dataset.itemId) return;
       const btn = wrap.querySelector(".location-marker-gallery-item");
       btn.style.touchAction = "pan-y";
       btn.addEventListener("pointerdown", (e) => {
         locationMarkerDragState = {
-          pointerId: e.pointerId, wrap, startX: e.clientX, startY: e.clientY, dragging: false, id: wrap.dataset.itemId
+          pointerId: e.pointerId, wrap, startX: e.clientX, startY: e.clientY, dragging: false, id: wrap.dataset.itemId,
+          canDrag: !!wrap.dataset.itemId
         };
         btn.setPointerCapture(e.pointerId);
       });
@@ -81158,7 +81162,7 @@ module.exports.zip = require('./src/zip')
     if (!locationMarkerDragState || e.pointerId !== locationMarkerDragState.pointerId) return;
     const state = locationMarkerDragState;
     const dx = e.clientX - state.startX, dy = e.clientY - state.startY;
-    if (!state.dragging && Math.hypot(dx, dy) > LOCATION_MARKER_DRAG_THRESHOLD_PX) {
+    if (!state.dragging && state.canDrag && Math.hypot(dx, dy) > LOCATION_MARKER_DRAG_THRESHOLD_PX) {
       state.dragging = true;
       state.wrap.classList.add("dragging");
       state.wrap.style.pointerEvents = "none"; // so elementFromPoint below sees what's UNDER it, not itself
