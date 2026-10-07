@@ -990,6 +990,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border-radius:10px; padding:0 10px; height:34px; box-sizing:border-box; display:flex; align-items:center; gap:8px;
     user-select:none; pointer-events:none; visibility:hidden;}
   .map-scale.ready{visibility:visible;}
+  /* Map rotation: the wrapper the map pane is rotated in (see the "Map rotation" script section). */
+  .map-rot-wrap{position:absolute; left:50%; top:50%; width:0; height:0; z-index:400;}
+  .map-rot-shift{position:absolute; width:0; height:0;}
+  .map-compass{position:absolute; top:calc(env(safe-area-inset-top, 0px) + 72px); right:12px; z-index:11; width:44px; height:44px; border-radius:50%;
+    background:rgba(15,23,42,.92); border:1px solid var(--border); padding:0; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35);}
+  .map-compass.hidden{display:none;}
+  #mapOrientationList .folder-picker-row{height:auto; min-height:44px; padding-top:8px; padding-bottom:8px;}
+  #mapOrientationList .folder-picker-row > span:nth-child(2), #mapOrientationList .paper-wiz-row-sub{white-space:normal; overflow:visible; text-overflow:clip;}
+  .map-compass.following{border:2px solid var(--amber);}
+  .map-compass-needle{width:36px; height:36px; transition:transform .08s linear;}
   .paper-map-row{display:flex; gap:8px;}
   .paper-map-row > div{flex:1; min-width:0;}
   .paper-map-summary{font-size:12px; line-height:1.45; color:var(--text-dim); margin:10px 0 0;}
@@ -2282,6 +2293,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
         </div>
         <div class="layers-section">
+          <p class="layers-section-title">Map orientation</p>
+          <div class="folder-picker-list" id="mapOrientationList">
+            <div class="folder-picker-row" data-orientation="north" role="radio"><span class="icon" data-icon="navigation" data-icon-size="15"></span><span>North up<span class="paper-wiz-row-sub">The map stays fixed with north at the top</span></span><span class="story-format-checkbox"></span></div>
+            <div class="folder-picker-row" data-orientation="free" role="radio"><span class="icon" data-icon="sync" data-icon-size="15"></span><span>Rotate with two fingers<span class="paper-wiz-row-sub">Twist with two fingers to turn the map. Tap the compass to point north.</span></span><span class="story-format-checkbox"></span></div>
+            <div class="folder-picker-row" data-orientation="travel" role="radio"><span class="icon" data-icon="directions" data-icon-size="15"></span><span>Direction of travel<span class="paper-wiz-row-sub">The way you're moving stays at the top. Twisting or tapping the compass pauses it; tap the compass to resume.</span></span><span class="story-format-checkbox"></span></div>
+          </div>
+        </div>
+        <div class="layers-section">
           <p class="layers-section-title">Home base</p>
           <p class="home-status" id="homeStatus">No home set yet.</p>
           <div class="home-actions">
@@ -2472,6 +2491,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="hud-title"><span id="hudIcon"></span><span id="hudLabel">WAYPOINT SAVER · 0 SAVED</span></div>
     <div class="hud-coords mono" id="hudCoords">20.00000, 0.00000</div>
   </div>
+  <button type="button" class="map-compass hidden" id="mapCompassBtn" title="Point north" aria-label="Point north">
+    <svg class="map-compass-needle" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 5 L25 20 L15 20 Z" fill="#ef4444"/><path d="M20 35 L25 20 L15 20 Z" fill="#e2e8f0"/><text x="20" y="14.5" text-anchor="middle" font-size="7" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">N</text></svg>
+  </button>
   <div class="map-scale" id="mapScale" aria-label="Map scale"><div class="map-scale-bar" id="mapScaleBar"></div><span class="map-scale-label mono" id="mapScaleLabel"></span></div>
 
   <!-- naming modal -->
@@ -78086,7 +78108,7 @@ module.exports.zip = require('./src/zip')
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "534";
+  const APP_VERSION = "535";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -78109,7 +78131,7 @@ module.exports.zip = require('./src/zip')
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", thunderforestApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], customWaypointIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null },
+  const DEFAULT_SETTINGS = { baseLayer: "street", mapOrientation: "north", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", thunderforestApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], customWaypointIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null },
     tripPlanDefaults: { contact1Name: "", contact1Phone: "", contact2Name: "", contact2Phone: "", vehicleDescription: "", overdueContact: "", medicalNotes: "" } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
@@ -79585,6 +79607,395 @@ module.exports.zip = require('./src/zip')
     maxBounds: WORLD_BOUNDS,
     maxBoundsViscosity: 1.0
   }).setView([45.4215, -75.6972], 11);
+
+  /* ================================================================ */
+  /*  Map rotation -- MapApp's own implementation for Leaflet 1.9.4   */
+  /*  (no third-party plugin).                                        */
+  /*                                                                    */
+  /*  How it works: Leaflet keeps working exactly as before in its own  */
+  /*  unrotated ("virtual") space. Its map pane is moved into a wrapper */
+  /*  that's rotated about the centre of the screen with CSS. The few   */
+  /*  places where screen positions cross into Leaflet are translated:  */
+  /*  container-point conversions (so taps, pinches and every overlay   */
+  /*  the app positions on screen stay correct), panBy and getBounds,   */
+  /*  drag offsets, the tile and vector-layer coverage (a rotated view  */
+  /*  shows more of the map at its corners), and markers, tooltips and  */
+  /*  popups, which are turned back upright so they stay readable.      */
+  /*                                                                    */
+  /*  bearing = the compass direction at the top of the screen          */
+  /*  (0 = north up). The map content is rotated by -bearing.           */
+  /* ================================================================ */
+  const mapRot = { bearing: 0, raw: 0, wrap: null, paneSpacePan: false };
+  function rotVec(p, deg) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return L.point(p.x * c - p.y * s, p.x * s + p.y * c);
+  }
+  (function installMapRotation() {
+    const container = map.getContainer();
+    const wrap = document.createElement("div");
+    wrap.className = "map-rot-wrap";
+    const shift = document.createElement("div");
+    shift.className = "map-rot-shift";
+    container.insertBefore(wrap, map._mapPane);
+    wrap.appendChild(shift);
+    shift.appendChild(map._mapPane);
+    mapRot.wrap = wrap;
+    // The wrapper sits at the centre of the map as a zero-size box (so it
+    // rotates about the centre, and so Leaflet's drag scale detection, which
+    // skips zero-size parents, never sees the rotation); the inner box puts
+    // the pane's origin back at the map's top-left corner.
+    const sizeShift = () => { const s = map.getSize(); shift.style.left = (-s.x / 2) + "px"; shift.style.top = (-s.y / 2) + "px"; };
+    sizeShift();
+    map.on("resize", sizeShift);
+
+    // ---- Coordinate conversions: public "container points" are screen points ----
+    const origC2L = map.containerPointToLayerPoint, origL2C = map.layerPointToContainerPoint;
+    const origPanBy = map.panBy, origGetBounds = map.getBounds;
+    map.containerPointToLayerPoint = function (p) {
+      p = L.point(p);
+      if (!mapRot.bearing || mapRot.raw) return origC2L.call(this, p);
+      const C = this.getSize().divideBy(2);
+      return origC2L.call(this, rotVec(p.subtract(C), mapRot.bearing).add(C));
+    };
+    map.layerPointToContainerPoint = function (p) {
+      const v = origL2C.call(this, L.point(p));
+      if (!mapRot.bearing || mapRot.raw) return v;
+      const C = this.getSize().divideBy(2);
+      return rotVec(v.subtract(C), -mapRot.bearing).add(C);
+    };
+    // panBy takes a screen offset (keyboard arrows, popup auto-pan, app code)...
+    map.panBy = function (offset, options) {
+      offset = L.point(offset);
+      if (mapRot.bearing && !mapRot.raw && !mapRot.paneSpacePan) offset = rotVec(offset, mapRot.bearing);
+      mapRot.paneSpacePan = false;
+      return origPanBy.call(this, offset, options);
+    };
+    // ...except the drag "throw" at the end of a pan, which Leaflet computes in its own space.
+    const DragP = L.Map.Drag.prototype;
+    const origDragEnd = DragP._onDragEnd;
+    DragP._onDragEnd = function (e) {
+      mapRot.paneSpacePan = !!mapRot.bearing;
+      try { return origDragEnd.call(this, e); } finally { mapRot.paneSpacePan = false; }
+    };
+    // The world-edge limit during a drag is compared with the pane's own position, so it's measured unrotated.
+    const origDragStart = DragP._onDragStart;
+    DragP._onDragStart = function () {
+      const r = origDragStart.apply(this, arguments);
+      const m = this._map;
+      if (mapRot.bearing && m.options.maxBounds && m.options.maxBoundsViscosity) {
+        const b = L.latLngBounds(m.options.maxBounds);
+        mapRot.raw++;
+        try {
+          this._offsetLimit = L.bounds(m.latLngToContainerPoint(b.getNorthWest()).multiplyBy(-1),
+            m.latLngToContainerPoint(b.getSouthEast()).multiplyBy(-1).add(m.getSize()));
+        } finally { mapRot.raw--; }
+      }
+      return r;
+    };
+    // The visible area is the rotated screen, so bounds come from its four corners.
+    map.getBounds = function () {
+      if (!mapRot.bearing || mapRot.raw) return origGetBounds.call(this);
+      const s = this.getSize();
+      return L.latLngBounds([[0, 0], [s.x, 0], [s.x, s.y], [0, s.y]].map((p) => this.containerPointToLatLng(p)));
+    };
+
+    // ---- Dragging the map or a marker: screen movement turned into pane movement ----
+    const origDragUpdate = L.Draggable.prototype._updatePosition;
+    L.Draggable.prototype._updatePosition = function () {
+      if (mapRot.bearing && this._newPos && this._startPos && this._element && wrap.contains(this._element)) {
+        this._newPos = this._startPos.add(rotVec(this._newPos.subtract(this._startPos), mapRot.bearing));
+      }
+      return origDragUpdate.call(this);
+    };
+
+    // ---- Coverage: load tiles and draw vectors for the whole rotated view ----
+    const origTiled = L.GridLayer.prototype._getTiledPixelBounds;
+    L.GridLayer.prototype._getTiledPixelBounds = function (center) {
+      const b = origTiled.call(this, center);
+      if (!mapRot.bearing) return b;
+      const s = this._map.getSize(), a = mapRot.bearing * Math.PI / 180;
+      const kx = (Math.abs(s.x * Math.cos(a)) + Math.abs(s.y * Math.sin(a))) / s.x;
+      const ky = (Math.abs(s.x * Math.sin(a)) + Math.abs(s.y * Math.cos(a))) / s.y;
+      const c = b.getCenter(), half = b.getSize().divideBy(2);
+      const h = L.point(half.x * kx, half.y * ky);
+      return L.bounds(c.subtract(h), c.add(h));
+    };
+    const origRendererUpdate = L.Renderer.prototype._update;
+    L.Renderer.prototype._update = function () {
+      if (!mapRot.bearing) return origRendererUpdate.call(this);
+      const m = this._map, p = this.options.padding, s = m.getSize();
+      const d = Math.hypot(s.x, s.y) * (0.5 + p); // a square that covers the screen at any angle
+      mapRot.raw++;
+      try {
+        const c = m.containerPointToLayerPoint(s.divideBy(2));
+        this._bounds = L.bounds(c.subtract(L.point(d, d)).round(), c.add(L.point(d, d)).round());
+      } finally { mapRot.raw--; }
+      this._center = m.getCenter();
+      this._zoom = m.getZoom();
+    };
+
+    // ---- Keep markers, tooltips and popups upright ----
+    // Each is turned back by +bearing about the point it's pinned to, so a
+    // pin's tip, a label's anchor or a popup's tail stays exactly on its spot.
+    const stripRot = (t) => (t || "").replace(/\s*rotate\([^)]*\)/g, "");
+    function uprightMarker(m) {
+      const el = m._icon;
+      if (!el) return;
+      let t = stripRot(el.style.transform);
+      if (mapRot.bearing && !m.options.rotateWithMap) {
+        el.style.transformOrigin = (-(parseFloat(el.style.marginLeft) || 0)) + "px " + (-(parseFloat(el.style.marginTop) || 0)) + "px";
+        t += " rotate(" + mapRot.bearing + "deg)";
+      }
+      el.style.transform = t;
+    }
+    function uprightOverlay(el, layerPt) {
+      if (!el) return;
+      let t = stripRot(el.style.transform);
+      if (mapRot.bearing && layerPt) {
+        const pos = L.DomUtil.getPosition(el);
+        el.style.transformOrigin = (layerPt.x - pos.x - el.offsetLeft) + "px " + (layerPt.y - pos.y - el.offsetTop) + "px";
+        t += " rotate(" + mapRot.bearing + "deg)";
+      }
+      el.style.transform = t;
+    }
+    const origSetPos = L.Marker.prototype._setPos;
+    L.Marker.prototype._setPos = function (pos) { origSetPos.call(this, pos); uprightMarker(this); };
+    const origTipPos = L.Tooltip.prototype._setPosition;
+    L.Tooltip.prototype._setPosition = function (pos) { origTipPos.call(this, pos); uprightOverlay(this._container, pos); };
+    const origPopupPos = L.Popup.prototype._updatePosition;
+    L.Popup.prototype._updatePosition = function () {
+      origPopupPos.call(this);
+      if (this._map) uprightOverlay(this._container, this._map.latLngToLayerPoint(this._latlng));
+    };
+    // Popup auto-pan, measured from the popup's real on-screen box when rotated.
+    const origAdjust = L.Popup.prototype._adjustPan;
+    L.Popup.prototype._adjustPan = function () {
+      if (!mapRot.bearing) return origAdjust.apply(this, arguments);
+      if (!this.options.autoPan || !this._map || !this._container) return;
+      const m = this._map;
+      if (m._panAnim) m._panAnim.stop();
+      const r = this._container.getBoundingClientRect(), c = m.getContainer().getBoundingClientRect(), size = m.getSize();
+      const pad = L.point(this.options.autoPanPadding);
+      const left = r.left - c.left, right = r.right - c.left, top = r.top - c.top, bottom = r.bottom - c.top;
+      let dx = 0, dy = 0;
+      if (right + pad.x > size.x) dx = right - size.x + pad.x;
+      if (left - dx - pad.x < 0) dx = left - pad.x;
+      if (bottom + pad.y > size.y) dy = bottom - size.y + pad.y;
+      if (top - dy - pad.y < 0) dy = top - pad.y;
+      if (dx || dy) m.fire("autopanstart").panBy([dx, dy]);
+    };
+    mapRot.uprightAll = () => {
+      map.eachLayer((l) => {
+        if (l instanceof L.Marker) uprightMarker(l);
+        else if ((l instanceof L.Tooltip || l instanceof L.Popup) && l._map && l._latlng) l._updatePosition();
+      });
+    };
+  })();
+
+  let mapRotRefreshTimer = null;
+  function refreshRotatedCoverage() {
+    clearTimeout(mapRotRefreshTimer);
+    mapRotRefreshTimer = null;
+    map.eachLayer((l) => {
+      if (l instanceof L.GridLayer && l._map) l._update();
+      else if (l instanceof L.Renderer && l._map) { l._update(); }
+    });
+  }
+  // Sets the bearing instantly. `around` keeps that point fixed on screen
+  // (e.g. your position while following direction of travel).
+  function setMapBearing(deg, opts) {
+    const o = opts || {};
+    let b = ((Number(deg) % 360) + 360) % 360;
+    if (b < 0.05 || b > 359.95) b = 0;
+    if (b === mapRot.bearing) return;
+    const around = o.around ? L.latLng(o.around) : null;
+    const before = around ? map.latLngToContainerPoint(around) : null;
+    mapRot.bearing = b;
+    mapRot.wrap.style.transform = b ? "rotate(" + (-b) + "deg)" : "";
+    mapRot.uprightAll();
+    if (around) {
+      const after = map.latLngToContainerPoint(around);
+      const d = after.subtract(before);
+      if (Math.abs(d.x) > 0.5 || Math.abs(d.y) > 0.5) map.panBy(d, { animate: false });
+    }
+    // Loading tiles for the newly exposed corners: right away when settled, throttled while turning.
+    if (o.live) { if (!mapRotRefreshTimer) mapRotRefreshTimer = setTimeout(refreshRotatedCoverage, 120); }
+    else refreshRotatedCoverage();
+    updateMapCompass();
+    if (typeof updateMapScale === "function") updateMapScale();
+    map.fire("rotate", { bearing: b });
+  }
+  let mapBearingAnim = null;
+  function animateMapBearing(target, opts) {
+    const o = opts || {};
+    if (mapBearingAnim) cancelAnimationFrame(mapBearingAnim);
+    const start = mapRot.bearing;
+    let delta = (((target - start) % 360) + 540) % 360 - 180; // the short way round
+    if (Math.abs(delta) < 1) { setMapBearing(target, o); return; }
+    const t0 = performance.now(), dur = o.duration || Math.min(500, 150 + Math.abs(delta) * 3);
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      setMapBearing(start + delta * e, Object.assign({}, o, { live: k < 1 }));
+      mapBearingAnim = k < 1 ? requestAnimationFrame(step) : null;
+    };
+    mapBearingAnim = requestAnimationFrame(step);
+  }
+
+  // ---- Orientation modes: north up | free (two-finger rotate) | travel (direction of travel up) ----
+  const mapCompassBtn = el("mapCompassBtn");
+  let travelFollowPaused = false;   // a two-finger twist or a compass tap pauses direction-of-travel until the compass is tapped again
+  let lastTravelHeading = null;
+  function mapOrientationMode() { return ["north", "free", "travel"].includes(settings.mapOrientation) ? settings.mapOrientation : "north"; }
+  // Rotation is held at north while a paper map is being set up, since its sheets are drawn grid-north up.
+  function mapRotationBlocked() {
+    const hud = document.getElementById("paperWizHud"), modal = document.getElementById("paperMapModalOverlay");
+    return (hud && !hud.classList.contains("hidden")) || (modal && !modal.classList.contains("hidden"));
+  }
+  function updateMapCompass() {
+    const mode = mapOrientationMode();
+    const show = mode === "travel" || (mode === "free" && mapRot.bearing !== 0);
+    mapCompassBtn.classList.toggle("hidden", !show || mapRotationBlocked());
+    mapCompassBtn.classList.toggle("following", mode === "travel" && !travelFollowPaused);
+    const needle = mapCompassBtn.querySelector(".map-compass-needle");
+    if (needle) needle.style.transform = "rotate(" + (-mapRot.bearing) + "deg)";
+    mapCompassBtn.title = mode === "travel"
+      ? (travelFollowPaused ? "Follow direction of travel" : "Point north (pauses direction of travel)")
+      : "Point north";
+    mapCompassBtn.setAttribute("aria-label", mapCompassBtn.title);
+  }
+  mapCompassBtn.addEventListener("click", () => {
+    if (mapOrientationMode() === "travel") {
+      if (travelFollowPaused) {
+        travelFollowPaused = false;
+        if (lastTravelHeading !== null) animateMapBearing(lastTravelHeading, { around: lastLivePosition || undefined });
+        showToast("Following direction of travel");
+      } else {
+        travelFollowPaused = true;
+        animateMapBearing(0);
+        showToast("North up. Tap the compass to follow direction of travel again.");
+      }
+      updateMapCompass();
+      return;
+    }
+    animateMapBearing(0);
+  });
+  function applyMapOrientationMode() {
+    const mode = mapOrientationMode();
+    travelFollowPaused = false;
+    // Leaflet's own pinch-zoom stays in charge when the map can't rotate;
+    // otherwise the two-finger handler below does pinch, twist and pan together.
+    if (mode === "north") {
+      map.touchZoom.enable();
+      if (mapRot.bearing) animateMapBearing(0);
+    } else {
+      map.touchZoom.disable();
+      if (mode === "travel" && lastTravelHeading !== null && !mapRotationBlocked()) animateMapBearing(lastTravelHeading, { around: lastLivePosition || undefined });
+    }
+    updateMapCompass();
+  }
+  // Called with every position fix (live dot and route tracking). Uses the
+  // device's reported course when it's moving, otherwise the bearing between
+  // fixes once it has moved far enough that GPS jitter can't spin the map.
+  let travelHeadingAnchor = null;
+  function noteTravelHeading(lat, lng, headingDeg, speed) {
+    let h = null;
+    if (typeof headingDeg === "number" && !Number.isNaN(headingDeg) && (typeof speed !== "number" || speed > 0.7)) {
+      h = headingDeg;
+      travelHeadingAnchor = { lat, lng };
+    } else if (!travelHeadingAnchor) {
+      travelHeadingAnchor = { lat, lng };
+    } else if (haversineMeters(travelHeadingAnchor.lat, travelHeadingAnchor.lng, lat, lng) >= 8) {
+      h = computeBearingDeg(travelHeadingAnchor.lat, travelHeadingAnchor.lng, lat, lng);
+      travelHeadingAnchor = { lat, lng };
+    }
+    if (h === null) return;
+    lastTravelHeading = h;
+    if (mapOrientationMode() !== "travel" || travelFollowPaused || mapRotationBlocked() || twoFinger) return;
+    const diff = Math.abs((((h - mapRot.bearing) % 360) + 540) % 360 - 180);
+    if (diff >= 3) animateMapBearing(h, { around: [lat, lng] });
+  }
+
+  // ---- Two-finger gesture: pinch to zoom, twist to rotate, move to pan ----
+  // Modelled on Leaflet's own pinch-zoom (same fractional-zoom moves during
+  // the gesture and the same snapping at the end), with rotation added. A
+  // twist must pass a small threshold before the map turns, so an ordinary
+  // pinch never rotates it by accident.
+  const MAP_TWIST_THRESHOLD_DEG = 12;
+  let twoFinger = null;
+  const containerEl = map.getContainer();
+  const touchPoints = (e) => [map.mouseEventToContainerPoint(e.touches[0]), map.mouseEventToContainerPoint(e.touches[1])];
+  containerEl.addEventListener("touchstart", (e) => {
+    if (mapOrientationMode() === "north" || !e.touches || e.touches.length !== 2 || map._animatingZoom) return;
+    const [p1, p2] = touchPoints(e);
+    if (mapBearingAnim) { cancelAnimationFrame(mapBearingAnim); mapBearingAnim = null; }
+    twoFinger = {
+      startDist: Math.max(1, p1.distanceTo(p2)), startAngle: Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI,
+      startZoom: map.getZoom(), startBearing: mapRot.bearing, pinchLatLng: map.containerPointToLatLng(p1.add(p2).divideBy(2)),
+      zoom: map.getZoom(), center: map.getCenter(), moved: false, twisting: false, twistOffset: 0, frame: null
+    };
+    map._stop();
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("touchmove", (e) => {
+    if (!twoFinger || !e.touches || e.touches.length !== 2) return;
+    const g = twoFinger;
+    const [p1, p2] = touchPoints(e);
+    const scale = p1.distanceTo(p2) / g.startDist;
+    g.zoom = map.getScaleZoom(scale, g.startZoom);
+    let twist = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI - g.startAngle;
+    twist = ((twist % 360) + 540) % 360 - 180;
+    if (!g.twisting && Math.abs(twist) > MAP_TWIST_THRESHOLD_DEG && !mapRotationBlocked()) {
+      g.twisting = true;
+      g.twistOffset = Math.sign(twist) * MAP_TWIST_THRESHOLD_DEG; // start turning from here, rather than jumping by the threshold
+      if (mapOrientationMode() === "travel" && !travelFollowPaused) {
+        travelFollowPaused = true;
+        showToast("Direction of travel paused. Tap the compass to resume.");
+      }
+    }
+    if (g.twisting) setMapBearing(g.startBearing - (twist - g.twistOffset), { live: true });
+    // Keep the point that was between the fingers under the fingers.
+    const C = map.getSize().divideBy(2);
+    const mid = p1.add(p2).divideBy(2);
+    const v = rotVec(mid.subtract(C), mapRot.bearing);
+    g.center = map.unproject(map.project(g.pinchLatLng, g.zoom).subtract(v), g.zoom);
+    if (!g.moved) { map._moveStart(true, false); g.moved = true; }
+    if (g.frame) cancelAnimationFrame(g.frame);
+    g.frame = requestAnimationFrame(() => { g.frame = null; map._move(g.center, g.zoom, { pinch: true, round: false }); });
+    e.preventDefault();
+  }, { passive: false });
+  const endTwoFinger = (e) => {
+    if (!twoFinger) return;
+    if (e.touches && e.touches.length >= 2) return;
+    const g = twoFinger;
+    twoFinger = null;
+    if (g.frame) cancelAnimationFrame(g.frame);
+    if (!g.moved) return;
+    if (map.options.zoomAnimation) map._animateZoom(g.center, map._limitZoom(g.zoom), true, map.options.zoomSnap);
+    else map._resetView(g.center, map._limitZoom(g.zoom));
+    refreshRotatedCoverage();
+  };
+  document.addEventListener("touchend", endTwoFinger);
+  document.addEventListener("touchcancel", endTwoFinger);
+  const mapOrientationList = el("mapOrientationList");
+  function syncMapOrientationUI() {
+    mapOrientationList.querySelectorAll("[data-orientation]").forEach((r) => {
+      const on = r.dataset.orientation === mapOrientationMode();
+      r.classList.toggle("selected", on);
+      r.setAttribute("aria-checked", String(on));
+    });
+  }
+  mapOrientationList.addEventListener("click", (e) => {
+    e.stopPropagation(); // keeps the settings panel open (same reason as the marker gallery's handler)
+    const row = e.target.closest("[data-orientation]");
+    if (!row) return;
+    settings.mapOrientation = row.dataset.orientation;
+    saveSettings();
+    syncMapOrientationUI();
+    applyMapOrientationMode();
+  });
+  syncMapOrientationUI();
+  applyMapOrientationMode();
+
   // Custom horizontal zoom control — one unified element: [-] [slider] [+].
   // Previously this wrapped Leaflet's own zoom control, which shares its
   // corner with Leaflet's attribution bar and stacks unpredictably as a
@@ -86602,6 +87013,7 @@ module.exports.zip = require('./src/zip')
   // ---- Open / close ----
   function openPaperMapModal(presetSetId) {
     if (paperWiz.busy) return;
+    if (mapRot.bearing) setMapBearing(0); // paper sheets are drawn grid-north up, so the selection is made north up
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
     paperWiz.mode = null; paperWiz.area = null; paperWiz.searchResult = null; paperWiz.shapeId = null; paperWiz.setId = null;
@@ -86632,6 +87044,7 @@ module.exports.zip = require('./src/zip')
     if (paperWiz.busy) return;
     paperMapModalOverlay.classList.add("hidden");
     paperWizHud.classList.add("hidden");
+    setTimeout(applyMapOrientationMode, 0);
     paperClearBoxEditor();
     paperWiz.box = null;
     paperClearSheetPreview();
@@ -88237,6 +88650,7 @@ module.exports.zip = require('./src/zip')
     ridePolyline.addLatLng([latitude, longitude]);
     refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
     updateRidePositionMarker(latitude, longitude, currentActivityType);
+    noteTravelHeading(latitude, longitude, pos.coords.heading, speed);
     followRidePosition(latitude, longitude);
     updateRideHud();
     if (navActive) updateTurnByTurnProgress(latitude, longitude);
@@ -88330,10 +88744,12 @@ module.exports.zip = require('./src/zip')
     lastAppliedMarkerRotationDeg = target;
     img.style.transform = "rotate(" + target + "deg)";
   }
-  function updateLivePositionMarker(lat, lng, headingDeg) {
+  function updateLivePositionMarker(lat, lng, headingDeg, speed) {
     if (rideTracking) return;
+    noteTravelHeading(lat, lng, headingDeg, speed);
     if (!livePositionMarker) {
-      livePositionMarker = L.marker([lat, lng], { icon: makeLivePositionIcon(), zIndexOffset: 400, interactive: false }).addTo(map);
+      // rotateWithMap: its image is already turned to the compass heading, so it turns with the map rather than being held upright.
+      livePositionMarker = L.marker([lat, lng], { icon: makeLivePositionIcon(), zIndexOffset: 400, interactive: false, rotateWithMap: true }).addTo(map);
     } else {
       livePositionMarker.setLatLng([lat, lng]);
     }
@@ -88394,7 +88810,7 @@ module.exports.zip = require('./src/zip')
         // position than show a jittery, misleading one.
         if (typeof pos.coords.accuracy === "number" && pos.coords.accuracy > LIVE_DOT_MAX_ACCEPTABLE_ACCURACY_METERS) return;
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        updateLivePositionMarker(lat, lng, pos.coords.heading);
+        updateLivePositionMarker(lat, lng, pos.coords.heading, pos.coords.speed);
         // Route tracking and hands-free voice capture already run their
         // own HUD-aware following on their own, higher-frequency watchers
         // -- this one only drives the map in plain "normal" mode, so as
@@ -94621,7 +95037,7 @@ module.exports.zip = require('./src/zip')
             // reuses the exact centering math already proven correct for
             // active route tracking, aimed at whichever HUD (the voice
             // capture panel) is actually covering the map right now.
-            updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.heading);
+            updateLivePositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.heading, pos.coords.speed);
             followCurrentPosition(pos.coords.latitude, pos.coords.longitude, voiceCapturePanel);
           },
           () => { /* a watch error just means we fall back to getCurrentPosition when "waypoint" is heard -- nothing to surface here */ },
