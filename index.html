@@ -2299,6 +2299,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <div class="folder-picker-row" data-orientation="free" role="radio"><span class="icon" data-icon="sync" data-icon-size="15"></span><span>Rotate with two fingers<span class="paper-wiz-row-sub">Twist with two fingers to turn the map. Tap the compass to point north.</span></span><span class="story-format-checkbox"></span></div>
             <div class="folder-picker-row" data-orientation="travel" role="radio"><span class="icon" data-icon="directions" data-icon-size="15"></span><span>Direction of travel<span class="paper-wiz-row-sub">The way you're moving stays at the top. Twisting or tapping the compass pauses it; tap the compass to resume.</span></span><span class="story-format-checkbox"></span></div>
           </div>
+          <label class="field-label" style="margin-top:12px;">When the map turns, labels and pins</label>
+          <div class="paper-wiz-seg" id="mapLabelsSeg" role="radiogroup" aria-label="When the map turns, labels and pins">
+            <button type="button" data-labels="turn" role="radio">Turn with the map</button>
+            <button type="button" data-labels="level" role="radio">Stay level</button>
+          </div>
         </div>
         <div class="layers-section">
           <p class="layers-section-title">Home base</p>
@@ -78108,7 +78113,7 @@ module.exports.zip = require('./src/zip')
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "535";
+  const APP_VERSION = "536";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -78131,7 +78136,7 @@ module.exports.zip = require('./src/zip')
     ? localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" })
     : null;
 
-  const DEFAULT_SETTINGS = { baseLayer: "street", mapOrientation: "north", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", thunderforestApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], customWaypointIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null },
+  const DEFAULT_SETTINGS = { baseLayer: "street", mapOrientation: "north", mapLabels: "turn", weather: { precip: false, clouds: false, temp: false }, owmApiKey: "", geminiApiKey: "", thunderforestApiKey: "", home: null, hexGrid: false, precisionHex: false, precisionHexMaxZoomOnly: false, res1Hex: false, res1ShowH3Index: true, res1ShowWords: false, anchorOverrides: {}, iconQuickPickOrder: null, favoriteIcons: [], customWaypointIcons: [], keepScreenAwake: false, ttsProvider: "gemini", ttsVoiceStyle: "narrator", ttsVoiceName: "Kore", ttsSpeed: 1, units: { temperature: "c", distance: "km", smallDistance: "metric", speed: "kmh" }, customLocationMarker: { images: [], activeId: null, size: 22, favoriteIds: [] }, connect: { myDeviceId: null, myDisplayName: "", firebaseConfig: null, shareLocation: true, lastPublishedAt: null },
     tripPlanDefaults: { contact1Name: "", contact1Phone: "", contact2Name: "", contact2Phone: "", vehicleDescription: "", overdueContact: "", medicalNotes: "" } };
 
   // Gemini's dedicated text-to-speech model -- same generateContent REST
@@ -79742,7 +79747,7 @@ module.exports.zip = require('./src/zip')
       const el = m._icon;
       if (!el) return;
       let t = stripRot(el.style.transform);
-      if (mapRot.bearing && !m.options.rotateWithMap) {
+      if (mapRot.bearing && !m.options.rotateWithMap && !mapLabelsTurnWithMap()) {
         el.style.transformOrigin = (-(parseFloat(el.style.marginLeft) || 0)) + "px " + (-(parseFloat(el.style.marginTop) || 0)) + "px";
         t += " rotate(" + mapRot.bearing + "deg)";
       }
@@ -79761,7 +79766,7 @@ module.exports.zip = require('./src/zip')
     const origSetPos = L.Marker.prototype._setPos;
     L.Marker.prototype._setPos = function (pos) { origSetPos.call(this, pos); uprightMarker(this); };
     const origTipPos = L.Tooltip.prototype._setPosition;
-    L.Tooltip.prototype._setPosition = function (pos) { origTipPos.call(this, pos); uprightOverlay(this._container, pos); };
+    L.Tooltip.prototype._setPosition = function (pos) { origTipPos.call(this, pos); uprightOverlay(this._container, mapLabelsTurnWithMap() ? null : pos); };
     const origPopupPos = L.Popup.prototype._updatePosition;
     L.Popup.prototype._updatePosition = function () {
       origPopupPos.call(this);
@@ -79976,6 +79981,24 @@ module.exports.zip = require('./src/zip')
   };
   document.addEventListener("touchend", endTwoFinger);
   document.addEventListener("touchcancel", endTwoFinger);
+  // Labels and pins either turn with the map (the default: they're part of
+  // the map, like its street names) or are held level for easy reading.
+  // Popups are always held level, since they're controls rather than map labels.
+  function mapLabelsTurnWithMap() { return settings.mapLabels !== "level"; }
+  const mapLabelsSeg = el("mapLabelsSeg");
+  function syncMapLabelsUI() {
+    mapLabelsSeg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.labels === (mapLabelsTurnWithMap() ? "turn" : "level"))));
+  }
+  mapLabelsSeg.addEventListener("click", (e) => {
+    e.stopPropagation(); // keeps the settings panel open
+    const btn = e.target.closest("[data-labels]");
+    if (!btn) return;
+    settings.mapLabels = btn.dataset.labels;
+    saveSettings();
+    syncMapLabelsUI();
+    mapRot.uprightAll();
+  });
+  syncMapLabelsUI();
   const mapOrientationList = el("mapOrientationList");
   function syncMapOrientationUI() {
     mapOrientationList.querySelectorAll("[data-orientation]").forEach((r) => {
