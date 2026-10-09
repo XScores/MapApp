@@ -1,6 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+/* Startup safety net, part 1 -- runs before anything else on the page, so
+   even a start that dies while the page is still loading is counted. iOS
+   ends a web page that runs out of memory and reloads it; if the previous
+   start never finished (and the page wasn't closed or reloaded normally),
+   the app script opens in safe mode. See bootGuard in the app script. */
+(function () {
+  var KEY = "mapapp:boot", prev = null;
+  try { prev = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { prev = null; }
+  var unfinished = !!(prev && prev.state === "starting" && Date.now() - (prev.t || 0) < 30 * 60 * 1000);
+  var crashes = unfinished ? (prev.crashes || 0) + 1 : 0;
+  window.__mapappBoot = { prev: prev, unfinished: unfinished, crashes: crashes };
+  try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes: crashes, stage: "opening the page", trail: ["opening the page"] })); } catch (e) {}
+  // Leaving normally (closing, reloading, navigating away) isn't a crash.
+  window.addEventListener("pagehide", function () {
+    try {
+      var cur = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (cur && cur.state === "starting") localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now(), left: true }));
+    } catch (e) {}
+  });
+})();
+</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <title>Waypoint Saver</title>
@@ -77721,7 +77743,9 @@ module.exports.zip = require('./src/zip')
 //# sourceMappingURL=pdf-lib.min.js.map
 
 </script>
-<script>
+<script type="text/plain" id="maplibreSource">
+/* MapLibre GL JS 5.24.0 (BSD-3-Clause; licence below). Kept as inert text and only
+   loaded when the live Street map is first used, so it costs nothing at start-up. */
 /* MapLibre GL JS 5.24.0, used to draw the live Street map. Licence follows.
 Copyright (c) 2023, MapLibre contributors
 
@@ -78436,7 +78460,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "543";
+  const APP_VERSION = "545";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -78687,25 +78711,24 @@ return maplibregl$1;
      Opening the app with ?safe=1 forces safe mode too. */
   const bootGuard = (() => {
     const KEY = "mapapp:boot";
-    let prev = null;
-    try { prev = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { prev = null; }
-    const unfinished = !!(prev && prev.state === "starting" && Date.now() - (prev.t || 0) < 30 * 60 * 1000);
-    const crashes = unfinished ? (prev.crashes || 0) + 1 : 0;
+    const early = window.__mapappBoot || { prev: null, unfinished: false, crashes: 0 };
+    const prev = early.prev, crashes = early.crashes;
     // A short trail of the last steps reached, since the heavy work (map
     // tiles, the live Street map, routes) carries on just after start-up.
-    const trail = [];
+    const trail = ["opening the page"];
     let finished = false;
     const g = {
-      safe: crashes >= 2 || /[?&]safe=1\b/.test(location.search),
-      crashes, lastStage: unfinished ? ((prev.trail && prev.trail.length ? prev.trail.join(" \u2192 ") : prev.stage) || "starting") : null,
+      // One start that never finished is enough: iOS only retries a crashing page about twice.
+      safe: crashes >= 1 || /[?&]safe=1\b/.test(location.search),
+      crashes, lastStage: early.unfinished ? ((prev.trail && prev.trail.length ? prev.trail.join(" \u2192 ") : prev.stage) || "opening the page") : null,
       stage(name) {
         if (finished) return;
         trail.push(name);
-        if (trail.length > 5) trail.shift();
+        if (trail.length > 6) trail.shift();
         try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes, stage: name, trail })); } catch (e) {}
       },
       done() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now() })); } catch (e) {} },
-      reset() { try { localStorage.removeItem(KEY); } catch (e) {} }
+      reset() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now(), reset: true })); } catch (e) {} }
     };
     g.stage("loading your saved data");
     return g;
@@ -80558,7 +80581,28 @@ return maplibregl$1;
     try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; }
   }
   function vectorStreetPossible() {
-    return !!(window.maplibregl && !bootGuard.safe && settings.thunderforestApiKey && navigator.onLine !== false && !vectorStreet.failed && webglAvailable());
+    return !!(document.getElementById("maplibreSource") || window.maplibregl) && !bootGuard.safe && !!settings.thunderforestApiKey && navigator.onLine !== false && !vectorStreet.failed && webglAvailable();
+  }
+  // Loads the MapLibre renderer from the inert copy in the page, once, the
+  // first time the live Street map is needed (never in safe mode, and never
+  // on other map styles), then frees that copy.
+  let maplibreLoading = null;
+  function loadMapLibre() {
+    if (window.maplibregl) return Promise.resolve(true);
+    if (!maplibreLoading) maplibreLoading = new Promise((resolve) => {
+      try {
+        const srcEl = document.getElementById("maplibreSource");
+        if (!srcEl) { resolve(false); return; }
+        bootGuard.stage("loading the live Street map renderer");
+        const url = URL.createObjectURL(new Blob([srcEl.textContent], { type: "text/javascript" }));
+        const sc = document.createElement("script");
+        sc.src = url;
+        sc.onload = () => { URL.revokeObjectURL(url); srcEl.remove(); resolve(!!window.maplibregl); };
+        sc.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+        document.head.appendChild(sc);
+      } catch (e) { resolve(false); }
+    });
+    return maplibreLoading;
   }
   function syncVectorStreet() {
     const gl = vectorStreet.gl;
@@ -80645,8 +80689,13 @@ return maplibregl$1;
   }
   // Decides, whenever the base layer, key or connection changes, which way the Street map is drawn.
   function updateVectorStreet() {
-    if (activeBaseLayer === baseLayers.street && vectorStreetPossible()) startVectorStreet();
-    else stopVectorStreet();
+    if (!(activeBaseLayer === baseLayers.street && vectorStreetPossible())) { stopVectorStreet(); return; }
+    if (window.maplibregl) { startVectorStreet(); return; }
+    // The image tiles stay up while the renderer loads.
+    loadMapLibre().then((ok) => {
+      if (!ok) { vectorStreetFailed("renderer didn't load"); return; }
+      if (activeBaseLayer === baseLayers.street && vectorStreetPossible()) startVectorStreet();
+    });
   }
   map.on("move zoom viewreset rotate", syncVectorStreet);
   map.on("resize", () => { if (vectorStreet.gl) { vectorStreet.gl.resize(); syncVectorStreet(); } });
@@ -85279,8 +85328,20 @@ return maplibregl$1;
   // under GitHub's 1MB Contents API limit regardless of how many or how
   // large the photos are. A photo that failed to upload (or hasn't been
   // attempted yet) falls back to being embedded in full, rather than lost.
-  function buildRepoSyncPayload(photoCache) {
-    const payload = buildBackupPayload();
+  // buildBackupPayload is async (it reads settings from storage), so it must
+  // be awaited here. Without the await, payload was a Promise, and every
+  // push failed with "Cannot read properties of undefined (reading 'map')".
+  // Credentials never go into the synced repo file: it's plain JSON that
+  // anyone with read access to the repository can see. (The Complete backup
+  // download still includes them, since that file stays with the person.)
+  // Pulls never read these fields, so leaving them out can't wipe another
+  // device's keys.
+  const SYNC_SECRET_SETTINGS = ["geminiApiKey", "thunderforestApiKey", "owmApiKey"];
+  async function buildRepoSyncPayload(photoCache) {
+    const payload = await buildBackupPayload();
+    delete payload.githubToken;
+    delete payload.githubRepo;
+    if (payload.settings) SYNC_SECRET_SETTINGS.forEach((k) => { delete payload.settings[k]; });
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
@@ -85367,7 +85428,7 @@ return maplibregl$1;
       }
       gistStatusText.textContent = "Pushing…";
       const existing = await fetchRepoFile(parsed.owner, parsed.repo, GITHUB_DATA_FILE);
-      const payload = buildRepoSyncPayload(photoResult.cache);
+      const payload = await buildRepoSyncPayload(photoResult.cache);
       await putRepoFileRaw(
         parsed.owner, parsed.repo, GITHUB_DATA_FILE,
         encodeBase64Utf8(JSON.stringify(payload, null, 2)),
@@ -100159,11 +100220,11 @@ return maplibregl$1;
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
-  setTimeout(() => bootGuard.done(), 20000);
+  setTimeout(() => bootGuard.done(), 15000);
   if (bootGuard.safe) {
     setTimeout(() => openConfirmModal("MapApp opened in safe mode",
-      (bootGuard.crashes >= 2
-        ? "MapApp closed unexpectedly " + bootGuard.crashes + " times in a row while starting. Its last steps were: " + bootGuard.lastStage + ". "
+      (bootGuard.crashes >= 1
+        ? "MapApp closed unexpectedly while starting" + (bootGuard.crashes > 1 ? " (" + bootGuard.crashes + " times in a row)" : "") + ". Its last steps were: " + bootGuard.lastStage + ". "
         : "Safe mode was requested. ") +
       "To keep it running, the live Street map, map rotation, and itinerary route lines and day boxes are switched off for now. Everything you've saved is untouched.",
       () => { bootGuard.reset(); forceRefreshApp(); }, { confirmLabel: "Try normal mode", danger: false }), 1200);
