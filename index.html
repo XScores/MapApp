@@ -2181,8 +2181,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
     box-shadow:0 1px 3px rgba(0,0,0,.5); pointer-events:none; z-index:2;}
   .wp-marker-emoji .wp-order-badge{top:-2px; right:-3px;}
   .itin-day-label-wrap{background:none; border:none;}
-  .itin-day-label{display:inline-block; transform:translateY(-50%); padding:2px 9px; border-radius:999px; color:#0f172a; font:700 12px/16px system-ui, -apple-system, sans-serif;
-    white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.35); border:1.5px solid rgba(255,255,255,.85);}
+  .itin-day-label{display:inline-flex; align-items:center; gap:4px; transform:translateY(-50%); padding:1px 3px 1px 9px; border-radius:999px; background:var(--day);
+    color:#0f172a; font:700 12px/16px system-ui, -apple-system, sans-serif; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.35); border:1.5px solid rgba(255,255,255,.85);}
+  .itin-day-label.off{background:rgba(15,23,42,.9); color:var(--day); border-color:var(--day);}
+  .itin-day-eye{display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; margin:0; padding:0; border:0; border-radius:999px;
+    background:rgba(15,23,42,.18); color:inherit; cursor:pointer;}
+  .itin-day-label.off .itin-day-eye{background:rgba(255,255,255,.08);}
+  .itin-day-eye:hover{background:rgba(15,23,42,.32);}
   .wp-marker-emoji{position:relative; width:48px; height:48px;}
   .wp-marker-emoji .wp-pulse-ring{left:1px; top:1px; width:46px; height:46px;}
   .wp-pin{animation:wp-drop .35s ease-out; filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));}
@@ -78460,7 +78465,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "545";
+  const APP_VERSION = "547";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -97663,10 +97668,15 @@ return maplibregl$1;
     refreshAllWaypointMarkerVisibility();
     renderList();
   }
-  function setWaypointFolderVisibility(folderId, hidden) {
+  // fromMapTab: hidden with the eye on an itinerary day's tab on the map.
+  // Only those days keep a faint outline on the map (so they can be switched
+  // back on there); a day hidden from the waypoint menu disappears entirely.
+  function setWaypointFolderVisibility(folderId, hidden, fromMapTab) {
     const folder = waypointFolders.find((f) => f.id === folderId);
     if (!folder) return;
     folder.hidden = hidden;
+    if (hidden && fromMapTab) folder.hiddenFromMapTab = true;
+    else delete folder.hiddenFromMapTab;
     saveWaypointFolders();
     refreshAllWaypointMarkerVisibility();
     renderList();
@@ -99485,6 +99495,9 @@ return maplibregl$1;
   };
 
   // ---- Small helpers ----
+  // Day folders lead with the day so they read in order at a glance:
+  // "Day 1 - Czech Republic (2026-10-09)".
+  function itineraryDayFolderName(n, itineraryName, isoDate) { return "Day " + n + " - " + itineraryName + " (" + isoDate + ")"; }
   function ccIsoDate(startIso, offsetDays) {
     const d = new Date(startIso + "T00:00:00");
     d.setDate(d.getDate() + offsetDays);
@@ -99832,7 +99845,7 @@ return maplibregl$1;
       ["Style", CC_PACE[cc.pace].label + " \u00b7 " + cc.transit + (cc.vibes.size ? " \u00b7 " + CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label).join(", ") : "")]];
     ccEls.review.innerHTML = "<dl>" + rows.map(([k, v]) => "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>").join("") + "</dl>";
     ccEls.tree.innerHTML = '<div class="cc-tree-folder" style="--c:' + escapeHtml(ccEls.color.value) + '">' + icon("calendar", 14) + " " + escapeHtml(u.name) + "</div>" +
-      kept.map((d, i) => '<div class="cc-tree-day">' + icon("folder", 13) + " " + escapeHtml(u.name + " - Day " + (i + 1) + " (" + ccIsoDate(u.startDate, i) + ")") +
+      kept.map((d, i) => '<div class="cc-tree-day">' + icon("folder", 13) + " " + escapeHtml(itineraryDayFolderName(i + 1, u.name, ccIsoDate(u.startDate, i))) +
         ' <span class="cc-tree-count">' + d.length + "</span></div>").join("");
   }
 
@@ -99947,7 +99960,7 @@ return maplibregl$1;
     parent.updatedAt = now;
     const created = [];
     cc.plan.days.forEach((day, i) => {
-      const dayFolder = createWaypointFolder(u.name + " - Day " + (i + 1) + " (" + day.date + ")", false, false);
+      const dayFolder = createWaypointFolder(itineraryDayFolderName(i + 1, u.name, day.date), false, false);
       dayFolder.parentFolderId = parent.id;
       dayFolder.color = color;
       if (day.theme) dayFolder.theme = day.theme;
@@ -100118,6 +100131,26 @@ return maplibregl$1;
   const itineraryDayBoxes = L.layerGroup().addTo(map);
   const dayRoutePending = new Set(), dayRouteFailed = new Set();
   let itineraryDrawSig = "", itineraryDayBoxData = [];
+  // Each day gets its own colour (box, tab and route) so overlapping days
+  // stay easy to tell apart. Day 1 keeps the itinerary's own colour; the
+  // rest cycle through a palette of clearly different hues, skipping any
+  // too close to that colour.
+  const ITINERARY_DAY_PALETTE = ["#f472b6", "#22d3ee", "#a3e635", "#f59e0b", "#a78bfa", "#fb7185", "#34d399", "#60a5fa", "#facc15", "#e879f9", "#2dd4bf", "#fb923c"];
+  function hexToRgb3(hex) { const h = String(hex || "").replace("#", ""); const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h; const n = parseInt(v, 16); return isNaN(n) ? [0, 0, 0] : [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function itineraryDayColor(itinColor, dayNum) {
+    if (dayNum <= 1) return itinColor;
+    const base = hexToRgb3(itinColor);
+    const far = ITINERARY_DAY_PALETTE.filter((c) => { const x = hexToRgb3(c); return Math.hypot(x[0] - base[0], x[1] - base[1], x[2] - base[2]) > 90; });
+    const list = far.length ? far : ITINERARY_DAY_PALETTE;
+    return list[(dayNum - 2) % list.length];
+  }
+  // Hidden by the person on this day itself, versus hidden because the whole
+  // itinerary (or something above it) is hidden.
+  function folderChainHidden(folderId) {
+    let f = waypointFolders.find((x) => x.id === folderId), guard = 0;
+    while (f && guard++ < 20) { if (f.hidden) return true; f = f.parentFolderId ? waypointFolders.find((x) => x.id === f.parentFolderId) : null; }
+    return false;
+  }
   // The day's number for its box label: "Day 3" from the folder's own name
   // when it says so, otherwise its position among the itinerary's days.
   function itineraryDayNumber(day, siblings) {
@@ -100133,12 +100166,17 @@ return maplibregl$1;
       if (!parent || !parent.isItinerary) return;
       const stops = waypoints.filter((w) => w.folderId === day.id && !w.isStoryEntry).sort((a, b) => key(a) - key(b));
       if (!stops.length) return;
-      const hidden = stops.every((w) => isWaypointEffectivelyHidden(w));
+      // A day switched off from its map tab still shows its box and tab (so it
+      // can be switched back on right there); a hidden itinerary shows nothing.
+      if (folderChainHidden(parent.id)) return;
+      const dayOff = !!(day.hidden && day.hiddenFromMapTab); // only map-tab hides leave an outline
+      const hidden = dayOff || stops.every((w) => isWaypointEffectivelyHidden(w));
       const mode = itineraryTravelMode(parent), home = itineraryHome(parent);
       const pts = ccDayRoutePoints(stops, home), sig = ccRouteSig(pts, mode);
       const routed = !!(day.route && day.route.sig === sig && Array.isArray(day.route.latlngs) && day.route.latlngs.length > 1);
       const siblings = waypointFolders.filter((f) => f.parentFolderId === parent.id);
-      days.push({ day, parent, stops, hidden, mode, pts, sig, routed, color: parent.color || defaultFolderColor(false, true), num: itineraryDayNumber(day, siblings) });
+      const num = itineraryDayNumber(day, siblings);
+      days.push({ day, parent, stops, hidden, dayOff, mode, pts, sig, routed, num, color: itineraryDayColor(parent.color || defaultFolderColor(false, true), num) });
     });
     // Order badges -- refreshed on the affected icons only.
     const nextBadges = new Map();
@@ -100156,13 +100194,21 @@ return maplibregl$1;
     });
     // Lines and boxes are only rebuilt when something they depend on changed
     // (this runs after every list render, which can be often).
-    const drawSig = days.map((d) => d.sig + (d.routed ? "R" : "") + (d.hidden ? "H" : "") + d.color + d.num).join("/");
+    const drawSig = days.map((d) => d.sig + (d.routed ? "R" : "") + (d.hidden ? "H" : "") + (d.dayOff ? "O" : "") + d.color + d.num).join("/");
     if (drawSig === itineraryDrawSig) return;
     itineraryDrawSig = drawSig;
     itineraryDayLines.clearLayers();
     itineraryDayBoxData = [];
     days.forEach((d) => {
-      if (d.hidden) return;
+      if (d.hidden) {
+        // Switched off: no route, but a faint box and its tab remain, so the
+        // eye on the tab can bring the day back.
+        if (d.dayOff) {
+          const path = d.day.route && d.day.route.sig === d.sig ? d.day.route.latlngs : d.pts.map((p) => [p.lat, p.lng]);
+          itineraryDayBoxData.push({ latlngs: path.concat(d.stops.map((w) => [w.lat, w.lng])), color: d.color, label: "Day " + d.num, dayId: d.day.id, off: true });
+        }
+        return;
+      }
       let path;
       if (d.routed) {
         path = d.day.route.latlngs;
@@ -100184,7 +100230,7 @@ return maplibregl$1;
         }
       }
       // The box surrounds the day's stops and its route (not the hotel, which every day shares).
-      itineraryDayBoxData.push({ latlngs: path.concat(d.stops.map((w) => [w.lat, w.lng])), color: d.color, label: "Day " + d.num });
+      itineraryDayBoxData.push({ latlngs: path.concat(d.stops.map((w) => [w.lat, w.lng])), color: d.color, label: "Day " + d.num, dayId: d.day.id, off: false });
     });
     drawItineraryDayBoxes();
   }
@@ -100207,16 +100253,44 @@ return maplibregl$1;
       const ring = [];
       const arc = (cx, cy, a0) => { for (let i = 0; i <= 6; i++) { const a = (a0 + 90 * i / 6) * Math.PI / 180; ring.push(L.point(cx + r * Math.cos(a), cy + r * Math.sin(a))); } };
       arc(x1 - r, y0 + r, -90); arc(x1 - r, y1 - r, 0); arc(x0 + r, y1 - r, 90); arc(x0 + r, y0 + r, 180);
-      L.polygon(ring.map((p) => map.unproject(p, z)), { color: b.color, weight: 2, opacity: 0.9, fillColor: b.color, fillOpacity: 0.05, interactive: false }).addTo(itineraryDayBoxes);
-      L.marker(map.unproject(L.point(x0 + r + 4, y0), z), {
-        interactive: false, keyboard: false, zIndexOffset: -500,
-        icon: L.divIcon({ className: "itin-day-label-wrap", html: '<span class="itin-day-label" style="background:' + b.color + '">' + escapeHtml(b.label) + "</span>", iconSize: null })
+      L.polygon(ring.map((p) => map.unproject(p, z)), b.off
+        ? { color: b.color, weight: 1.5, opacity: 0.55, dashArray: "6 6", fill: false, interactive: false }
+        : { color: b.color, weight: 2, opacity: 0.9, fillColor: b.color, fillOpacity: 0.06, interactive: false }).addTo(itineraryDayBoxes);
+      // The tab: day name plus an eye that shows or hides that day's
+      // waypoints and route (the same switch as the eye on its Day folder).
+      const tab = L.marker(map.unproject(L.point(x0 + r + 4, y0), z), {
+        keyboard: false, zIndexOffset: 500, bubblingMouseEvents: false,
+        icon: L.divIcon({ className: "itin-day-label-wrap", iconSize: null, html:
+          '<span class="itin-day-label' + (b.off ? " off" : "") + '" style="--day:' + b.color + '">' +
+            '<span class="itin-day-label-text">' + escapeHtml(b.label) + "</span>" +
+            '<button type="button" class="itin-day-eye" data-day-id="' + escapeHtml(b.dayId) + '" title="' + (b.off ? "Show " : "Hide ") + escapeHtml(b.label) + ' on the map" aria-label="' + (b.off ? "Show " : "Hide ") + escapeHtml(b.label) + ' on the map">' +
+            icon(b.off ? "eyeOff" : "eye", 14) + "</button></span>" })
       }).addTo(itineraryDayBoxes);
+      tab.on("click", (e) => {
+        const t = e.originalEvent && e.originalEvent.target;
+        if (!t || !t.closest || !t.closest(".itin-day-eye")) return;
+        L.DomEvent.stop(e.originalEvent);
+        const f = waypointFolders.find((x) => x.id === b.dayId);
+        if (f) setWaypointFolderVisibility(f.id, !f.hidden, true);
+      });
     });
   }
   map.on("zoomend", drawItineraryDayBoxes);
   window.addEventListener("online", () => { dayRouteFailed.clear(); itineraryDrawSig = ""; refreshItineraryDayLines(); });
 
+  (function renameOldDayFolders() {
+    let changed = 0;
+    waypointFolders.forEach((f) => {
+      const parent = f.parentFolderId ? waypointFolders.find((x) => x.id === f.parentFolderId) : null;
+      if (!parent || !parent.isItinerary) return;
+      const m = /^(.*) - Day (\d+) \((\d{4}-\d{2}-\d{2})\)$/.exec(f.name || "");
+      if (!m) return;
+      f.name = itineraryDayFolderName(+m[2], m[1], m[3]);
+      f.updatedAt = Date.now();
+      changed++;
+    });
+    if (changed) { saveWaypointFolders(); renderList(); }
+  })();
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
