@@ -2153,6 +2153,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /* ---------- leaflet marker + control theming ---------- */
   .wp-div-icon{background:transparent; border:none;}
   .wp-marker{position:relative; width:30px; height:40px;}
+  /* Visiting-order number on itinerary waypoints: white on a black circle, top right of the icon. */
+  .wp-order-badge{position:absolute; top:-3px; right:-5px; min-width:18px; height:18px; padding:0 4px; box-sizing:border-box; border-radius:9px;
+    background:#000; color:#fff; border:1.5px solid #fff; font:700 11px/15px system-ui, -apple-system, sans-serif; text-align:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.5); pointer-events:none; z-index:2;}
+  .wp-marker-emoji .wp-order-badge{top:-2px; right:-3px;}
+  .itin-day-label-wrap{background:none; border:none;}
+  .itin-day-label{display:inline-block; transform:translateY(-50%); padding:2px 9px; border-radius:999px; color:#0f172a; font:700 12px/16px system-ui, -apple-system, sans-serif;
+    white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.35); border:1.5px solid rgba(255,255,255,.85);}
   .wp-marker-emoji{position:relative; width:48px; height:48px;}
   .wp-marker-emoji .wp-pulse-ring{left:1px; top:1px; width:46px; height:46px;}
   .wp-pin{animation:wp-drop .35s ease-out; filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));}
@@ -78428,7 +78436,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "542";
+  const APP_VERSION = "543";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -78668,7 +78676,46 @@ return maplibregl$1;
   /* ================================================================ */
 
   await migrateFromLocalStorageIfNeeded();
+  /* ---------- Startup safety net ----------
+     If the app is closed by the system while starting (on iPhone, iOS ends
+     a web app that runs out of memory and, after a few tries, shows its
+     own "problem repeatedly occurred" page), the next start knows: the
+     marker below is still "starting". After two such starts in a row the
+     app opens in safe mode, with the heaviest optional parts switched off
+     (the live Street map, map rotation, itinerary route lines and day
+     boxes), and says which step it last reached so the cause can be found.
+     Opening the app with ?safe=1 forces safe mode too. */
+  const bootGuard = (() => {
+    const KEY = "mapapp:boot";
+    let prev = null;
+    try { prev = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { prev = null; }
+    const unfinished = !!(prev && prev.state === "starting" && Date.now() - (prev.t || 0) < 30 * 60 * 1000);
+    const crashes = unfinished ? (prev.crashes || 0) + 1 : 0;
+    // A short trail of the last steps reached, since the heavy work (map
+    // tiles, the live Street map, routes) carries on just after start-up.
+    const trail = [];
+    let finished = false;
+    const g = {
+      safe: crashes >= 2 || /[?&]safe=1\b/.test(location.search),
+      crashes, lastStage: unfinished ? ((prev.trail && prev.trail.length ? prev.trail.join(" \u2192 ") : prev.stage) || "starting") : null,
+      stage(name) {
+        if (finished) return;
+        trail.push(name);
+        if (trail.length > 5) trail.shift();
+        try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes, stage: name, trail })); } catch (e) {}
+      },
+      done() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now() })); } catch (e) {} },
+      reset() { try { localStorage.removeItem(KEY); } catch (e) {} }
+    };
+    g.stage("loading your saved data");
+    return g;
+  })();
   const _persisted = await loadPersistedState();
+  bootGuard.stage("setting up the map");
+  // Visiting order of every waypoint in an itinerary Day folder (1, 2, 3...),
+  // shown as a numbered badge on its map icon. Declared this early because
+  // waypoint icons are drawn during start-up; filled in by refreshItineraryDayLines.
+  const itineraryOrderBadges = new Map();
   let waypoints = _persisted.waypoints;
   // Declared early since renderList() (called during initial load, well
   // before switchWaypointRegion is defined further down) reads this --
@@ -80128,6 +80175,7 @@ return maplibregl$1;
     let b = ((Number(deg) % 360) + 360) % 360;
     if (b < 0.05 || b > 359.95) b = 0;
     if (b === mapRot.bearing) return;
+    if (b && !mapRot.bearing) bootGuard.stage("turning the map");
     const around = o.around ? L.latLng(o.around) : null;
     const before = around ? map.latLngToContainerPoint(around) : null;
     mapRot.bearing = b;
@@ -80165,7 +80213,7 @@ return maplibregl$1;
   const mapCompassBtn = el("mapCompassBtn");
   let travelFollowPaused = false;   // a two-finger twist or a compass tap pauses direction-of-travel until the compass is tapped again
   let lastTravelHeading = null;
-  function mapOrientationMode() { return ["north", "free", "travel"].includes(settings.mapOrientation) ? settings.mapOrientation : "north"; }
+  function mapOrientationMode() { return !bootGuard.safe && ["north", "free", "travel"].includes(settings.mapOrientation) ? settings.mapOrientation : "north"; }
   // Rotation is held at north while a paper map is being set up, since its sheets are drawn grid-north up.
   function mapRotationBlocked() {
     const hud = document.getElementById("paperWizHud"), modal = document.getElementById("paperMapModalOverlay");
@@ -80510,7 +80558,7 @@ return maplibregl$1;
     try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; }
   }
   function vectorStreetPossible() {
-    return !!(window.maplibregl && settings.thunderforestApiKey && navigator.onLine !== false && !vectorStreet.failed && webglAvailable());
+    return !!(window.maplibregl && !bootGuard.safe && settings.thunderforestApiKey && navigator.onLine !== false && !vectorStreet.failed && webglAvailable());
   }
   function syncVectorStreet() {
     const gl = vectorStreet.gl;
@@ -80557,11 +80605,18 @@ return maplibregl$1;
     if (!vectorStreet.gl) {
       vectorStreet.key = key;
       const c = map.getCenter();
+      bootGuard.stage("starting the live Street map");
       let gl;
       try {
+        // Kept light on memory: one background worker on iPhone/iPad (each
+        // worker holds its own copy of the renderer), a small tile cache,
+        // and no more than 2x pixel density for the map canvas.
+        const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        if (isIOS && typeof maplibregl.setWorkerCount === "function" && !vectorStreet.workersSet) { try { maplibregl.setWorkerCount(1); } catch (e) {} vectorStreet.workersSet = true; }
         gl = new maplibregl.Map({
           container: vectorStreet.el, style: vectorStreetStyleUrl(), interactive: false, attributionControl: false,
-          center: [c.lng, c.lat], zoom: map.getZoom() - 1, bearing: mapRot.bearing, maxZoom: 22, fadeDuration: 150
+          center: [c.lng, c.lat], zoom: map.getZoom() - 1, bearing: mapRot.bearing, maxZoom: 22, fadeDuration: 150,
+          maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2)
         });
       } catch (e) { vectorStreetFailed(e && e.message); return; }
       vectorStreet.gl = gl;
@@ -80571,9 +80626,11 @@ return maplibregl$1;
       gl.on("error", (e) => { if (!vectorStreet.ready) vectorStreetFailed(e && e.error && (e.error.status || e.error.message)); });
       // Once the style is in and the first view has fully drawn, the image tiles step aside.
       gl.on("style.load", () => {
+        bootGuard.stage("live Street map loading its tiles");
         vectorStreet.ready = true;
         syncVectorStreet();
         gl.once("idle", () => {
+          bootGuard.stage("live Street map drawn");
           if (vectorStreet.wanted && map.hasLayer(baseLayers.street)) map.removeLayer(baseLayers.street);
           setMapTextLevel(vectorStreet.wanted);
         });
@@ -85722,6 +85779,7 @@ return maplibregl$1;
   refreshCuratedCount();
 
   /* restore persisted map/layer settings */
+  bootGuard.stage("drawing the base map");
   setBaseLayer(settings.baseLayer);
   thunderforestKeyInput.value = "";
   refreshThunderforestUi();
@@ -85761,12 +85819,12 @@ return maplibregl$1;
         (opts.pulsing ? '<span class="wp-pulse-ring" style="border-color:' + color + '"></span>' : "") +
         '<div class="wp-emoji-marker" style="background:' + color + '40; border-color:' + color + ';">' +
           iconRefHtml(opts.emoji) +
-        "</div></div>";
+        "</div>" + (opts.badge ? '<span class="wp-order-badge">' + opts.badge + "</span>" : "") + "</div>";
       return L.divIcon({ html, className: "wp-div-icon", iconSize: [48, 48], iconAnchor: [24, 48] });
     }
     const html = '<div class="wp-marker">' +
       (opts.pulsing ? '<span class="wp-pulse-ring" style="border-color:' + color + '"></span>' : "") +
-      '<div class="wp-pin">' + pinSvg(color) + "</div></div>";
+      '<div class="wp-pin">' + pinSvg(color) + "</div>" + (opts.badge ? '<span class="wp-order-badge">' + opts.badge + "</span>" : "") + "</div>";
     return L.divIcon({ html, className: "wp-div-icon", iconSize: [30, 40], iconAnchor: [15, 40] });
   }
   function iconOptsForWaypoint(wp, pulsing) {
@@ -85774,7 +85832,9 @@ return maplibregl$1;
       style: wp.markerStyle === "emoji" ? "emoji" : "pin",
       color: wp.markerColor || (wp.isCurrentLocation ? "#22d3ee" : "#f59e0b"),
       emoji: wp.markerEmoji,
-      pulsing: !!pulsing
+      pulsing: !!pulsing,
+      // Visiting order within an itinerary day (see refreshItineraryDayLines).
+      badge: itineraryOrderBadges.get(wp.id)
     };
   }
 
@@ -99994,42 +100054,120 @@ return maplibregl$1;
   // Rebuilt after every list render, which follows any change to
   // waypoints, their order, folders or visibility.
   const itineraryDayLines = L.layerGroup().addTo(map);
+  const itineraryDayBoxes = L.layerGroup().addTo(map);
   const dayRoutePending = new Set(), dayRouteFailed = new Set();
+  let itineraryDrawSig = "", itineraryDayBoxData = [];
+  // The day's number for its box label: "Day 3" from the folder's own name
+  // when it says so, otherwise its position among the itinerary's days.
+  function itineraryDayNumber(day, siblings) {
+    const m = /\bDay\s+(\d+)/i.exec(day.name || "");
+    return m ? +m[1] : siblings.indexOf(day) + 1;
+  }
   function refreshItineraryDayLines() {
-    itineraryDayLines.clearLayers();
+    if (bootGuard.safe) { itineraryDayLines.clearLayers(); itineraryDayBoxes.clearLayers(); return; }
+    const key = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+    const days = [];
     waypointFolders.forEach((day) => {
       const parent = day.parentFolderId ? waypointFolders.find((f) => f.id === day.parentFolderId) : null;
       if (!parent || !parent.isItinerary) return;
-      const key = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
       const stops = waypoints.filter((w) => w.folderId === day.id && !w.isStoryEntry).sort((a, b) => key(a) - key(b));
-      if (stops.length < 2 && !(stops.length === 1 && itineraryHome(parent))) return;
-      if (stops.every((w) => isWaypointEffectivelyHidden(w))) return;
-      const color = parent.color || defaultFolderColor(false, true);
-      const mode = itineraryTravelMode(parent), pts = ccDayRoutePoints(stops, itineraryHome(parent)), sig = ccRouteSig(pts, mode);
-      const routed = day.route && day.route.sig === sig && Array.isArray(day.route.latlngs) && day.route.latlngs.length > 1;
-      if (routed) {
-        L.polyline(day.route.latlngs, { color: "#0f172a", weight: 7, opacity: 0.35, interactive: false }).addTo(itineraryDayLines);
-        L.polyline(day.route.latlngs, { color, weight: 4, opacity: 0.95, interactive: false }).addTo(itineraryDayLines);
-        return;
+      if (!stops.length) return;
+      const hidden = stops.every((w) => isWaypointEffectivelyHidden(w));
+      const mode = itineraryTravelMode(parent), home = itineraryHome(parent);
+      const pts = ccDayRoutePoints(stops, home), sig = ccRouteSig(pts, mode);
+      const routed = !!(day.route && day.route.sig === sig && Array.isArray(day.route.latlngs) && day.route.latlngs.length > 1);
+      const siblings = waypointFolders.filter((f) => f.parentFolderId === parent.id);
+      days.push({ day, parent, stops, hidden, mode, pts, sig, routed, color: parent.color || defaultFolderColor(false, true), num: itineraryDayNumber(day, siblings) });
+    });
+    // Order badges -- refreshed on the affected icons only.
+    const nextBadges = new Map();
+    days.forEach((d) => d.stops.forEach((w, i) => nextBadges.set(w.id, i + 1)));
+    const changed = [];
+    nextBadges.forEach((n, id) => { if (itineraryOrderBadges.get(id) !== n) changed.push(id); });
+    itineraryOrderBadges.forEach((n, id) => { if (!nextBadges.has(id)) changed.push(id); });
+    itineraryOrderBadges.clear();
+    nextBadges.forEach((n, id) => itineraryOrderBadges.set(id, n));
+    changed.forEach((id) => {
+      const wp = waypoints.find((w) => w.id === id), mk = markers[id];
+      if (!wp || !mk) return;
+      mk.setIcon(makeIcon(iconOptsForWaypoint(wp, false)));
+      if (selectedWaypointId === id) { const el2 = mk.getElement && mk.getElement(); if (el2) el2.classList.add("wp-selected"); }
+    });
+    // Lines and boxes are only rebuilt when something they depend on changed
+    // (this runs after every list render, which can be often).
+    const drawSig = days.map((d) => d.sig + (d.routed ? "R" : "") + (d.hidden ? "H" : "") + d.color + d.num).join("/");
+    if (drawSig === itineraryDrawSig) return;
+    itineraryDrawSig = drawSig;
+    itineraryDayLines.clearLayers();
+    itineraryDayBoxData = [];
+    days.forEach((d) => {
+      if (d.hidden) return;
+      let path;
+      if (d.routed) {
+        path = d.day.route.latlngs;
+        L.polyline(path, { color: "#0f172a", weight: 7, opacity: 0.35, interactive: false }).addTo(itineraryDayLines);
+        L.polyline(path, { color: d.color, weight: 4, opacity: 0.95, interactive: false }).addTo(itineraryDayLines);
+      } else {
+        path = d.pts.map((p) => [p.lat, p.lng]);
+        if (path.length > 1) L.polyline(path, { color: d.color, weight: 3, opacity: 0.9, dashArray: "8 7", interactive: false }).addTo(itineraryDayLines);
+        if (navigator.onLine !== false && d.pts.length > 1 && !dayRoutePending.has(d.sig) && !dayRouteFailed.has(d.sig)) {
+          const day = d.day, sig = d.sig, mode = d.mode;
+          bootGuard.stage("fetching an itinerary day's route");
+          dayRoutePending.add(sig);
+          osrmRouteThrough(d.pts, mode).then((r) => {
+            if (!r) { dayRouteFailed.add(sig); return; }
+            day.route = Object.assign({ sig, mode }, r);
+            day.updatedAt = Date.now();
+            saveWaypointFolders();
+          }).catch(() => dayRouteFailed.add(sig)).finally(() => { dayRoutePending.delete(sig); refreshItineraryDayLines(); });
+        }
       }
-      const straight = pts.map((p) => [p.lat, p.lng]);
-      L.polyline(straight, { color: "#0f172a", weight: 6, opacity: 0.3, interactive: false }).addTo(itineraryDayLines);
-      L.polyline(straight, { color, weight: 3, opacity: 0.9, dashArray: "8 7", interactive: false }).addTo(itineraryDayLines);
-      if (navigator.onLine !== false && !dayRoutePending.has(sig) && !dayRouteFailed.has(sig)) {
-        dayRoutePending.add(sig);
-        osrmRouteThrough(pts, mode).then((r) => {
-          if (!r) { dayRouteFailed.add(sig); return; }
-          day.route = Object.assign({ sig, mode }, r);
-          day.updatedAt = Date.now();
-          saveWaypointFolders();
-          refreshItineraryDayLines();
-        }).catch(() => dayRouteFailed.add(sig)).finally(() => dayRoutePending.delete(sig));
-      }
+      // The box surrounds the day's stops and its route (not the hotel, which every day shares).
+      itineraryDayBoxData.push({ latlngs: path.concat(d.stops.map((w) => [w.lat, w.lng])), color: d.color, label: "Day " + d.num });
+    });
+    drawItineraryDayBoxes();
+  }
+  // A rounded rectangle around each day, a fixed number of screen pixels
+  // outside its stops and route, with a "Day N" tab on its top edge. Built
+  // in screen pixels at the current zoom so the margin and corner rounding
+  // look the same at every zoom; redrawn after each zoom.
+  // Extra room on the top edge: waypoint icons stand about 48 px tall above their point.
+  const DAY_BOX_PAD_PX = 24, DAY_BOX_PAD_TOP_PX = 62, DAY_BOX_RADIUS_PX = 16;
+  function drawItineraryDayBoxes() {
+    itineraryDayBoxes.clearLayers();
+    if (bootGuard.safe) return;
+    const z = map.getZoom();
+    itineraryDayBoxData.forEach((b) => {
+      if (!b.latlngs.length) return;
+      const px = b.latlngs.map((ll) => map.project(L.latLng(ll), z));
+      const x0 = Math.min(...px.map((p) => p.x)) - DAY_BOX_PAD_PX, x1 = Math.max(...px.map((p) => p.x)) + DAY_BOX_PAD_PX;
+      const y0 = Math.min(...px.map((p) => p.y)) - DAY_BOX_PAD_TOP_PX, y1 = Math.max(...px.map((p) => p.y)) + DAY_BOX_PAD_PX;
+      const r = Math.min(DAY_BOX_RADIUS_PX, (x1 - x0) / 2, (y1 - y0) / 2);
+      const ring = [];
+      const arc = (cx, cy, a0) => { for (let i = 0; i <= 6; i++) { const a = (a0 + 90 * i / 6) * Math.PI / 180; ring.push(L.point(cx + r * Math.cos(a), cy + r * Math.sin(a))); } };
+      arc(x1 - r, y0 + r, -90); arc(x1 - r, y1 - r, 0); arc(x0 + r, y1 - r, 90); arc(x0 + r, y0 + r, 180);
+      L.polygon(ring.map((p) => map.unproject(p, z)), { color: b.color, weight: 2, opacity: 0.9, fillColor: b.color, fillOpacity: 0.05, interactive: false }).addTo(itineraryDayBoxes);
+      L.marker(map.unproject(L.point(x0 + r + 4, y0), z), {
+        interactive: false, keyboard: false, zIndexOffset: -500,
+        icon: L.divIcon({ className: "itin-day-label-wrap", html: '<span class="itin-day-label" style="background:' + b.color + '">' + escapeHtml(b.label) + "</span>", iconSize: null })
+      }).addTo(itineraryDayBoxes);
     });
   }
-  window.addEventListener("online", () => { dayRouteFailed.clear(); refreshItineraryDayLines(); });
+  map.on("zoomend", drawItineraryDayBoxes);
+  window.addEventListener("online", () => { dayRouteFailed.clear(); itineraryDrawSig = ""; refreshItineraryDayLines(); });
 
+  bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
+  bootGuard.stage("finishing start-up");
+  setTimeout(() => bootGuard.done(), 20000);
+  if (bootGuard.safe) {
+    setTimeout(() => openConfirmModal("MapApp opened in safe mode",
+      (bootGuard.crashes >= 2
+        ? "MapApp closed unexpectedly " + bootGuard.crashes + " times in a row while starting. Its last steps were: " + bootGuard.lastStage + ". "
+        : "Safe mode was requested. ") +
+      "To keep it running, the live Street map, map rotation, and itinerary route lines and day boxes are switched off for now. Everything you've saved is untouched.",
+      () => { bootGuard.reset(); forceRefreshApp(); }, { confirmLabel: "Try normal mode", danger: false }), 1200);
+  }
   {
     const renderListBase = renderList;
     renderList = function () { const r = renderListBase.apply(this, arguments); refreshItineraryDayLines(); return r; };
