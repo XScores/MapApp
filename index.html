@@ -1025,8 +1025,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background:rgba(15,23,42,.92); border:1px solid var(--border); padding:0; display:flex; align-items:center; justify-content:center;
     cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35);}
   .map-compass.hidden{display:none;}
-  #mapOrientationList .folder-picker-row{height:auto; min-height:44px; padding-top:8px; padding-bottom:8px;}
-  #mapOrientationList .folder-picker-row > span:nth-child(2), #mapOrientationList .paper-wiz-row-sub{white-space:normal; overflow:visible; text-overflow:clip;}
+  .pdf-send-row{margin-top:8px;}
+  .pdf-send-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;}
+  .itin-print-swatch{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px;}
+  #itinPrintFlipRow.hidden{display:none;}
+  .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+    font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
+  .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
+  .confirm-modal-option.hidden{display:none;}
+  #mapOrientationList .folder-picker-row, #itinPrintFormatList .folder-picker-row, #ccPaceList .folder-picker-row, #paperWizAreaModes .folder-picker-row{height:auto; min-height:44px; padding-top:8px; padding-bottom:8px;}
+  #mapOrientationList .folder-picker-row > span:nth-child(2), #mapOrientationList .paper-wiz-row-sub,
+  #itinPrintFormatList .folder-picker-row > span:nth-child(2), #itinPrintFormatList .paper-wiz-row-sub,
+  #paperWizAreaModes .folder-picker-row > span:nth-child(2), #paperWizAreaModes .paper-wiz-row-sub{white-space:normal; overflow:visible; text-overflow:clip;}
   .map-compass.following{border:2px solid var(--amber);}
   .map-compass-needle{width:36px; height:36px; transition:transform .08s linear;}
   .paper-map-row{display:flex; gap:8px;}
@@ -1104,6 +1114,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .cc-day-title{font-weight:600; font-size:14px; color:var(--text);}
   .cc-day-theme{font-size:12.5px; color:var(--amber-light);}
   .cc-day-stats{font-size:11.5px; color:var(--text-mute);}
+  .cc-day-over{font-size:12px; color:var(--amber-light);}
+  .cc-day-over .cc-link-btn{padding:0 0 0 4px; font-size:12px;}
+  .cc-sublabel{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
   .cc-stop{display:flex; align-items:flex-start; gap:8px; padding:7px 4px; border-top:1px solid #1e293b; cursor:pointer;}
   .cc-stop input{margin-top:3px; accent-color:var(--cyan); flex-shrink:0;}
   .cc-stop.off .cc-stop-body{opacity:.5;}
@@ -1655,7 +1668,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
      button inside card-main-icon or card-title-row (both real buttons)
      isn't valid HTML, and keeping the handle separate means cardHtml
      never needs to know this context exists at all. */
-  .itinerary-draggable-item{display:flex; align-items:stretch; gap:0;}
+  .itinerary-draggable-item, .itinerary-day-item{display:flex; align-items:stretch; gap:0;}
+  .itinerary-day-item > .itinerary-drag-handle{align-items:flex-start; padding-top:22px;}
+  .itinerary-day-item.dragging{opacity:.6; position:relative; z-index:5;}
+  .itinerary-day-item.drop-before{box-shadow:0 -2px 0 0 var(--cyan);}
+  .itinerary-day-item.drop-after{box-shadow:0 2px 0 0 var(--cyan);}
   .itinerary-drag-handle{flex-shrink:0; width:22px; display:flex; align-items:center; justify-content:center;
     background:none; border:none; color:var(--text-mute); cursor:grab; padding:0; touch-action:none;}
   .itinerary-drag-handle:hover{color:var(--text);}
@@ -3195,6 +3212,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button class="icon-btn" id="confirmModalCloseBtn" data-icon="x"></button>
       </div>
       <p class="modal-coords" id="confirmModalMessage" style="margin-bottom:16px;"></p>
+      <label class="confirm-modal-option hidden" id="confirmModalOption"><input type="checkbox" id="confirmModalOptionInput" /><span id="confirmModalOptionLabel"></span></label>
       <div class="btn-row">
         <button class="btn btn-secondary" id="confirmModalCancelBtn">Cancel</button>
         <button class="btn btn-danger" id="confirmModalConfirmBtn">Delete</button>
@@ -3340,6 +3358,40 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button class="btn btn-secondary" id="tripPlanSaveDefaultBtn">Save as default</button>
         <button class="btn btn-primary" id="tripPlanGenerateBtn">Generate PDF</button>
       </div>
+      <div class="btn-row pdf-send-row"><button type="button" class="btn btn-secondary pdf-send-btn" id="tripPlanSendBtn"><span data-icon="mail" data-icon-size="15"></span><span>Email or share</span></button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="itinPrintModalOverlay">
+    <div class="modal-card paper-wiz-card">
+      <div class="modal-header">
+        <div>
+          <h2>Print itinerary</h2>
+          <p class="paper-wiz-step-label" id="itinPrintSubtitle"></p>
+        </div>
+        <button class="icon-btn" id="itinPrintCloseBtn" data-icon="x"></button>
+      </div>
+      <label class="field-label">Format</label>
+      <div class="folder-picker-list" id="itinPrintFormatList">
+        <div class="folder-picker-row" data-format="full"><span class="icon">📄</span><span>Full pages<span class="paper-wiz-row-sub">A cover page with the whole trip, then one Letter page per day with a large map</span></span><span class="story-format-checkbox"></span></div>
+        <div class="folder-picker-row" data-format="pocket"><span class="icon">✉️</span><span>Pocket<span class="paper-wiz-row-sub">Two days per Letter sheet. Fold in half, then in half again, to carry it; unfold once to see a day</span></span><span class="story-format-checkbox"></span></div>
+      </div>
+      <label class="field-label" style="margin-top:12px;">Days <button type="button" class="cc-link-btn" id="itinPrintAllDaysBtn" style="margin-left:6px; padding:0;">All</button></label>
+      <div class="cc-chips" id="itinPrintDays"></div>
+      <label class="field-label" style="margin-top:12px;">Map style</label>
+      <div class="paper-wiz-seg" id="itinPrintStyleSeg" role="radiogroup" aria-label="Map style">
+        <button type="button" data-layer="street" role="radio">Street</button>
+        <button type="button" data-layer="terrain" role="radio">Terrain</button>
+        <button type="button" data-layer="satellite" role="radio">Satellite</button>
+      </div>
+      <label class="layers-option" style="margin-top:10px;"><input type="checkbox" id="itinPrintNotesToggle" checked /><span>Include notes and addresses</span></label>
+      <label class="layers-option"><input type="checkbox" id="itinPrintQrToggle" checked /><span>QR codes for websites (scan with a phone camera)</span></label>
+      <label class="layers-option" id="itinPrintFlipRow"><input type="checkbox" id="itinPrintFlipToggle" checked /><span>Print the back day upside down, so it reads the right way up once folded</span></label>
+      <p class="paper-map-summary" id="itinPrintSummary"></p>
+      <div class="btn-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-primary" id="itinPrintGoBtn">Make the PDF</button>
+      </div>
+      <div class="btn-row pdf-send-row"><button type="button" class="btn btn-secondary pdf-send-btn" id="itinPrintSendBtn"><span data-icon="mail" data-icon-size="15"></span><span>Email or share</span></button></div>
     </div>
   </div>
 
@@ -3388,12 +3440,32 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
         <label class="field-label" style="margin-top:12px;">What are you into? <span class="cc-optional">Pick any</span></label>
         <div class="cc-chips" id="ccVibeChips"></div>
+        <label class="field-label" style="margin-top:12px;">Every stop must be <span class="cc-optional">Optional</span></label>
+        <div class="cc-chips" id="ccNeedChips"></div>
         <label class="field-label" style="margin-top:12px;">Getting around</label>
         <div class="paper-wiz-seg" id="ccTransitSeg" role="radiogroup" aria-label="Getting around">
           <button type="button" data-transit="driving" role="radio">🚗 Driving</button>
           <button type="button" data-transit="walking" role="radio">🚶 Walking</button>
           <button type="button" data-transit="cycling" role="radio">🚲 Cycling</button>
         </div>
+        <label class="field-label" style="margin-top:12px;">Distance</label>
+        <div class="paper-map-row">
+          <div>
+            <label class="field-label cc-sublabel" for="ccRadiusSelect">Stay within</label>
+            <select class="field-input" id="ccRadiusSelect">
+              <option value="0">Any distance</option><option value="1">1 km</option><option value="2">2 km</option><option value="5">5 km</option>
+              <option value="10">10 km</option><option value="15">15 km</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label cc-sublabel" for="ccDayMaxSelect">Longest day</label>
+            <select class="field-input" id="ccDayMaxSelect">
+              <option value="0">No limit</option><option value="3">3 km</option><option value="5">5 km</option><option value="8">8 km</option><option value="10">10 km</option>
+              <option value="15">15 km</option><option value="20">20 km</option><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="200">200 km</option>
+            </select>
+          </div>
+        </div>
+        <p class="layers-hint" id="ccDistanceHint"></p>
         <p class="layers-hint" id="ccSourceNote" style="margin-top:10px;"></p>
       </section>
 
@@ -3420,6 +3492,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="paper-wiz-review" id="ccReview"></div>
         <div class="cc-tree" id="ccTree"></div>
         <p class="layers-hint">Every stop becomes a regular waypoint, so you can rename, move, reorder or delete any of them afterwards. Your existing waypoints and folders aren't changed.</p>
+        <label class="layers-option"><input type="checkbox" id="ccPrintAfterToggle" /><span>Open the print options once it's built</span></label>
       </section>
 
       <div class="btn-row paper-wiz-nav">
@@ -3473,6 +3546,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <p class="paper-wiz-done-title" id="paperWizDoneTitle"></p>
         <p class="layers-hint" id="paperWizDoneHint"></p>
         <div class="home-actions"><button type="button" class="home-action-btn" id="paperWizDownloadAgainBtn">Download the PDF again</button></div>
+        <div class="btn-row pdf-send-row"><button type="button" class="btn btn-secondary pdf-send-btn" id="paperWizSendBtn"><span data-icon="mail" data-icon-size="15"></span><span>Email or share</span></button></div>
         <div class="paper-wiz-save" id="paperWizSaveBox">
           <p class="layers-section-title">Save this selection on this device?</p>
           <p class="layers-hint" id="paperWizSaveHint"></p>
@@ -3565,6 +3639,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary" id="pdfExportGenerateBtn">Generate PDF</button>
       </div>
+      <div class="btn-row pdf-send-row"><button type="button" class="btn btn-secondary pdf-send-btn" id="pdfExportSendBtn"><span data-icon="mail" data-icon-size="15"></span><span>Email or share</span></button></div>
     </div>
   </div>
 
@@ -77748,6 +77823,2307 @@ module.exports.zip = require('./src/zip')
 //# sourceMappingURL=pdf-lib.min.js.map
 
 </script>
+<script>
+/* qrcode-generator 2.0.4 by Kazuhiko Arase (MIT licence, header below), for QR codes in printed itineraries. */
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+
+</script>
 <script type="text/plain" id="maplibreSource">
 /* MapLibre GL JS 5.24.0 (BSD-3-Clause; licence below). Kept as inert text and only
    loaded when the live Street map is first used, so it costs nothing at start-up. */
@@ -78465,7 +80841,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "547";
+  const APP_VERSION = "553";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -79389,6 +81765,10 @@ return maplibregl$1;
   const confirmModalTitle = el("confirmModalTitle");
   const confirmModalMessage = el("confirmModalMessage");
   const confirmModalCancelBtn = el("confirmModalCancelBtn");
+  const confirmModalOption = el("confirmModalOption");
+  const confirmModalOptionInput = el("confirmModalOptionInput");
+  const confirmModalOptionLabel = el("confirmModalOptionLabel");
+  let confirmModalOptionChange = null;
   const confirmModalConfirmBtn = el("confirmModalConfirmBtn");
   const promptModalOverlay = el("promptModalOverlay");
   const directionsModalOverlay = el("directionsModalOverlay");
@@ -79683,6 +82063,14 @@ return maplibregl$1;
     confirmModalCancelBtn.textContent = options.cancelLabel || "Cancel";
     confirmModalCallback = onConfirm;
     confirmModalCancelCallback = options.onCancel || null;
+    // options.option: { label, onChange(checked) } adds a checkbox (unticked
+    // to start); onChange can return { message, confirmLabel } to update the
+    // dialog, and onConfirm receives whether it was ticked.
+    const opt = options.option;
+    confirmModalOption.classList.toggle("hidden", !opt);
+    confirmModalOptionInput.checked = false;
+    confirmModalOptionLabel.textContent = opt ? opt.label : "";
+    confirmModalOptionChange = opt && opt.onChange ? opt.onChange : null;
     confirmModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
   }
@@ -79704,8 +82092,15 @@ return maplibregl$1;
   });
   confirmModalConfirmBtn.addEventListener("click", () => {
     const cb = confirmModalCallback;
+    const optionChecked = !confirmModalOption.classList.contains("hidden") && confirmModalOptionInput.checked;
     closeConfirmModal();
-    if (cb) cb();
+    if (cb) cb(optionChecked);
+  });
+  confirmModalOptionInput.addEventListener("change", () => {
+    if (!confirmModalOptionChange) return;
+    const r = confirmModalOptionChange(confirmModalOptionInput.checked) || {};
+    if (r.message) confirmModalMessage.textContent = r.message;
+    if (r.confirmLabel) confirmModalConfirmBtn.textContent = r.confirmLabel;
   });
 
   // Reusable single-text-field modal -- used for both "New folder" (empty
@@ -81206,19 +83601,76 @@ return maplibregl$1;
     }
 
     const bytes = await pdfDoc.save();
-    const blob = new Blob([bytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = (folder.name || "trip").replace(/[\\/:*?"<>|]/g, "_") + "-Trip-Plan.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    showToast('Exported "' + folder.name + ' Trip Plan.pdf"');
+    const fileName = (folder.name || "trip").replace(/[\\/:*?"<>|]/g, "_") + "-Trip-Plan.pdf";
+    // A trip plan usually goes to the person to contact if you're overdue:
+    // when that field holds an email address, a fallback email is addressed to them.
+    const contactEmail = (/[^\s<>(),;:"]+@[^\s<>(),;:"]+\.[A-Za-z]{2,}/.exec(String(tp.overdueContact || "")) || [])[0] || "";
+    const how = await deliverPdf(bytes, fileName, { to: contactEmail, subject: "Trip plan: " + (folder.name || "my trip"),
+      text: "Here's my trip plan for \u201c" + (folder.name || "my trip") + "\u201d (PDF attached). If I'm overdue, please follow the instructions in it." });
+    if (how === "downloaded") showToast('Exported "' + folder.name + ' Trip Plan.pdf"');
   }
 
+  /* ---------- Delivering PDFs: download, or email/share in one step ----------
+     Web pages can't attach files to an email (a mailto: link carries only
+     the address, subject and body), so "Email or share" hands the PDF to
+     the system share sheet, which can pass it to Mail with it already
+     attached (iPhone, iPad, Android, Safari/Edge on desktop). Where that
+     isn't available, the PDF downloads and an email opens, ready for the
+     file to be attached. */
+  let pdfSendRequested = null; // { to?, subject, text } when an "Email or share" button started this PDF
+  function requestPdfSend(meta) { pdfSendRequested = meta || {}; }
+  function downloadPdfBytes(bytes, fileName) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+  function openMailDraft(meta) {
+    const q = "subject=" + encodeURIComponent(meta.subject || "") + "&body=" + encodeURIComponent(meta.text || "");
+    const a = document.createElement("a");
+    a.href = "mailto:" + encodeURIComponent(meta.to || "").replace(/%40/g, "@") + "?" + q;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  // Returns "shared", "downloaded" or "mailed" (downloaded, with an email opened to attach it to).
+  async function deliverPdf(bytes, fileName, defaults) {
+    const send = pdfSendRequested ? Object.assign({}, defaults || {}, pdfSendRequested) : null;
+    pdfSendRequested = null;
+    if (!send) { downloadPdfBytes(bytes, fileName); return "downloaded"; }
+    let file = null;
+    try { file = new File([bytes], fileName, { type: "application/pdf" }); } catch (e) { file = null; }
+    const data = file ? { files: [file], title: send.subject || fileName, text: send.text || "" } : null;
+    const canShareFile = !!(data && navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+    if (canShareFile) {
+      try { await navigator.share(data); return "shared"; }
+      catch (e) {
+        if (e && e.name === "AbortError") return "shared"; // the share sheet was closed; nothing more to do
+        if (e && e.name === "NotAllowedError") {
+          // Browsers only open the share sheet straight from a tap; making
+          // the PDF took long enough that the tap no longer counts, so ask
+          // for one more tap.
+          return await new Promise((resolve) => {
+            openConfirmModal("Your PDF is ready", "Tap Send, then choose Mail (or any app) to send \u201c" + fileName + "\u201d with the PDF attached.",
+              async () => { try { await navigator.share(data); } catch (e2) { if (!e2 || e2.name !== "AbortError") { downloadPdfBytes(bytes, fileName); } } resolve("shared"); },
+              { confirmLabel: "Send", danger: false, cancelLabel: "Download instead", onCancel: () => { downloadPdfBytes(bytes, fileName); resolve("downloaded"); } });
+          });
+        }
+      }
+    }
+    downloadPdfBytes(bytes, fileName);
+    openMailDraft(send);
+    showToast("Downloaded \u201c" + fileName + "\u201d. Attach it to the email that's opening.");
+    return "mailed";
+  }
+
+  // "Email or share" = the same as the dialog's main button, but the
+  // finished PDF goes to the share sheet / an email instead of a download.
+  el("pdfExportSendBtn").addEventListener("click", () => { requestPdfSend(); pdfExportGenerateBtn.click(); });
+  el("tripPlanSendBtn").addEventListener("click", () => { requestPdfSend(); tripPlanGenerateBtn.click(); });
+
   function openPdfExportModal(folder) {
+    // Itineraries print day by day, with their own dialog.
+    if (folder && folder.isItinerary) { openItineraryPrint(folder.id); return; }
     pdfExportPendingFolder = folder;
     pdfExportModalOverlay.classList.remove("hidden");
     document.body.classList.add("modal-open");
@@ -87501,6 +89953,13 @@ return maplibregl$1;
     a.remove();
   }
   el("paperWizDownloadAgainBtn").addEventListener("click", paperDownload);
+  el("paperWizSendBtn").addEventListener("click", async () => {
+    const r = paperWiz.result;
+    if (!r) return;
+    const bytes = new Uint8Array(await (await fetch(r.blobUrl)).arrayBuffer());
+    requestPdfSend({ subject: "Paper map: " + r.opts.title, text: "Here's a printable map (PDF attached). Print it at 100% (not \u201cfit to page\u201d) so the scale is true." });
+    await deliverPdf(bytes, r.fileName);
+  });
 
   // ---- Finish: the last offer, saving the selection on this device ----
   function paperRenderDoneStep() {
@@ -87884,38 +90343,114 @@ return maplibregl$1;
   let iconDragState = null;
   let itineraryDragState = null; // waypoint drag-reorder within an Itinerary/Day folder -- see panelList's pointermove/pointerup below
   const ITINERARY_DRAG_THRESHOLD_PX = 6;
+  // Which elements a drag can be dropped among: waypoints within one Day
+  // folder, or Day folders within one itinerary.
+  function itineraryDragSelector(state) { return state.kind === "day" ? ".itinerary-day-item" : ".itinerary-draggable-item"; }
+  function clearItineraryDropMarks() {
+    panelList.querySelectorAll(".drop-before, .drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+  }
+  // Moves the dragged item with the pointer (allowing for any scrolling
+  // since the drag began) and marks where it would drop.
+  function updateItineraryDrag(state) {
+    const dy = state.lastY - state.startY + (panelList.scrollTop - state.startScroll);
+    state.item.style.transform = "translateY(" + dy + "px)";
+    clearItineraryDropMarks();
+    const elUnder = document.elementFromPoint(state.lastX, state.lastY);
+    const targetItem = elUnder && elUnder.closest(itineraryDragSelector(state));
+    if (targetItem && targetItem !== state.item && targetItem.parentElement === state.item.parentElement) {
+      const rect = targetItem.getBoundingClientRect();
+      targetItem.classList.add(state.lastY < rect.top + rect.height / 2 ? "drop-before" : "drop-after");
+      return;
+    }
+    // Just past either end of the list (the folder's padding or buttons, not
+    // an item): drop after the last item or before the first, so moving
+    // something to the very end or start doesn't need pixel-perfect aim.
+    const siblings = Array.from(state.item.parentElement.children).filter((x) => x !== state.item && x.matches(itineraryDragSelector(state)));
+    if (!siblings.length) return;
+    const first = siblings[0].getBoundingClientRect(), last = siblings[siblings.length - 1].getBoundingClientRect();
+    if (state.lastY > last.bottom && state.lastY < last.bottom + 140) siblings[siblings.length - 1].classList.add("drop-after");
+    else if (state.lastY < first.top && state.lastY > first.top - 140) siblings[0].classList.add("drop-before");
+  }
+  // Holding the pointer near the top or bottom edge of the list scrolls it,
+  // faster the closer to the edge, so an item can be carried anywhere.
+  const ITINERARY_AUTOSCROLL_ZONE_PX = 64, ITINERARY_AUTOSCROLL_MAX_PX = 16;
+  function itineraryAutoScrollStep() {
+    const state = itineraryDragState;
+    if (!state || !state.dragging) return;
+    const r = panelList.getBoundingClientRect();
+    let speed = 0;
+    if (state.lastY < r.top + ITINERARY_AUTOSCROLL_ZONE_PX) speed = -ITINERARY_AUTOSCROLL_MAX_PX * Math.min(1, (r.top + ITINERARY_AUTOSCROLL_ZONE_PX - state.lastY) / ITINERARY_AUTOSCROLL_ZONE_PX);
+    else if (state.lastY > r.bottom - ITINERARY_AUTOSCROLL_ZONE_PX) speed = ITINERARY_AUTOSCROLL_MAX_PX * Math.min(1, (state.lastY - (r.bottom - ITINERARY_AUTOSCROLL_ZONE_PX)) / ITINERARY_AUTOSCROLL_ZONE_PX);
+    if (speed) {
+      const before = panelList.scrollTop;
+      panelList.scrollTop = before + speed;
+      if (panelList.scrollTop !== before) updateItineraryDrag(state);
+    }
+    state.scrollFrame = requestAnimationFrame(itineraryAutoScrollStep);
+  }
   panelList.addEventListener("pointermove", (e) => {
     const state = itineraryDragState;
     if (!state || e.pointerId !== state.pointerId) return;
+    state.lastX = e.clientX; state.lastY = e.clientY;
     const dy = e.clientY - state.startY;
     if (!state.dragging && Math.abs(dy) > ITINERARY_DRAG_THRESHOLD_PX) {
       state.dragging = true;
       state.item.classList.add("dragging");
-      state.item.style.pointerEvents = "none"; // so elementFromPoint below sees what's UNDER it, not itself
+      state.item.style.pointerEvents = "none"; // so elementFromPoint sees what's UNDER it, not itself
+      state.scrollFrame = requestAnimationFrame(itineraryAutoScrollStep);
     }
     if (!state.dragging) return;
-    state.item.style.transform = "translateY(" + dy + "px)";
-    panelList.querySelectorAll(".itinerary-draggable-item.drop-before, .itinerary-draggable-item.drop-after")
-      .forEach((el) => el.classList.remove("drop-before", "drop-after"));
-    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
-    const targetItem = elUnder && elUnder.closest(".itinerary-draggable-item");
-    if (targetItem && targetItem !== state.item) {
-      const rect = targetItem.getBoundingClientRect();
-      const before = e.clientY < rect.top + rect.height / 2;
-      targetItem.classList.add(before ? "drop-before" : "drop-after");
-    }
+    e.preventDefault();
+    updateItineraryDrag(state);
   });
+  // Waypoints in a Day folder whose names carry their visiting number
+  // ("01 - Old Town Square", as the Itinerary Concierge names them) are
+  // renumbered to match their new order. Names without a number are left alone.
+  function renumberItineraryWaypoints(orderedIds) {
+    const now = Date.now();
+    orderedIds.forEach((id, index) => {
+      const wp = waypoints.find((w) => w.id === id);
+      if (!wp) return;
+      wp.itineraryOrder = index;
+      wp.itineraryDayId = wp.folderId;
+      const m = /^(\d{1,3})\s*-\s*/.exec(wp.name || "");
+      if (m) wp.name = String(index + 1).padStart(Math.max(2, m[1].length), "0") + " - " + wp.name.slice(m[0].length);
+      if (typeof wp.order === "number") wp.order = index + 1;
+      wp.updatedAt = now;
+    });
+  }
+  // Day folders are renamed for their new position: the day number, and the
+  // date in brackets, belong to the position, not the folder. So dragging
+  // Day 7 above Day 6 makes it Day 6 with Day 6's date, and the old Day 6
+  // becomes Day 7 with Day 7's date. (Both "Day 6 - Czech Republic (2026-10-14)"
+  // and "Day 6 (Oct 14)" are handled; anything else in the name is kept.)
+  function renumberItineraryDays(parent, orderedIds) {
+    const siblings = waypointFolders.filter((f) => f.parentFolderId === parent.id);
+    const bySlot = siblings.slice().sort((a, b) => itineraryDayNumber(a, siblings) - itineraryDayNumber(b, siblings));
+    const slotDates = bySlot.map((f) => { const m = /\(([^()]*)\)\s*$/.exec(f.name || ""); return m ? m[1] : null; });
+    const now = Date.now();
+    orderedIds.forEach((id, index) => {
+      const f = waypointFolders.find((x) => x.id === id);
+      if (!f) return;
+      let name = f.name || "";
+      name = /\bDay\s+\d+/i.test(name) ? name.replace(/\bDay\s+\d+/i, "Day " + (index + 1)) : "Day " + (index + 1) + " - " + name;
+      const date = slotDates[index];
+      if (date !== null && date !== undefined && /\(([^()]*)\)\s*$/.test(name)) name = name.replace(/\(([^()]*)\)\s*$/, "(" + date + ")");
+      if (name !== f.name) { f.name = name; f.updatedAt = now; }
+    });
+  }
   function finishItineraryDrag(e) {
     const state = itineraryDragState;
     if (!state || e.pointerId !== state.pointerId) return;
     itineraryDragState = null;
+    if (state.scrollFrame) cancelAnimationFrame(state.scrollFrame);
     state.item.style.transform = "";
     state.item.style.pointerEvents = "";
     state.item.classList.remove("dragging");
-    const dropBefore = panelList.querySelector(".itinerary-draggable-item.drop-before");
-    const dropAfter = panelList.querySelector(".itinerary-draggable-item.drop-after");
-    if (dropBefore) dropBefore.classList.remove("drop-before");
-    if (dropAfter) dropAfter.classList.remove("drop-after");
+    const sel = itineraryDragSelector(state);
+    const dropBefore = panelList.querySelector(sel + ".drop-before");
+    const dropAfter = panelList.querySelector(sel + ".drop-after");
+    clearItineraryDropMarks();
 
     if (!state.dragging) return; // a plain tap on the handle, not a drag -- nothing to commit
     const target = dropBefore || dropAfter;
@@ -87934,13 +90469,18 @@ return maplibregl$1;
     // somewhere further down) and assigns fresh, explicit itineraryOrder
     // values matching it -- from here on this is the sort's source of
     // truth, overriding plain insertion order.
+    if (state.kind === "day") {
+      const parent = waypointFolders.find((f) => f.id === state.item.dataset.parentId);
+      const dayIds = Array.from(container.children).filter((x) => x.classList.contains("itinerary-day-item")).map((x) => x.dataset.folderId);
+      if (parent) renumberItineraryDays(parent, dayIds);
+      saveWaypointFolders();
+      renderList();
+      return;
+    }
     const orderedIds = Array.from(container.children)
       .filter((el) => el.classList.contains("itinerary-draggable-item"))
       .map((el) => el.dataset.waypointId);
-    orderedIds.forEach((id, index) => {
-      const wp = waypoints.find((w) => w.id === id);
-      if (wp) wp.itineraryOrder = index;
-    });
+    renumberItineraryWaypoints(orderedIds);
     saveWaypoints();
     renderList();
   }
@@ -97571,31 +100111,78 @@ return maplibregl$1;
   // Ungroups every waypoint that was in this folder rather than deleting
   // them -- a folder is just an organizational grouping, so removing it
   // should never take the waypoints themselves down with it.
+  // Every folder id in a tree: the folder itself and all folders nested
+  // inside it, at any depth.
+  function folderTreeIds(folderList, id) {
+    const out = [id];
+    folderList.filter((f) => f.parentFolderId === id).forEach((c) => { out.push(...folderTreeIds(folderList, c.id)); });
+    return out;
+  }
+  // One dialog for deleting any kind of folder. By default the contents are
+  // kept (moved out to the top level, as before); ticking the box deletes
+  // the folder, every folder inside it, and everything they contain.
+  function confirmFolderDelete(folder, folderList, itemList, itemWord, keepContents, deleteEverything) {
+    const tree = folderTreeIds(folderList, folder.id);
+    const treeSet = new Set(tree);
+    const directItems = itemList.filter((x) => x.folderId === folder.id).length;
+    const directSubs = folderList.filter((f) => f.parentFolderId === folder.id).length;
+    const allItems = itemList.filter((x) => treeSet.has(x.folderId)).length;
+    const allSubs = tree.length - 1;
+    const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+    const join = (a, b) => [a, b].filter(Boolean).join(" and ");
+    const keepParts = join(directItems ? plural(directItems, itemWord) : "", directSubs ? plural(directSubs, "subfolder") : "");
+    const one = directItems + directSubs === 1;
+    const keepMsg = keepParts ? "The " + keepParts + " inside " + (one ? "stays right where it is" : "stay right where they are") + ", just no longer grouped into this folder." : "This folder is empty.";
+    const allParts = join(allItems ? plural(allItems, itemWord) : "", allSubs ? plural(allSubs, "subfolder") : "");
+    const deleteMsg = "This also permanently deletes " + (allSubs ? "everything inside it: " : "the ") + allParts + (allSubs ? ", including what's in the " + (allSubs === 1 ? "subfolder" : "subfolders") : " inside it") + ". This can't be undone.";
+    const empty = !allItems && !allSubs;
+    openConfirmModal('Delete "' + folder.name + '"?', keepMsg, (withContents) => {
+      if (withContents && !empty) {
+        deleteEverything(tree, treeSet);
+        showToast('Deleted "' + folder.name + '" with its ' + (allParts || "contents"));
+      } else {
+        keepContents();
+        showToast('Deleted "' + folder.name + '"');
+      }
+    }, {
+      confirmLabel: "Delete",
+      option: empty ? null : {
+        label: "Also delete everything inside it (" + allParts + ")",
+        onChange: (checked) => ({ message: checked ? deleteMsg : keepMsg, confirmLabel: checked ? "Delete everything" : "Delete" })
+      }
+    });
+  }
+
   function deleteWaypointFolder(id) {
     const folder = waypointFolders.find((f) => f.id === id);
     if (!folder) return;
-    const childFolderCount = waypointFolders.filter((f) => f.parentFolderId === id).length;
-    const waypointCount = waypoints.filter((w) => w.folderId === id).length;
-    const parts = [];
-    if (waypointCount > 0) parts.push(waypointCount + " waypoint" + (waypointCount === 1 ? "" : "s"));
-    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
-    openConfirmModal(
-      'Delete "' + folder.name + '"?',
-      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
+    const finish = () => {
+      saveDeletedIds();
+      saveWaypointFolders();
+      saveWaypoints();
+      if (editingFolderId && !waypointFolders.some((f) => f.id === editingFolderId)) closeFolderCreatePanel(); else renderList();
+      updateCounters();
+    };
+    confirmFolderDelete(folder, waypointFolders, waypoints, "waypoint",
       () => {
         waypoints.forEach((w) => { if (w.folderId === id) { w.folderId = null; w.updatedAt = Date.now(); } });
         waypointFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
         waypointFolders = waypointFolders.filter((f) => f.id !== id);
         expandedFolderIds.delete(id);
         deletedIds.waypointFolders.push(id);
-        saveDeletedIds();
-        saveWaypointFolders();
-        saveWaypoints();
-        if (editingFolderId === id) closeFolderCreatePanel(); else renderList();
-        showToast('Deleted "' + folder.name + '"');
+        finish();
       },
-      { confirmLabel: "Delete" }
-    );
+      (tree, treeSet) => {
+        waypoints.filter((w) => treeSet.has(w.folderId)).forEach((w) => {
+          if (markers[w.id]) { map.removeLayer(markers[w.id]); delete markers[w.id]; }
+          if (selectedWaypointId === w.id) selectedWaypointId = null;
+          deletedIds.waypoints.push(w.id);
+        });
+        waypoints = waypoints.filter((w) => !treeSet.has(w.folderId));
+        waypointFolders = waypointFolders.filter((f) => !treeSet.has(f.id));
+        tree.forEach((fid) => { expandedFolderIds.delete(fid); deletedIds.waypointFolders.push(fid); });
+        finish();
+      });
   }
 
   // Renders one folder as an accordion row: header (chevron, name, count,
@@ -97748,7 +100335,16 @@ return maplibregl$1;
           // drags to rearrange them, at which point every waypoint in this
           // folder gets a fresh, explicit sequence value.
           const waypointSortKey = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
-          const bodyEntries = childFolders.map((f) => ({ name: f.name, sortKey: f.createdAt || 0, html: folderAccordionHtml(f) }))
+          // An itinerary's Day folders can be dragged to reorder them (and are
+          // renumbered to match); they list in day order, ahead of any loose waypoints.
+          const dayDraggable = folder.isItinerary && childFolders.length > 1;
+          const bodyEntries = childFolders.map((f) => ({ name: f.name, isFolder: true, dayNum: folder.isItinerary ? itineraryDayNumber(f, childFolders) : 0, sortKey: f.createdAt || 0,
+              html: dayDraggable
+                ? '<div class="itinerary-day-item" data-folder-id="' + f.id + '" data-parent-id="' + folder.id + '">' +
+                    '<button type="button" class="itinerary-drag-handle" aria-label="Reorder ' + escapeHtml(f.name) + '"><span class="icon"></span></button>' +
+                    '<div class="itinerary-draggable-card-wrap">' + folderAccordionHtml(f) + "</div>" +
+                  "</div>"
+                : folderAccordionHtml(f) }))
             .concat(regularItems.map((w) => ({
               name: w.name,
               sortKey: waypointSortKey(w),
@@ -97766,7 +100362,7 @@ return maplibregl$1;
             // above. Every other folder keeps the normal alphabetical sort.
             .sort(
               folder.isTrip ? (a, b) => b.sortKey - a.sortKey
-              : isItineraryFolder ? (a, b) => a.sortKey - b.sortKey
+              : isItineraryFolder ? (a, b) => (a.isFolder !== b.isFolder ? (a.isFolder ? -1 : 1) : a.isFolder && folder.isItinerary ? a.dayNum - b.dayNum : a.sortKey - b.sortKey)
               : (a, b) => compareSortNames(a.name, b.name)
             );
           const storyHtml = storyWps.map((w) => cardHtml(w)).join("");
@@ -97792,6 +100388,9 @@ return maplibregl$1;
           (aiStoryGeneratingFolderIds.has(folder.id) ? "Generating…" : "A.I. Story") + '"' +
           (aiStoryGeneratingFolderIds.has(folder.id) ? " disabled" : "") + '>' + icon("sparkles", 14) + "</button>"
       : "";
+    const itineraryPrintBtn = folder.isItinerary
+      ? '<button type="button" class="folder-accordion-action" data-action="itinerary-print" data-id="' + folder.id + '" title="Print this itinerary" aria-label="Print this itinerary">' + icon("printer", 14) + "</button>"
+      : "";
     const tripItineraryBtn = folder.isTrip
       ? '<button type="button" class="folder-accordion-action folder-accordion-itinerary-btn" data-action="trip-itinerary" data-id="' + folder.id + '" title="Plan an itinerary for this trip" aria-label="Plan an itinerary for this trip">' + icon("calendar", 14) + "</button>"
       : "";
@@ -97805,6 +100404,7 @@ return maplibregl$1;
         '<span class="folder-accordion-name">' + escapeHtml(folder.name) + "</span>" +
         '<span class="folder-accordion-count">' + totalCount + "</span>" +
         tripItineraryBtn +
+        itineraryPrintBtn +
         tripStoryBtn +
         visibilityBtn +
         shareFolderBtn +
@@ -98025,6 +100625,9 @@ return maplibregl$1;
     panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
     });
+    panelList.querySelectorAll('[data-action="itinerary-print"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryPrint(btn.dataset.id); });
+    });
     panelList.querySelectorAll('[data-action="trip-itinerary"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryConcierge(btn.dataset.id); });
     });
@@ -98052,10 +100655,12 @@ return maplibregl$1;
     panelList.querySelectorAll(".itinerary-drag-handle").forEach((handle) => {
       handle.querySelector(".icon").innerHTML = icon("gripDots", 15);
       handle.addEventListener("pointerdown", (e) => {
-        const item = handle.closest(".itinerary-draggable-item");
+        const item = handle.closest(".itinerary-draggable-item, .itinerary-day-item");
         if (!item) return;
+        e.stopPropagation(); // a Day folder's handle sits inside its parent's list; don't start a drag there too
         handle.setPointerCapture(e.pointerId);
-        itineraryDragState = { pointerId: e.pointerId, item, startY: e.clientY, dragging: false };
+        itineraryDragState = { pointerId: e.pointerId, item, kind: item.classList.contains("itinerary-day-item") ? "day" : "wp",
+          startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, startScroll: panelList.scrollTop, dragging: false, scrollFrame: null };
       });
     });
   }
@@ -98192,7 +100797,15 @@ return maplibregl$1;
         font.widthOfTextAtSize(ch, 10);
         result += ch;
       } catch (e) {
-        result += PDF_UNSUPPORTED_CHAR_FALLBACKS[ch] !== undefined ? PDF_UNSUPPORTED_CHAR_FALLBACKS[ch] : "?";
+        if (PDF_UNSUPPORTED_CHAR_FALLBACKS[ch] !== undefined) { result += PDF_UNSUPPORTED_CHAR_FALLBACKS[ch]; continue; }
+        // Accented letters the built-in fonts can't encode (Czech ř, ě, ů;
+        // Polish ł handled above if listed) fall back to their plain letter
+        // rather than "?": "Petřín" prints as "Petrin". Emoji and other
+        // symbols with no plain form are dropped.
+        const base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        let ok = false;
+        if (base && base !== ch) { try { font.widthOfTextAtSize(base, 10); ok = true; } catch (e2) { ok = false; } }
+        result += ok ? base : (/[\p{L}\p{N}]/u.test(ch) ? "?" : "");
       }
     }
     return result;
@@ -99261,16 +101874,9 @@ return maplibregl$1;
     }
 
     const bytes = await pdfDoc.save();
-    const blob = new Blob([bytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = (folder.name || "trip").replace(/[\\/:*?"<>|]/g, "_") + ".pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    showToast('Exported "' + folder.name + '.pdf"');
+    const fileName = (folder.name || "trip").replace(/[\\/:*?"<>|]/g, "_") + ".pdf";
+    const how = await deliverPdf(bytes, fileName, { subject: folder.name || "Trip", text: "Here's \u201c" + (folder.name || "my trip") + "\u201d as a PDF, made with MapApp." });
+    if (how === "downloaded") showToast('Exported "' + folder.name + '.pdf"');
   }
 
   // Builds the JSON-ish trip summary fed to the model: each real (non-story)
@@ -99458,8 +102064,19 @@ return maplibregl$1;
     { id: "food", label: "Food & Dining", emoji: "🍽️" },
     { id: "historic", label: "Historic & Cultural", emoji: "🏛️" },
     { id: "family", label: "Family Friendly", emoji: "🎡" },
-    { id: "hidden", label: "Hidden Gems", emoji: "💎" }
+    { id: "hidden", label: "Hidden Gems", emoji: "💎" },
+    { id: "shopping", label: "Shopping", emoji: "🛍️" }
   ];
+  // Requirements every stop must meet (not interests): sent to the AI as
+  // rules, and used to filter OpenStreetMap places in the no-AI fallback.
+  const CC_NEEDS = [
+    { id: "dog", label: "Dog friendly", emoji: "🐕", rule: "dog-friendly (dogs allowed, at least on a leash or on the patio)" },
+    { id: "indoor", label: "Indoor", emoji: "☔", rule: "indoors, so the day works in bad weather" },
+    { id: "accessible", label: "Accessible", emoji: "♿", rule: "wheelchair accessible (step-free entrance and accessible washrooms)" },
+    { id: "parking", label: "Free parking", emoji: "🅿️", rule: "within easy reach of free parking" }
+  ];
+  // Distance defaults by how you're getting around: [stay within km, longest day km] (0 = no limit).
+  const CC_DISTANCE_DEFAULTS = { walking: [5, 10], cycling: [15, 30], driving: [0, 0] };
   const CC_CATEGORIES = {
     food: { emoji: "🍽️", color: "#f97316", minutes: 75 },
     cafe: { emoji: "☕", color: "#f59e0b", minutes: 40 },
@@ -99486,11 +102103,12 @@ return maplibregl$1;
     generating: el("ccGenerating"), generatingTitle: el("ccGeneratingTitle"), generatingHint: el("ccGeneratingHint"),
     preview: el("ccPreview"), previewHint: el("ccPreviewHint"), daysEl: el("ccDays"), optimize: el("ccOptimizeToggle"),
     verifyBtn: el("ccVerifyBtn"), verifyStatus: el("ccVerifyStatus"), genError: el("ccGenError"), fallbackRow: el("ccFallbackRow"),
+    needChips: el("ccNeedChips"), radius: el("ccRadiusSelect"), dayMax: el("ccDayMaxSelect"), distanceHint: el("ccDistanceHint"),
     review: el("ccReview"), tree: el("ccTree"), back: el("ccBackBtn"), next: el("ccNextBtn")
   };
   const cc = {
     step: "scope", parentTripId: null, busy: false, runId: 0,
-    pace: "balanced", vibes: new Set(), transit: "walking",
+    pace: "balanced", vibes: new Set(), needs: new Set(), transit: "walking", radiusKm: 5, maxDayKm: 10, distTouched: false,
     destPlace: null, startPlace: null, plan: null, verifying: false
   };
 
@@ -99535,7 +102153,12 @@ return maplibregl$1;
   // nearby excursions count (Île d'Orléans from Quebec City by car) while
   // a stop placed in the wrong city or country is caught.
   const CC_REACH_KM = { walking: 5, cycling: 20, driving: 60 };
+  function ccCentre() { return cc.startPlace || cc.destPlace; }
   function ccArea() {
+    if (cc.radiusKm) {
+      const c = ccCentre(), dLat = cc.radiusKm / 111, dLng = cc.radiusKm / (111 * Math.max(0.2, Math.cos(c.lat * Math.PI / 180)));
+      return [c.lat - dLat, c.lng - dLng, c.lat + dLat, c.lng + dLng];
+    }
     const p = cc.destPlace;
     const [s, w, n, e] = p.box || [p.lat, p.lng, p.lat, p.lng];
     const km = CC_REACH_KM[cc.transit] || 20;
@@ -99543,6 +102166,7 @@ return maplibregl$1;
     return [s - padLat, w - padLng, n + padLat, e + padLng];
   }
   function ccInArea(lat, lng) {
+    if (cc.radiusKm) { const c = ccCentre(); return haversineMeters(c.lat, c.lng, lat, lng) / 1000 <= cc.radiusKm; }
     const [s, w, n, e] = ccArea();
     return lat >= s && lat <= n && lng >= w && lng <= e;
   }
@@ -99554,7 +102178,8 @@ return maplibregl$1;
       destinationCenter: cc.destPlace ? { lat: cc.destPlace.lat, lng: cc.destPlace.lng } : null,
       startDate: ccEls.date.value, days: Math.max(1, Math.min(14, parseInt(ccEls.days.value, 10) || 1)),
       startingPoint: ccEls.start.value.trim(), startingPointCoords: cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null,
-      pace: cc.pace, stopsPerDay: CC_PACE[cc.pace].range, vibes: CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label), transit: cc.transit
+      pace: cc.pace, stopsPerDay: CC_PACE[cc.pace].range, vibes: CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label), transit: cc.transit,
+      needs: CC_NEEDS.filter((n) => cc.needs.has(n.id)), radiusKm: cc.radiusKm, maxDayKm: cc.maxDayKm
     };
   }
   function buildItineraryPrompt(u) {
@@ -99569,6 +102194,9 @@ return maplibregl$1;
       "- Pace: " + u.pace + ", " + u.stopsPerDay + " stops per day",
       "- Interests: " + (u.vibes.length ? u.vibes.join(", ") : "a well-rounded mix of the destination's highlights"),
       "- Getting around: " + u.transit + (u.transit === "walking" ? " (keep each day's stops within a compact, walkable area)" : u.transit === "cycling" ? " (keep each day's stops within easy cycling distance)" : ""),
+      u.needs.length ? "- Every stop must be: " + u.needs.map((n) => n.rule).join("; ") + ". If you can't be confident a place meets these, choose a different place." : "",
+      u.radiusKm ? "- Every stop must be within " + u.radiusKm + " km (straight line) of " + (u.startingPoint ? "the starting point" : "the destination centre") + "." : "",
+      u.maxDayKm ? "- Each day's total travel, from the start through every stop" + (u.startingPoint ? " and back to the start" : "") + ", must be at most " + u.maxDayKm + " km by " + (u.transit === "driving" ? "road" : u.transit === "cycling" ? "bike" : "foot") + ". Use fewer stops on a day rather than exceed this." : "",
       "",
       "Rules:",
       "- Only real, currently operating, named places that exist at the destination. Never invent places.",
@@ -99576,7 +102204,7 @@ return maplibregl$1;
       "- Group each day's stops geographically and list them in a sensible visiting order for that day, with meals at sensible times if food is an interest.",
       "- Do not repeat a place across days.",
       "- url: the place's official website only if you are confident it exists, otherwise an empty string. Never guess a URL.",
-      "- notes: one or two sentences (max 30 words) saying why it's worth the stop and a practical tip.",
+      "- notes: one or two sentences (max 30 words) saying why it's worth the stop and a practical tip" + (u.needs.length ? ", and briefly confirming each requirement above (for example: dogs welcome on the patio; step-free entrance; free lot behind the building)" : "") + ".",
       "- category: one of food, cafe, outdoor, viewpoint, historic, culture, family, hidden, shopping, nightlife, other.",
       "- icon: a single emoji suiting the stop.",
       "- estimatedTimeMinutes: a realistic time to spend there.",
@@ -99642,10 +102270,13 @@ return maplibregl$1;
     if (vibes.includes("historic")) { add('["historic"~"^(castle|fort|monument|memorial|ruins|building|church)$"]'); add('["tourism"~"^(museum|gallery)$"]'); }
     if (vibes.includes("family")) { add('["tourism"~"^(zoo|aquarium|theme_park)$"]'); add('["leisure"~"^(water_park|amusement_arcade)$"]'); }
     if (vibes.includes("hidden")) { add('["tourism"~"^(artwork|attraction)$"]'); }
+    if (vibes.includes("shopping")) { add('["shop"~"^(mall|department_store|gift|books|art|antiques|crafts)$"]'); add('["amenity"="marketplace"]'); }
+    // Indoor-only trips: also look for the usual indoor attractions.
+    if (cc.needs.has("indoor")) { add('["tourism"~"^(museum|gallery|aquarium)$"]'); add('["amenity"~"^(cinema|theatre|arts_centre|library)$"]'); add('["shop"="mall"]'); }
     add('["tourism"="attraction"]["wikidata"]');
     const r = await fetchOverpassCell("[out:json][timeout:30];(" + parts.join("") + ");out center tags 400;");
     if (!r.ok) throw new Error("OpenStreetMap places: " + r.error);
-    const catOf = (t) => t.amenity === "cafe" || t.amenity === "bakery" ? "cafe" : t.amenity === "restaurant" ? "food"
+    const catOf = (t) => t.shop || t.amenity === "marketplace" ? "shopping" : t.amenity === "cafe" || t.amenity === "bakery" ? "cafe" : t.amenity === "restaurant" ? "food"
       : t.tourism === "viewpoint" ? "viewpoint" : (t.leisure || t.natural) ? (t.leisure === "water_park" || t.leisure === "amusement_arcade" ? "family" : "outdoor")
       : t.tourism === "museum" || t.tourism === "gallery" ? "culture" : t.historic ? "historic"
       : t.tourism === "zoo" || t.tourism === "aquarium" || t.tourism === "theme_park" ? "family" : t.tourism === "artwork" ? "hidden" : "other";
@@ -99653,6 +102284,11 @@ return maplibregl$1;
     let cands = r.elements.map((el2) => {
       const t = el2.tags || {}, lat = el2.lat != null ? el2.lat : el2.center && el2.center.lat, lng = el2.lon != null ? el2.lon : el2.center && el2.center.lon;
       if (lat == null || !t.name || seen.has(t.name.toLowerCase())) return null;
+      // Requirements: places known not to meet one are dropped; indoor trips keep only indoor kinds of place.
+      if (cc.needs.has("dog") && t.dog === "no") return null;
+      if (cc.needs.has("accessible") && t.wheelchair === "no") return null;
+      if (cc.needs.has("indoor") && !(t.tourism === "museum" || t.tourism === "gallery" || t.tourism === "aquarium" || t.shop || /^(cinema|theatre|arts_centre|library|restaurant|cafe|bakery|marketplace)$/.test(t.amenity || "") || t.indoor === "yes")) return null;
+      if (!ccInArea(lat, lng)) return null;
       seen.add(t.name.toLowerCase());
       const category = catOf(t);
       const bits = [t.description, t.cuisine ? t.cuisine.replace(/;/g, ", ") + " cuisine" : "", t.opening_hours ? "Hours: " + t.opening_hours : ""].filter(Boolean);
@@ -99660,7 +102296,9 @@ return maplibregl$1;
         name: t.name, lat, lng, category, address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" "),
         notes: bits.join(". ").slice(0, 200), url: t.website || t["contact:website"] || ("https://www.openstreetmap.org/" + el2.type + "/" + el2.id),
         estimatedTimeMinutes: CC_CATEGORIES[category].minutes,
-        score: (t.wikidata ? 3 : 0) + (t.wikipedia ? 2 : 0) + (t.website ? 1 : 0) + (t.opening_hours ? 0.5 : 0)
+        score: (t.wikidata ? 3 : 0) + (t.wikipedia ? 2 : 0) + (t.website ? 1 : 0) + (t.opening_hours ? 0.5 : 0) +
+          // Places confirmed to meet a requirement rank higher than ones where it's unknown.
+          (cc.needs.has("dog") && /^(yes|leashed|outside)$/.test(t.dog || "") ? 3 : 0) + (cc.needs.has("accessible") ? (t.wheelchair === "yes" ? 3 : t.wheelchair === "limited" ? 1 : 0) : 0)
       };
     }).filter(Boolean);
     if (!cands.length) throw new Error("OpenStreetMap has no matching places here");
@@ -99730,6 +102368,31 @@ return maplibregl$1;
     }
     return route;
   }
+  // Day length for a set of stops in visiting order, from and back to the
+  // hotel when there is one: straight lines scaled by `ratio` (road vs
+  // straight, from the day's real route when known; a typical 1.3 if not).
+  function ccStraightKm(order) {
+    const home = cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null;
+    const pts = ccDayRoutePoints(order, home);
+    let km = 0; for (let i = 1; i < pts.length; i++) km += ccKm(pts[i - 1], pts[i]);
+    return km;
+  }
+  function ccOrderFor(stops) { return ccEls.optimize.checked ? ccOptimizeOrder(stops, cc.startPlace) : stops; }
+  // Unticks stops until the day fits the longest-day limit, each time
+  // leaving out the stop whose removal shortens the day the most (never the
+  // last one). Those stops are marked so the preview can say why.
+  function ccTrimDay(day, ratio) {
+    if (!cc.maxDayKm) return 0;
+    let kept = day.stops.filter((x) => x.include), removed = 0;
+    const r = ratio || CC_DETOUR;
+    while (kept.length > 1 && ccStraightKm(ccOrderFor(kept)) * r > cc.maxDayKm) {
+      let best = null, bestKm = Infinity;
+      kept.forEach((x) => { const km = ccStraightKm(ccOrderFor(kept.filter((y) => y !== x))); if (km < bestKm) { bestKm = km; best = x; } });
+      best.include = false; best.trimmed = true; removed++;
+      kept = kept.filter((y) => y !== best);
+    }
+    return removed;
+  }
   function ccDayOrder(day) {
     const kept = day.stops.filter((s) => s.include), dropped = day.stops.filter((s) => !s.include);
     return (ccEls.optimize.checked ? ccOptimizeOrder(kept, cc.startPlace) : kept).concat(dropped);
@@ -99787,7 +102450,17 @@ return maplibregl$1;
       ccEls.next.disabled = cc.busy || !cc.plan || !cc.plan.days.some((d) => d.stops.some((x) => x.include));
     } else if (s === "build") ccEls.next.textContent = cc.busy ? "Building\u2026" : "Confirm & Build Itinerary";
   }
+  function ccApplyDistanceDefaults() {
+    if (cc.distTouched) return;
+    const d = CC_DISTANCE_DEFAULTS[cc.transit] || [0, 0];
+    cc.radiusKm = d[0]; cc.maxDayKm = d[1];
+  }
   function ccRenderPrefs() {
+    ccEls.needChips.querySelectorAll("[data-need]").forEach((c) => c.setAttribute("aria-pressed", String(cc.needs.has(c.dataset.need))));
+    ccEls.radius.value = String(cc.radiusKm); ccEls.dayMax.value = String(cc.maxDayKm);
+    ccEls.distanceHint.textContent = (cc.radiusKm ? "Stops within " + cc.radiusKm + " km of " + (cc.startPlace ? "your starting point" : "the centre of " + (ccEls.dest.value.trim() || "the destination")) : "Stops anywhere in reach") +
+      (cc.maxDayKm ? ", and no day longer than " + cc.maxDayKm + " km of " + (cc.transit === "walking" ? "walking" : cc.transit === "cycling" ? "cycling" : "driving") + (cc.startPlace ? ", there and back" : "") + "." : ".") +
+      (cc.distTouched ? "" : " These start from typical limits for " + cc.transit + "; change them to suit.");
     ccEls.paceList.querySelectorAll("[data-pace]").forEach((r) => r.classList.toggle("selected", r.dataset.pace === cc.pace));
     ccEls.vibeChips.querySelectorAll("[data-vibe]").forEach((c) => c.setAttribute("aria-pressed", String(cc.vibes.has(c.dataset.vibe))));
     ccEls.transitSeg.querySelectorAll("[data-transit]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.transit === cc.transit)));
@@ -99804,7 +102477,9 @@ return maplibregl$1;
     ccEls.previewHint.textContent = (cc.plan.source === "ai"
       ? "Suggested by Gemini. AI can get details wrong, so check opening hours before you go."
       : "Suggested from OpenStreetMap places (no AI).") +
-      (outside ? " " + outside + " stop" + (outside === 1 ? " is" : "s are") + " outside " + (ccEls.dest.value.trim() || "the destination") + " and left unticked." : "") +
+      (outside ? " " + outside + " stop" + (outside === 1 ? " is" : "s are") + (cc.radiusKm ? " more than " + cc.radiusKm + " km away" : " outside " + (ccEls.dest.value.trim() || "the destination")) + " and left unticked." : "") +
+      (cc.plan.days.some((d) => d.stops.some((x) => x.trimmed && !x.include)) ? " Some stops were left unticked to keep days under " + cc.maxDayKm + " km; tick any to add them back." : "") +
+      (cc.needs.has("parking") && cc.plan.source === "osm" ? " Free parking can't be checked from OpenStreetMap." : "") +
       (ccEls.optimize.checked ? " Optimized order may move meals to other times of day." : "");
     ccEls.verifyBtn.parentElement.classList.toggle("hidden", cc.plan.source !== "ai");
     ccEls.verifyBtn.disabled = cc.verifying;
@@ -99813,7 +102488,8 @@ return maplibregl$1;
       let n = 0;
       const rows = order.map((s) => {
         const num = s.include ? ++n : "";
-        const badge = s.outside ? '<span class="cc-badge warn">Outside the area</span>'
+        const badge = s.outside ? '<span class="cc-badge warn">' + (cc.radiusKm ? "More than " + cc.radiusKm + " km away" : "Outside the area") + "</span>"
+          : s.trimmed ? '<span class="cc-badge warn">Left out to keep the day under ' + cc.maxDayKm + " km</span>"
           : s.verified === "ok" ? '<span class="cc-badge ok">Location checked</span>'
           : s.verified === "moved" ? '<span class="cc-badge ok">Location corrected</span>'
           : s.verified === "missing" ? '<span class="cc-badge warn">Not found on the map</span>' : "";
@@ -99822,11 +102498,23 @@ return maplibregl$1;
           '<span class="cc-stop-body"><span class="cc-stop-name">' + escapeHtml(s.name) + "</span>" +
           '<span class="cc-stop-meta">' + ccFormatMinutes(s.estimatedTimeMinutes) + (s.notes ? " \u00b7 " + escapeHtml(s.notes) : "") + "</span>" + badge + "</span></label>";
       }).join("");
+      const over = cc.maxDayKm && st.count > 1 && st.km > cc.maxDayKm + 0.05;
       return '<div class="cc-day"><div class="cc-day-head"><span class="cc-day-title">Day ' + day.day + " \u00b7 " + escapeHtml(ccNiceDate(day.date)) + "</span>" +
         (day.theme ? '<span class="cc-day-theme">' + escapeHtml(day.theme) + "</span>" : "") +
-        '<span class="cc-day-stats">' + st.count + " stop" + (st.count === 1 ? "" : "s") + (st.count ? " \u00b7 " + (st.byRoad ? "" : "about ") + st.km.toFixed(1) + " km " + (st.byRoad ? "by road" : "(estimate" + (st.pending ? ", routing\u2026" : "") + ")") + ", " + ccFormatMinutes(st.travelMin) + " " + cc.transit + " + " + ccFormatMinutes(st.stopMin) + " at stops" : "") + "</span></div>" +
+        '<span class="cc-day-stats">' + st.count + " stop" + (st.count === 1 ? "" : "s") + (st.count ? " \u00b7 " + (st.byRoad ? "" : "about ") + st.km.toFixed(1) + " km " + (st.byRoad ? "by road" : "(estimate" + (st.pending ? ", routing\u2026" : "") + ")") + ", " + ccFormatMinutes(st.travelMin) + " " + cc.transit + " + " + ccFormatMinutes(st.stopMin) + " at stops" : "") + "</span>" +
+        (over ? '<span class="cc-day-over">Over your ' + cc.maxDayKm + ' km limit. <button type="button" class="cc-link-btn" data-trim="' + di + '">Trim to fit</button></span>' : "") + "</div>" +
+        (st.count === 0 && day.stops.length ? '<p class="cc-day-over">No stops on this day fit your distance limits. Tick one to keep it anyway, widen the limits in step 2, or regenerate.</p>' : "") +
         (rows || '<p class="layers-hint">No stops suggested for this day.</p>') + "</div>";
     }).join("");
+    ccEls.daysEl.querySelectorAll("[data-trim]").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const day = cc.plan.days[+btn.dataset.trim];
+      const kept = ccDayOrder(day).filter((x) => x.include), st = ccDayStats(ccDayOrder(day));
+      const straight = ccStraightKm(ccOrderFor(kept));
+      // The real road distance tells how much longer than straight lines this day's streets are.
+      ccTrimDay(day, st.byRoad && straight > 0 ? st.km / straight : CC_DETOUR);
+      ccRenderPreview(); ccUpdateNav();
+    }));
     ccEls.daysEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener("change", () => {
       const s = cc.plan.days[+cb.dataset.day].stops.find((x) => x.key === cb.dataset.key);
       if (s) s.include = cb.checked;
@@ -99842,7 +102530,9 @@ return maplibregl$1;
     const rows = [["Itinerary", u.name], ["Inside", parent ? parent.name + " (trip)" : "Top level of your waypoints"], ["Destination", cc.destPlace.label.split(",").slice(0, 2).join(",")],
       ["Dates", ccNiceDate(u.startDate) + " to " + ccNiceDate(ccIsoDate(u.startDate, u.days - 1)) + " (" + u.days + " day" + (u.days === 1 ? "" : "s") + ")"],
       ["Stops", total + " waypoints, " + (ccEls.optimize.checked ? "in optimized order" : "in suggested order")],
-      ["Style", CC_PACE[cc.pace].label + " \u00b7 " + cc.transit + (cc.vibes.size ? " \u00b7 " + CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label).join(", ") : "")]];
+      ["Style", CC_PACE[cc.pace].label + " \u00b7 " + cc.transit + (cc.vibes.size ? " \u00b7 " + CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label).join(", ") : "")],
+      ["Every stop", cc.needs.size ? CC_NEEDS.filter((n) => cc.needs.has(n.id)).map((n) => n.label).join(", ") : "No requirements"],
+      ["Distance", (cc.radiusKm ? "Within " + cc.radiusKm + " km" : "Any distance") + (cc.maxDayKm ? ", days up to " + cc.maxDayKm + " km" : "")]];
     ccEls.review.innerHTML = "<dl>" + rows.map(([k, v]) => "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>").join("") + "</dl>";
     ccEls.tree.innerHTML = '<div class="cc-tree-folder" style="--c:' + escapeHtml(ccEls.color.value) + '">' + icon("calendar", 14) + " " + escapeHtml(u.name) + "</div>" +
       kept.map((d, i) => '<div class="cc-tree-day">' + icon("folder", 13) + " " + escapeHtml(itineraryDayFolderName(i + 1, u.name, ccIsoDate(u.startDate, i))) +
@@ -99899,6 +102589,7 @@ return maplibregl$1;
     try {
       const plan = useAi ? await generateItineraryWithAI(u) : await generateItineraryLocally(u);
       if (runId !== cc.runId) return; // the person went back or started over meanwhile
+      if (cc.maxDayKm) plan.days.forEach((d) => ccTrimDay(d, CC_DETOUR));
       cc.plan = plan;
     } catch (e) {
       if (runId !== cc.runId) return;
@@ -99956,6 +102647,7 @@ return maplibregl$1;
     parent.travelMode = cc.transit;
     const home = cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null;
     parent.concierge = { destination: u.destination, destinationLabel: cc.destPlace.label, startingPoint: u.startingPoint || null, startingPointCoords: home, pace: cc.pace,
+      needs: [...cc.needs], radiusKm: cc.radiusKm || null, maxDayKm: cc.maxDayKm || null,
       vibes: [...cc.vibes], transit: cc.transit, optimized: ccEls.optimize.checked, source: cc.plan.source, generatedAt: cc.plan.generatedAt };
     parent.updatedAt = now;
     const created = [];
@@ -99974,7 +102666,7 @@ return maplibregl$1;
           id: ccUid(), name: String(order).padStart(2, "0") + " - " + s.name, lat: s.lat, lng: s.lng,
           code: generateWordCode(s.lat, s.lng), notes: [s.notes, s.address ? "Address: " + s.address : ""].filter(Boolean).join("\n\n"),
           url: s.url ? normalizeUrl(s.url) : "", category: cat, icon: ccEmoji(s), estimatedTimeMinutes: s.estimatedTimeMinutes, order,
-          itineraryOrder: order, folderId: dayFolder.id, markerStyle: "emoji", markerEmoji: ccEmoji(s), markerColor: CC_CATEGORIES[cat].color,
+          itineraryOrder: order, itineraryDayId: dayFolder.id, folderId: dayFolder.id, markerStyle: "emoji", markerEmoji: ccEmoji(s), markerColor: CC_CATEGORIES[cat].color,
           photos: [], weather: null, aiGenerated: cc.plan.source === "ai", createdAt: now + created.length, updatedAt: now + created.length
         };
         addSavedMarker(wp);
@@ -100002,8 +102694,17 @@ return maplibregl$1;
     b.addEventListener("click", () => { if (cc.vibes.has(v.id)) cc.vibes.delete(v.id); else cc.vibes.add(v.id); ccRenderPrefs(); });
     ccEls.vibeChips.appendChild(b);
   });
+  CC_NEEDS.forEach((n) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cc-chip"; b.dataset.need = n.id; b.setAttribute("aria-pressed", "false");
+    b.textContent = n.emoji + " " + n.label;
+    b.addEventListener("click", () => { if (cc.needs.has(n.id)) cc.needs.delete(n.id); else cc.needs.add(n.id); ccRenderPrefs(); });
+    ccEls.needChips.appendChild(b);
+  });
+  ccEls.radius.addEventListener("change", () => { cc.radiusKm = Number(ccEls.radius.value) || 0; cc.distTouched = true; ccRenderPrefs(); });
+  ccEls.dayMax.addEventListener("change", () => { cc.maxDayKm = Number(ccEls.dayMax.value) || 0; cc.distTouched = true; ccRenderPrefs(); });
   ccEls.paceList.querySelectorAll("[data-pace]").forEach((r) => r.addEventListener("click", () => { cc.pace = r.dataset.pace; ccRenderPrefs(); }));
-  ccEls.transitSeg.querySelectorAll("[data-transit]").forEach((b) => b.addEventListener("click", () => { cc.transit = b.dataset.transit; ccRenderPrefs(); }));
+  ccEls.transitSeg.querySelectorAll("[data-transit]").forEach((b) => b.addEventListener("click", () => { cc.transit = b.dataset.transit; ccApplyDistanceDefaults(); ccRenderPrefs(); }));
   renderColorSwatches(ccEls.swatches, ccEls.color, MARKER_COLOR_PRESETS);
   ccEls.color.addEventListener("input", () => markSwatchSelected(ccEls.swatches, ccEls.color.value));
   ccEls.optimize.addEventListener("change", () => ccRenderPreview());
@@ -100026,6 +102727,7 @@ return maplibregl$1;
         const { parent, count } = buildConciergeItinerary();
         cc.busy = false;
         closeConcierge();
+        if (el("ccPrintAfterToggle").checked) setTimeout(() => openItineraryPrint(parent.id), 300);
         showToast('Created "' + parent.name + '" with ' + cc.plan.days.length + " day" + (cc.plan.days.length === 1 ? "" : "s") + " and " + count + " stops.");
       } catch (e) {
         cc.busy = false; ccUpdateNav();
@@ -100051,7 +102753,7 @@ return maplibregl$1;
     const trip = parentTripId ? waypointFolders.find((f) => f.id === parentTripId && f.isTrip) : null;
     cc.parentTripId = trip ? trip.id : null;
     cc.plan = null; cc.destPlace = null; cc.startPlace = null; cc.busy = false; cc.verifying = false; cc.runId++;
-    cc.pace = "balanced"; cc.vibes = new Set(); cc.transit = "walking";
+    cc.pace = "balanced"; cc.vibes = new Set(); cc.needs = new Set(); cc.transit = "walking"; cc.distTouched = false; ccApplyDistanceDefaults();
     ccEls.name.value = trip ? trip.name + " Itinerary" : "";
     ccEls.dest.value = "";
     ccEls.start.value = "";
@@ -100092,7 +102794,8 @@ return maplibregl$1;
       const data = await res.json();
       if (!data || data.code !== "Ok" || !data.routes || !data.routes.length) return null;
       const r = data.routes[0];
-      return { latlngs: ccThinPath(r.geometry.coordinates.map(([lng, lat]) => [lat, lng]), 6), distanceMeters: r.distance, durationSeconds: r.duration };
+      return { latlngs: ccThinPath(r.geometry.coordinates.map(([lng, lat]) => [lat, lng]), 6), distanceMeters: r.distance, durationSeconds: r.duration,
+        legs: (r.legs || []).map((l) => ({ d: Math.round(l.distance), t: Math.round(l.duration) })) }; // per stop-to-stop leg, for printed itineraries
     };
     const job = ccRouteQueue.chain.then(run, run);
     ccRouteQueue.chain = job.catch(() => {});
@@ -100291,6 +102994,526 @@ return maplibregl$1;
     });
     if (changed) { saveWaypointFolders(); renderList(); }
   })();
+
+  /* ================================================================ */
+  /*  Itinerary printing -- Full pages (cover + one page per day) or   */
+  /*  Pocket (two days per Letter sheet: fold the bottom half behind,  */
+  /*  then in half again; the back day is printed upside down so it    */
+  /*  reads correctly once folded, the way greeting cards are).        */
+  /*  Each day: its map with the route in the day's colour and the     */
+  /*  stops numbered as on screen, beside a numbered list with time    */
+  /*  at each stop, travel to the next, notes and QR-coded websites.   */
+  /*  Map imagery: live tiles when online, saved tiles when offline    */
+  /*  (the same renderer as paper maps).                               */
+  /* ================================================================ */
+  const ITIN_SPEED_KMH = { walking: 4.5, cycling: 14, driving: 45 };
+  const ITIN_MODE_WORD = { walking: "walk", cycling: "ride", driving: "drive" };
+  function itinIsoDateFromName(name) { const m = /\((\d{4}-\d{2}-\d{2})\)/.exec(name || ""); return m ? m[1] : null; }
+  function itinAddDays(iso, n) {
+    const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function itinNiceDate(iso, long) {
+    if (!iso) return "";
+    return new Date(iso + "T00:00:00").toLocaleDateString(undefined, long ? { weekday: "long", month: "long", day: "numeric", year: "numeric" } : { weekday: "short", month: "short", day: "numeric" });
+  }
+  function itinMinutes(m) {
+    m = Math.max(1, Math.round(m));
+    return m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + String(m % 60).padStart(2, "0") + " min" : "");
+  }
+  function itinKm(km) { return km < 10 ? km.toFixed(1) + " km" : Math.round(km) + " km"; }
+  // Everything needed to print an itinerary's days, in day order.
+  function itineraryPrintData(itin) {
+    const key = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+    const siblings = waypointFolders.filter((f) => f.parentFolderId === itin.id);
+    const mode = itineraryTravelMode(itin), home = itineraryHome(itin);
+    const days = siblings.map((folder) => {
+      const num = itineraryDayNumber(folder, siblings);
+      const stops = waypoints.filter((w) => w.folderId === folder.id && !w.isStoryEntry).sort((a, b) => key(a) - key(b));
+      const pts = ccDayRoutePoints(stops, home);
+      const sig = ccRouteSig(pts, mode);
+      const route = folder.route && folder.route.sig === sig ? folder.route : null;
+      // Travel between consecutive points: the road route's own legs when
+      // stored, otherwise a straight-line estimate (marked "about").
+      const legs = [];
+      for (let i = 1; i < pts.length; i++) {
+        const stored = route && Array.isArray(route.legs) && route.legs.length === pts.length - 1 ? route.legs[i - 1] : null;
+        if (stored) legs.push({ km: stored.d / 1000, min: stored.t / 60, est: false });
+        else { const km = ccKm(pts[i - 1], pts[i]) * CC_DETOUR; legs.push({ km, min: km / ITIN_SPEED_KMH[mode] * 60, est: true }); }
+      }
+      const date = itinIsoDateFromName(folder.name) || (itin.itineraryStartDate ? itinAddDays(itin.itineraryStartDate, num - 1) : null);
+      const path = route ? route.latlngs : pts.map((p) => [p.lat, p.lng]);
+      return { folder, num, stops, pts, legs, route, path, home, mode, date, theme: folder.theme || "", color: itineraryDayColor(itin.color || defaultFolderColor(false, true), num) };
+    }).filter((d) => d.stops.length).sort((a, b) => a.num - b.num);
+    return { itin, days, mode, home };
+  }
+
+  // ---- Drawing helpers ----
+  function itinHostname(url) { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return url; } }
+  // A QR code as filled squares, with its quiet zone, merging runs of dark
+  // modules on each row so a code is a few hundred rectangles at most.
+  function itinDrawQr(page, url, x, y, size) {
+    if (typeof qrcode !== "function") return false;
+    let qr;
+    try { qr = qrcode(0, "M"); qr.addData(url); qr.make(); } catch (e) { return false; }
+    const n = qr.getModuleCount(), quiet = 2, cell = size / (n + quiet * 2);
+    const { rgb } = PDFLib;
+    page.drawRectangle({ x, y, width: size, height: size, color: rgb(1, 1, 1) });
+    for (let r = 0; r < n; r++) {
+      let c = 0;
+      while (c < n) {
+        if (!qr.isDark(r, c)) { c++; continue; }
+        let e = c; while (e < n && qr.isDark(r, e)) e++;
+        page.drawRectangle({ x: x + (quiet + c) * cell, y: y + size - (quiet + r + 1) * cell, width: (e - c) * cell + 0.05, height: cell + 0.05, color: rgb(0, 0, 0) });
+        c = e;
+      }
+    }
+    return true;
+  }
+  // Renders a map image covering the given points, fitted to a w x h point
+  // rectangle, and returns a projector from lat/lng to points within it.
+  async function itinMapFor(pdfDoc, latlngs, w, h, layer, source, dpi) {
+    const xs = latlngs.map((p) => mercXOf(p[1])), ys = latlngs.map((p) => mercYOf(p[0]));
+    let minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    const lat = latlngs.reduce((a, p) => a + p[0], 0) / latlngs.length;
+    const minSpan = 700 / Math.cos(lat * Math.PI / 180); // at least ~700 m across, so a one-stop day isn't absurdly zoomed
+    if (maxX - minX < minSpan) { const c = (minX + maxX) / 2; minX = c - minSpan / 2; maxX = c + minSpan / 2; }
+    if (maxY - minY < minSpan) { const c = (minY + maxY) / 2; minY = c - minSpan / 2; maxY = c + minSpan / 2; }
+    const padX = (maxX - minX) * 0.12, padY = (maxY - minY) * 0.12;
+    minX -= padX; maxX += padX; minY -= padY; maxY += padY;
+    const ptPerMerc = Math.min(w / (maxX - minX), h / (maxY - minY));
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const vMinX = cx - w / 2 / ptPerMerc, vMaxY = cy + h / 2 / ptPerMerc;
+    let img = null;
+    if (layer !== "none") {
+      const pxPerPt = dpi / 72;
+      const view = { minX: vMinX, maxY: vMaxY, pxPerMerc: ptPerMerc * pxPerPt, pxW: Math.round(w * pxPerPt), pxH: Math.round(h * pxPerPt) };
+      const { canvas } = await renderPaperRaster(view, layer, source);
+      img = await pdfDoc.embedJpg(await paperCanvasToJpegBytes(canvas));
+      canvas.width = canvas.height = 0;
+    }
+    return { img, at: (la, ln) => [(mercXOf(ln) - vMinX) * ptPerMerc, h - (vMaxY - mercYOf(la)) * ptPerMerc] };
+  }
+  function itinNumberDot(page, bold, x, y, n, r) {
+    const { rgb } = PDFLib;
+    page.drawCircle({ x, y, size: r, color: rgb(0, 0, 0), borderColor: rgb(1, 1, 1), borderWidth: r > 6 ? 1.3 : 0.9 });
+    const t = String(n), fs = r * (t.length > 1 ? 0.95 : 1.1);
+    page.drawText(t, { x: x - bold.widthOfTextAtSize(t, fs) / 2, y: y - fs * 0.35, size: fs, font: bold, color: rgb(1, 1, 1) });
+  }
+  // One day's map into rect (x, y = bottom-left, w, h).
+  async function itinDrawDayMap(ctx, page, day, x, y, w, h, small) {
+    const { pdfDoc, font, bold, opts, source } = ctx;
+    const { rgb } = PDFLib;
+    const pts = day.path.concat(day.stops.map((s) => [s.lat, s.lng]));
+    const m = await itinMapFor(pdfDoc, pts, w, h, opts.layer, source, small ? 220 : 200);
+    pushPdfRoundedRectClip(page, x, y, w, h, small ? 4 : 6);
+    if (m.img) page.drawImage(m.img, { x, y, width: w, height: h });
+    else page.drawRectangle({ x, y, width: w, height: h, color: rgb(0.96, 0.96, 0.94) });
+    const path = day.path.map(([la, ln]) => { const [px, py] = m.at(la, ln); return [x + px, y + py]; });
+    if (path.length > 1) {
+      paperStrokePath(page, path, rgb(1, 1, 1), small ? 4 : 5.5, false);
+      paperStrokePath(page, path, paperRgb(day.color), small ? 2.4 : 3.2, false, day.route ? null : [5, 4]);
+    }
+    if (day.home) {
+      const [hx, hy] = m.at(day.home.lat, day.home.lng), s = small ? 9 : 11;
+      page.drawRectangle({ x: x + hx - s / 2, y: y + hy - s / 2, width: s, height: s, color: rgb(0.1, 0.1, 0.12), borderColor: rgb(1, 1, 1), borderWidth: 1 });
+      page.drawText("H", { x: x + hx - bold.widthOfTextAtSize("H", s * 0.7) / 2, y: y + hy - s * 0.25, size: s * 0.7, font: bold, color: rgb(1, 1, 1) });
+    }
+    day.stops.forEach((s, i) => { const [px, py] = m.at(s.lat, s.lng); itinNumberDot(page, bold, x + px, y + py, i + 1, small ? 6.5 : 8); });
+    popPdfClip(page);
+    page.drawRectangle({ x, y, width: w, height: h, borderColor: paperRgb(day.color), borderWidth: small ? 1.2 : 1.5 });
+    if (m.img) {
+      const att = sanitizeForPdfFont(PDF_BASEMAP_ATTRIBUTION[opts.layer] || "\u00a9 OpenStreetMap contributors", font), fs = small ? 4.5 : 5.5, tw = font.widthOfTextAtSize(att, fs);
+      page.drawRectangle({ x: x + w - tw - 6, y: y + 2, width: tw + 4, height: fs + 3, color: rgb(1, 1, 1), opacity: 0.8 });
+      page.drawText(att, { x: x + w - tw - 4, y: y + 3.5, size: fs, font, color: rgb(0.3, 0.3, 0.3) });
+    }
+  }
+  // The numbered list for a day, laid out as blocks of known height so it
+  // can be fitted (pocket) or flowed across pages (full).
+  function itinDayBlocks(ctx, day, width, sizes, notesLines) {
+    const { font, bold, opts, pdfDoc, linkRects } = ctx;
+    const { rgb } = PDFLib;
+    const blocks = [];
+    const qrOn = opts.qr && typeof qrcode === "function";
+    day.stops.forEach((s, i) => {
+      const n = i + 1, leg = day.legs[(day.home ? 1 : 0) + i];
+      const isLast = i === day.stops.length - 1;
+      const name = sanitizeForPdfFont(String(s.name || "Stop").replace(/^\d{1,2}\s*-\s*/, ""), bold);
+      let meta = s.estimatedTimeMinutes ? itinMinutes(s.estimatedTimeMinutes) + " here" : "";
+      if (leg) meta += (meta ? " \u00b7 " : "") + "then " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[day.mode] + " (" + itinKm(leg.km) + ")" + (isLast && day.home ? " back to the hotel" : "");
+      const url = s.url && /^https?:\/\//i.test(s.url) ? s.url : "";
+      const qrSize = url && qrOn ? sizes.qr : 0;
+      const textW = width - sizes.indent - (qrSize ? qrSize + 6 : 0);
+      const nameLines = pdfWrapText(name, bold, sizes.name, textW, 2).lines;
+      const metaLines = meta ? pdfWrapText(sanitizeForPdfFont(meta, font), font, sizes.small, textW, 2).lines : [];
+      const noteText = opts.notes && s.notes ? sanitizeForPdfFont(String(s.notes).replace(/\s*\n+\s*/g, " \u00b7 "), font) : "";
+      const noteLines = noteText && notesLines > 0 ? pdfWrapText(noteText, font, sizes.small, textW, notesLines).lines : [];
+      const urlLine = url ? sanitizeForPdfFont(itinHostname(url), font) : "";
+      const lh = sizes.small * 1.25;
+      const textH = nameLines.length * sizes.name * 1.2 + (metaLines.length + noteLines.length + (urlLine ? 1 : 0)) * lh;
+      const h = Math.max(textH, qrSize, sizes.dot * 2 + 2) + sizes.gap;
+      blocks.push({ h, draw: (page, x, yTop, rotatedLink) => {
+        itinNumberDot(page, bold, x + sizes.dot, yTop - sizes.dot - 1, n, sizes.dot);
+        // cur = top of the next line; each line sits on its baseline below that.
+        let cur = yTop;
+        const line = (t, size, f, color, step) => { page.drawText(t, { x: x + sizes.indent, y: cur - size, size, font: f, color }); cur -= step; };
+        nameLines.forEach((l) => line(l, sizes.name, bold, rgb(0.07, 0.07, 0.09), sizes.name * 1.2));
+        metaLines.forEach((l) => line(l, sizes.small, font, rgb(0.32, 0.32, 0.36), lh));
+        noteLines.forEach((l) => line(l, sizes.small, font, rgb(0.15, 0.15, 0.18), lh));
+        if (urlLine) line(urlLine, sizes.small, font, rgb(0.05, 0.3, 0.65), lh);
+        if (qrSize) {
+          const qx = x + width - qrSize, qy = yTop - qrSize;
+          itinDrawQr(page, url, qx, qy, qrSize);
+          linkRects.push({ page, rect: rotatedLink ? rotatedLink({ x: qx, y: qy, width: qrSize, height: qrSize }) : { x: qx, y: qy, width: qrSize, height: qrSize }, url });
+        }
+      } });
+    });
+    return blocks;
+  }
+  // Day heading (title, date, theme, totals) above the list; returns its height when drawn at (x, yTop).
+  function itinDayHeading(ctx, day, width, sizes) {
+    const { font, bold } = ctx;
+    const { rgb } = PDFLib;
+    const totalTravel = day.legs.reduce((a, l) => a + l.min, 0), totalKm = day.legs.reduce((a, l) => a + l.km, 0);
+    const est = day.legs.some((l) => l.est);
+    const stay = day.stops.reduce((a, s) => a + (s.estimatedTimeMinutes || 0), 0);
+    const summary = day.stops.length + " stop" + (day.stops.length === 1 ? "" : "s") +
+      (day.legs.length ? " \u00b7 " + (est ? "about " : "") + itinKm(totalKm) + (est ? "" : " by road") + ", " + itinMinutes(totalTravel) + " " + day.mode : "") +
+      (stay ? " \u00b7 " + itinMinutes(stay) + " at stops" : "");
+    const sumLines = pdfWrapText(sanitizeForPdfFont(summary, font), font, sizes.small, width, 2).lines;
+    const themeLines = day.theme ? pdfWrapText(sanitizeForPdfFont(day.theme, font), font, sizes.small + 0.5, width, 1).lines : [];
+    const h = sizes.title + 4 + (themeLines.length * (sizes.small + 3)) + sumLines.length * sizes.small * 1.25 + 8;
+    return { h, draw: (page, x, yTop) => {
+      page.drawRectangle({ x, y: yTop - sizes.title - 1, width: 4, height: sizes.title + 2, color: paperRgb(day.color) });
+      const t = "Day " + day.num, dt = day.date ? itinNiceDate(day.date) : "";
+      page.drawText(t, { x: x + 9, y: yTop - sizes.title + 1, size: sizes.title, font: bold, color: rgb(0.05, 0.05, 0.07) });
+      if (dt) page.drawText(sanitizeForPdfFont(dt, font), { x: x + 9 + bold.widthOfTextAtSize(t, sizes.title) + 7, y: yTop - sizes.title + 1, size: sizes.small + 1, font, color: rgb(0.3, 0.3, 0.34) });
+      let ty = yTop - sizes.title - 4;
+      themeLines.forEach((l) => { ty -= sizes.small + 1; page.drawText(l, { x, y: ty, size: sizes.small + 0.5, font: bold, color: paperRgb(day.color) }); ty -= 2; });
+      sumLines.forEach((l) => { ty -= sizes.small * 1.25; page.drawText(l, { x, y: ty + 2, size: sizes.small, font, color: rgb(0.32, 0.32, 0.36) }); });
+    } };
+  }
+
+  // ---- Full pages ----
+  async function itinBuildFull(ctx) {
+    const { pdfDoc, font, bold, data, progress } = ctx;
+    const { rgb } = PDFLib;
+    const W = 612, H = 792, M = 40, CW = W - 2 * M;
+    const sizes = { title: 20, name: 11, small: 8.5, qr: 44, indent: 22, dot: 8, gap: 9 };
+    const days = ctx.days;
+    // Cover: the whole trip on one map, each day in its colour, with a legend.
+    progress("Drawing the overview\u2026");
+    const cover = pdfDoc.addPage([W, H]);
+    cover.drawText(sanitizeForPdfFont(data.itin.name, bold), { x: M, y: H - M - 22, size: 22, font: bold, color: rgb(0.05, 0.05, 0.07) });
+    const first = days[0] && days[0].date, last = days[days.length - 1] && days[days.length - 1].date;
+    const sub = [first ? itinNiceDate(first, true) + (last && last !== first ? " to " + itinNiceDate(last, true) : "") : "", days.length + " day" + (days.length === 1 ? "" : "s"),
+      days.reduce((a, d) => a + d.stops.length, 0) + " stops", (data.mode === "walking" ? "on foot" : data.mode === "cycling" ? "by bike" : "by car")].filter(Boolean).join("   \u00b7   ");
+    cover.drawText(sanitizeForPdfFont(sub, font), { x: M, y: H - M - 40, size: 10, font, color: rgb(0.32, 0.32, 0.36) });
+    const mapH = 430, mapY = H - M - 58 - mapH;
+    const all = []; days.forEach((d) => { all.push(...d.path, ...d.stops.map((s) => [s.lat, s.lng])); });
+    const om = await itinMapFor(pdfDoc, all, CW, mapH, ctx.opts.layer, ctx.source, 170);
+    pushPdfRoundedRectClip(cover, M, mapY, CW, mapH, 6);
+    if (om.img) cover.drawImage(om.img, { x: M, y: mapY, width: CW, height: mapH });
+    days.forEach((d) => {
+      const path = d.path.map(([la, ln]) => { const [px, py] = om.at(la, ln); return [M + px, mapY + py]; });
+      if (path.length > 1) { paperStrokePath(cover, path, rgb(1, 1, 1), 4.5, false); paperStrokePath(cover, path, paperRgb(d.color), 2.6, false); }
+      d.stops.forEach((s) => { const [px, py] = om.at(s.lat, s.lng); cover.drawCircle({ x: M + px, y: mapY + py, size: 3.6, color: paperRgb(d.color), borderColor: rgb(0, 0, 0), borderWidth: 0.8 }); });
+    });
+    popPdfClip(cover);
+    cover.drawRectangle({ x: M, y: mapY, width: CW, height: mapH, borderColor: rgb(0.6, 0.6, 0.62), borderWidth: 0.8 });
+    let ly = mapY - 22;
+    days.forEach((d) => {
+      if (ly < M + 30) return;
+      cover.drawRectangle({ x: M, y: ly - 1, width: 12, height: 12, color: paperRgb(d.color) });
+      const t = "Day " + d.num + (d.date ? "  \u00b7  " + itinNiceDate(d.date) : "") + "  \u00b7  " + d.stops.length + " stop" + (d.stops.length === 1 ? "" : "s") + (d.theme ? "  \u00b7  " + d.theme : "");
+      cover.drawText(pdfWrapText(sanitizeForPdfFont(t, font), font, 10, CW - 20, 1).lines[0] || "", { x: M + 20, y: ly, size: 10, font, color: rgb(0.1, 0.1, 0.12) });
+      ly -= 18;
+    });
+    // One page per day (continuing onto another page when a day's list is long).
+    for (const d of days) {
+      progress("Drawing day " + d.num + "\u2026");
+      let page = pdfDoc.addPage([W, H]);
+      ctx.dayPages.push(page);
+      page.drawText(sanitizeForPdfFont(data.itin.name, font), { x: W - M - font.widthOfTextAtSize(sanitizeForPdfFont(data.itin.name, font), 8), y: H - 26, size: 8, font, color: rgb(0.45, 0.45, 0.5) });
+      const head = itinDayHeading(ctx, d, CW, sizes);
+      head.draw(page, M, H - M);
+      const blocks = itinDayBlocks(ctx, d, CW, sizes, 4);
+      const listH = blocks.reduce((a, b) => a + b.h, 0);
+      const room = (H - M - head.h) - 16 - (M + 14);
+      const dMapH = Math.max(210, Math.min(320, room - listH)); // a smaller map rather than a second page, when that's enough
+      const dMapY = H - M - head.h - dMapH;
+      await itinDrawDayMap(ctx, page, d, M, dMapY, CW, dMapH, false);
+      let y = dMapY - 16;
+      for (const b of blocks) {
+        if (y - b.h < M + 14) {
+          page = pdfDoc.addPage([W, H]);
+          ctx.dayPages.push(page);
+          page.drawText(sanitizeForPdfFont("Day " + d.num + " (continued)", bold), { x: M, y: H - M - 14, size: 14, font: bold, color: rgb(0.05, 0.05, 0.07) });
+          y = H - M - 34;
+        }
+        b.draw(page, M, y);
+        y -= b.h;
+      }
+    }
+  }
+
+  // ---- Pocket: two days per sheet in quarters ----
+  async function itinBuildPocket(ctx) {
+    const { pdfDoc, font, bold, progress } = ctx;
+    const { rgb, pushGraphicsState, popGraphicsState, concatTransformationMatrix } = PDFLib;
+    const W = 612, H = 792, QW = W / 2, QH = H / 2, P = 16;
+    const sizes = { title: 13, name: 8.6, small: 6.8, qr: 30, indent: 15, dot: 6, gap: 6 };
+    const days = ctx.days;
+    const drawRow = async (page, d, rowY, rotated) => {
+      // Rotated rows are drawn in an upside-down frame; links on them are
+      // turned into the page's own coordinates.
+      // In the 180-degree frame a point (x, y) lands at (W - x, 2cy - y), cy being the row's centre line.
+      const cy = rowY + QH / 2;
+      const rotLink = rotated ? (r) => ({ x: W - r.x - r.width, y: 2 * cy - r.y - r.height, width: r.width, height: r.height }) : null;
+      if (rotated) page.pushOperators(pushGraphicsState(), concatTransformationMatrix(-1, 0, 0, -1, W, 2 * cy));
+      if (!d) {
+        // Odd number of days: a notes panel across the row.
+        page.drawText("Notes", { x: P, y: rowY + QH - P - 12, size: 12, font: bold, color: rgb(0.2, 0.2, 0.24) });
+        for (let ly = rowY + QH - P - 34; ly > rowY + P; ly -= 20) page.drawLine({ start: { x: P, y: ly }, end: { x: W - P, y: ly }, thickness: 0.4, color: rgb(0.8, 0.8, 0.82) });
+      } else {
+        // Left quarter: day title and map. Right quarter: the numbered list.
+        const head = itinDayHeading(ctx, d, QW - 2 * P, sizes);
+        head.draw(page, P, rowY + QH - P);
+        const mapTop = rowY + QH - P - head.h;
+        await itinDrawDayMap(ctx, page, d, P, rowY + P, QW - 2 * P, mapTop - (rowY + P) - 2, true);
+        const listX = QW + P, listW = QW - 2 * P, listTop = rowY + QH - P, listBottom = rowY + P + 10;
+        // Fit: full notes, then shorter notes, then none, then as many stops as fit.
+        let blocks = null;
+        for (const nl of [3, 2, 1, 0]) {
+          const b = itinDayBlocks(ctx, d, listW, sizes, nl);
+          if (b.reduce((a, x) => a + x.h, 0) <= listTop - listBottom) { blocks = b; break; }
+          blocks = b;
+        }
+        let y = listTop, shown = 0;
+        for (const b of blocks) {
+          if (y - b.h < listBottom) break;
+          b.draw(page, listX, y, rotLink);
+          y -= b.h; shown++;
+        }
+        if (shown < blocks.length) page.drawText(sanitizeForPdfFont("+ " + (blocks.length - shown) + " more stop" + (blocks.length - shown === 1 ? "" : "s") + " in MapApp", font), { x: listX + sizes.indent, y: listBottom - 6, size: sizes.small, font, color: rgb(0.4, 0.4, 0.44) });
+      }
+      if (rotated) page.pushOperators(popGraphicsState());
+    };
+    for (let i = 0; i < days.length; i += 2) {
+      progress("Drawing days " + days[i].num + (days[i + 1] ? " and " + days[i + 1].num : "") + "\u2026");
+      const page = pdfDoc.addPage([W, H]);
+      ctx.dayPages.push(page);
+      await drawRow(page, days[i], QH, false);
+      await drawRow(page, days[i + 1] || null, 0, ctx.opts.flip);
+      // Fold lines, plus a one-line folding hint on the first sheet.
+      page.drawLine({ start: { x: 0, y: QH }, end: { x: W, y: QH }, thickness: 0.5, color: rgb(0.7, 0.7, 0.72), dashArray: [4, 4] });
+      page.drawLine({ start: { x: QW, y: 0 }, end: { x: QW, y: H }, thickness: 0.5, color: rgb(0.7, 0.7, 0.72), dashArray: [4, 4] });
+      if (i === 0) {
+        const hint = "Fold along the dashed lines: bottom half behind, then in half again.";
+        const tw = font.widthOfTextAtSize(hint, 5.5);
+        page.drawRectangle({ x: W / 2 - tw / 2 - 3, y: QH + 2, width: tw + 6, height: 8, color: rgb(1, 1, 1) });
+        page.drawText(hint, { x: W / 2 - tw / 2, y: QH + 3.5, size: 5.5, font, color: rgb(0.45, 0.45, 0.5) });
+      }
+    }
+  }
+
+  async function generateItineraryPdf(itinId, opts, progress) {
+    if (!window.PDFLib) throw new Error("the PDF library failed to load");
+    const itin = waypointFolders.find((f) => f.id === itinId);
+    if (!itin) throw new Error("the itinerary no longer exists");
+    const data = itineraryPrintData(itin);
+    const days = data.days.filter((d) => opts.days.has(d.folder.id));
+    if (!days.length) throw new Error("no days with stops were chosen");
+    const { PDFDocument, StandardFonts } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica), bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    pdfDoc.setTitle(sanitizeForPdfFont(itin.name + " itinerary", font));
+    pdfDoc.setCreator("MapApp");
+    // Live tiles when online, saved tiles when offline (nothing kept in memory for saving).
+    const source = { live: navigator.onLine !== false, retained: new Map(), retainedBytes: Infinity, usedKeys: new Set(), overflow: false };
+    const ctx = { pdfDoc, font, bold, opts, source, data, days, progress, linkRects: [], dayPages: [] };
+    if (opts.format === "pocket") await itinBuildPocket(ctx); else await itinBuildFull(ctx);
+    ctx.linkRects.forEach((l) => { try { pdfAddUriLink(pdfDoc, l.page, l.rect, l.url); } catch (e) {} });
+    // Page footers (full pages only; pocket sheets are folded, so they're left clean).
+    if (opts.format !== "pocket") {
+      const pages = pdfDoc.getPages();
+      pages.forEach((pg, i) => {
+        const t = "Made with MapApp   \u00b7   Page " + (i + 1) + " of " + pages.length;
+        pg.drawText(t, { x: 612 - 40 - font.widthOfTextAtSize(t, 7), y: 22, size: 7, font, color: PDFLib.rgb(0.55, 0.55, 0.58) });
+      });
+    }
+    progress("Saving\u2026");
+    return { bytes: await pdfDoc.save(), pages: pdfDoc.getPageCount(), days: days.length };
+  }
+
+  // ---- Dialog ----
+  const itinPrintModalOverlay = el("itinPrintModalOverlay");
+  const itinPrint = { itinId: null, format: "full", layer: "street", days: new Set(), busy: false };
+  function itinPrintRender() {
+    const itin = waypointFolders.find((f) => f.id === itinPrint.itinId);
+    if (!itin) return;
+    const data = itineraryPrintData(itin);
+    el("itinPrintSubtitle").textContent = itin.name;
+    el("itinPrintFormatList").querySelectorAll("[data-format]").forEach((r) => r.classList.toggle("selected", r.dataset.format === itinPrint.format));
+    el("itinPrintStyleSeg").querySelectorAll("[data-layer]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.layer === itinPrint.layer)));
+    el("itinPrintFlipRow").classList.toggle("hidden", itinPrint.format !== "pocket");
+    const chips = el("itinPrintDays");
+    chips.innerHTML = data.days.map((d) => '<button type="button" class="cc-chip" data-day="' + escapeHtml(d.folder.id) + '" aria-pressed="' + itinPrint.days.has(d.folder.id) + '" style="--day:' + d.color + '">' +
+      '<span class="itin-print-swatch" style="background:' + d.color + '"></span>Day ' + d.num + (d.date ? " \u00b7 " + escapeHtml(itinNiceDate(d.date)) : "") + "</button>").join("") ||
+      '<p class="layers-hint">This itinerary has no days with stops yet.</p>';
+    chips.querySelectorAll("[data-day]").forEach((b) => b.addEventListener("click", () => {
+      if (itinPrint.days.has(b.dataset.day)) itinPrint.days.delete(b.dataset.day); else itinPrint.days.add(b.dataset.day);
+      itinPrintRender();
+    }));
+    const n = data.days.filter((d) => itinPrint.days.has(d.folder.id)).length;
+    const sheets = itinPrint.format === "pocket" ? Math.ceil(n / 2) : n + 1;
+    el("itinPrintSummary").textContent = n
+      ? (itinPrint.format === "pocket"
+        ? n + " day" + (n === 1 ? "" : "s") + " on " + sheets + " sheet" + (sheets === 1 ? "" : "s") + ", folding to 4\u00bc \u00d7 5\u00bd in. Print at 100% (not \u201cfit to page\u201d) so the fold lines land in the middle."
+        : "A cover page and " + n + " day page" + (n === 1 ? "" : "s") + " (more if a day has a long list).") +
+        (navigator.onLine === false ? " You're offline, so maps use tiles saved on this device." : "")
+      : "Choose at least one day.";
+    el("itinPrintSummary").classList.toggle("warn", !n);
+    el("itinPrintGoBtn").disabled = !n || itinPrint.busy;
+    el("itinPrintSendBtn").disabled = !n || itinPrint.busy;
+  }
+  function openItineraryPrint(itinId) {
+    const itin = waypointFolders.find((f) => f.id === itinId && f.isItinerary);
+    if (!itin) return;
+    itinPrint.itinId = itin.id;
+    itinPrint.days = new Set(itineraryPrintData(itin).days.map((d) => d.folder.id));
+    itinPrintRender();
+    itinPrintModalOverlay.classList.remove("hidden");
+  }
+  el("itinPrintFormatList").querySelectorAll("[data-format]").forEach((r) => r.addEventListener("click", () => { itinPrint.format = r.dataset.format; itinPrintRender(); }));
+  el("itinPrintStyleSeg").querySelectorAll("[data-layer]").forEach((b) => b.addEventListener("click", () => { itinPrint.layer = b.dataset.layer; itinPrintRender(); }));
+  el("itinPrintAllDaysBtn").addEventListener("click", () => {
+    const itin = waypointFolders.find((f) => f.id === itinPrint.itinId);
+    if (itin) itinPrint.days = new Set(itineraryPrintData(itin).days.map((d) => d.folder.id));
+    itinPrintRender();
+  });
+  el("itinPrintSendBtn").addEventListener("click", () => { requestPdfSend(); el("itinPrintGoBtn").click(); });
+  el("itinPrintCloseBtn").addEventListener("click", () => { if (!itinPrint.busy) itinPrintModalOverlay.classList.add("hidden"); });
+  el("itinPrintGoBtn").addEventListener("click", async () => {
+    if (itinPrint.busy) return;
+    const itin = waypointFolders.find((f) => f.id === itinPrint.itinId);
+    if (!itin) return;
+    itinPrint.busy = true;
+    const btn = el("itinPrintGoBtn"), label = btn.textContent;
+    btn.disabled = true;
+    try {
+      const opts = { format: itinPrint.format, layer: itinPrint.layer, days: itinPrint.days, notes: el("itinPrintNotesToggle").checked, qr: el("itinPrintQrToggle").checked, flip: el("itinPrintFlipToggle").checked };
+      const r = await generateItineraryPdf(itin.id, opts, (m) => { btn.textContent = m; });
+      const fileName = (itin.name || "Itinerary").replace(/[\\/:*?"<>|]/g, "_") + (opts.format === "pocket" ? " (pocket)" : "") + ".pdf";
+      itinPrintModalOverlay.classList.add("hidden");
+      const how = await deliverPdf(r.bytes, fileName, { subject: (itin.name || "Itinerary") + " itinerary",
+        text: "Here's the itinerary for \u201c" + (itin.name || "our trip") + "\u201d (PDF attached)." + (opts.format === "pocket" ? " Print it at 100%, then fold the bottom half behind and fold in half again." : "") });
+      if (how === "downloaded") showToast("Saved \u201c" + fileName + "\u201d (" + r.pages + " page" + (r.pages === 1 ? "" : "s") + "). " + (opts.format === "pocket" ? "Print at 100%, then fold." : ""));
+    } catch (e) {
+      console.error("[itinerary print]", e);
+      showErrorToast("Couldn't make the itinerary PDF: " + (e && e.message ? e.message : "unknown error"));
+    } finally {
+      itinPrint.busy = false;
+      btn.textContent = label;
+      itinPrintRender();
+    }
+  });
+
+  /* ---------- Keeping itineraries consistent after edits ----------
+     Runs before each list render. For every itinerary:
+     - Days: ordered by their day number (a new folder without one goes
+       last), renumbered 1..n with no gaps (after a day is deleted, later
+       days move up), and, when the itinerary has a start date, each date
+       in brackets set to match its position.
+     - Stops: a waypoint that has just arrived in a Day folder (added on
+       the map while the folder was active, dragged in from the list, or
+       moved from another day) is placed where it adds the least travel
+       (counting the hotel at each end), rather than simply at the end;
+       the rest keep their order, gaps close, and numbered names
+       ("01 - ...") are renumbered, with the newcomer given a number too
+       if the day uses them.
+     A stop remembers the day it was last placed in (itineraryDayId), which
+     is how an arrival is told apart from a stop that was already there. */
+  function itinDayDateText(parent, n, sample) {
+    if (!parent.itineraryStartDate) return null;
+    const iso = itinAddDays(parent.itineraryStartDate, n - 1);
+    if (sample && /^\d{4}-\d{2}-\d{2}$/.test(sample)) return iso;
+    if (sample !== null && sample !== undefined) return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return iso;
+  }
+  function reconcileItineraries() {
+    let changed = false;
+    const now = Date.now();
+    const arrivals = [];
+    waypointFolders.filter((f) => f.isItinerary).forEach((parent) => {
+      // ---- Days ----
+      const days = waypointFolders.filter((f) => f.parentFolderId === parent.id);
+      const numOf = (f) => { const m = /\bDay\s+(\d+)/i.exec(f.name || ""); return m ? +m[1] : Infinity; };
+      const ordered = days.slice().sort((a, b) => numOf(a) - numOf(b) || (a.createdAt || 0) - (b.createdAt || 0));
+      const dateFmt = (ordered.map((f) => (/\(([^()]*)\)\s*$/.exec(f.name || "") || [])[1]).find(Boolean)) || null;
+      ordered.forEach((f, i) => {
+        const n = i + 1;
+        let name = f.name || "";
+        name = /\bDay\s+\d+/i.test(name) ? name.replace(/\bDay\s+\d+/i, "Day " + n) : "Day " + n + (name.trim() ? " - " + name.trim() : "");
+        const date = itinDayDateText(parent, n, dateFmt);
+        if (date) name = /\(([^()]*)\)\s*$/.test(name) ? name.replace(/\(([^()]*)\)\s*$/, "(" + date + ")") : name + " (" + date + ")";
+        if (name !== f.name) { f.name = name; f.updatedAt = now; changed = true; }
+      });
+      // ---- Stops ----
+      const home = itineraryHome(parent);
+      ordered.forEach((day) => {
+        const inDay = waypoints.filter((w) => w.folderId === day.id && !w.isStoryEntry);
+        if (!inDay.length) return;
+        const settledKey = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+        const settled = inDay.filter((w) => w.itineraryDayId === day.id).sort((a, b) => settledKey(a) - settledKey(b));
+        const incoming = inDay.filter((w) => w.itineraryDayId !== day.id).sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+        const order = settled.slice();
+        incoming.forEach((w) => {
+          // Cheapest insertion: the gap where this stop adds the least distance.
+          let best = order.length, bestCost = Infinity;
+          for (let i = 0; i <= order.length; i++) {
+            const prev = i === 0 ? home : order[i - 1], next = i === order.length ? home : order[i];
+            const cost = (prev ? ccKm(prev, w) : 0) + (next ? ccKm(w, next) : 0) - (prev && next ? ccKm(prev, next) : 0);
+            if (cost < bestCost - 1e-9) { bestCost = cost; best = i; }
+          }
+          order.splice(best, 0, w);
+          w.itineraryDayId = day.id;
+          changed = true;
+          arrivals.push({ w, day, pos: best + 1, of: inDay.length, prev: order[best - 1] || null, next: order[best + 1] || null });
+        });
+        const numbered = order.some((w) => /^\d{1,3}\s*-\s*/.test(w.name || ""));
+        order.forEach((w, i) => {
+          if (w.itineraryOrder !== i) { w.itineraryOrder = i; changed = true; }
+          if (typeof w.order === "number" && w.order !== i + 1) { w.order = i + 1; changed = true; }
+          if (numbered) {
+            const base = String(w.name || "").replace(/^\d{1,3}\s*-\s*/, "");
+            const name = String(i + 1).padStart(2, "0") + " - " + base;
+            if (name !== w.name) { w.name = name; w.updatedAt = now; changed = true; }
+          }
+        });
+      });
+    });
+    // Say where a newly arrived stop went, so it can be dragged elsewhere if preferred.
+    if (arrivals.length === 1) {
+      const a = arrivals[0], dn = /\bDay\s+\d+/i.exec(a.day.name || "");
+      const plain = (w) => String(w.name || "").replace(/^\d{1,3}\s*-\s*/, "");
+      const where = a.prev && a.next ? "between " + plain(a.prev) + " and " + plain(a.next) : a.prev ? "after " + plain(a.prev) : a.next ? "before " + plain(a.next) : "";
+      setTimeout(() => showToast("Added " + plain(a.w) + " to " + (dn ? dn[0] : a.day.name) + " as stop " + a.pos + " of " + a.of + (where ? ", " + where + "," : "") + " where it adds the least travel. Drag it to change."), 0);
+    } else if (arrivals.length > 1) {
+      setTimeout(() => showToast("Added " + arrivals.length + " stops to the itinerary, each where it adds the least travel."), 0);
+    }
+    return changed;
+  }
+  // Stops already in Day folders when the app starts (including those from
+  // before this was tracked, or synced from an older version) count as
+  // placed where they are; anything that arrives after this is new.
+  (function settleExistingItineraryStops() {
+    let n = 0;
+    const dayIds = new Set(waypointFolders.filter((f) => f.parentFolderId && waypointFolders.some((x) => x.id === f.parentFolderId && x.isItinerary)).map((f) => f.id));
+    waypoints.forEach((w) => { if (dayIds.has(w.folderId) && w.itineraryDayId === undefined) { w.itineraryDayId = w.folderId; n++; } });
+    if (n) saveWaypoints();
+  })();
+  if (reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
@@ -100305,7 +103528,14 @@ return maplibregl$1;
   }
   {
     const renderListBase = renderList;
-    renderList = function () { const r = renderListBase.apply(this, arguments); refreshItineraryDayLines(); return r; };
+    renderList = function () {
+      // Itineraries are tidied before every list render (which follows any
+      // edit), so the list, map, badges, boxes and routes all show the result.
+      if (reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
+      const r = renderListBase.apply(this, arguments);
+      refreshItineraryDayLines();
+      return r;
+    };
   }
 
   async function generateTripStory(folderId, formatId) {
@@ -100419,28 +103649,28 @@ return maplibregl$1;
   function deleteRouteFolder(id) {
     const folder = rideFolders.find((f) => f.id === id);
     if (!folder) return;
-    const childFolderCount = rideFolders.filter((f) => f.parentFolderId === id).length;
-    const routeCount = rides.filter((r) => r.folderId === id).length;
-    const parts = [];
-    if (routeCount > 0) parts.push(routeCount + " route" + (routeCount === 1 ? "" : "s"));
-    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
-    openConfirmModal(
-      'Delete "' + folder.name + '"?',
-      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
+    const finish = () => {
+      saveDeletedIds();
+      saveRideFolders();
+      saveRides();
+      if (editingRouteFolderId && !rideFolders.some((f) => f.id === editingRouteFolderId)) closeRouteFolderCreatePanel(); else renderRoutesList();
+    };
+    confirmFolderDelete(folder, rideFolders, rides, "route",
       () => {
         rides.forEach((r) => { if (r.folderId === id) { r.folderId = null; r.updatedAt = Date.now(); } });
         rideFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
         rideFolders = rideFolders.filter((f) => f.id !== id);
         expandedRouteFolderIds.delete(id);
         deletedIds.rideFolders.push(id);
-        saveDeletedIds();
-        saveRideFolders();
-        saveRides();
-        if (editingRouteFolderId === id) closeRouteFolderCreatePanel(); else renderRoutesList();
-        showToast('Deleted "' + folder.name + '"');
+        finish();
       },
-      { confirmLabel: "Delete" }
-    );
+      (tree, treeSet) => {
+        rides.filter((r) => treeSet.has(r.folderId)).forEach((r) => { removeRouteVisibilityLayer(r.id); deletedIds.rides.push(r.id); });
+        rides = rides.filter((r) => !treeSet.has(r.folderId));
+        rideFolders = rideFolders.filter((f) => !treeSet.has(f.id));
+        tree.forEach((fid) => { expandedRouteFolderIds.delete(fid); deletedIds.rideFolders.push(fid); });
+        finish();
+      });
   }
   function countRoutesInFolder(folderId) {
     let count = rides.filter((r) => r.folderId === folderId).length;
@@ -100584,28 +103814,32 @@ return maplibregl$1;
   function deleteMeasurementFolder(id) {
     const folder = measurementFolders.find((f) => f.id === id);
     if (!folder) return;
-    const childFolderCount = measurementFolders.filter((f) => f.parentFolderId === id).length;
-    const measurementCount = measurements.filter((m) => m.folderId === id).length;
-    const parts = [];
-    if (measurementCount > 0) parts.push(measurementCount + " measurement" + (measurementCount === 1 ? "" : "s"));
-    if (childFolderCount > 0) parts.push(childFolderCount + " subfolder" + (childFolderCount === 1 ? "" : "s"));
-    openConfirmModal(
-      'Delete "' + folder.name + '"?',
-      (parts.length > 0 ? "The " + parts.join(" and ") + " inside stay" : "Nothing") + " right where they are, just no longer grouped into this folder.",
+    const finish = () => {
+      saveDeletedIds();
+      saveMeasurementFolders();
+      saveMeasurements();
+      if (editingMeasurementFolderId && !measurementFolders.some((f) => f.id === editingMeasurementFolderId)) closeMeasurementFolderCreatePanel(); else renderMeasurementsList();
+    };
+    confirmFolderDelete(folder, measurementFolders, measurements, "measurement",
       () => {
         measurements.forEach((m) => { if (m.folderId === id) { m.folderId = null; m.updatedAt = Date.now(); } });
         measurementFolders.forEach((f) => { if (f.parentFolderId === id) { f.parentFolderId = null; f.updatedAt = Date.now(); } });
         measurementFolders = measurementFolders.filter((f) => f.id !== id);
         expandedMeasurementFolderIds.delete(id);
         deletedIds.measurementFolders.push(id);
-        saveDeletedIds();
-        saveMeasurementFolders();
-        saveMeasurements();
-        if (editingMeasurementFolderId === id) closeMeasurementFolderCreatePanel(); else renderMeasurementsList();
-        showToast('Deleted "' + folder.name + '"');
+        finish();
       },
-      { confirmLabel: "Delete" }
-    );
+      (tree, treeSet) => {
+        measurements.filter((m) => treeSet.has(m.folderId)).forEach((m) => {
+          if (savedMeasurementLayers[m.id]) removeMeasurementVisibilityLayer(m.id);
+          if (measurePanelId === m.id) closeMeasurePanel();
+          deletedIds.measurements.push(m.id);
+        });
+        measurements = measurements.filter((m) => !treeSet.has(m.folderId));
+        measurementFolders = measurementFolders.filter((f) => !treeSet.has(f.id));
+        tree.forEach((fid) => { expandedMeasurementFolderIds.delete(fid); deletedIds.measurementFolders.push(fid); });
+        finish();
+      });
   }
   function countMeasurementsInFolder(folderId) {
     let count = measurements.filter((m) => m.folderId === folderId).length;
