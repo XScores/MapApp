@@ -13,6 +13,19 @@
   var unfinished = !!(prev && prev.state === "starting" && Date.now() - (prev.t || 0) < 30 * 60 * 1000);
   var crashes = unfinished ? (prev.crashes || 0) + 1 : 0;
   window.__mapappBoot = { prev: prev, unfinished: unfinished, crashes: crashes };
+  // A short history of past start-ups (newest first), for the diagnostics page.
+  try {
+    var hist = JSON.parse(localStorage.getItem("mapapp:boothist") || "[]");
+    if (prev && prev.state === "starting") hist.unshift({ t: prev.t, crashed: true, trail: prev.trail || [prev.stage], crashes: prev.crashes || 0 });
+    else if (prev && prev.state === "ok") hist.unshift({ t: prev.t, crashed: false });
+    localStorage.setItem("mapapp:boothist", JSON.stringify(hist.slice(0, 8)));
+  } catch (e) {}
+  // Diagnostics: ?diag=1 shows what happened in recent start-ups and how much
+  // data is stored, WITHOUT starting the app, so it opens even when the app won't.
+  if (/[?&]diag=1\b/.test(location.search)) {
+    window.__mapappDiag = true;
+    try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now(), diag: true })); } catch (e) {}
+  }
   try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes: crashes, stage: "opening the page", trail: ["opening the page"] })); } catch (e) {}
   // Leaving normally (closing, reloading, navigating away) isn't a crash.
   window.addEventListener("pagehide", function () {
@@ -1115,6 +1128,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .cc-day-theme{font-size:12.5px; color:var(--amber-light);}
   .cc-day-stats{font-size:11.5px; color:var(--text-mute);}
   .cc-day-over{font-size:12px; color:var(--amber-light);}
+  .itin-leg-row{font-size:12px; color:var(--text-dim); padding:3px 0 3px 30px; position:relative;}
+  .itin-leg-row::before{content:""; position:absolute; left:13px; top:0; bottom:0; border-left:2px dotted var(--border-soft);}
+  .itin-day-bounds{font-size:12px; color:var(--text-dim); padding:4px 2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .itin-day-bounds.over{color:var(--amber-light);}
+  .itin-time-line{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); padding:2px 2px 4px;}
+  .itin-time-range{font-weight:600;}
+  .itin-stay-btn{background:none; border:1px solid var(--border); color:var(--text-dim); border-radius:999px; padding:1px 8px; font:inherit; font-size:11.5px; cursor:pointer;}
+  .itin-stay-btn:hover{color:var(--text); border-color:var(--border-soft);}
+  .cc-stop-time{font-weight:600; color:var(--text);}
+  .cc-day .itin-leg-row{padding-left:44px;}
+  .cc-day .itin-leg-row::before{left:27px;}
   .cc-day-over .cc-link-btn{padding:0 0 0 4px; font-size:12px;}
   .cc-sublabel{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
   .cc-stop{display:flex; align-items:flex-start; gap:8px; padding:7px 4px; border-top:1px solid #1e293b; cursor:pointer;}
@@ -3362,6 +3386,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="itinTimesModalOverlay">
+    <div class="modal-card" style="max-width:360px;">
+      <div class="modal-header"><div><h2>Day times</h2><p class="paper-wiz-step-label" id="itinTimesSubtitle"></p></div><button class="icon-btn" id="itinTimesCloseBtn" data-icon="x"></button></div>
+      <div class="paper-map-row">
+        <div><label class="field-label" for="itinTimesStart">Day starts</label><input type="time" class="field-input" id="itinTimesStart" /></div>
+        <div><label class="field-label" for="itinTimesEnd">Day ends</label><input type="time" class="field-input" id="itinTimesEnd" /></div>
+      </div>
+      <p class="layers-hint">Applies to every day of this itinerary. The schedule counts travel between stops and the time at each one.</p>
+      <div class="btn-row" style="margin-top:12px;"><button type="button" class="btn btn-primary" id="itinTimesSaveBtn">Save</button></div>
+    </div>
+  </div>
   <div class="modal-overlay hidden" id="itinPrintModalOverlay">
     <div class="modal-card paper-wiz-card">
       <div class="modal-header">
@@ -3447,6 +3482,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <button type="button" data-transit="driving" role="radio">🚗 Driving</button>
           <button type="button" data-transit="walking" role="radio">🚶 Walking</button>
           <button type="button" data-transit="cycling" role="radio">🚲 Cycling</button>
+        </div>
+        <label class="field-label" style="margin-top:12px;">Day times</label>
+        <div class="paper-map-row">
+          <div><label class="field-label cc-sublabel" for="ccDayStartInput">Start each day</label><input type="time" class="field-input" id="ccDayStartInput" value="09:00" /></div>
+          <div><label class="field-label cc-sublabel" for="ccDayEndInput">Finish by</label><input type="time" class="field-input" id="ccDayEndInput" value="20:00" /></div>
         </div>
         <label class="field-label" style="margin-top:12px;">Distance</label>
         <div class="paper-map-row">
@@ -80310,6 +80350,64 @@ return maplibregl$1;
 <script>
 (async function () {
   "use strict";
+  if (window.__mapappDiag) { renderDiagnosticsPage(); return; }
+  // The diagnostics page: plain HTML, no map, reads storage directly.
+  async function renderDiagnosticsPage() {
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const lines = [];
+    const add = (t) => lines.push(t);
+    add("MapApp diagnostics, version " + APP_VERSION_FOR_DIAG());
+    add("Device: " + navigator.userAgent);
+    add("Screen: " + screen.width + "x" + screen.height + " @" + (window.devicePixelRatio || 1) + "x");
+    let hist = [];
+    try { hist = JSON.parse(localStorage.getItem("mapapp:boothist") || "[]"); } catch (e) {}
+    add("");
+    add("Recent start-ups (newest first):");
+    if (!hist.length) add("  (none recorded yet)");
+    hist.forEach((h) => add("  " + new Date(h.t).toLocaleString() + "  " + (h.crashed ? "DID NOT FINISH. Last steps: " + (h.trail || []).join(" > ") : "finished normally")));
+    add("");
+    add("Stored data:");
+    try {
+      if (window.navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        add("  Browser storage used: " + (est.usage / 1048576).toFixed(1) + " MB of " + (est.quota / 1048576).toFixed(0) + " MB");
+      }
+      const db = localforage.createInstance({ name: "MapApp", storeName: "mapapp_data" });
+      const wps = (await db.getItem("waypoint-saver:waypoints")) || [];
+      let photos = 0, photoChars = 0, refs = 0, other = 0;
+      wps.forEach((w) => {
+        (w.photos || []).forEach((ph) => { if (typeof ph === "string" && ph.startsWith("mphoto:")) refs++; else { photos++; photoChars += typeof ph === "string" ? ph.length : JSON.stringify(ph).length; } });
+        const copy = Object.assign({}, w); delete copy.photos; other += JSON.stringify(copy).length;
+      });
+      add("  Waypoints: " + wps.length + " (" + (other / 1048576).toFixed(1) + " MB without photos)");
+      add("  Photos still stored inside waypoints (old way): " + photos + " (" + (photoChars / 1048576).toFixed(1) + " MB)");
+      try {
+        const ps = localforage.createInstance({ name: "MapAppPhotos", storeName: "photos" });
+        const keys = await ps.keys();
+        let psChars = 0;
+        for (const k of keys) { const v = await ps.getItem(k); if (typeof v === "string") psChars += v.length; }
+        add("  Photos in the photo store: " + keys.length + " (" + (psChars / 1048576).toFixed(1) + " MB), referenced by waypoints: " + refs);
+      } catch (e) { add("  Photo store: could not read (" + (e && e.message) + ")"); }
+      const big = wps.map((w) => ({ n: w.name, c: (w.photos || []).reduce((a, ph) => a + (typeof ph === "string" ? ph.length : 0), 0) })).sort((a, b) => b.c - a.c).slice(0, 5).filter((x) => x.c > 0);
+      if (big.length) add("  Largest: " + big.map((x) => x.n + " " + (x.c / 1048576).toFixed(1) + " MB").join("; "));
+      const folders = (await db.getItem("waypoint-saver:waypointFolders")) || [];
+      add("  Folders: " + folders.length + ", itineraries: " + folders.filter((f) => f.isItinerary).length + ", without weather: " + wps.filter((w) => !w.weather).length);
+    } catch (e) { add("  Could not read stored data: " + (e && e.message)); }
+    const report = lines.join("\n");
+    document.body.innerHTML = '<div style="font:14px/1.5 system-ui,-apple-system,sans-serif;color:#e2e8f0;background:#0f172a;min-height:100vh;padding:20px;box-sizing:border-box;">' +
+      '<h1 style="font-size:20px;margin:0 0 12px;">MapApp diagnostics</h1>' +
+      '<p style="color:#94a3b8;margin:0 0 14px;">This page doesn\u2019t start the app. Copy or email the report below, then open the app normally (or with <b>?safe=1</b> for safe mode).</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"><button id="dCopy" style="padding:10px 16px;border-radius:10px;border:0;background:#f59e0b;font-weight:700;">Copy report</button>' +
+      '<a id="dMail" style="padding:10px 16px;border-radius:10px;background:#1e293b;color:#e2e8f0;text-decoration:none;border:1px solid #334155;">Email report</a>' +
+      '<a href="./?safe=1" style="padding:10px 16px;border-radius:10px;background:#1e293b;color:#e2e8f0;text-decoration:none;border:1px solid #334155;">Open in safe mode</a></div>' +
+      '<pre id="dReport" style="white-space:pre-wrap;word-break:break-word;background:#020617;border:1px solid #334155;border-radius:10px;padding:12px;font-size:12px;">' + esc(report) + "</pre></div>";
+    document.getElementById("dMail").href = "mailto:?subject=" + encodeURIComponent("MapApp diagnostics") + "&body=" + encodeURIComponent(report);
+    document.getElementById("dCopy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(report); document.getElementById("dCopy").textContent = "Copied"; }
+      catch (e) { const r = document.createRange(); r.selectNodeContents(document.getElementById("dReport")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    });
+  }
+  function APP_VERSION_FOR_DIAG() { const m = /const APP_VERSION = "(\d+)"/.exec(document.documentElement.innerHTML); return m ? m[1] : "?"; }
 
   /* ================================================================ */
   /*  Minimal in-house icon set (plain geometric SVG, no dependency)   */
@@ -80841,7 +80939,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "553";
+  const APP_VERSION = "556";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -80977,10 +81075,111 @@ return maplibregl$1;
     if (!dataStore) { showErrorToast(describeStorageError(null, "this measurement")); return; }
     dataStore.setItem(MEASUREMENTS_KEY, measurements).catch((e) => showErrorToast(describeStorageError(e, "this measurement")));
   }
-  function saveWaypoints() {
-    if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
-    dataStore.setItem(STORAGE_KEY, waypoints).catch((e) => showErrorToast(describeStorageError(e, "your waypoints")));
+  // Waypoints (with their photos) are saved as one value, so each save
+  // copies all of it: a new copy is never started while one is still being
+  // written, and any number of saves asked for meanwhile become one more.
+  /* ---------- Photo store ----------
+     Photos are kept in their own store, one entry per photo, and a
+     waypoint's saved record holds only a short reference to each
+     ("mphoto:<id>"). So saving waypoints writes small records plus any
+     photo that's new since the last save, instead of copying every photo
+     every time. While the app runs, waypoints still hold their photos as
+     usual, so nothing else in the app changes; references are swapped back
+     for photos when the app loads. GitHub sync is unaffected (it uploads
+     from the in-memory waypoints, into the repo's images/ folder as before). */
+  const photoStore = (() => { try { return localforage.createInstance({ name: "MapAppPhotos", storeName: "photos" }); } catch (e) { return null; } })();
+  const PHOTO_REF = "mphoto:";
+  const photoIdByData = new Map(); // photo (data URL string) -> its id in the store
+  const photoWritten = new Set();  // ids already in the store
+  function newPhotoId() { return "ph_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  // Waypoints as they're saved: photos replaced by references, with any new
+  // photo written to the photo store first, one at a time (so each write
+  // needs only that photo's memory), before the records that point to it.
+  async function slimWaypointsForSave() {
+    if (!photoStore) return waypoints;
+    const pending = [], seen = new Set();
+    const slim = waypoints.map((w) => {
+      if (!Array.isArray(w.photos) || !w.photos.length) return w;
+      let changed = false;
+      const refs = w.photos.map((ph) => {
+        if (typeof ph !== "string" || !ph.startsWith("data:")) return ph;
+        let id = photoIdByData.get(ph);
+        if (!id) { id = newPhotoId(); photoIdByData.set(ph, id); }
+        seen.add(ph);
+        if (!photoWritten.has(id)) pending.push([id, ph]);
+        changed = true;
+        return PHOTO_REF + id;
+      });
+      return changed ? Object.assign({}, w, { photos: refs }) : w;
+    });
+    // Forget photos no longer on any waypoint (so they can be freed from memory).
+    photoIdByData.forEach((id, ph) => { if (!seen.has(ph)) photoIdByData.delete(ph); });
+    for (const [id, ph] of pending) {
+      if (photoWritten.has(id)) continue;
+      await photoStore.setItem(id, ph);
+      photoWritten.add(id);
+    }
+    return slim;
   }
+  // Swaps saved references back for photos, a few at a time. Returns how
+  // many photos were still stored inside waypoint records (the old way).
+  async function rehydrateStoredPhotos(list) {
+    let inline = 0, missing = 0;
+    const jobs = [];
+    list.forEach((w) => {
+      if (!Array.isArray(w.photos)) return;
+      w.photos.forEach((ph, i) => {
+        if (typeof ph === "string" && ph.startsWith(PHOTO_REF)) jobs.push({ w, i, id: ph.slice(PHOTO_REF.length) });
+        else if (typeof ph === "string" && ph.startsWith("data:")) inline++;
+      });
+    });
+    if (jobs.length && photoStore) {
+      for (let k = 0; k < jobs.length; k += 6) {
+        await Promise.all(jobs.slice(k, k + 6).map(async (j) => {
+          let data = null;
+          try { data = await photoStore.getItem(j.id); } catch (e) { data = null; }
+          if (typeof data === "string") { j.w.photos[j.i] = data; photoIdByData.set(data, j.id); photoWritten.add(j.id); }
+          else { j.w.photos[j.i] = null; missing++; }
+        }));
+      }
+      list.forEach((w) => { if (Array.isArray(w.photos) && w.photos.some((x) => x === null)) w.photos = w.photos.filter((x) => x !== null); });
+      if (missing) console.warn("[photos] " + missing + " stored photo(s) could not be found");
+    }
+    return inline;
+  }
+  // Removes stored photos that no waypoint uses any more (deleted photos or waypoints).
+  async function cleanUpPhotoStore() {
+    if (!photoStore || waypointSaveRunning) return;
+    const inUse = new Set();
+    waypoints.forEach((w) => (w.photos || []).forEach((ph) => { const id = typeof ph === "string" && photoIdByData.get(ph); if (id) inUse.add(id); }));
+    let keys = [];
+    try { keys = await photoStore.keys(); } catch (e) { return; }
+    for (const k of keys) { if (!inUse.has(k)) { try { await photoStore.removeItem(k); photoWritten.delete(k); } catch (e) {} } }
+  }
+
+  let waypointSaveTimer = null, waypointSaveRunning = false, waypointSaveAgain = false;
+  function writeWaypointsNow() {
+    clearTimeout(waypointSaveTimer); waypointSaveTimer = null;
+    if (!dataStore) { showErrorToast(describeStorageError(null, "your waypoints")); return; }
+    if (waypointSaveRunning) { waypointSaveAgain = true; return; }
+    waypointSaveRunning = true;
+    if (window.__mapappBootGuard) window.__mapappBootGuard.stage("saving " + waypoints.length + " waypoints");
+    slimWaypointsForSave()
+      // If the photo store can't be written (storage full, say), save the
+      // old way, photos inside the records, rather than lose anything.
+      .catch((e) => { console.warn("[photos] photo store write failed; saving photos inline", e); return waypoints; })
+      .then((toSave) => dataStore.setItem(STORAGE_KEY, toSave))
+      .catch((e) => showErrorToast(describeStorageError(e, "your waypoints")))
+      .finally(() => {
+        waypointSaveRunning = false;
+        if (waypointSaveAgain) { waypointSaveAgain = false; writeWaypointsNow(); }
+      });
+  }
+  // Written straight away when no write is in progress; requests made while
+  // one is being written are gathered into a single follow-up write.
+  function saveWaypoints() { writeWaypointsNow(); }
+  window.addEventListener("pagehide", () => { if (waypointSaveTimer) writeWaypointsNow(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && waypointSaveTimer) writeWaypointsNow(); });
   function saveWaypointFolders() {
     if (!dataStore) { showErrorToast(describeStorageError(null, "your folders")); return; }
     dataStore.setItem(WAYPOINT_FOLDERS_KEY, waypointFolders).catch((e) => showErrorToast(describeStorageError(e, "your folders")));
@@ -81105,21 +81304,28 @@ return maplibregl$1;
       stage(name) {
         if (finished) return;
         trail.push(name);
-        if (trail.length > 6) trail.shift();
+        if (trail.length > 10) trail.shift();
         try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes, stage: name, trail })); } catch (e) {}
       },
       done() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now() })); } catch (e) {} },
+      // (the early guard keeps the history of past start-ups; see "mapapp:boothist")
       reset() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now(), reset: true })); } catch (e) {} }
     };
     g.stage("loading your saved data");
+    window.__mapappBootGuard = g;
     return g;
   })();
   const _persisted = await loadPersistedState();
+  bootGuard.stage("loading photos");
+  const inlinePhotosAtLoad = await rehydrateStoredPhotos(_persisted.waypoints);
   bootGuard.stage("setting up the map");
   // Visiting order of every waypoint in an itinerary Day folder (1, 2, 3...),
   // shown as a numbered badge on its map icon. Declared this early because
   // waypoint icons are drawn during start-up; filled in by refreshItineraryDayLines.
   const itineraryOrderBadges = new Map();
+  // Day schedules need settings defined further down this script; until
+  // that part has loaded, list renders during start-up skip them.
+  let itinerarySchedulesReady = false;
   let waypoints = _persisted.waypoints;
   // Declared early since renderList() (called during initial load, well
   // before switchWaypointRegion is defined further down) reads this --
@@ -88573,22 +88779,28 @@ return maplibregl$1;
       saveWaypoints();
       renderList();
     }
-    const needsWeather = waypoints.filter((wp) => !wp.weather);
+    // Weather snapshots for waypoints that don't have one yet. This used
+    // to save every waypoint and redraw the whole list after EACH snapshot;
+    // with photos stored inside the waypoints, a large set (a 70-stop
+    // itinerary) meant dozens of full copies of every photo within seconds
+    // of start-up, enough for iOS to end the page, and since the work was
+    // never finished, the next start did it all again. Now: planned
+    // itinerary stops are skipped (a snapshot of the day they were planned
+    // means nothing), at most 15 per session, gently spaced, one save and
+    // one redraw at the end, and nothing at all in safe mode.
+    if (bootGuard.safe) return;
+    const planned = (wp) => wp.aiGenerated || (wp.folderId && waypointFolders.some((f) => f.id === wp.folderId && f.parentFolderId && waypointFolders.some((x) => x.id === f.parentFolderId && x.isItinerary)));
+    const needsWeather = waypoints.filter((wp) => !wp.weather && !planned(wp)).slice(0, 15);
     if (needsWeather.length === 0) return;
-    // Fetched one at a time, not all at once -- a large existing waypoint
-    // collection could otherwise fire dozens of simultaneous requests
-    // against OpenWeatherMap's free-tier rate limit the moment the app loads.
+    await sleep(8000); // let start-up finish first
+    let got = 0;
     for (const wp of needsWeather) {
       const weather = await fetchWeatherSnapshot(wp.lat, wp.lng);
-      if (weather) {
-        const stillExists = waypoints.find((w) => w.id === wp.id);
-        if (stillExists) {
-          stillExists.weather = weather;
-          saveWaypoints();
-          renderList();
-        }
-      }
+      const stillExists = weather && waypoints.find((w) => w.id === wp.id);
+      if (stillExists) { stillExists.weather = weather; got++; }
+      await sleep(400);
     }
+    if (got) { saveWaypoints(); renderList(); }
   }
 
   /* ================================================================ */
@@ -90356,7 +90568,14 @@ return maplibregl$1;
     state.item.style.transform = "translateY(" + dy + "px)";
     clearItineraryDropMarks();
     const elUnder = document.elementFromPoint(state.lastX, state.lastY);
-    const targetItem = elUnder && elUnder.closest(itineraryDragSelector(state));
+    let targetItem = elUnder && elUnder.closest(itineraryDragSelector(state));
+    // Over a travel row between two stops: that's the gap before the next stop.
+    const legRowUnder = !targetItem && elUnder && elUnder.closest(".itin-leg-row");
+    if (legRowUnder && legRowUnder.parentElement === state.item.parentElement) {
+      let nx = legRowUnder.nextElementSibling;
+      while (nx && !nx.matches(itineraryDragSelector(state))) nx = nx.nextElementSibling;
+      if (nx && nx !== state.item) { nx.classList.add("drop-before"); return; }
+    }
     if (targetItem && targetItem !== state.item && targetItem.parentElement === state.item.parentElement) {
       const rect = targetItem.getBoundingClientRect();
       targetItem.classList.add(state.lastY < rect.top + rect.height / 2 ? "drop-before" : "drop-after");
@@ -100335,6 +100554,16 @@ return maplibregl$1;
           // drags to rearrange them, at which point every waypoint in this
           // folder gets a fresh, explicit sequence value.
           const waypointSortKey = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+          // An itinerary Day folder shows its schedule: times on each stop and a travel row between stops.
+          const parentItin = folder.parentFolderId ? waypointFolders.find((f) => f.id === folder.parentFolderId && f.isItinerary) : null;
+          const daySched = parentItin && itinerarySchedulesReady ? itineraryDayData(parentItin, folder, waypointFolders.filter((f) => f.parentFolderId === parentItin.id)) : null;
+          const slotById = new Map(daySched ? daySched.schedule.items.map((it) => [it.w.id, it]) : []);
+          const timeLine = (w) => {
+            const it = slotById.get(w.id);
+            if (!it) return "";
+            return '<div class="itin-time-line"><span class="itin-time-range">' + escapeHtml(fmtClock(it.arrive) + " \u2013 " + fmtClock(it.depart)) + "</span>" +
+              '<button type="button" class="itin-stay-btn" data-stay-wp="' + w.id + '" title="Change the time spent here">' + escapeHtml(itinMinutes(it.stay)) + " here</button></div>";
+          };
           // An itinerary's Day folders can be dragged to reorder them (and are
           // renumbered to match); they list in day order, ahead of any loose waypoints.
           const dayDraggable = folder.isItinerary && childFolders.length > 1;
@@ -100346,12 +100575,12 @@ return maplibregl$1;
                   "</div>"
                 : folderAccordionHtml(f) }))
             .concat(regularItems.map((w) => ({
-              name: w.name,
+              name: w.name, wpId: w.id,
               sortKey: waypointSortKey(w),
               html: isItineraryFolder
                 ? '<div class="itinerary-draggable-item" data-waypoint-id="' + w.id + '">' +
                     '<button type="button" class="itinerary-drag-handle" aria-label="Reorder ' + escapeHtml(w.name) + '"><span class="icon"></span></button>' +
-                    '<div class="itinerary-draggable-card-wrap">' + cardHtml(w) + "</div>" +
+                    '<div class="itinerary-draggable-card-wrap">' + timeLine(w) + cardHtml(w) + "</div>" +
                   "</div>"
                 : cardHtml(w),
             })))
@@ -100379,6 +100608,22 @@ return maplibregl$1;
               ? '<button type="button" class="folder-accordion-empty folder-accordion-empty-cta" data-action="add-day-stops" data-id="' + folder.id + '">' +
                   "Click here to add your planned stops for " + escapeHtml(folder.name) + "</button>"
               : '<div class="folder-accordion-empty">Empty — no waypoints or subfolders yet.</div>';
+          }
+          if (daySched && daySched.stops.length) {
+            // The day's schedule rows: start, travel between stops, and finish.
+            const sch = daySched.schedule, mode = daySched.mode, over = sch.finish > daySched.window.end;
+            const legRow = (leg) => leg ? '<div class="itin-leg-row">' + escapeHtml(itinLegText(leg, mode)) + "</div>" : "";
+            let html = '<div class="itin-day-bounds">' + escapeHtml((daySched.home ? "Leave the hotel " : "Day starts ") + fmtClock(sch.start)) +
+              ' <button type="button" class="cc-link-btn itin-times-btn" data-itin-times="' + parentItin.id + '">Change times</button></div>';
+            const firstWp = bodyEntries.findIndex((e) => e.wpId);
+            bodyEntries.forEach((e, i) => {
+              if (e.wpId) { const it = slotById.get(e.wpId); html += legRow(it && it.legIn); }
+              html += e.html;
+            });
+            html += legRow(sch.legHome);
+            html += '<div class="itin-day-bounds' + (over ? " over" : "") + '">' + escapeHtml((daySched.home ? "Back at the hotel " : "Day ends ") + fmtClock(sch.finish)) +
+              (over ? escapeHtml(", " + itinMinutes(sch.finish - daySched.window.end) + " after your " + fmtClock(daySched.window.end) + " end") : "") + "</div>";
+            return storyHtml + html;
           }
           return storyHtml + bodyEntries.map((e) => e.html).join("");
         })()
@@ -100652,6 +100897,18 @@ return maplibregl$1;
         if (folder) showToast("Tap the map, search a place, or drop your current location — it'll be added to " + folder.name + ".");
       });
     });
+    panelList.querySelectorAll("[data-stay-wp]").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const w = waypoints.find((x) => x.id === btn.dataset.stayWp);
+      if (!w) return;
+      openPromptModal("Minutes at " + String(w.name || "this stop").replace(/^\d{1,3}\s*-\s*/, ""), String(itinStayMinutes(w)), "Save", (val) => {
+        const n = Math.round(Number(String(val).replace(/[^\d.]/g, "")));
+        if (!(n > 0 && n <= 1440)) { showToast("Enter the number of minutes, for example 45."); return; }
+        w.stayMinutes = n; w.updatedAt = Date.now();
+        saveWaypoints(); renderList();
+      });
+    }));
+    panelList.querySelectorAll("[data-itin-times]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryTimes(btn.dataset.itinTimes); }));
     panelList.querySelectorAll(".itinerary-drag-handle").forEach((handle) => {
       handle.querySelector(".icon").innerHTML = icon("gripDots", 15);
       handle.addEventListener("pointerdown", (e) => {
@@ -102078,15 +102335,15 @@ return maplibregl$1;
   // Distance defaults by how you're getting around: [stay within km, longest day km] (0 = no limit).
   const CC_DISTANCE_DEFAULTS = { walking: [5, 10], cycling: [15, 30], driving: [0, 0] };
   const CC_CATEGORIES = {
-    food: { emoji: "🍽️", color: "#f97316", minutes: 75 },
+    food: { emoji: "🍽️", color: "#f97316", minutes: 60 },
     cafe: { emoji: "☕", color: "#f59e0b", minutes: 40 },
     outdoor: { emoji: "🌲", color: "#34d399", minutes: 75 },
     viewpoint: { emoji: "🏞️", color: "#22d3ee", minutes: 25 },
     historic: { emoji: "🏛️", color: "#a78bfa", minutes: 60 },
-    culture: { emoji: "🎨", color: "#f472b6", minutes: 90 },
+    culture: { emoji: "🎨", color: "#f472b6", minutes: 120 },
     family: { emoji: "🎡", color: "#38bdf8", minutes: 90 },
     hidden: { emoji: "💎", color: "#22d3ee", minutes: 40 },
-    shopping: { emoji: "🛍️", color: "#f59e0b", minutes: 45 },
+    shopping: { emoji: "🛍️", color: "#f59e0b", minutes: 120 },
     nightlife: { emoji: "🍸", color: "#f472b6", minutes: 90 },
     other: { emoji: "📍", color: "#f59e0b", minutes: 45 }
   };
@@ -102179,7 +102436,8 @@ return maplibregl$1;
       startDate: ccEls.date.value, days: Math.max(1, Math.min(14, parseInt(ccEls.days.value, 10) || 1)),
       startingPoint: ccEls.start.value.trim(), startingPointCoords: cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null,
       pace: cc.pace, stopsPerDay: CC_PACE[cc.pace].range, vibes: CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label), transit: cc.transit,
-      needs: CC_NEEDS.filter((n) => cc.needs.has(n.id)), radiusKm: cc.radiusKm, maxDayKm: cc.maxDayKm
+      needs: CC_NEEDS.filter((n) => cc.needs.has(n.id)), radiusKm: cc.radiusKm, maxDayKm: cc.maxDayKm,
+      dayStart: el("ccDayStartInput").value || ITIN_DEFAULT_START, dayEnd: el("ccDayEndInput").value || ITIN_DEFAULT_END
     };
   }
   function buildItineraryPrompt(u) {
@@ -102192,6 +102450,7 @@ return maplibregl$1;
       "- Dates: " + u.days + " day(s) starting " + u.startDate,
       u.startingPoint ? "- Each day starts and ends at: " + u.startingPoint + (u.startingPointCoords ? " (" + u.startingPointCoords.lat.toFixed(5) + ", " + u.startingPointCoords.lng.toFixed(5) + ")" : "") : "",
       "- Pace: " + u.pace + ", " + u.stopsPerDay + " stops per day",
+      "- Each day runs from " + u.dayStart + " to " + u.dayEnd + " (24-hour clock). Travel between stops plus time at each stop must fit within that; restaurants take about 1 hour, museums, galleries and shopping about 2 hours. Put meals at mealtimes.",
       "- Interests: " + (u.vibes.length ? u.vibes.join(", ") : "a well-rounded mix of the destination's highlights"),
       "- Getting around: " + u.transit + (u.transit === "walking" ? " (keep each day's stops within a compact, walkable area)" : u.transit === "cycling" ? " (keep each day's stops within easy cycling distance)" : ""),
       u.needs.length ? "- Every stop must be: " + u.needs.map((n) => n.rule).join("; ") + ". If you can't be confident a place meets these, choose a different place." : "",
@@ -102237,7 +102496,7 @@ return maplibregl$1;
         if (seen.has(key)) return null;
         seen.add(key);
         const category = ccCategory(String(s.category || "").toLowerCase());
-        const minutes = Math.max(10, Math.min(480, Math.round(Number(s.estimatedTimeMinutes) || CC_CATEGORIES[category].minutes)));
+        const minutes = ITIN_STAY_RULES[category] || Math.max(10, Math.min(480, Math.round(Number(s.estimatedTimeMinutes) || CC_CATEGORIES[category].minutes)));
         const inArea = ccInArea(lat, lng);
         return {
           key: Math.random().toString(36).slice(2), name, lat, lng, category, icon: s.icon, address: String(s.address || "").trim(),
@@ -102377,18 +102636,41 @@ return maplibregl$1;
     let km = 0; for (let i = 1; i < pts.length; i++) km += ccKm(pts[i - 1], pts[i]);
     return km;
   }
+  // The wizard's schedule for a day: road legs from the preview's route when
+  // fetched, otherwise straight-line estimates scaled by `ratio`.
+  function ccWindow() { return { start: hhmmToMin(el("ccDayStartInput").value, ITIN_DEFAULT_START), end: hhmmToMin(el("ccDayEndInput").value, ITIN_DEFAULT_END) }; }
+  function ccScheduleFor(kept, ratio) {
+    const home = cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null;
+    const pts = ccDayRoutePoints(kept, home);
+    const r = pts.length >= 2 ? ccPreviewRoutes.get(ccRouteSig(pts, cc.transit)) : null;
+    const legs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const road = r && typeof r === "object" && Array.isArray(r.legs) && r.legs.length === pts.length - 1 ? r.legs[i - 1] : null;
+      if (road && !ratio) legs.push({ km: road.d / 1000, min: road.t / 60, est: false });
+      else { const km = ccKm(pts[i - 1], pts[i]) * (ratio || CC_DETOUR); legs.push({ km, min: km / CC_SPEED_KMH[cc.transit] * 60, est: true }); }
+    }
+    return buildDaySchedule(kept, legs, !!home, ccWindow().start);
+  }
   function ccOrderFor(stops) { return ccEls.optimize.checked ? ccOptimizeOrder(stops, cc.startPlace) : stops; }
   // Unticks stops until the day fits the longest-day limit, each time
   // leaving out the stop whose removal shortens the day the most (never the
   // last one). Those stops are marked so the preview can say why.
   function ccTrimDay(day, ratio) {
-    if (!cc.maxDayKm) return 0;
     let kept = day.stops.filter((x) => x.include), removed = 0;
-    const r = ratio || CC_DETOUR;
-    while (kept.length > 1 && ccStraightKm(ccOrderFor(kept)) * r > cc.maxDayKm) {
-      let best = null, bestKm = Infinity;
-      kept.forEach((x) => { const km = ccStraightKm(ccOrderFor(kept.filter((y) => y !== x))); if (km < bestKm) { bestKm = km; best = x; } });
-      best.include = false; best.trimmed = true; removed++;
+    const r = ratio || CC_DETOUR, endMin = ccWindow().end;
+    const overKm = (k) => cc.maxDayKm && ccStraightKm(ccOrderFor(k)) * r > cc.maxDayKm;
+    const overTime = (k) => ccScheduleFor(ccOrderFor(k), r).finish > endMin;
+    while (kept.length > 1 && (overKm(kept) || overTime(kept))) {
+      // Leave out whichever stop shortens the day most, by time when the day
+      // runs late, otherwise by distance.
+      const byTime = overTime(kept);
+      let best = null, bestVal = Infinity;
+      kept.forEach((x) => {
+        const rest = kept.filter((y) => y !== x);
+        const v = byTime ? ccScheduleFor(ccOrderFor(rest), r).finish : ccStraightKm(ccOrderFor(rest));
+        if (v < bestVal) { bestVal = v; best = x; }
+      });
+      best.include = false; best.trimmed = byTime ? "time" : "km"; removed++;
       kept = kept.filter((y) => y !== best);
     }
     return removed;
@@ -102478,31 +102760,40 @@ return maplibregl$1;
       ? "Suggested by Gemini. AI can get details wrong, so check opening hours before you go."
       : "Suggested from OpenStreetMap places (no AI).") +
       (outside ? " " + outside + " stop" + (outside === 1 ? " is" : "s are") + (cc.radiusKm ? " more than " + cc.radiusKm + " km away" : " outside " + (ccEls.dest.value.trim() || "the destination")) + " and left unticked." : "") +
-      (cc.plan.days.some((d) => d.stops.some((x) => x.trimmed && !x.include)) ? " Some stops were left unticked to keep days under " + cc.maxDayKm + " km; tick any to add them back." : "") +
+      (cc.plan.days.some((d) => d.stops.some((x) => x.trimmed && !x.include)) ? " Some stops were left unticked so days fit your " + (cc.maxDayKm ? cc.maxDayKm + " km limit and " : "") + "day times; tick any to add them back." : "") +
       (cc.needs.has("parking") && cc.plan.source === "osm" ? " Free parking can't be checked from OpenStreetMap." : "") +
       (ccEls.optimize.checked ? " Optimized order may move meals to other times of day." : "");
     ccEls.verifyBtn.parentElement.classList.toggle("hidden", cc.plan.source !== "ai");
     ccEls.verifyBtn.disabled = cc.verifying;
     ccEls.daysEl.innerHTML = cc.plan.days.map((day, di) => {
       const order = ccDayOrder(day), st = ccDayStats(order);
+      const keptOrder = order.filter((x) => x.include);
+      const sched = keptOrder.length ? ccScheduleFor(keptOrder) : null;
+      const slot = new Map(sched ? sched.items.map((it) => [it.w, it]) : []);
+      const legRow = (leg) => leg ? '<div class="itin-leg-row">' + escapeHtml(itinLegText(leg, cc.transit)) + "</div>" : "";
       let n = 0;
-      const rows = order.map((s) => {
+      const rows = (sched ? '<div class="itin-day-bounds">' + escapeHtml((cc.startPlace ? "Leave the hotel " : "Day starts ") + fmtClock(sched.start)) + "</div>" : "") + order.map((s) => {
         const num = s.include ? ++n : "";
+        const it = slot.get(s);
         const badge = s.outside ? '<span class="cc-badge warn">' + (cc.radiusKm ? "More than " + cc.radiusKm + " km away" : "Outside the area") + "</span>"
+          : s.trimmed === "time" ? '<span class="cc-badge warn">Left out to finish by ' + escapeHtml(fmtClock(ccWindow().end)) + "</span>"
           : s.trimmed ? '<span class="cc-badge warn">Left out to keep the day under ' + cc.maxDayKm + " km</span>"
           : s.verified === "ok" ? '<span class="cc-badge ok">Location checked</span>'
           : s.verified === "moved" ? '<span class="cc-badge ok">Location corrected</span>'
           : s.verified === "missing" ? '<span class="cc-badge warn">Not found on the map</span>' : "";
-        return '<label class="cc-stop' + (s.include ? "" : " off") + '"><input type="checkbox" data-day="' + di + '" data-key="' + s.key + '"' + (s.include ? " checked" : "") + " />" +
+        const stopHtml = '<label class="cc-stop' + (s.include ? "" : " off") + '"><input type="checkbox" data-day="' + di + '" data-key="' + s.key + '"' + (s.include ? " checked" : "") + " />" +
           '<span class="cc-stop-num">' + num + '</span><span class="cc-stop-emoji">' + escapeHtml(ccEmoji(s)) + "</span>" +
           '<span class="cc-stop-body"><span class="cc-stop-name">' + escapeHtml(s.name) + "</span>" +
-          '<span class="cc-stop-meta">' + ccFormatMinutes(s.estimatedTimeMinutes) + (s.notes ? " \u00b7 " + escapeHtml(s.notes) : "") + "</span>" + badge + "</span></label>";
-      }).join("");
-      const over = cc.maxDayKm && st.count > 1 && st.km > cc.maxDayKm + 0.05;
+          '<span class="cc-stop-meta">' + (it ? '<b class="cc-stop-time">' + escapeHtml(fmtClock(it.arrive) + " \u2013 " + fmtClock(it.depart)) + "</b> \u00b7 " : "") + ccFormatMinutes(itinStayMinutes(s)) + (s.notes ? " \u00b7 " + escapeHtml(s.notes) : "") + "</span>" + badge + "</span></label>";
+        return (it ? legRow(it.legIn) : "") + stopHtml;
+      }).join("") + (sched ? legRow(sched.legHome) + '<div class="itin-day-bounds' + (sched.finish > ccWindow().end ? " over" : "") + '">' +
+        escapeHtml((cc.startPlace ? "Back at the hotel " : "Day ends ") + fmtClock(sched.finish) + (sched.finish > ccWindow().end ? ", " + itinMinutes(sched.finish - ccWindow().end) + " after your " + fmtClock(ccWindow().end) + " end" : "")) + "</div>" : "");
+      const overTime = sched && keptOrder.length > 1 && sched.finish > ccWindow().end;
+      const over = (cc.maxDayKm && st.count > 1 && st.km > cc.maxDayKm + 0.05) || overTime;
       return '<div class="cc-day"><div class="cc-day-head"><span class="cc-day-title">Day ' + day.day + " \u00b7 " + escapeHtml(ccNiceDate(day.date)) + "</span>" +
         (day.theme ? '<span class="cc-day-theme">' + escapeHtml(day.theme) + "</span>" : "") +
         '<span class="cc-day-stats">' + st.count + " stop" + (st.count === 1 ? "" : "s") + (st.count ? " \u00b7 " + (st.byRoad ? "" : "about ") + st.km.toFixed(1) + " km " + (st.byRoad ? "by road" : "(estimate" + (st.pending ? ", routing\u2026" : "") + ")") + ", " + ccFormatMinutes(st.travelMin) + " " + cc.transit + " + " + ccFormatMinutes(st.stopMin) + " at stops" : "") + "</span>" +
-        (over ? '<span class="cc-day-over">Over your ' + cc.maxDayKm + ' km limit. <button type="button" class="cc-link-btn" data-trim="' + di + '">Trim to fit</button></span>' : "") + "</div>" +
+        (over ? '<span class="cc-day-over">' + (overTime && !(cc.maxDayKm && st.km > cc.maxDayKm + 0.05) ? "Runs past " + escapeHtml(fmtClock(ccWindow().end)) + "." : overTime ? "Over your " + cc.maxDayKm + " km limit and runs past " + escapeHtml(fmtClock(ccWindow().end)) + "." : "Over your " + cc.maxDayKm + " km limit.") + ' <button type="button" class="cc-link-btn" data-trim="' + di + '">Trim to fit</button></span>' : "") + "</div>" +
         (st.count === 0 && day.stops.length ? '<p class="cc-day-over">No stops on this day fit your distance limits. Tick one to keep it anyway, widen the limits in step 2, or regenerate.</p>' : "") +
         (rows || '<p class="layers-hint">No stops suggested for this day.</p>') + "</div>";
     }).join("");
@@ -102532,7 +102823,8 @@ return maplibregl$1;
       ["Stops", total + " waypoints, " + (ccEls.optimize.checked ? "in optimized order" : "in suggested order")],
       ["Style", CC_PACE[cc.pace].label + " \u00b7 " + cc.transit + (cc.vibes.size ? " \u00b7 " + CC_VIBES.filter((v) => cc.vibes.has(v.id)).map((v) => v.label).join(", ") : "")],
       ["Every stop", cc.needs.size ? CC_NEEDS.filter((n) => cc.needs.has(n.id)).map((n) => n.label).join(", ") : "No requirements"],
-      ["Distance", (cc.radiusKm ? "Within " + cc.radiusKm + " km" : "Any distance") + (cc.maxDayKm ? ", days up to " + cc.maxDayKm + " km" : "")]];
+      ["Distance", (cc.radiusKm ? "Within " + cc.radiusKm + " km" : "Any distance") + (cc.maxDayKm ? ", days up to " + cc.maxDayKm + " km" : "")],
+      ["Day times", fmtClock(hhmmToMin(u.dayStart)) + " to " + fmtClock(hhmmToMin(u.dayEnd))]];
     ccEls.review.innerHTML = "<dl>" + rows.map(([k, v]) => "<div><dt>" + escapeHtml(k) + "</dt><dd>" + escapeHtml(v) + "</dd></div>").join("") + "</dl>";
     ccEls.tree.innerHTML = '<div class="cc-tree-folder" style="--c:' + escapeHtml(ccEls.color.value) + '">' + icon("calendar", 14) + " " + escapeHtml(u.name) + "</div>" +
       kept.map((d, i) => '<div class="cc-tree-day">' + icon("folder", 13) + " " + escapeHtml(itineraryDayFolderName(i + 1, u.name, ccIsoDate(u.startDate, i))) +
@@ -102589,7 +102881,7 @@ return maplibregl$1;
     try {
       const plan = useAi ? await generateItineraryWithAI(u) : await generateItineraryLocally(u);
       if (runId !== cc.runId) return; // the person went back or started over meanwhile
-      if (cc.maxDayKm) plan.days.forEach((d) => ccTrimDay(d, CC_DETOUR));
+      plan.days.forEach((d) => ccTrimDay(d, CC_DETOUR));
       cc.plan = plan;
     } catch (e) {
       if (runId !== cc.runId) return;
@@ -102645,6 +102937,7 @@ return maplibregl$1;
     parent.itineraryStartDate = u.startDate;
     if (cc.parentTripId && waypointFolders.some((f) => f.id === cc.parentTripId)) parent.parentFolderId = cc.parentTripId;
     parent.travelMode = cc.transit;
+    parent.dayStart = u.dayStart; parent.dayEnd = u.dayEnd;
     const home = cc.startPlace ? { lat: cc.startPlace.lat, lng: cc.startPlace.lng } : null;
     parent.concierge = { destination: u.destination, destinationLabel: cc.destPlace.label, startingPoint: u.startingPoint || null, startingPointCoords: home, pace: cc.pace,
       needs: [...cc.needs], radiusKm: cc.radiusKm || null, maxDayKm: cc.maxDayKm || null,
@@ -102753,6 +103046,7 @@ return maplibregl$1;
     const trip = parentTripId ? waypointFolders.find((f) => f.id === parentTripId && f.isTrip) : null;
     cc.parentTripId = trip ? trip.id : null;
     cc.plan = null; cc.destPlace = null; cc.startPlace = null; cc.busy = false; cc.verifying = false; cc.runId++;
+    el("ccDayStartInput").value = ITIN_DEFAULT_START; el("ccDayEndInput").value = ITIN_DEFAULT_END;
     cc.pace = "balanced"; cc.vibes = new Set(); cc.needs = new Set(); cc.transit = "walking"; cc.distTouched = false; ccApplyDistanceDefaults();
     ccEls.name.value = trip ? trip.name + " Itinerary" : "";
     ccEls.dest.value = "";
@@ -103023,29 +103317,74 @@ return maplibregl$1;
   }
   function itinKm(km) { return km < 10 ? km.toFixed(1) + " km" : Math.round(km) + " km"; }
   // Everything needed to print an itinerary's days, in day order.
-  function itineraryPrintData(itin) {
+  /* ---------- Day schedule (shared by the wizard, the list and printing) ----------
+     Each itinerary day runs from its start time: leave the hotel (if any),
+     travel, arrive, stay, travel ... and back. Travel comes from the day's
+     road route for its mode when stored, otherwise a labelled estimate.
+     Time at a stop: what the person set, else restaurants 1 h and museums,
+     galleries and shopping 2 h, else the stop's own estimate, else 30 min. */
+  const ITIN_STAY_RULES = { food: 60, culture: 120, shopping: 120 };
+  const ITIN_DEFAULT_START = "09:00", ITIN_DEFAULT_END = "20:00";
+  const ITIN_MODE_ICON = { walking: "\uD83D\uDEB6", cycling: "\uD83D\uDEB2", driving: "\uD83D\uDE97" };
+  function itinStayMinutes(w) {
+    if (w.stayMinutes > 0) return w.stayMinutes;
+    if (ITIN_STAY_RULES[w.category]) return ITIN_STAY_RULES[w.category];
+    if (w.estimatedTimeMinutes > 0) return w.estimatedTimeMinutes;
+    return 30;
+  }
+  function hhmmToMin(t, fallback) { const m = /^(\d{1,2}):(\d{2})/.exec(t || ""); return m ? (+m[1]) * 60 + (+m[2]) : hhmmToMin(fallback, "09:00"); }
+  function minToHHMM(m) { m = ((Math.round(m) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); }
+  function fmtClock(m) {
+    const d = new Date(2000, 0, 1, 0, 0); d.setMinutes(Math.round(m));
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + (m >= 1440 ? " (next day)" : "");
+  }
+  function itinDayWindow(itin) { return { start: hhmmToMin(itin && itin.dayStart, ITIN_DEFAULT_START), end: hhmmToMin(itin && itin.dayEnd, ITIN_DEFAULT_END) }; }
+  // legs: travel between consecutive route points (from the hotel first and back to it last, when there is one).
+  function buildDaySchedule(stops, legs, hasHome, startMin) {
+    let t = startMin;
+    const items = [];
+    stops.forEach((w, i) => {
+      const legIn = hasHome ? legs[i] : (i > 0 ? legs[i - 1] : null);
+      if (legIn) t += legIn.min;
+      const stay = itinStayMinutes(w);
+      items.push({ w, legIn: legIn || null, arrive: t, depart: t + stay, stay });
+      t += stay;
+    });
+    const legHome = hasHome && stops.length ? legs[stops.length] || null : null;
+    if (legHome) t += legHome.min;
+    return { items, legHome, finish: t, start: startMin };
+  }
+  function itineraryDayData(itin, folder, siblings) {
     const key = (w) => (typeof w.itineraryOrder === "number" ? w.itineraryOrder : (w.createdAt || 0));
+    const mode = itineraryTravelMode(itin), home = itineraryHome(itin);
+    const num = itineraryDayNumber(folder, siblings);
+    const stops = waypoints.filter((w) => w.folderId === folder.id && !w.isStoryEntry).sort((a, b) => key(a) - key(b));
+    const pts = ccDayRoutePoints(stops, home);
+    const sig = ccRouteSig(pts, mode);
+    const route = folder.route && folder.route.sig === sig ? folder.route : null;
+    // Travel between consecutive points: the road route's own legs when
+    // stored, otherwise a straight-line estimate (marked "about").
+    const legs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const stored = route && Array.isArray(route.legs) && route.legs.length === pts.length - 1 ? route.legs[i - 1] : null;
+      if (stored) legs.push({ km: stored.d / 1000, min: stored.t / 60, est: false });
+      else { const km = ccKm(pts[i - 1], pts[i]) * CC_DETOUR; legs.push({ km, min: km / ITIN_SPEED_KMH[mode] * 60, est: true }); }
+    }
+    const date = itinIsoDateFromName(folder.name) || (itin.itineraryStartDate ? itinAddDays(itin.itineraryStartDate, num - 1) : null);
+    const path = route ? route.latlngs : pts.map((p) => [p.lat, p.lng]);
+    const win = itinDayWindow(itin);
+    const schedule = buildDaySchedule(stops, legs, !!home, win.start);
+    return { folder, num, stops, pts, legs, route, path, home, mode, date, theme: folder.theme || "", schedule, window: win,
+      color: itineraryDayColor(itin.color || defaultFolderColor(false, true), num) };
+  }
+  function itineraryPrintData(itin) {
     const siblings = waypointFolders.filter((f) => f.parentFolderId === itin.id);
     const mode = itineraryTravelMode(itin), home = itineraryHome(itin);
-    const days = siblings.map((folder) => {
-      const num = itineraryDayNumber(folder, siblings);
-      const stops = waypoints.filter((w) => w.folderId === folder.id && !w.isStoryEntry).sort((a, b) => key(a) - key(b));
-      const pts = ccDayRoutePoints(stops, home);
-      const sig = ccRouteSig(pts, mode);
-      const route = folder.route && folder.route.sig === sig ? folder.route : null;
-      // Travel between consecutive points: the road route's own legs when
-      // stored, otherwise a straight-line estimate (marked "about").
-      const legs = [];
-      for (let i = 1; i < pts.length; i++) {
-        const stored = route && Array.isArray(route.legs) && route.legs.length === pts.length - 1 ? route.legs[i - 1] : null;
-        if (stored) legs.push({ km: stored.d / 1000, min: stored.t / 60, est: false });
-        else { const km = ccKm(pts[i - 1], pts[i]) * CC_DETOUR; legs.push({ km, min: km / ITIN_SPEED_KMH[mode] * 60, est: true }); }
-      }
-      const date = itinIsoDateFromName(folder.name) || (itin.itineraryStartDate ? itinAddDays(itin.itineraryStartDate, num - 1) : null);
-      const path = route ? route.latlngs : pts.map((p) => [p.lat, p.lng]);
-      return { folder, num, stops, pts, legs, route, path, home, mode, date, theme: folder.theme || "", color: itineraryDayColor(itin.color || defaultFolderColor(false, true), num) };
-    }).filter((d) => d.stops.length).sort((a, b) => a.num - b.num);
+    const days = siblings.map((folder) => itineraryDayData(itin, folder, siblings)).filter((d) => d.stops.length).sort((a, b) => a.num - b.num);
     return { itin, days, mode, home };
+  }
+  function itinLegText(leg, mode) {
+    return (ITIN_MODE_ICON[mode] || "") + " " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[mode] + " \u00b7 " + itinKm(leg.km);
   }
 
   // ---- Drawing helpers ----
@@ -103139,7 +103478,8 @@ return maplibregl$1;
       const n = i + 1, leg = day.legs[(day.home ? 1 : 0) + i];
       const isLast = i === day.stops.length - 1;
       const name = sanitizeForPdfFont(String(s.name || "Stop").replace(/^\d{1,2}\s*-\s*/, ""), bold);
-      let meta = s.estimatedTimeMinutes ? itinMinutes(s.estimatedTimeMinutes) + " here" : "";
+      const slot = day.schedule && day.schedule.items[i];
+      let meta = (slot ? fmtClock(slot.arrive) + " \u2013 " + fmtClock(slot.depart) + " \u00b7 " : "") + itinMinutes(itinStayMinutes(s)) + " here";
       if (leg) meta += (meta ? " \u00b7 " : "") + "then " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[day.mode] + " (" + itinKm(leg.km) + ")" + (isLast && day.home ? " back to the hotel" : "");
       const url = s.url && /^https?:\/\//i.test(s.url) ? s.url : "";
       const qrSize = url && qrOn ? sizes.qr : 0;
@@ -103176,10 +103516,11 @@ return maplibregl$1;
     const { rgb } = PDFLib;
     const totalTravel = day.legs.reduce((a, l) => a + l.min, 0), totalKm = day.legs.reduce((a, l) => a + l.km, 0);
     const est = day.legs.some((l) => l.est);
-    const stay = day.stops.reduce((a, s) => a + (s.estimatedTimeMinutes || 0), 0);
+    const stay = day.stops.reduce((a, s) => a + itinStayMinutes(s), 0);
     const summary = day.stops.length + " stop" + (day.stops.length === 1 ? "" : "s") +
       (day.legs.length ? " \u00b7 " + (est ? "about " : "") + itinKm(totalKm) + (est ? "" : " by road") + ", " + itinMinutes(totalTravel) + " " + day.mode : "") +
-      (stay ? " \u00b7 " + itinMinutes(stay) + " at stops" : "");
+      (stay ? " \u00b7 " + itinMinutes(stay) + " at stops" : "") +
+      (day.schedule ? " \u00b7 " + fmtClock(day.schedule.start) + " to " + fmtClock(day.schedule.finish) + (day.schedule.finish > day.window.end ? " (past your " + fmtClock(day.window.end) + " end)" : "") : "");
     const sumLines = pdfWrapText(sanitizeForPdfFont(summary, font), font, sizes.small, width, 2).lines;
     const themeLines = day.theme ? pdfWrapText(sanitizeForPdfFont(day.theme, font), font, sizes.small + 0.5, width, 1).lines : [];
     const h = sizes.title + 4 + (themeLines.length * (sizes.small + 3)) + sumLines.length * sizes.small * 1.25 + 8;
@@ -103346,6 +103687,32 @@ return maplibregl$1;
     return { bytes: await pdfDoc.save(), pages: pdfDoc.getPageCount(), days: days.length };
   }
 
+  itinerarySchedulesReady = true;
+  if (waypointFolders.some((f) => f.isItinerary)) setTimeout(() => renderList(), 0);
+
+  // ---- Day times dialog ----
+  let itinTimesId = null;
+  function openItineraryTimes(itinId) {
+    const itin = waypointFolders.find((f) => f.id === itinId);
+    if (!itin) return;
+    itinTimesId = itin.id;
+    el("itinTimesSubtitle").textContent = itin.name;
+    el("itinTimesStart").value = itin.dayStart || ITIN_DEFAULT_START;
+    el("itinTimesEnd").value = itin.dayEnd || ITIN_DEFAULT_END;
+    el("itinTimesModalOverlay").classList.remove("hidden");
+  }
+  el("itinTimesCloseBtn").addEventListener("click", () => el("itinTimesModalOverlay").classList.add("hidden"));
+  el("itinTimesSaveBtn").addEventListener("click", () => {
+    const itin = waypointFolders.find((f) => f.id === itinTimesId);
+    const st = el("itinTimesStart").value, en = el("itinTimesEnd").value;
+    if (!itin || !st || !en) return;
+    if (hhmmToMin(en) <= hhmmToMin(st)) { showToast("The day needs to end after it starts."); return; }
+    itin.dayStart = st; itin.dayEnd = en; itin.updatedAt = Date.now();
+    saveWaypointFolders();
+    el("itinTimesModalOverlay").classList.add("hidden");
+    renderList();
+  });
+
   // ---- Dialog ----
   const itinPrintModalOverlay = el("itinPrintModalOverlay");
   const itinPrint = { itinId: null, format: "full", layer: "street", days: new Set(), busy: false };
@@ -103511,19 +103878,26 @@ return maplibregl$1;
     let n = 0;
     const dayIds = new Set(waypointFolders.filter((f) => f.parentFolderId && waypointFolders.some((x) => x.id === f.parentFolderId && x.isItinerary)).map((f) => f.id));
     waypoints.forEach((w) => { if (dayIds.has(w.folderId) && w.itineraryDayId === undefined) { w.itineraryDayId = w.folderId; n++; } });
-    if (n) saveWaypoints();
+    if (n && !bootGuard.safe) saveWaypoints();
   })();
-  if (reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
+  if (!bootGuard.safe && reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
-  setTimeout(() => bootGuard.done(), 15000);
+  // The record stays open for 25 s, so work that runs just after start-up
+  // (map tiles, weather, routes, saves) shows up in a crash report too.
+  setTimeout(() => bootGuard.stage("running (first seconds after start-up)"), 2500);
+  setTimeout(() => bootGuard.done(), 25000);
+  // One-time move of photos still stored inside waypoint records into the
+  // photo store (each written on its own), once start-up has settled.
+  if (inlinePhotosAtLoad && !bootGuard.safe) setTimeout(() => saveWaypoints(), 6000);
+  setTimeout(() => { cleanUpPhotoStore(); }, 40000);
   if (bootGuard.safe) {
     setTimeout(() => openConfirmModal("MapApp opened in safe mode",
       (bootGuard.crashes >= 1
         ? "MapApp closed unexpectedly while starting" + (bootGuard.crashes > 1 ? " (" + bootGuard.crashes + " times in a row)" : "") + ". Its last steps were: " + bootGuard.lastStage + ". "
         : "Safe mode was requested. ") +
-      "To keep it running, the live Street map, map rotation, and itinerary route lines and day boxes are switched off for now. Everything you've saved is untouched.",
+      "To keep it running, the live Street map, map rotation, itinerary route lines and day boxes, weather lookups and start-up tidying are switched off for now. Everything you've saved is untouched. If it keeps happening, open the app's address with ?diag=1 at the end for a report you can send.",
       () => { bootGuard.reset(); forceRefreshApp(); }, { confirmLabel: "Try normal mode", danger: false }), 1200);
   }
   {
@@ -103531,7 +103905,7 @@ return maplibregl$1;
     renderList = function () {
       // Itineraries are tidied before every list render (which follows any
       // edit), so the list, map, badges, boxes and routes all show the result.
-      if (reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
+      if (!bootGuard.safe && reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
       const r = renderListBase.apply(this, arguments);
       refreshItineraryDayLines();
       return r;
