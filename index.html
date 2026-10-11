@@ -1128,6 +1128,97 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .cc-day-theme{font-size:12.5px; color:var(--amber-light);}
   .cc-day-stats{font-size:11.5px; color:var(--text-mute);}
   .cc-day-over{font-size:12px; color:var(--amber-light);}
+  /* Day timeline */
+  .modal-card.day-tl-card{max-width:520px; display:flex; flex-direction:column; max-height:calc(100dvh - 24px); overflow:hidden;}
+  .day-tl-controls{display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
+  .day-tl-time{display:flex; flex-direction:column; gap:3px; font-size:11.5px; color:var(--text-dim);}
+  .day-tl-time input{background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:7px 8px; font:inherit; font-size:14px;}
+  .day-tl-now-btn{width:auto; padding:0 12px; height:36px;}
+  .day-tl-now-btn.hidden{display:none;}
+  .day-tl-keep{font-size:12.5px; margin:2px 0 4px;}
+  .day-tl-status{font-size:12px; color:var(--text-dim); margin:2px 0 6px;}
+  .day-tl-scroll{flex:1; min-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; background:rgba(2,6,23,.35); -webkit-overflow-scrolling:touch;}
+  .day-tl-canvas{position:relative; margin:26px 10px 10px 58px;}
+  .day-tl-hour{position:absolute; left:-58px; right:0; border-top:1px solid rgba(148,163,184,.14); height:0;}
+  .day-tl-hour span{position:absolute; left:0; top:-8px; width:52px; text-align:right; font-size:11px; color:var(--text-mute);}
+  .day-tl-mark{position:absolute; left:-6px; right:0; border-top:2px solid var(--text-dim); height:0; z-index:3; pointer-events:none;}
+  .day-tl-mark span{position:absolute; right:4px; top:-17px; font-size:11px; font-weight:600; color:var(--text-dim); background:rgba(15,23,42,.85); padding:0 5px; border-radius:6px;}
+  .day-tl-mark.finish{border-top:2px dashed var(--amber);}
+  .day-tl-mark.finish span{color:var(--amber-light);}
+  .day-tl-mark.finish.over{border-top-color:#f87171;}
+  .day-tl-mark.finish.over span{color:#fca5a5;}
+  .day-tl-overrun{position:absolute; left:0; right:0; background:repeating-linear-gradient(135deg, rgba(248,113,113,.14) 0 6px, transparent 6px 12px); z-index:0; pointer-events:none;}
+  .day-tl-now{position:absolute; left:-58px; right:0; border-top:2px solid #ef4444; height:0; z-index:4; pointer-events:none;}
+  .day-tl-now span{position:absolute; left:0; top:-9px; font-size:10.5px; font-weight:700; color:#fff; background:#ef4444; padding:0 5px; border-radius:6px;}
+  .day-tl-block{position:absolute; left:0; right:0; box-sizing:border-box; border-radius:10px; overflow:hidden; z-index:1;}
+  .day-tl-block.stop{background:color-mix(in srgb, var(--day) 22%, #0f172a); border:1.5px solid var(--day); padding:4px 8px 12px; display:flex; flex-wrap:wrap; align-items:baseline; align-content:flex-start; gap:2px 8px;}
+  /* Trips are boxes of their own (indented, dashed), resizable like stops. */
+  .day-tl-block.leg{left:26px; right:0; border:1.5px dashed var(--border-soft); border-radius:10px; background:rgba(148,163,184,.07);
+    padding:0 10px 8px; display:flex; align-items:center;}
+  .day-tl-block.leg.short{border-color:var(--amber); background:rgba(245,158,11,.08);}
+  .day-tl-block.leg.none{border-color:#f87171; background:rgba(248,113,113,.08);}
+  .day-tl-block.locked{opacity:.5;}
+  .day-tl-block.now{box-shadow:0 0 0 2px #ef4444 inset;}
+  .day-tl-block.resizing{z-index:5; box-shadow:0 0 0 2px var(--cyan);}
+  .day-tl-num{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; border-radius:9px; background:#000; color:#fff; border:1.5px solid #fff; font-size:10.5px; font-weight:700; padding:0 3px; box-sizing:border-box;}
+  .day-tl-name{font-weight:600; font-size:13px; color:var(--text);}
+  .day-tl-link{color:var(--text); text-decoration:underline; text-decoration-color:rgba(34,211,238,.7); text-underline-offset:3px; text-decoration-thickness:1.5px;}
+  .day-tl-link::after{content:"\2197"; font-size:11px; margin-left:3px; color:var(--cyan); text-decoration:none; display:inline-block;}
+  .day-tl-link:hover, .day-tl-link:focus-visible{color:var(--cyan);}
+  .day-tl-when{font-size:11.5px; color:var(--text-dim);}
+  .day-tl-leg{font-size:11.5px; color:var(--text-dim); white-space:nowrap;}
+  .day-tl-block.leg.short .day-tl-leg{color:var(--amber-light);}
+  .day-tl-grip{position:absolute; left:0; right:0; bottom:0; height:14px; cursor:ns-resize; touch-action:none; display:flex; align-items:center; justify-content:center;}
+  .day-tl-grip::after{content:""; width:34px; height:4px; border-radius:2px; background:rgba(226,232,240,.55);}
+  .day-tl-block.leg .day-tl-grip{height:10px;}
+  .day-tl-block.leg .day-tl-grip::after{width:26px; height:3px; background:rgba(148,163,184,.7);}
+  .day-tl-block.leg.short .day-tl-grip::after{background:var(--amber);}
+  .day-tl-leg{overflow:hidden; text-overflow:ellipsis;}
+  .day-tl-block.stop{padding-right:70px;}
+  .day-tl-acts, .itin-stop-acts{display:inline-flex; gap:4px;}
+  .day-tl-acts{position:absolute; top:4px; right:5px;}
+  .itin-stop-acts{margin-left:auto;}
+  .day-tl-acts button, .itin-stop-acts button{width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,.75); color:var(--text-dim);
+    display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer;}
+  .day-tl-acts button:hover, .itin-stop-acts button:hover{color:var(--text); border-color:var(--border-soft);}
+  .day-tl-acts button[data-act="remove"]:hover, .itin-stop-acts button[data-unschedule-wp]:hover{color:#fca5a5; border-color:rgba(248,113,113,.5);}
+  .replace-stop-card{max-width:460px;}
+  .replace-stop-list{display:flex; flex-direction:column; gap:8px; margin-top:6px;}
+  .replace-stop-item{display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--border); border-radius:12px; background:rgba(30,41,59,.4);}
+  .replace-stop-emoji{font-size:20px; flex-shrink:0;}
+  .replace-stop-body{flex:1; min-width:0;}
+  .replace-stop-name{font-weight:600; font-size:13.5px; color:var(--text);}
+  .replace-stop-meta{font-size:12px; color:var(--text-dim); line-height:1.35; overflow-wrap:anywhere;}
+  .replace-stop-item .btn.replace-stop-choose{width:auto; flex:0 0 auto; padding:0 16px; height:36px; display:inline-flex; align-items:center; justify-content:center; line-height:1; margin:0;}
+  .replace-stop-search{display:inline-block; margin-top:3px; font-size:12px; color:var(--cyan); text-decoration:underline; text-underline-offset:2px;}
+  .replace-stop-search::after{content:" \2197"; font-size:11px;}
+  .replace-stop-link{display:inline; color:var(--text); text-decoration:underline; text-decoration-color:rgba(34,211,238,.7); text-underline-offset:3px; text-decoration-thickness:1.5px;}
+  .replace-stop-link::after{content:"\2197"; font-size:11px; margin-left:3px; color:var(--cyan); text-decoration:none; display:inline-block;}
+  .replace-stop-link:hover, .replace-stop-link:focus-visible{color:var(--cyan);}
+  .day-tl-block.leg{cursor:pointer;}
+  .day-tl-block.leg:not(.locked):hover{border-color:var(--cyan);}
+  .day-tl-modes{position:absolute; top:calc(100% - 4px); left:8px; z-index:8; display:flex; flex-wrap:wrap; gap:6px; padding:6px; border-radius:12px;
+    background:#0b1222; border:1px solid var(--border); box-shadow:0 6px 18px rgba(0,0,0,.5);}
+  .day-tl-modes button{border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:999px; padding:6px 11px; font:inherit; font-size:12.5px; cursor:pointer; white-space:nowrap;}
+  .day-tl-modes button.on{border-color:var(--cyan); background:rgba(34,211,238,.15);}
+  .day-tl-modes button.reset{color:var(--text-dim);}
+  .day-tl-block.leg.has-menu{z-index:8; overflow:visible;}
+  .day-tl-warnings .day-tl-warn{font-size:12px; color:var(--amber-light); margin:6px 0 0;}
+  .day-tl-actions{margin-top:10px;}
+  /* Phones on their side: controls in a column on the left, the timeline
+     using the full height on the right. */
+  @media (max-height:520px) and (orientation:landscape){
+    .modal-card.day-tl-card{max-width:min(920px, calc(100vw - 16px)); width:100%; display:grid; grid-template-columns:minmax(220px, 34%) 1fr; grid-template-rows:auto auto auto auto 1fr auto;
+      column-gap:14px; padding:10px 12px; max-height:calc(100dvh - 16px);}
+    .day-tl-card > .modal-header{grid-column:1; grid-row:1; margin-bottom:4px;}
+    .day-tl-card > .paper-wiz-dots{display:none;}
+    .day-tl-controls{grid-column:1; grid-row:2;}
+    .day-tl-keep{grid-column:1; grid-row:3; font-size:12px;}
+    .day-tl-status{grid-column:1; grid-row:4;}
+    .day-tl-warnings{grid-column:1; grid-row:5; overflow-y:auto;}
+    .modal-card.day-tl-card .day-tl-actions{grid-column:1; grid-row:6; margin:6px 0 0; padding:0; position:static;}
+    .day-tl-scroll{grid-column:2; grid-row:1 / span 6; min-height:0; height:100%;}
+  }
   .itin-leg-row{font-size:12px; color:var(--text-dim); padding:3px 0 3px 30px; position:relative;}
   .itin-leg-row::before{content:""; position:absolute; left:13px; top:0; bottom:0; border-left:2px dotted var(--border-soft);}
   .itin-day-bounds{font-size:12px; color:var(--text-dim); padding:4px 2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -1178,7 +1269,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   body.modal-open .live-dot,
   body.modal-open .wp-pulse-ring{animation-play-state:paused;}
   body.hex-admin .leaflet-interactive{cursor:pointer;}
-  .modal-card{width:100%; max-width:400px; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:18px;
+  .modal-card{width:100%; max-width:400px; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; background:var(--surface); border:1px solid rgba(148,163,184,.55); border-radius:18px; box-shadow:0 0 0 1px rgba(15,23,42,.6), 0 18px 48px rgba(0,0,0,.55);
     padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.5);}
   .modal-header{display:flex; justify-content:space-between; align-items:center; margin:-20px -20px 4px; padding:20px 20px 4px;
     position:sticky; top:-20px; background:var(--surface); z-index:2;}
@@ -1756,8 +1847,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
        trade-off: a swipe that starts directly on a card's own surface no
        longer scrolls the list -- only the gaps between cards, or the
        list's own padding, still do. */
-    touch-action:none;}
+    touch-action:pan-y;} /* swiping a card scrolls the list; dragging starts from its grip handle */
   .card:hover{border-color:rgba(245,158,11,.35);}
+  /* Grip handle on draggable cards: the same dots and placement as on itinerary items. */
+  .card.has-drag-handle{position:relative; padding-left:32px;}
+  .card-drag-handle{position:absolute; left:4px; top:0; bottom:0; width:24px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--text-mute); cursor:grab; padding:0; touch-action:none; z-index:1;}
+  .card-drag-handle:hover{color:var(--text);}
+  .card-drag-handle:active{cursor:grabbing;}
+  /* Cards inside itinerary days already sit beside the itinerary's own handle. */
+  .itinerary-draggable-card-wrap .card.has-drag-handle{padding-left:12px;}
+  .itinerary-draggable-card-wrap .card-drag-handle{display:none;}
+  .drag-ghost .card-drag-handle{color:var(--text);}
   .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
   .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   /* Top row is reserved purely for the action buttons, right-aligned.
@@ -3383,6 +3484,44 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button class="btn btn-primary" id="tripPlanGenerateBtn">Generate PDF</button>
       </div>
       <div class="btn-row pdf-send-row"><button type="button" class="btn btn-secondary pdf-send-btn" id="tripPlanSendBtn"><span data-icon="mail" data-icon-size="15"></span><span>Email or share</span></button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="dayTimelineOverlay">
+    <div class="modal-card day-tl-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="dayTlTitle">Day timeline</h2>
+          <p class="paper-wiz-step-label" id="dayTlSubtitle"></p>
+        </div>
+        <button class="icon-btn" id="dayTlCloseBtn" data-icon="x"></button>
+      </div>
+      <div class="day-tl-controls">
+        <label class="day-tl-time"><span>Start</span><input type="time" id="dayTlStart" step="300" /></label>
+        <label class="day-tl-time"><span>Finish by</span><input type="time" id="dayTlEnd" step="300" /></label>
+        <button type="button" class="btn btn-secondary day-tl-now-btn hidden" id="dayTlStartNowBtn">Start from now</button>
+      </div>
+      <label class="layers-option day-tl-keep"><input type="checkbox" id="dayTlKeepFinish" checked /><span>Keep my finish time: when a stop gets longer, take the time from the stops after it</span></label>
+      <p class="day-tl-status" id="dayTlStatus"></p>
+      <div class="day-tl-scroll" id="dayTlScroll"><div class="day-tl-canvas" id="dayTlCanvas"></div></div>
+      <div class="day-tl-warnings" id="dayTlWarnings"></div>
+      <div class="btn-row day-tl-actions">
+        <button type="button" class="btn btn-secondary" id="dayTlFitBtn">Fit remaining stops</button>
+        <button type="button" class="btn btn-primary" id="dayTlSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="replaceStopOverlay">
+    <div class="modal-card replace-stop-card">
+      <div class="modal-header">
+        <div><h2 id="replaceStopTitle">Replace stop</h2><p class="paper-wiz-step-label" id="replaceStopSubtitle"></p></div>
+        <button class="icon-btn" id="replaceStopCloseBtn" data-icon="x"></button>
+      </div>
+      <label class="field-label">Instead, go to</label>
+      <div class="cc-chips" id="replaceStopKinds"></div>
+      <p class="layers-hint" id="replaceStopStatus"></p>
+      <div class="replace-stop-list" id="replaceStopList"></div>
     </div>
   </div>
 
@@ -80477,6 +80616,8 @@ return maplibregl$1;
     globe: '<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>',
     grid: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>',
     map: '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line>',
+    swap: '<polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path>',
+    clock: '<circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline>',
     fileDown: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6M9 15l3 3 3-3"></path>',
     gear: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
     calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
@@ -80939,7 +81080,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "556";
+  const APP_VERSION = "565";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -86675,22 +86816,22 @@ return maplibregl$1;
     poiFetchAbortController = new AbortController();
     const includeSecondary = map.getZoom() >= POI_MIN_ZOOM_SECONDARY;
     const query = buildOverpassPoiQuery(map.getBounds(), includeSecondary);
-    let data;
-    try {
-      const resp = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: poiFetchAbortController.signal
-      });
-      if (!resp.ok) throw new Error("Overpass returned " + resp.status);
-      data = await resp.json();
-    } catch (e) {
-      if (e && e.name === "AbortError") return; // superseded by a newer request -- not a real failure
-      console.warn("[poi-discovery] Overpass fetch failed:", e && e.message);
-      showToast("Couldn't load nearby points of interest right now.");
-      return;
+    let data = null;
+    const signal = poiFetchAbortController.signal, servers = overpassEndpoints();
+    // The main OpenStreetMap place server first (or whichever answered last), then its mirrors.
+    for (let k = 0; k < servers.length && !data; k++) {
+      const idx = (overpassEndpoints.preferred + k) % servers.length;
+      try {
+        const resp = await fetch(servers[idx], { method: "POST", body: "data=" + encodeURIComponent(query), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal });
+        if (!resp.ok) throw new Error("Overpass returned " + resp.status);
+        data = await resp.json();
+        overpassEndpoints.preferred = idx;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // superseded by a newer request -- not a real failure
+        console.warn("[poi-discovery] place server " + (idx + 1) + " failed:", e && e.message);
+      }
     }
+    if (!data) { showToast("Couldn't load nearby points of interest right now."); return; }
     renderPoiElements((data && data.elements) || []);
   }
   function schedulePoiFetch() {
@@ -95637,7 +95778,8 @@ return maplibregl$1;
       : r.elevationStatus === "failed" ? ' <button type="button" class="elevation-stat" data-action="retry-route-elevation" data-id="' + r.id + '" style="background:none; border:none; cursor:pointer; text-decoration:underline; padding:0;">Retry elevation</button>'
       : "";
     const elevationChart = r.elevationStatus === "ready" ? buildRouteElevationChart(r) : "";
-    return '<div class="card ride-card ride-card-stacked" data-id="' + r.id + '">' +
+    return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + r.id + '">' +
+      '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
@@ -95763,7 +95905,8 @@ return maplibregl$1;
       : "";
     const elevationChart = m.elevationStatus === "ready" ? buildMeasurementElevationChartHtml(m) : "";
     const isVisible = !!savedMeasurementLayers[m.id];
-    return '<div class="card ride-card ride-card-stacked" data-id="' + m.id + '">' +
+    return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + m.id + '">' +
+      '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
@@ -98631,32 +98774,50 @@ return maplibregl$1;
   }
   // One request, with a single retry when the server is busy (429/503/504) or the request times out. Overpass can also answer 200
   // with a "runtime error" remark and a truncated result when its own time limit is hit; that is a failure, not an empty area.
-  async function fetchOverpassCell(query) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+  /* OpenStreetMap's place service (Overpass) is free and often busy. When
+     the main server fails, is busy or doesn't answer in time, the same
+     query goes to well-known public mirrors; whichever answers is tried first
+     for the rest of the session. A busy server can also answer without the
+     headers browsers need, which browsers report as a network error, so
+     "offline" is only reported when the device really is offline. */
+  // (A function, so the list is available from the very start of the app.)
+  function overpassEndpoints() {
+    return ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+  }
+  overpassEndpoints.preferred = 0;
+  async function overpassQuery(query, timeoutMs) {
+    let lastErr = "the place service didn't answer";
+    const OVERPASS_ENDPOINTS = overpassEndpoints();
+    for (let k = 0; k < OVERPASS_ENDPOINTS.length; k++) {
+      if (navigator.onLine === false) return { ok: false, error: "you're offline", offline: true };
+      const idx = (overpassEndpoints.preferred + k) % OVERPASS_ENDPOINTS.length;
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), PLACES_TUNING.requestTimeoutMs);
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
-        const resp = await fetch("https://overpass-api.de/api/interpreter", {
+        const resp = await fetch(OVERPASS_ENDPOINTS[idx], {
           method: "POST", body: "data=" + encodeURIComponent(query), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctrl.signal
         });
         if (resp.ok) {
           const data = await resp.json();
-          if (data && typeof data.remark === "string" && /runtime error|timed out|out of memory/i.test(data.remark)) {
-            if (attempt === 0) { await sleep(PLACES_TUNING.retryDelayMs); continue; }
-            return { ok: false, error: "the place service ran out of time" };
-          }
+          if (data && typeof data.remark === "string" && /runtime error|timed out|out of memory/i.test(data.remark)) { lastErr = "the place service ran out of time"; continue; }
+          overpassEndpoints.preferred = idx;
           return { ok: true, elements: (data && data.elements) || [] };
         }
-        if ((resp.status === 429 || resp.status === 503 || resp.status === 504) && attempt === 0) { await sleep(PLACES_TUNING.retryDelayMs); continue; }
-        return { ok: false, error: resp.status === 429 ? "the place service is busy" : "the place service returned " + resp.status };
+        lastErr = resp.status === 429 || resp.status === 503 || resp.status === 504 ? "the place service is busy right now" : "the place service returned an error (" + resp.status + ")";
       } catch (e) {
-        if (attempt === 0 && e && e.name === "AbortError") { await sleep(PLACES_TUNING.retryDelayMs); continue; }
-        return { ok: false, error: "no connection" };
+        lastErr = e && e.name === "AbortError" ? "the place service took too long to answer" : "the place service couldn't be reached";
       } finally {
         clearTimeout(timer);
       }
     }
-    return { ok: false, error: "the place service didn't answer" };
+    return { ok: false, error: lastErr };
+  }
+  // Used for downloading place names with offline maps: long timeout, and
+  // one more round after a pause if every server failed the first time.
+  async function fetchOverpassCell(query) {
+    let r = await overpassQuery(query, PLACES_TUNING.requestTimeoutMs);
+    if (!r.ok && !r.offline) { await sleep(PLACES_TUNING.retryDelayMs); r = await overpassQuery(query, PLACES_TUNING.requestTimeoutMs); }
+    return r;
   }
   function boundsForTileSet(set) {
     if (set.latlngs && set.latlngs.length >= 2) return L.latLngBounds(set.latlngs);
@@ -100562,7 +100723,9 @@ return maplibregl$1;
             const it = slotById.get(w.id);
             if (!it) return "";
             return '<div class="itin-time-line"><span class="itin-time-range">' + escapeHtml(fmtClock(it.arrive) + " \u2013 " + fmtClock(it.depart)) + "</span>" +
-              '<button type="button" class="itin-stay-btn" data-stay-wp="' + w.id + '" title="Change the time spent here">' + escapeHtml(itinMinutes(it.stay)) + " here</button></div>";
+              '<button type="button" class="itin-stay-btn" data-stay-wp="' + w.id + '" title="Change the time spent here">' + escapeHtml(itinMinutes(it.stay)) + " here</button>" +
+              '<span class="itin-stop-acts"><button type="button" data-replace-wp="' + w.id + '" title="Replace with another place" aria-label="Replace with another place">' + icon("swap", 14) + "</button>" +
+              '<button type="button" data-unschedule-wp="' + w.id + '" title="Remove from this day (the waypoint is kept)" aria-label="Remove from this day">' + icon("x", 14) + "</button></span></div>";
           };
           // An itinerary's Day folders can be dragged to reorder them (and are
           // renumbered to match); they list in day order, ahead of any loose waypoints.
@@ -100639,6 +100802,10 @@ return maplibregl$1;
     const tripItineraryBtn = folder.isTrip
       ? '<button type="button" class="folder-accordion-action folder-accordion-itinerary-btn" data-action="trip-itinerary" data-id="' + folder.id + '" title="Plan an itinerary for this trip" aria-label="Plan an itinerary for this trip">' + icon("calendar", 14) + "</button>"
       : "";
+    const isItineraryDay = !!(folder.parentFolderId && waypointFolders.some((f) => f.id === folder.parentFolderId && f.isItinerary));
+    const dayTimelineBtn = isItineraryDay
+      ? '<button type="button" class="folder-accordion-action" data-action="day-timeline" data-id="' + folder.id + '" title="Timeline for this day" aria-label="Timeline for this day">' + icon("clock", 14) + "</button>"
+      : "";
     const visibilityBtn = '<button type="button" class="folder-accordion-action" data-action="folder-toggle-visibility" data-id="' + folder.id + '" title="' +
       (folder.hidden ? "Show on map" : "Hide from map") + '">' + icon(folder.hidden ? "eyeOff" : "eye", 14) + "</button>";
     const shareFolderBtn = '<button type="button" class="folder-accordion-action" data-action="folder-share" data-id="' + folder.id + '" title="Share this folder by email">' + icon("share", 14) + "</button>";
@@ -100651,6 +100818,7 @@ return maplibregl$1;
         tripItineraryBtn +
         itineraryPrintBtn +
         tripStoryBtn +
+        dayTimelineBtn +
         visibilityBtn +
         shareFolderBtn +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
@@ -100713,8 +100881,14 @@ return maplibregl$1;
         // instead of one combined button) -- excluding those too would
         // have left almost nowhere on a waypoint card where a drag could
         // actually begin, which is exactly the bug this fixes.
-        if (e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main-icon") && !e.target.closest(".card-title-row")) return;
+        // The grip handle starts a drag straight away, on any device. Elsewhere
+        // on the card, a long press still drags with a mouse; on touch screens
+        // the card body is left to scroll the list, and the handle is the way to drag.
+        const fromHandle = !!e.target.closest(".card-drag-handle");
+        if (!fromHandle && e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main-icon") && !e.target.closest(".card-title-row")) return;
+        if (!fromHandle && e.pointerType !== "mouse") return;
         if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (fromHandle) e.preventDefault();
         const itemId = config.getItemId(itemEl);
         if (!itemId) return;
         const pointerId = e.pointerId;
@@ -100779,7 +100953,8 @@ return maplibregl$1;
         const armTimer = setTimeout(() => {
           armed = true;
           itemEl.classList.add("drag-armed");
-        }, DRAG_LONG_PRESS_MS);
+        }, fromHandle ? 0 : DRAG_LONG_PRESS_MS);
+        if (fromHandle) { armed = true; itemEl.classList.add("drag-armed"); }
 
         function cleanup() {
           clearTimeout(armTimer);
@@ -100870,6 +101045,9 @@ return maplibregl$1;
     panelList.querySelectorAll('[data-action="folder-rename"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openFolderEditPanel(btn.dataset.id); });
     });
+    panelList.querySelectorAll('[data-action="day-timeline"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => { e.stopPropagation(); openDayTimeline(btn.dataset.id); });
+    });
     panelList.querySelectorAll('[data-action="itinerary-print"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryPrint(btn.dataset.id); });
     });
@@ -100908,6 +101086,8 @@ return maplibregl$1;
         saveWaypoints(); renderList();
       });
     }));
+    panelList.querySelectorAll("[data-unschedule-wp]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); unscheduleItineraryStop(btn.dataset.unscheduleWp); }));
+    panelList.querySelectorAll("[data-replace-wp]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openReplaceStop(btn.dataset.replaceWp); }));
     panelList.querySelectorAll("[data-itin-times]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryTimes(btn.dataset.itinTimes); }));
     panelList.querySelectorAll(".itinerary-drag-handle").forEach((handle) => {
       handle.querySelector(".icon").innerHTML = icon("gripDots", 15);
@@ -103082,14 +103262,21 @@ return maplibregl$1;
       if (wait > 0) await sleep(wait);
       ccRouteQueue.last = Date.now();
       const coords = points.map((p) => p.lng.toFixed(6) + "," + p.lat.toFixed(6)).join(";");
-      const url = "https://routing.openstreetmap.de/" + (OSRM_MODE_PREFIXES[mode] || "routed-car") + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson";
+      const url = "https://routing.openstreetmap.de/" + (OSRM_MODE_PREFIXES[mode] || "routed-car") + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson&steps=true";
       const res = await fetch(url);
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       if (!data || data.code !== "Ok" || !data.routes || !data.routes.length) return null;
       const r = data.routes[0];
       return { latlngs: ccThinPath(r.geometry.coordinates.map(([lng, lat]) => [lat, lng]), 6), distanceMeters: r.distance, durationSeconds: r.duration,
-        legs: (r.legs || []).map((l) => ({ d: Math.round(l.distance), t: Math.round(l.duration) })) }; // per stop-to-stop leg, for printed itineraries
+        legs: (r.legs || []).map((l) => ({ d: Math.round(l.distance), t: Math.round(l.duration) })), // per stop-to-stop leg, for printed itineraries
+        // Each trip's own path (from its turn-by-turn steps), so a single trip
+        // can be drawn differently, e.g. when it's walked instead of driven.
+        legGeo: (r.legs || []).map((l) => {
+          const pts = [];
+          (l.steps || []).forEach((st) => ((st.geometry && st.geometry.coordinates) || []).forEach(([lng, lat]) => pts.push([lat, lng])));
+          return ccThinPath(pts, 6);
+        }) };
     };
     const job = ccRouteQueue.chain.then(run, run);
     ccRouteQueue.chain = job.catch(() => {});
@@ -103191,7 +103378,8 @@ return maplibregl$1;
     });
     // Lines and boxes are only rebuilt when something they depend on changed
     // (this runs after every list render, which can be often).
-    const drawSig = days.map((d) => d.sig + (d.routed ? "R" : "") + (d.hidden ? "H" : "") + (d.dayOff ? "O" : "") + d.color + d.num).join("/");
+    const drawSig = days.map((d) => d.sig + (d.routed ? "R" : "") + (d.hidden ? "H" : "") + (d.dayOff ? "O" : "") + d.color + d.num +
+      (d.day.legModes ? JSON.stringify(d.day.legModes) + Object.keys(d.day.legRoutes || {}).join(",") : "")).join("/");
     if (drawSig === itineraryDrawSig) return;
     itineraryDrawSig = drawSig;
     itineraryDayLines.clearLayers();
@@ -103207,7 +103395,32 @@ return maplibregl$1;
         return;
       }
       let path;
-      if (d.routed) {
+      // A day where some trips use their own mode: each trip is drawn on its
+      // own path, walking dotted and cycling dashed, the rest solid.
+      const dd = d.day.legModes && Object.keys(d.day.legModes).length ? itineraryDayData(d.parent, d.day, waypointFolders.filter((f) => f.parentFolderId === d.parent.id)) : null;
+      if (dd && dd.mixed) {
+        path = dd.path;
+        dd.pieces.forEach((pc) => {
+          L.polyline(pc.latlngs, { color: "#0f172a", weight: 7, opacity: 0.3, interactive: false }).addTo(itineraryDayLines);
+          L.polyline(pc.latlngs, { color: d.color, weight: 4, opacity: 0.95, interactive: false, lineCap: "round",
+            dashArray: pc.mode === "walking" ? "1 8" : pc.mode === "cycling" ? "10 7" : (pc.routed ? null : "8 7") }).addTo(itineraryDayLines);
+        });
+        // Fetch routes for trips switched to their own mode, and the day's per-trip paths if this route predates them.
+        dd.legs.forEach((leg) => {
+          if (!leg.needsRoute || navigator.onLine === false) return;
+          const lsig = itinLegSig(leg.mode, leg.a, leg.b), day = d.day, key = leg.key, m = leg.mode;
+          if (dayRoutePending.has(lsig) || dayRouteFailed.has(lsig)) return;
+          dayRoutePending.add(lsig);
+          osrmRouteThrough([leg.a, leg.b], m).then((r) => {
+            if (!r) { dayRouteFailed.add(lsig); return; }
+            day.legRoutes = day.legRoutes || {};
+            day.legRoutes[key] = { mode: m, sig: lsig, d: Math.round(r.distanceMeters), t: Math.round(r.durationSeconds), latlngs: r.latlngs };
+            day.updatedAt = Date.now();
+            saveWaypointFolders(); renderList();
+          }).catch(() => dayRouteFailed.add(lsig)).finally(() => dayRoutePending.delete(lsig));
+        });
+        if (d.routed && !Array.isArray(d.day.route.legGeo)) { delete d.day.route; itineraryDrawSig = ""; }
+      } else if (d.routed) {
         path = d.day.route.latlngs;
         L.polyline(path, { color: "#0f172a", weight: 7, opacity: 0.35, interactive: false }).addTo(itineraryDayLines);
         L.polyline(path, { color: d.color, weight: 4, opacity: 0.95, interactive: false }).addTo(itineraryDayLines);
@@ -103338,7 +103551,9 @@ return maplibregl$1;
     const d = new Date(2000, 0, 1, 0, 0); d.setMinutes(Math.round(m));
     return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + (m >= 1440 ? " (next day)" : "");
   }
-  function itinDayWindow(itin) { return { start: hhmmToMin(itin && itin.dayStart, ITIN_DEFAULT_START), end: hhmmToMin(itin && itin.dayEnd, ITIN_DEFAULT_END) }; }
+  function itinDayWindow(itin, day) {
+    return { start: hhmmToMin((day && day.dayStart) || (itin && itin.dayStart), ITIN_DEFAULT_START), end: hhmmToMin((day && day.dayEnd) || (itin && itin.dayEnd), ITIN_DEFAULT_END) };
+  }
   // legs: travel between consecutive route points (from the hotel first and back to it last, when there is one).
   function buildDaySchedule(stops, legs, hasHome, startMin) {
     let t = startMin;
@@ -103371,20 +103586,49 @@ return maplibregl$1;
       else { const km = ccKm(pts[i - 1], pts[i]) * CC_DETOUR; legs.push({ km, min: km / ITIN_SPEED_KMH[mode] * 60, est: true }); }
     }
     const date = itinIsoDateFromName(folder.name) || (itin.itineraryStartDate ? itinAddDays(itin.itineraryStartDate, num - 1) : null);
-    const path = route ? route.latlngs : pts.map((p) => [p.lat, p.lng]);
-    const win = itinDayWindow(itin);
+    // A trip can have its own travel mode (set on the day's timeline): it uses
+    // its own route in that mode once fetched, an estimate until then.
+    const ids = (home ? ["home"] : []).concat(stops.map((w) => w.id)).concat(home ? ["home"] : []);
+    const pieces = [];
+    legs.forEach((leg, i) => {
+      const key = ids[i] + ">" + ids[i + 1], a = pts[i], b = pts[i + 1];
+      leg.key = key; leg.a = a; leg.b = b; leg.mode = mode;
+      leg.baseMin = leg.min; leg.baseKm = leg.km; leg.baseEst = leg.est;
+      let geo = route && Array.isArray(route.legGeo) && route.legGeo.length === legs.length ? route.legGeo[i] : null;
+      const lm = folder.legModes && folder.legModes[key];
+      if (lm && lm !== mode && OSRM_MODE_PREFIXES[lm]) {
+        leg.mode = lm;
+        const lr = folder.legRoutes && folder.legRoutes[key];
+        if (lr && lr.sig === itinLegSig(lm, a, b)) { leg.km = lr.d / 1000; leg.min = lr.t / 60; leg.est = false; geo = lr.latlngs; }
+        else { const km = ccKm(a, b) * CC_DETOUR; leg.km = km; leg.min = km / ITIN_SPEED_KMH[lm] * 60; leg.est = true; leg.needsRoute = true; geo = null; }
+      }
+      pieces.push({ latlngs: geo && geo.length > 1 ? geo : [[a.lat, a.lng], [b.lat, b.lng]], mode: leg.mode, own: leg.mode !== mode, routed: !!(geo && geo.length > 1) });
+    });
+    // Travel times set on the day's timeline replace the route's for that leg.
+    if (folder.legOverrides) {
+      legs.forEach((leg, i) => {
+        const o = folder.legOverrides[ids[i] + ">" + ids[i + 1]];
+        if (typeof o === "number") { leg.routeMin = leg.min; leg.min = o; leg.overridden = true; }
+      });
+    }
+    const win = itinDayWindow(itin, folder);
     const schedule = buildDaySchedule(stops, legs, !!home, win.start);
-    return { folder, num, stops, pts, legs, route, path, home, mode, date, theme: folder.theme || "", schedule, window: win,
+    const mixed = legs.some((l) => l.mode !== mode);
+    const path = mixed ? pieces.reduce((acc, pc) => acc.concat(pc.latlngs), []) : route ? route.latlngs : pts.map((p) => [p.lat, p.lng]);
+    return { folder, num, stops, pts, legs, route, path, pieces, mixed, home, mode, date, theme: folder.theme || "", schedule, window: win,
       color: itineraryDayColor(itin.color || defaultFolderColor(false, true), num) };
   }
+  function itinLegSig(mode, a, b) { return mode + "|" + a.lat.toFixed(5) + "," + a.lng.toFixed(5) + ";" + b.lat.toFixed(5) + "," + b.lng.toFixed(5); }
   function itineraryPrintData(itin) {
     const siblings = waypointFolders.filter((f) => f.parentFolderId === itin.id);
     const mode = itineraryTravelMode(itin), home = itineraryHome(itin);
     const days = siblings.map((folder) => itineraryDayData(itin, folder, siblings)).filter((d) => d.stops.length).sort((a, b) => a.num - b.num);
     return { itin, days, mode, home };
   }
-  function itinLegText(leg, mode) {
-    return (ITIN_MODE_ICON[mode] || "") + " " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[mode] + " \u00b7 " + itinKm(leg.km);
+  function itinLegText(leg, dayMode) {
+    const mode = leg.mode || dayMode;
+    if (leg.min < 0.5 && leg.overridden) return (ITIN_MODE_ICON[mode] || "") + " No travel time (set by you) \u00b7 " + itinKm(leg.km);
+    return (ITIN_MODE_ICON[mode] || "") + " " + (leg.est && !leg.overridden ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[mode] + " \u00b7 " + itinKm(leg.km) + (leg.overridden ? " (set by you)" : "");
   }
 
   // ---- Drawing helpers ----
@@ -103480,7 +103724,7 @@ return maplibregl$1;
       const name = sanitizeForPdfFont(String(s.name || "Stop").replace(/^\d{1,2}\s*-\s*/, ""), bold);
       const slot = day.schedule && day.schedule.items[i];
       let meta = (slot ? fmtClock(slot.arrive) + " \u2013 " + fmtClock(slot.depart) + " \u00b7 " : "") + itinMinutes(itinStayMinutes(s)) + " here";
-      if (leg) meta += (meta ? " \u00b7 " : "") + "then " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[day.mode] + " (" + itinKm(leg.km) + ")" + (isLast && day.home ? " back to the hotel" : "");
+      if (leg) meta += (meta ? " \u00b7 " : "") + "then " + (leg.est ? "about " : "") + itinMinutes(leg.min) + " " + ITIN_MODE_WORD[leg.mode || day.mode] + " (" + itinKm(leg.km) + ")" + (isLast && day.home ? " back to the hotel" : "");
       const url = s.url && /^https?:\/\//i.test(s.url) ? s.url : "";
       const qrSize = url && qrOn ? sizes.qr : 0;
       const textW = width - sizes.indent - (qrSize ? qrSize + 6 : 0);
@@ -103689,6 +103933,614 @@ return maplibregl$1;
 
   itinerarySchedulesReady = true;
   if (waypointFolders.some((f) => f.isItinerary)) setTimeout(() => renderList(), 0);
+
+
+  /* ================================================================ */
+  /*  Day timeline -- a visual, editable schedule for one itinerary   */
+  /*  day: stops and travel as blocks on a time axis. Drag a block's  */
+  /*  bottom grip to change how long it takes. With "Keep my finish   */
+  /*  time" on, a stop made longer takes the time from the stops after */
+  /*  it (in proportion, none below 10 min); made shorter, everything  */
+  /*  after it moves earlier. Travel can be changed too, with a        */
+  /*  warning when it's shorter than the route needs or removed.       */
+  /*  Date-aware: a future day is fully adjustable; on today, anything */
+  /*  already over is locked and the block in progress can only change */
+  /*  its end; a past day is view-only. Start and finish can be set     */
+  /*  per day (with "Start from now" for a late start). Nothing is     */
+  /*  saved until Save.                                                 */
+  /* ================================================================ */
+  const DAY_TL_SNAP = 5, DAY_TL_MIN_STOP = 10;
+  const dayTl = { dayId: null, itinId: null, work: null, ppm: 1.6, drag: null };
+  function dayTlTodayIso() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function dayTlNowMin() { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; }
+  // The working copy: start, finish, and a list of blocks (travel and stops) with their minutes.
+  function dayTlBuildWork() {
+    const itin = waypointFolders.find((f) => f.id === dayTl.itinId), day = waypointFolders.find((f) => f.id === dayTl.dayId);
+    const siblings = waypointFolders.filter((f) => f.parentFolderId === itin.id);
+    const data = itineraryDayData(itin, day, siblings);
+    const blocks = [];
+    const ids = (data.home ? ["home"] : []).concat(data.stops.map((s) => s.id)).concat(data.home ? ["home"] : []);
+    const legFor = (i) => { const L0 = data.legs[i]; return { type: "leg", key: ids[i] + ">" + ids[i + 1], min: L0.min, routeMin: L0.routeMin != null ? L0.routeMin : L0.min, est: L0.est, km: L0.km,
+      mode: L0.mode || data.mode, a: L0.a, b: L0.b, base: { min: L0.baseMin, km: L0.baseKm, est: L0.baseEst } }; };
+    data.stops.forEach((w, i) => {
+      const li = data.home ? i : i - 1;
+      if (li >= 0 && data.legs[li]) blocks.push(legFor(li));
+      blocks.push({ type: "stop", id: w.id, w, num: i + 1, min: itinStayMinutes(w), name: String(w.name || "Stop").replace(/^\d{1,3}\s*-\s*/, "") });
+    });
+    if (data.home && data.stops.length && data.legs[data.stops.length]) blocks.push(Object.assign(legFor(data.stops.length), { back: true }));
+    return { itin, day, data, start: data.window.start, end: data.window.end, blocks, mode: data.mode, color: data.color, num: data.num, date: data.date, home: !!data.home };
+  }
+  // Times for every block from the start, plus how each relates to "now".
+  function dayTlLayout(work) {
+    let t = work.start;
+    const iso = dayTlTodayIso(), now = dayTlNowMin();
+    const when = !work.date ? "future" : work.date > iso ? "future" : work.date < iso ? "past" : "today";
+    work.when = when;
+    work.blocks.forEach((b) => {
+      b.from = t; b.to = t + b.min; t = b.to;
+      b.locked = when === "past" || (when === "today" && b.to <= now);
+      b.inProgress = when === "today" && b.from < now && b.to > now;
+    });
+    work.finish = t;
+    return work;
+  }
+  // Lengthening a block by `extra` minutes takes the time from later stops
+  // that are still adjustable, in proportion to how much each can give.
+  function dayTlCompensate(work, fromIndex, extra) {
+    if (extra <= 0) return 0;
+    const later = work.blocks.slice(fromIndex + 1).filter((b) => b.type === "stop" && !b.locked && !b.inProgress);
+    const room = later.reduce((a, b) => a + Math.max(0, b.min - DAY_TL_MIN_STOP), 0);
+    if (room <= 0) return 0;
+    const take = Math.min(extra, room);
+    let given = 0;
+    later.forEach((b, i) => {
+      const share = i === later.length - 1 ? take - given : Math.round((take * Math.max(0, b.min - DAY_TL_MIN_STOP) / room) / DAY_TL_SNAP) * DAY_TL_SNAP;
+      const cut = Math.min(Math.max(0, b.min - DAY_TL_MIN_STOP), Math.max(0, share));
+      b.min -= cut; given += cut;
+    });
+    return given;
+  }
+  function dayTlWarnings(work) {
+    const out = [];
+    const nameOf = (i) => { const b = work.blocks[i]; return b ? (b.type === "stop" ? b.name : "") : ""; };
+    work.blocks.forEach((b, i) => {
+      if (b.type !== "leg") return;
+      const fromName = i > 0 ? nameOf(i - 1) : "the hotel", toName = b.back ? "the hotel" : nameOf(i + 1);
+      if (b.min < 0.5 && b.routeMin >= 0.5) out.push("No travel time left between " + fromName + " and " + toName + ".");
+      else if (b.min < b.routeMin - 0.5) out.push("Travel from " + fromName + " to " + toName + " is set to " + itinMinutes(b.min) + "; the route takes about " + itinMinutes(b.routeMin) + ".");
+    });
+    if (work.finish > work.end) out.push("The day now ends at " + fmtClock(work.finish) + ", " + itinMinutes(work.finish - work.end) + " after your " + fmtClock(work.end) + " finish.");
+    return out;
+  }
+  // Vertical layout. Every block gets at least a readable, grabbable
+  // height (trips 30 px, stops 46 px), otherwise drawn to scale. The time
+  // axis follows the blocks: a piecewise mapping from minutes to pixels,
+  // so hour lines, "now" and the start/finish lines always sit at the right
+  // place beside the blocks, even where a short trip was given extra room.
+  const DAY_TL_MIN_LEG_PX = 30, DAY_TL_MIN_STOP_PX = 46, DAY_TL_GAP_PX = 3;
+  function dayTlMapping(work) {
+    const ppm = dayTl.ppm, segs = [];
+    let y = 0;
+    const lead = Math.max(0, work.start - dayTl.span0);
+    segs.push({ t0: dayTl.span0, t1: work.start, y0: 0, y1: lead * ppm });
+    y = lead * ppm;
+    work.blocks.forEach((b) => {
+      const h = Math.max(b.type === "leg" ? DAY_TL_MIN_LEG_PX : DAY_TL_MIN_STOP_PX, b.min * ppm);
+      b.y = y + DAY_TL_GAP_PX / 2; b.h = h - DAY_TL_GAP_PX;
+      segs.push({ t0: b.from, t1: b.to, y0: y, y1: y + h });
+      y += h;
+    });
+    const tail = Math.max(work.end, work.finish) + 60;
+    segs.push({ t0: work.finish, t1: tail, y0: y, y1: y + (tail - work.finish) * ppm });
+    dayTl.segs = segs;
+    dayTl.totalH = y + (tail - work.finish) * ppm;
+    return (t) => {
+      if (t <= segs[0].t0) return segs[0].y0 - (segs[0].t0 - t) * ppm;
+      for (const g of segs) {
+        if (t >= g.t0 && t <= g.t1) return g.t1 > g.t0 ? g.y0 + (t - g.t0) / (g.t1 - g.t0) * (g.y1 - g.y0) : g.y0;
+      }
+      const last = segs[segs.length - 1];
+      return last.y1 + (t - last.t1) * ppm;
+    };
+  }
+  // A stop's name links to its website when it has one.
+  function dayTlNameHtml(b) {
+    const url = b.w && typeof b.w.url === "string" && /^https?:\/\//i.test(b.w.url.trim()) ? b.w.url.trim() : "";
+    return url
+      ? '<a class="day-tl-name day-tl-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(b.name) + '\u2019s website">' + escapeHtml(b.name) + "</a>"
+      : '<span class="day-tl-name">' + escapeHtml(b.name) + "</span>";
+  }
+  function dayTlLegText(b, work) {
+    const m = b.mode || work.mode;
+    return (ITIN_MODE_ICON[m] || "") + " " + (b.min >= 0.5 || b.routeMin < 0.5 ? (b.est && b.mode !== work.mode ? "about " : "") + itinMinutes(b.min) + " " + ITIN_MODE_WORD[m] : "No travel time") + (b.back ? " back to the hotel" : "") + (b.routing ? " \u00b7 routing\u2026" : "") +
+      (b.km ? " \u00b7 " + itinKm(b.km) : "") + (b.min >= 0.5 && b.min < b.routeMin - 0.5 ? " (route takes " + itinMinutes(b.routeMin) + ")" : "");
+  }
+  function dayTlRender() {
+    const work = dayTlLayout(dayTl.work);
+    const canvas = el("dayTlCanvas"), scroll = el("dayTlScroll");
+    const now = dayTlNowMin();
+    dayTl.span0 = Math.floor(Math.min(work.start, work.when === "today" ? now : work.start) / 60) * 60;
+    // Scale: fit the day into the visible area where reasonable, with sensible limits for touch.
+    const span1 = Math.ceil(Math.max(work.finish, work.end) / 60) * 60;
+    const avail = Math.max(240, scroll.clientHeight || 400);
+    dayTl.ppm = Math.max(0.9, Math.min(3, (avail - 20) / Math.max(60, span1 - dayTl.span0)));
+    let html = "";
+    for (let h = dayTl.span0; h <= span1 + 60; h += 60) html += '<div class="day-tl-hour" data-h="' + h + '"><span>' + escapeHtml(fmtClock(h).replace(/:00(?=\s|$)/, "")) + "</span></div>";
+    html += '<div class="day-tl-mark start"><span>' + escapeHtml((work.home ? "Leave " : "Start ") + fmtClock(work.start)) + "</span></div>";
+    html += '<div class="day-tl-mark finish"><span>' + escapeHtml("Finish by " + fmtClock(work.end)) + "</span></div>";
+    html += '<div class="day-tl-overrun"></div>';
+    work.blocks.forEach((b, i) => {
+      const canResize = !b.locked && work.when !== "past";
+      const cls = "day-tl-block " + b.type + (b.locked ? " locked" : "") + (b.inProgress ? " now" : "");
+      const label = b.type === "stop"
+        ? '<span class="day-tl-num">' + b.num + "</span>" + dayTlNameHtml(b) + '<span class="day-tl-when"></span>' +
+          (canResize && !b.inProgress ? '<span class="day-tl-acts"><button type="button" data-act="replace" data-wp="' + b.id + '" title="Replace with another place" aria-label="Replace with another place">' + icon("swap", 14) + "</button>" +
+            '<button type="button" data-act="remove" data-wp="' + b.id + '" title="Remove from this day (the waypoint is kept)" aria-label="Remove from this day">' + icon("x", 14) + "</button></span>" : "")
+        : '<span class="day-tl-leg"></span>';
+      html += '<div class="' + cls + '" data-i="' + i + '"' + (b.type === "stop" ? ' style="--day:' + work.color + '"' : "") + ">" + label +
+        (canResize ? '<div class="day-tl-grip" data-grip="' + i + '" aria-label="Drag to change how long this takes"></div>' : "") + "</div>";
+    });
+    if (work.when === "today") html += '<div class="day-tl-now"><span></span></div>';
+    canvas.innerHTML = html;
+    dayTlPosition();
+    canvas.querySelectorAll("[data-grip]").forEach((g) => g.addEventListener("pointerdown", dayTlGripDown));
+    canvas.querySelectorAll(".day-tl-acts [data-act]").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (btn.dataset.act === "remove") { if (unscheduleItineraryStop(btn.dataset.wp)) dayTlRebuildPreserving(); }
+      else openReplaceStop(btn.dataset.wp, () => dayTlRebuildPreserving());
+    }));
+    // Tapping a trip (anywhere but its bar) offers a travel mode for that trip alone.
+    canvas.querySelectorAll(".day-tl-block.leg").forEach((n) => n.addEventListener("click", (e) => {
+      if (e.target.closest(".day-tl-grip") || e.target.closest(".day-tl-modes")) return;
+      const i = +n.dataset.i, b = dayTl.work.blocks[i];
+      if (b.locked || dayTl.work.when === "past") return;
+      const open = n.querySelector(".day-tl-modes");
+      canvas.querySelectorAll(".day-tl-modes").forEach((x) => { x.closest(".day-tl-block").classList.remove("has-menu"); x.remove(); });
+      if (open) return;
+      n.classList.add("has-menu");
+      const menu = document.createElement("div");
+      menu.className = "day-tl-modes";
+      menu.innerHTML = ["driving", "walking", "cycling"].map((m) => '<button type="button" data-mode="' + m + '"' + (b.mode === m ? ' class="on"' : "") + ">" + ITIN_MODE_ICON[m] + " " + { driving: "Drive", walking: "Walk", cycling: "Cycle" }[m] + "</button>").join("") +
+        (b.mode !== dayTl.work.mode ? '<button type="button" data-mode="' + dayTl.work.mode + '" class="reset">Use the day\u2019s mode</button>' : "");
+      menu.querySelectorAll("[data-mode]").forEach((btn) => btn.addEventListener("click", (ev) => { ev.stopPropagation(); dayTlSetLegMode(i, btn.dataset.mode); }));
+      n.appendChild(menu);
+    }));
+  }
+  // Switches one trip to another travel mode: its time and distance come
+  // from a route in that mode (fetched now if not already known), and any
+  // time set by hand for that trip is dropped.
+  function dayTlSetLegMode(i, mode) {
+    const work = dayTl.work, b = work.blocks[i];
+    el("dayTlCanvas").querySelectorAll(".day-tl-modes").forEach((x) => { x.closest(".day-tl-block").classList.remove("has-menu"); x.remove(); });
+    if (!b || b.mode === mode) return;
+    b.mode = mode; b.fetched = null; b.routing = false;
+    const day = work.day;
+    const known = mode === work.mode ? null : day.legRoutes && day.legRoutes[b.key];
+    if (mode === work.mode) { b.min = b.routeMin = b.base.min; b.km = b.base.km; b.est = b.base.est; }
+    else if (known && known.sig === itinLegSig(mode, b.a, b.b)) { b.min = b.routeMin = known.t / 60; b.km = known.d / 1000; b.est = false; }
+    else {
+      const km = ccKm(b.a, b.b) * CC_DETOUR;
+      b.km = km; b.min = b.routeMin = Math.round(km / ITIN_SPEED_KMH[mode] * 60); b.est = true;
+      if (navigator.onLine !== false) {
+        b.routing = true;
+        const want = mode;
+        osrmRouteThrough([b.a, b.b], mode).then((r) => {
+          if (dayTl.work !== work || b.mode !== want) return;
+          b.routing = false;
+          if (r) { b.min = b.routeMin = r.durationSeconds / 60; b.km = r.distanceMeters / 1000; b.est = false;
+            b.fetched = { mode: want, sig: itinLegSig(want, b.a, b.b), d: Math.round(r.distanceMeters), t: Math.round(r.durationSeconds), latlngs: r.latlngs }; }
+          if (!el("dayTimelineOverlay").classList.contains("hidden")) dayTlRender();
+        }).catch(() => { b.routing = false; if (!el("dayTimelineOverlay").classList.contains("hidden")) dayTlRender(); });
+      }
+    }
+    dayTlRender();
+  }
+  // Places and labels everything from the current working times (used on
+  // every step of a drag, without rebuilding the elements under the finger).
+  function dayTlPosition() {
+    const work = dayTlLayout(dayTl.work), canvas = el("dayTlCanvas");
+    const y = dayTlMapping(work), now = dayTlNowMin();
+    canvas.querySelectorAll(".day-tl-hour").forEach((n) => { n.style.top = y(+n.dataset.h) + "px"; });
+    const st = canvas.querySelector(".day-tl-mark.start"); st.style.top = y(work.start) + "px";
+    st.querySelector("span").textContent = (work.home ? "Leave " : "Start ") + fmtClock(work.start);
+    const fin = canvas.querySelector(".day-tl-mark.finish"); fin.style.top = y(work.end) + "px";
+    fin.querySelector("span").textContent = "Finish by " + fmtClock(work.end);
+    fin.classList.toggle("over", work.finish > work.end);
+    const over = canvas.querySelector(".day-tl-overrun");
+    over.style.display = work.finish > work.end ? "" : "none";
+    over.style.top = y(work.end) + "px"; over.style.height = Math.max(0, y(work.finish) - y(work.end)) + "px";
+    work.blocks.forEach((b, i) => {
+      const node = canvas.querySelector('.day-tl-block[data-i="' + i + '"]');
+      if (!node) return;
+      node.style.top = b.y + "px"; node.style.height = b.h + "px";
+      if (b.type === "stop") node.querySelector(".day-tl-when").textContent = fmtClock(b.from) + " \u2013 " + fmtClock(b.to) + " \u00b7 " + itinMinutes(b.min);
+      else {
+        node.querySelector(".day-tl-leg").textContent = dayTlLegText(b, work);
+        node.classList.toggle("short", b.min < b.routeMin - 0.5);
+        node.classList.toggle("none", b.min < 0.5);
+      }
+    });
+    const nowEl = canvas.querySelector(".day-tl-now");
+    if (nowEl) { nowEl.style.top = y(now) + "px"; nowEl.querySelector("span").textContent = "Now " + fmtClock(now); }
+    canvas.style.height = (dayTl.totalH + 10) + "px";
+    dayTlStatusAndControls(work);
+  }
+  function dayTlRefresh() { dayTlPosition(); }
+  function dayTlStatusAndControls(work) {
+    const now = dayTlNowMin();
+    const done = work.blocks.filter((b) => b.type === "stop" && b.locked).length;
+    el("dayTlStatus").textContent = work.when === "past" ? "This day has passed, so its timeline is view-only."
+      : work.when === "today" ? "Today, now " + fmtClock(now) + ". " + (done ? done + " stop" + (done === 1 ? " is" : "s are") + " done and locked; " : "") + "everything still ahead can be adjusted." +
+        (done ? " Running late and not started yet? Use Start from now." : "")
+      : "Drag the bar at the bottom of a stop or a trip to make it longer or shorter. Tap a trip to change how you get there.";
+    const warn = dayTlWarnings(work);
+    el("dayTlWarnings").innerHTML = warn.map((t) => '<p class="day-tl-warn">' + escapeHtml(t) + "</p>").join("");
+    const past = work.when === "past";
+    el("dayTlStart").value = minToHHMM(work.start); el("dayTlEnd").value = minToHHMM(work.end);
+    el("dayTlStart").disabled = past; el("dayTlEnd").disabled = past;
+    // A late start: the planned start has passed (so early stops look "done"),
+    // but "Start from now" moves the whole day to begin now.
+    el("dayTlStartNowBtn").classList.toggle("hidden", work.when !== "today" || now <= work.start + 1);
+    el("dayTlFitBtn").disabled = past || work.finish <= work.end;
+    el("dayTlSaveBtn").disabled = past;
+  }
+  // ---- Resizing by dragging a block's grip ----
+  function dayTlGripDown(e) {
+    e.preventDefault(); e.stopPropagation();
+    const i = +e.currentTarget.dataset.grip, work = dayTl.work, b = work.blocks[i];
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    dayTl.drag = { i, pointerId: e.pointerId, startY: e.clientY, origMin: b.min, snapshot: work.blocks.map((x) => x.min) };
+    e.currentTarget.closest(".day-tl-block").classList.add("resizing");
+    document.addEventListener("pointermove", dayTlGripMove);
+    document.addEventListener("pointerup", dayTlGripUp);
+    document.addEventListener("pointercancel", dayTlGripUp);
+  }
+  function dayTlGripMove(e) {
+    const d = dayTl.drag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const work = dayTl.work, b = work.blocks[d.i];
+    // Start from the minutes as they were when the drag began, then apply this drag's change.
+    work.blocks.forEach((x, k) => { x.min = d.snapshot[k]; });
+    let want = Math.round((d.origMin + (e.clientY - d.startY) / dayTl.ppm) / DAY_TL_SNAP) * DAY_TL_SNAP;
+    const floor = b.type === "leg" ? 0 : (b.inProgress ? Math.ceil((dayTlNowMin() - b.from) / DAY_TL_SNAP) * DAY_TL_SNAP : DAY_TL_SNAP);
+    want = Math.max(floor, Math.min(12 * 60, want));
+    const extra = want - d.origMin;
+    b.min = want;
+    if (extra > 0 && el("dayTlKeepFinish").checked) dayTlCompensate(work, d.i, extra);
+    e.preventDefault();
+    dayTlRefresh();
+  }
+  function dayTlGripUp(e) {
+    const d = dayTl.drag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    dayTl.drag = null;
+    document.removeEventListener("pointermove", dayTlGripMove);
+    document.removeEventListener("pointerup", dayTlGripUp);
+    document.removeEventListener("pointercancel", dayTlGripUp);
+    const keep = el("dayTlScroll").scrollTop;
+    dayTlRender();
+    el("dayTlScroll").scrollTop = keep;
+  }
+  // ---- Start, finish, start from now, fit ----
+  el("dayTlStart").addEventListener("change", () => {
+    const v = el("dayTlStart").value; if (!v) return;
+    dayTl.work.start = hhmmToMin(v); dayTlRender();
+  });
+  el("dayTlEnd").addEventListener("change", () => {
+    const v = el("dayTlEnd").value; if (!v) return;
+    const m = hhmmToMin(v);
+    if (m <= dayTl.work.start) { showToast("The day needs to finish after it starts."); el("dayTlEnd").value = minToHHMM(dayTl.work.end); return; }
+    dayTl.work.end = m; dayTlRender();
+  });
+  el("dayTlStartNowBtn").addEventListener("click", () => {
+    dayTl.work.start = Math.ceil(dayTlNowMin() / DAY_TL_SNAP) * DAY_TL_SNAP; dayTlRender();
+  });
+  // Squeezes the stops still ahead (in proportion, none below 10 min) so the day meets its finish time.
+  el("dayTlFitBtn").addEventListener("click", () => {
+    const work = dayTlLayout(dayTl.work);
+    let over = work.finish - work.end;
+    if (over <= 0) return;
+    const ahead = work.blocks.filter((b) => b.type === "stop" && !b.locked && !b.inProgress);
+    const room = ahead.reduce((a, b) => a + Math.max(0, b.min - DAY_TL_MIN_STOP), 0);
+    if (room <= 0) { showToast("The stops ahead are already as short as they can be. Move the finish time, or remove a stop."); return; }
+    const take = Math.min(over, room);
+    let given = 0;
+    ahead.forEach((b, i) => {
+      const share = i === ahead.length - 1 ? take - given : Math.ceil((take * Math.max(0, b.min - DAY_TL_MIN_STOP) / room) / DAY_TL_SNAP) * DAY_TL_SNAP;
+      const cut = Math.min(Math.max(0, b.min - DAY_TL_MIN_STOP), Math.max(0, share), take - given);
+      b.min -= cut; given += cut;
+    });
+    dayTlRender();
+    if (take < over) showToast("Shortened what could be shortened; the day still runs " + itinMinutes(over - take) + " late.");
+  });
+  // ---- Save ----
+  el("dayTlSaveBtn").addEventListener("click", () => {
+    const work = dayTl.work, day = waypointFolders.find((f) => f.id === dayTl.dayId);
+    if (!day) return;
+    const now = Date.now();
+    work.blocks.forEach((b) => {
+      if (b.type === "stop") {
+        const w = waypoints.find((x) => x.id === b.id);
+        if (w && itinStayMinutes(w) !== b.min) { w.stayMinutes = b.min; w.updatedAt = now; }
+      } else {
+        // The trip's own travel mode (none stored when it's the day's mode), and its route.
+        day.legModes = day.legModes || {};
+        if (b.mode && b.mode !== work.mode) day.legModes[b.key] = b.mode; else delete day.legModes[b.key];
+        if (b.fetched) { day.legRoutes = day.legRoutes || {}; day.legRoutes[b.key] = b.fetched; }
+        // Travel kept as the route says is stored as no override.
+        day.legOverrides = day.legOverrides || {};
+        if (Math.abs(b.min - b.routeMin) < 0.5) delete day.legOverrides[b.key];
+        else day.legOverrides[b.key] = b.min;
+      }
+    });
+    if (day.legOverrides && !Object.keys(day.legOverrides).length) delete day.legOverrides;
+    if (day.legModes && !Object.keys(day.legModes).length) delete day.legModes;
+    // Start and finish belong to this day only (other days keep the itinerary's times).
+    const itin = waypointFolders.find((f) => f.id === dayTl.itinId);
+    const iw = itinDayWindow(itin);
+    if (work.start === iw.start) delete day.dayStart; else day.dayStart = minToHHMM(work.start);
+    if (work.end === iw.end) delete day.dayEnd; else day.dayEnd = minToHHMM(work.end);
+    day.updatedAt = now;
+    saveWaypoints(); saveWaypointFolders();
+    el("dayTimelineOverlay").classList.add("hidden");
+    renderList();
+    showToast("Saved the timeline for Day " + work.num + ".");
+  });
+  el("dayTlCloseBtn").addEventListener("click", () => el("dayTimelineOverlay").classList.add("hidden"));
+  el("dayTlKeepFinish").addEventListener("change", () => {});
+  window.addEventListener("resize", () => { if (!el("dayTimelineOverlay").classList.contains("hidden") && !dayTl.drag) dayTlRender(); });
+  function openDayTimeline(dayId) {
+    const day = waypointFolders.find((f) => f.id === dayId);
+    const itin = day && waypointFolders.find((f) => f.id === day.parentFolderId && f.isItinerary);
+    if (!itin) return;
+    dayTl.dayId = day.id; dayTl.itinId = itin.id;
+    dayTl.work = dayTlBuildWork();
+    if (!dayTl.work.blocks.length) { showToast("Add some stops to this day first."); return; }
+    el("dayTlTitle").textContent = "Day " + dayTl.work.num + " timeline";
+    el("dayTlSubtitle").textContent = (dayTl.work.date ? itinNiceDate(dayTl.work.date, true) + " \u00b7 " : "") + itin.name;
+    el("dayTimelineOverlay").classList.remove("hidden");
+    requestAnimationFrame(() => {
+      dayTlRender();
+      // On today, bring "now" into view; otherwise the start.
+      const nowEl = el("dayTlCanvas").querySelector(".day-tl-now");
+      el("dayTlScroll").scrollTop = nowEl ? Math.max(0, parseFloat(nowEl.style.top) - 80) : 0;
+    });
+  }
+
+
+  /* ---------- Removing or replacing a stop in an itinerary day ----------
+     Remove (X): the stop leaves the day's schedule, but its waypoint is kept
+     in the itinerary folder itself (outside the days, number dropped), from
+     where it can be dragged back into any day. The day closes the gap,
+     renumbers and re-routes.
+     Replace: suggests real places of a chosen kind near the stop (from
+     OpenStreetMap), nearest first, leaving out places already in the
+     itinerary; the chosen place takes the stop's slot, and the original
+     waypoint is kept the same way as Remove. */
+  function itineraryOfDay(dayId) {
+    const day = waypointFolders.find((f) => f.id === dayId);
+    const itin = day && waypointFolders.find((f) => f.id === day.parentFolderId && f.isItinerary);
+    return itin ? { day, itin } : null;
+  }
+  function plainStopName(w) { return String(w.name || "Stop").replace(/^\d{1,3}\s*-\s*/, ""); }
+  function unscheduleItineraryStop(wpId, quiet) {
+    const w = waypoints.find((x) => x.id === wpId);
+    const ctx = w && itineraryOfDay(w.folderId);
+    if (!ctx) return false;
+    w.folderId = ctx.itin.id;
+    w.name = plainStopName(w);
+    delete w.itineraryDayId; delete w.itineraryOrder; delete w.stayMinutes;
+    w.updatedAt = Date.now();
+    saveWaypoints();
+    renderList();
+    if (!quiet) showToast("Removed \u201c" + w.name + "\u201d from " + ((/\bDay\s+\d+/i.exec(ctx.day.name) || [ctx.day.name])[0]) + ". It's kept in \u201c" + ctx.itin.name + "\u201d; drag it into a day to add it back.");
+    return true;
+  }
+  // Kinds of place offered as replacements, with the OpenStreetMap tags that find them.
+  const REPLACE_KINDS = [
+    { id: "food", label: "Restaurant", cat: "food", sel: ['["amenity"~"^(restaurant|food_court)$"]'] },
+    { id: "cafe", label: "Caf\u00e9 or treats", cat: "cafe", sel: ['["amenity"~"^(cafe|ice_cream)$"]', '["shop"~"^(bakery|pastry|chocolate|confectionery)$"]'] },
+    { id: "shopping", label: "Shopping", cat: "shopping", sel: ['["shop"~"^(mall|department_store|gift|books|art|antiques|boutique)$"]', '["amenity"="marketplace"]'] },
+    { id: "culture", label: "Museum or gallery", cat: "culture", sel: ['["tourism"~"^(museum|gallery)$"]', '["amenity"~"^(arts_centre|theatre)$"]'] },
+    { id: "outdoor", label: "Park or outdoors", cat: "outdoor", sel: ['["leisure"~"^(park|garden|nature_reserve)$"]', '["tourism"="viewpoint"]'] },
+    { id: "historic", label: "Historic site", cat: "historic", sel: ['["historic"~"^(monument|memorial|castle|fort|ruins|church|building|archaeological_site)$"]'] },
+    { id: "family", label: "Family fun", cat: "family", sel: ['["tourism"~"^(zoo|aquarium|theme_park)$"]', '["leisure"~"^(water_park|amusement_arcade|miniature_golf)$"]'] },
+    { id: "nightlife", label: "Bar or pub", cat: "nightlife", sel: ['["amenity"~"^(bar|pub|biergarten|nightclub)$"]'] }
+  ];
+  // How far to look, by how the day is travelled.
+  const REPLACE_RADIUS_M = { walking: 1500, cycling: 3500, driving: 8000 };
+  const replaceState = { wpId: null, kind: null, runId: 0, onDone: null };
+  function guessStopKind(w) {
+    const c = w.category;
+    if (c && REPLACE_KINDS.some((k) => k.cat === c)) return REPLACE_KINDS.find((k) => k.cat === c).id;
+    const n = String(w.name || "").toLowerCase();
+    if (/restaurant|bistro|kitchen|grill|diner|trattoria|brasserie/.test(n)) return "food";
+    if (/caf[eé]|coffee|bakery|ice cream|gelato|patisserie/.test(n)) return "cafe";
+    if (/museum|gallery/.test(n)) return "culture";
+    if (/park|garden|arboretum|trail|lookout/.test(n)) return "outdoor";
+    if (/pub|bar|brewery|tavern/.test(n)) return "nightlife";
+    if (/market|mall|shop|boutique/.test(n)) return "shopping";
+    return "food";
+  }
+  function openReplaceStop(wpId, onDone) {
+    const w = waypoints.find((x) => x.id === wpId);
+    const ctx = w && itineraryOfDay(w.folderId);
+    if (!ctx) return;
+    replaceState.wpId = wpId; replaceState.onDone = onDone || null;
+    replaceState.kind = guessStopKind(w);
+    el("replaceStopTitle").textContent = "Replace \u201c" + plainStopName(w) + "\u201d";
+    el("replaceStopSubtitle").textContent = ((/\bDay\s+\d+/i.exec(ctx.day.name) || [ctx.day.name])[0]) + " \u00b7 " + ctx.itin.name;
+    el("replaceStopKinds").innerHTML = REPLACE_KINDS.map((k) => '<button type="button" class="cc-chip" data-kind="' + k.id + '" aria-pressed="' + (k.id === replaceState.kind) + '">' +
+      escapeHtml(((CC_CATEGORIES[k.cat] || CC_CATEGORIES.other).emoji) + " " + k.label) + "</button>").join("");
+    el("replaceStopKinds").querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => {
+      replaceState.kind = b.dataset.kind;
+      el("replaceStopKinds").querySelectorAll("[data-kind]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      loadReplaceSuggestions();
+    }));
+    el("replaceStopOverlay").classList.remove("hidden");
+    loadReplaceSuggestions();
+  }
+  async function loadReplaceSuggestions() {
+    const runId = ++replaceState.runId;
+    const w = waypoints.find((x) => x.id === replaceState.wpId);
+    const ctx = w && itineraryOfDay(w.folderId);
+    const kind = REPLACE_KINDS.find((k) => k.id === replaceState.kind);
+    const list = el("replaceStopList"), status = el("replaceStopStatus");
+    list.innerHTML = "";
+    if (!w || !ctx || !kind) return;
+    if (navigator.onLine === false) {
+      status.innerHTML = "You're offline, so suggestions can't be looked up right now. " + '<button type="button" class="cc-link-btn" data-replace-retry="1">Try again</button>';
+      status.querySelector("[data-replace-retry]").addEventListener("click", loadReplaceSuggestions);
+      return;
+    }
+    const mode = itineraryTravelMode(ctx.itin), radius = REPLACE_RADIUS_M[mode] || 3000;
+    status.textContent = "Looking for " + kind.label.toLowerCase() + " places within " + (radius >= 1000 ? (radius / 1000) + " km" : radius + " m") + " of " + plainStopName(w) + "\u2026";
+    const around = "(around:" + radius + "," + w.lat.toFixed(6) + "," + w.lng.toFixed(6) + ")";
+    const q = "[out:json][timeout:20];(" + kind.sel.map((sel) => "nwr" + sel + '["name"]' + around + ";").join("") + ");out center tags 120;";
+    const r = await overpassQuery(q, 25000);
+    if (runId !== replaceState.runId) return;
+    if (!r.ok) {
+      status.innerHTML = escapeHtml(r.offline ? "You're offline, so suggestions can't be looked up right now." : "Couldn't get suggestions: " + r.error + ".") +
+        ' <button type="button" class="cc-link-btn" data-replace-retry="1">Try again</button>';
+      status.querySelector("[data-replace-retry]").addEventListener("click", loadReplaceSuggestions);
+      return;
+    }
+    // Leave out places already anywhere in this itinerary.
+    const dayIds = new Set(waypointFolders.filter((f) => f.parentFolderId === ctx.itin.id).map((f) => f.id).concat([ctx.itin.id]));
+    const taken = new Set(waypoints.filter((x) => dayIds.has(x.folderId)).map((x) => plainStopName(x).toLowerCase()));
+    const seen = new Set();
+    const places = r.elements.map((e) => {
+      const t = e.tags || {}, lat = e.lat != null ? e.lat : e.center && e.center.lat, lng = e.lon != null ? e.lon : e.center && e.center.lon;
+      if (lat == null || !t.name) return null;
+      const key = t.name.toLowerCase();
+      if (taken.has(key) || seen.has(key)) return null;
+      seen.add(key);
+      const bits = [t.cuisine ? t.cuisine.replace(/;/g, ", ").replace(/_/g, " ") : "", t.opening_hours ? "Hours: " + t.opening_hours : ""].filter(Boolean);
+      return { name: t.name, lat, lng, km: haversineMeters(w.lat, w.lng, lat, lng) / 1000, web: placeWebsiteFromTags(t), url: "", info: bits.join(" \u00b7 "),
+        address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" "), city: t["addr:city"] || "",
+        osm: (e.type === "node" ? "N" : e.type === "way" ? "W" : "R") + e.id, wikidata: /^Q\d+$/.test(t.wikidata || "") ? t.wikidata : "" };
+    }).filter(Boolean).sort((a, b) => a.km - b.km).slice(0, 15);
+    if (!places.length) { status.textContent = "Nothing found nearby for " + kind.label.toLowerCase() + ". Try another kind of place."; return; }
+    status.textContent = places.length + " nearby, nearest first. Choosing one puts it in this stop's place; \u201c" + plainStopName(w) + "\u201d is kept in the itinerary folder.";
+    const render = () => {
+      places.forEach((pl) => { pl.url = pl.web; });
+      list.innerHTML = places.map((pl, i) => '<div class="replace-stop-item"><span class="replace-stop-emoji">' + (CC_CATEGORIES[kind.cat] || CC_CATEGORIES.other).emoji + "</span>" +
+        '<div class="replace-stop-body">' + (pl.web
+          ? '<a class="replace-stop-name replace-stop-link" href="' + escapeHtml(pl.web) + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(pl.name) + '\u2019s website">' + escapeHtml(pl.name) + "</a>"
+          : '<div class="replace-stop-name">' + escapeHtml(pl.name) + "</div>") + '<div class="replace-stop-meta">' +
+        escapeHtml((pl.km < 1 ? Math.round(pl.km * 1000) + " m" : pl.km.toFixed(1) + " km") + " away" + (pl.address ? " \u00b7 " + pl.address : "") + (pl.info ? " \u00b7 " + pl.info : "")) + "</div>" +
+        // No website found anywhere: a web search for it, so it can still be looked at first.
+        (!pl.web && pl.enriched ? '<a class="replace-stop-search" href="' + escapeHtml("https://duckduckgo.com/?q=" + encodeURIComponent(pl.name + " " + (pl.city || ctx.itin.name))) + '" target="_blank" rel="noopener noreferrer">Search the web</a>' : "") +
+        "</div>" +
+        '<button type="button" class="btn btn-primary replace-stop-choose" data-pick="' + i + '">Choose</button></div>').join("");
+      list.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => chooseReplacement(places[+b.dataset.pick], kind)));
+    };
+    render();
+    // Many OpenStreetMap places have opening hours but no address or website.
+    // Fill those in (the list updates when they arrive): addresses from
+    // OpenStreetMap's address service, which works one out from the place's
+    // surroundings when the place itself has none, and websites from there
+    // or from Wikidata's "official website" for places linked to it.
+    await enrichPlaceSuggestions(places);
+    if (runId !== replaceState.runId) return;
+    const keep = list.parentElement ? list.closest(".modal-card").scrollTop : 0;
+    render();
+    if (list.closest(".modal-card")) list.closest(".modal-card").scrollTop = keep;
+  }
+  // A place's website from OpenStreetMap tags: its own site first, then the
+  // other places sites are recorded (language versions, brand, social pages).
+  function placeWebsiteFromTags(t) {
+    const keys = ["website", "contact:website", "url", "website:en", "website:fr", "contact:website:en", "contact:website:fr", "brand:website",
+      "contact:facebook", "facebook", "contact:instagram", "instagram"];
+    for (const k of keys) {
+      let v = String(t[k] || "").split(";")[0].trim();
+      if (!v) continue;
+      if (/^https?:\/\//i.test(v)) return v;
+      if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(v)) return "https://" + v;
+      // Social handles stored without a full address
+      if (/facebook/.test(k) && /^[\w.-]+$/.test(v)) return "https://www.facebook.com/" + v;
+      if (/instagram/.test(k) && /^@?[\w.]+$/.test(v)) return "https://www.instagram.com/" + v.replace(/^@/, "");
+    }
+    return "";
+  }
+  async function enrichPlaceSuggestions(places) {
+    const want = places.filter((pl) => !pl.address || !pl.web);
+    if (want.length && navigator.onLine !== false) {
+      try {
+        const res = await fetch("https://nominatim.openstreetmap.org/lookup?format=json&addressdetails=1&extratags=1&osm_ids=" + want.map((pl) => pl.osm).join(","));
+        if (res.ok) {
+          const rows = await res.json();
+          const byId = new Map((Array.isArray(rows) ? rows : []).map((r) => [(r.osm_type || "").charAt(0).toUpperCase() + r.osm_id, r]));
+          want.forEach((pl) => {
+            const r = byId.get(pl.osm);
+            if (!r) return;
+            const a = r.address || {};
+            if (!pl.address) pl.address = [a.house_number, a.road || a.pedestrian || a.footway].filter(Boolean).join(" ") || a.neighbourhood || a.suburb || "";
+            pl.city = pl.city || a.city || a.town || a.village || a.municipality || "";
+            if (!pl.web && r.extratags) pl.web = placeWebsiteFromTags(r.extratags);
+            if (!pl.wikidata && r.extratags && /^Q\d+$/.test(r.extratags.wikidata || "")) pl.wikidata = r.extratags.wikidata;
+          });
+        }
+      } catch (e) { /* addresses stay as they were */ }
+      const wd = places.filter((pl) => !pl.web && pl.wikidata);
+      if (wd.length) {
+        try {
+          const res = await fetch("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=claims&ids=" + wd.map((pl) => pl.wikidata).join("|"));
+          if (res.ok) {
+            const data = await res.json();
+            wd.forEach((pl) => {
+              const ent = data.entities && data.entities[pl.wikidata];
+              const c = ent && ent.claims && ent.claims.P856 && ent.claims.P856[0];
+              const v = c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value;
+              if (typeof v === "string" && /^https?:\/\//i.test(v)) pl.web = v;
+            });
+          }
+        } catch (e) { /* no website from Wikidata */ }
+      }
+    }
+    places.forEach((pl) => { pl.enriched = true; });
+  }
+  // The chosen place takes the old stop's slot (same day, same position).
+  function chooseReplacement(pl, kind) {
+    const old = waypoints.find((x) => x.id === replaceState.wpId);
+    const ctx = old && itineraryOfDay(old.folderId);
+    if (!ctx) return;
+    const cat = kind.cat, now = Date.now();
+    const prefix = (/^(\d{1,3})\s*-\s*/.exec(old.name || "") || [])[0] || "";
+    const nw = {
+      id: ccUid(), name: prefix + pl.name, lat: pl.lat, lng: pl.lng, code: generateWordCode(pl.lat, pl.lng),
+      notes: [pl.info, pl.address ? "Address: " + pl.address : ""].filter(Boolean).join("\n\n"), url: pl.url ? normalizeUrl(pl.url) : "",
+      category: cat, icon: CC_CATEGORIES[cat].emoji, markerStyle: "emoji", markerEmoji: CC_CATEGORIES[cat].emoji, markerColor: CC_CATEGORIES[cat].color,
+      folderId: old.folderId, itineraryDayId: old.itineraryDayId || old.folderId, itineraryOrder: old.itineraryOrder, order: old.order,
+      photos: [], weather: null, replacedFrom: old.id, createdAt: now, updatedAt: now
+    };
+    addSavedMarker(nw);
+    waypoints.push(nw);
+    const oldName = plainStopName(old);
+    unscheduleItineraryStop(old.id, true);
+    el("replaceStopOverlay").classList.add("hidden");
+    showToast("Replaced \u201c" + oldName + "\u201d with \u201c" + pl.name + "\u201d. \u201c" + oldName + "\u201d is kept in \u201c" + ctx.itin.name + "\u201d.");
+    if (replaceState.onDone) replaceState.onDone();
+  }
+  el("replaceStopCloseBtn").addEventListener("click", () => { replaceState.runId++; el("replaceStopOverlay").classList.add("hidden"); });
+
+  // In the day timeline: rebuild after a stop is removed or replaced,
+  // keeping any unsaved changes to the remaining stops and trips.
+  function dayTlRebuildPreserving() {
+    if (!dayTl.work) return;
+    const prev = dayTl.work;
+    const stopMin = new Map(), legState = new Map();
+    prev.blocks.forEach((b) => { if (b.type === "stop") stopMin.set(b.id, b.min); else legState.set(b.key, { min: b.min, mode: b.mode, fetched: b.fetched, routeMin: b.routeMin, km: b.km, est: b.est }); });
+    const work = dayTlBuildWork();
+    work.start = prev.start; work.end = prev.end;
+    work.blocks.forEach((b) => {
+      if (b.type === "stop" && stopMin.has(b.id)) b.min = stopMin.get(b.id);
+      if (b.type === "leg" && legState.has(b.key)) Object.assign(b, legState.get(b.key));
+    });
+    dayTl.work = work;
+    if (!work.blocks.length) { el("dayTimelineOverlay").classList.add("hidden"); return; }
+    dayTlRender();
+  }
 
   // ---- Day times dialog ----
   let itinTimesId = null;
@@ -104721,7 +105573,8 @@ return maplibregl$1;
   function cardHtml(wp) {
     const isStory = !!wp.isStoryEntry;
     return (
-      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (isStory ? " story-card" : "") + '" data-id="' + wp.id + '">' +
+      '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (isStory ? " story-card" : " has-drag-handle") + '" data-id="' + wp.id + '">' +
+        (isStory ? "" : '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" + "") +
         '<div class="card-top">' +
           '<div class="card-top-actions">' +
             (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
