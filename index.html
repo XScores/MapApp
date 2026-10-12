@@ -1042,6 +1042,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .pdf-send-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;}
   .itin-print-swatch{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px;}
   #itinPrintFlipRow.hidden{display:none;}
+  /* Help tab */
+  .help-search{position:sticky; top:0; z-index:2; background:var(--surface); padding:2px 0 8px;}
+  .help-item{padding:9px 0; border-bottom:1px solid #1e293b;}
+  .help-item:last-child{border-bottom:none;}
+  .help-item-title{font-size:13.5px; font-weight:600; color:var(--text); margin:0 0 3px;}
+  .help-item-text{font-size:12.5px; line-height:1.45; color:var(--text-dim); margin:0;}
+  .help-go{display:inline-block; margin-top:6px; padding:5px 11px; border-radius:999px; border:1px solid rgba(34,211,238,.45); background:rgba(34,211,238,.08);
+    color:var(--cyan); font:inherit; font-size:12.5px; cursor:pointer; text-decoration:none;}
+  .help-go:hover{background:rgba(34,211,238,.16);}
+  .help-version{text-align:center; margin-top:10px;}
+  .help-pulse{animation:helppulse 1s ease-out 3; position:relative; z-index:1200;}
+  @keyframes helppulse{0%{box-shadow:0 0 0 0 rgba(34,211,238,.9);} 100%{box-shadow:0 0 0 14px rgba(34,211,238,0);}}
   .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
   .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
@@ -1655,7 +1667,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .btn-danger:hover{background:#ef4444;}
 
   /* ---------- slide-out panel ---------- */
-  .panel{position:fixed; top:calc(76px + env(safe-area-inset-top)); right:0; bottom:56px; width:380px; max-width:90vw; background:rgba(15,23,42,.97);
+  .panel{position:fixed; top:calc(76px + env(safe-area-inset-top)); right:0; bottom:56px; width:395px; max-width:min(calc(90vw + 15px), 100vw); background:rgba(15,23,42,.97);
     border-left:1px solid #1e293b; border-top-left-radius:14px; border-bottom-left-radius:14px; overflow:hidden; z-index:20; display:flex; flex-direction:column;
     transform:translateX(100%); transition:transform .28s ease;}
   .panel.open{transform:translateX(0); box-shadow:-20px 0 60px rgba(0,0,0,.5);}
@@ -2411,6 +2423,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="layers-tabs" id="layersTabs">
             <button class="layers-tab active" id="layersTabMainBtn" data-layers-tab="main">Map Layers</button>
             <button class="layers-tab" id="layersTabOfflineBtn" data-layers-tab="offline">Offline Maps</button>
+            <button class="layers-tab" id="layersTabHelpBtn" data-layers-tab="help">Help</button>
             <button class="layers-tab" id="layersTabSettingsBtn" data-layers-tab="settings">Settings</button>
           </div>
           <button class="icon-btn" id="layersPanelCloseBtn" data-icon="x" data-icon-size="16"></button>
@@ -2480,6 +2493,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
         </div>
         </div>
+        <div class="layers-panel-body hidden help-view" id="layersViewHelp"></div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
         <div class="layers-section">
           <p class="layers-section-title" id="appVersionLabel">App version</p>
@@ -81080,7 +81094,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "565";
+  const APP_VERSION = "567";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -84379,6 +84393,9 @@ return maplibregl$1;
     layersTabMainBtn.classList.toggle("active", tab === "main");
     layersTabOfflineBtn.classList.toggle("active", tab === "offline");
     layersTabSettingsBtn.classList.toggle("active", tab === "settings");
+    el("layersTabHelpBtn").classList.toggle("active", tab === "help");
+    el("layersViewHelp").classList.toggle("hidden", tab !== "help");
+    if (tab === "help") renderHelpTab("");
     layersViewMain.classList.toggle("hidden", tab !== "main");
     layersViewOffline.classList.toggle("hidden", tab !== "offline");
     layersViewSettings.classList.toggle("hidden", tab !== "settings");
@@ -84387,6 +84404,121 @@ return maplibregl$1;
   layersTabMainBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("main"); });
   layersTabOfflineBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("offline"); });
   layersTabSettingsBtn.addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("settings"); });
+
+  /* ================================================================ */
+  /*  Help tab (Map Layers panel): every feature, explained briefly,  */
+  /*  with a link that goes straight to it: opening its panel, dialog */
+  /*  or settings section, or pointing out the button that does it.   */
+  /* ================================================================ */
+  const HELP_SECTIONS = [
+    { title: "Finding your way around", items: [
+      { t: "Search", d: "Find a place, an address, coordinates (for example 45.42, -75.69) or a 3-word address. From a result you can save it as a waypoint or get directions.", go: "highlight:searchInput", label: "Show me" },
+      { t: "Moving and zooming", d: "Drag to pan; pinch or use the zoom slider at the bottom right. The coordinates of the map's centre and a scale bar are shown along the bottom.", go: "highlight:zoomSliderControl", label: "Show me" },
+      { t: "Turning the map", d: "Keep north up, twist the map with two fingers, or have it turn so the way you're moving is at the top. A compass appears when the map is turned; tap it to point north again.", go: "settings:Map orientation", label: "Open Map orientation" },
+      { t: "Home", d: "Set a home base, then tap the house button to fly back to it from anywhere.", go: "settings:Home base", label: "Set your home" }
+    ] },
+    { title: "Saving places (waypoints)", items: [
+      { t: "Tap the map", d: "Tap any spot on the map to save a waypoint there." },
+      { t: "Your current location", d: "The arrow button saves a waypoint where you are right now.", go: "highlight:locateBtn", label: "Show me" },
+      { t: "From a photo", d: "The camera button takes or picks a photo and saves it as a waypoint, at the place it was taken when the photo has a location, or where you tap.", go: "highlight:cameraBtn", label: "Show me" },
+      { t: "Hands-free voice", d: "Turn on the microphone and say \u201cwaypoint\u201d to save where you are, \u201cadd to\u201d and a name to add notes to an existing waypoint, or \u201ccancel\u201d to undo while dictating.", go: "highlight:voiceWaypointBtn", label: "Show me" },
+      { t: "What a waypoint holds", d: "Each waypoint can have notes (typed or dictated), photos, a website link, reviews, elevation, a weather forecast and a spoken narration. Open one from the list or tap its marker.", go: "panel:waypoints", label: "Open your waypoints" },
+      { t: "Folders, trips and favourites", d: "Organise waypoints into folders and trips, mark favourites, filter by icon, and search the list. Select several to move them together, or drag a card by its grip handle onto a folder.", go: "panel:waypoints", label: "Open your waypoints" },
+      { t: "Regions", d: "Keep waypoints in Personal, Canada or USA collections, and show or hide each one on the map with its eye button.", go: "panel:waypoints", label: "Open your waypoints" },
+      { t: "Deleting a folder", d: "When you delete a folder you can keep what's inside it, or tick the box to delete everything in it as well." }
+    ] },
+    { title: "Trips and itineraries", items: [
+      { t: "Itinerary Concierge", d: "Plan a trip day by day: choose the destination, dates, pace, interests, must-haves (dog friendly, indoor, accessible, free parking), travel mode and distance limits, then pick the suggested stops. It builds a Day folder for each day with every stop as a waypoint. Uses your Gemini key, or OpenStreetMap places without one.", go: "fn:concierge", label: "Plan an itinerary" },
+      { t: "Days on the map", d: "Each day is drawn in its own colour, with its route, a box around it, a \u201cDay\u201d tab with an eye to hide it, and numbered stops in visiting order." },
+      { t: "Day timeline", d: "The clock button on a Day folder opens that day's schedule. Drag the bar under a stop or a trip to change how long it takes, tap a trip to walk, cycle or drive it instead, and set the day's start and finish times. On the day itself, finished stops are locked; use Start from now if you're running late." },
+      { t: "Changing the plan", d: "Drag stops or whole days to reorder them; numbers, dates and routes follow. A waypoint added to a day goes where it adds the least travel. In the timeline or the list, \u2715 removes a stop from the day (the waypoint is kept) and \u21c4 replaces it with a nearby restaurant, shop, museum, park or other kind of place." },
+      { t: "Printing an itinerary", d: "The printer button on an itinerary makes a PDF: full pages with a map for each day, or a pocket version that folds to card size. Website QR codes are included." },
+      { t: "A.I. Story and Trip Plan", d: "On a trip folder, the sparkle button writes a story of the trip. The Share button also makes a Trip Plan to leave with someone in case you're overdue." },
+      { t: "Email or share any PDF", d: "Every PDF dialog has an Email or share button that sends the PDF to Mail or any other app in one step." }
+    ] },
+    { title: "Routes and measuring", items: [
+      { t: "Track a route", d: "The bike button records your route as you go, with distance, time and speed, and saves it to your Routes.", go: "highlight:rideBtn", label: "Show me" },
+      { t: "Directions", d: "Get driving, cycling or walking directions from A to B, follow them with spoken turns, or open them in Apple Maps, Google Maps or Waze.", go: "fn:directions", label: "Get directions" },
+      { t: "Measure distance and area", d: "Tap points on the map to measure a distance or an area; save measurements to come back to them.", go: "fn:measure", label: "Start measuring" },
+      { t: "Your routes and measurements", d: "Saved routes and measurements live in their own tabs, with folders, search and the same drag handles as waypoints.", go: "panel:routes", label: "Open your routes" }
+    ] },
+    { title: "Maps and layers", items: [
+      { t: "Map styles", d: "Choose Street, Terrain, Cycling, Landscape, Mobile Atlas or Satellite. On Street, the map is drawn live so its labels stay level when the map turns.", go: "layers:main", label: "Choose a map style" },
+      { t: "Weather, grid and points of interest", d: "Add live weather radar, a reference grid, or nearby campsites and road-trip stops from OpenStreetMap.", go: "layers:main", label: "Open map layers" },
+      { t: "Offline maps", d: "Download map tiles for an area or a city to use without a connection.", go: "layers:offline", label: "Open offline maps" },
+      { t: "Paper maps", d: "Print true-scale, grid-referenced maps on as many sheets as you need, or fitted to a number of pages, as a backup for when phones and batteries fail.", go: "fn:paper", label: "Make a paper map" }
+    ] },
+    { title: "Sharing, backup and sync", items: [
+      { t: "Link: share your location", d: "Invite people to share locations with each other, organise them in folders, and set up alerts when someone arrives at or leaves a place.", go: "panel:link", label: "Open Link" },
+      { t: "Share a folder", d: "Send a folder by email or as a PDF from its Share button." },
+      { t: "Backup and sync", d: "Download a complete backup, or sync with your own GitHub repository so your devices stay in step. Your keys are never put in the synced file.", go: "settings:Backup & sync", label: "Open Backup and sync" },
+      { t: "Import and export", d: "Bring in waypoints and routes from GPX, KML, KMZ, GeoJSON, CSV, Shapefile, FIT or plain text, and export them again.", go: "settings:Backup & sync", label: "Open Import and export" }
+    ] },
+    { title: "Settings and troubleshooting", items: [
+      { t: "Units and location marker", d: "Choose kilometres or miles, and the icon that shows where you are.", go: "settings:Units", label: "Open Units" },
+      { t: "API keys", d: "Add free keys for Thunderforest maps (removes the watermark and enables the live Street map), OpenWeatherMap weather, and Gemini (AI itineraries, stories and narration).", go: "settings:Thunderforest API key", label: "Open API keys" },
+      { t: "Story narration voice", d: "Pick the voice used to read stories and narrations aloud.", go: "settings:Story Narration", label: "Open narration settings" },
+      { t: "If the app won't start", d: "After an unexpected close, the next start opens in safe mode with the heaviest features off; tap Try normal mode when ready. Adding ?safe=1 to the address forces safe mode, and ?diag=1 shows a report you can copy or email.", go: "url:?diag=1", label: "Open the diagnostics page" }
+    ] }
+  ];
+  const layersViewHelp = el("layersViewHelp");
+  function renderHelpTab(filter) {
+    const q = String(filter || "").trim().toLowerCase();
+    let html = '<div class="help-search"><input type="search" class="field-input" id="helpSearchInput" placeholder="Search help\u2026" value="' + escapeHtml(filter || "") + '" /></div>';
+    let shown = 0;
+    HELP_SECTIONS.forEach((sec, si) => {
+      const items = sec.items.map((it, ii) => ({ it, ii })).filter(({ it }) => !q || (sec.title + " " + it.t + " " + it.d).toLowerCase().includes(q));
+      if (!items.length) return;
+      html += '<div class="layers-section help-section"><p class="layers-section-title">' + escapeHtml(sec.title) + "</p>";
+      items.forEach(({ it, ii }) => {
+        shown++;
+        html += '<div class="help-item"><p class="help-item-title">' + escapeHtml(it.t) + '</p><p class="help-item-text">' + escapeHtml(it.d) + "</p>" +
+          (it.go ? (it.go.startsWith("url:")
+            ? '<a class="help-go" href="' + escapeHtml(it.go.slice(4)) + '" target="_blank" rel="noopener">' + escapeHtml(it.label) + "</a>"
+            : '<button type="button" class="help-go" data-help-go="' + escapeHtml(it.go) + '">' + escapeHtml(it.label) + "</button>") : "") + "</div>";
+      });
+      html += "</div>";
+    });
+    if (!shown) html += '<p class="layers-hint" style="padding:8px 2px;">Nothing in Help matches \u201c' + escapeHtml(filter) + '\u201d.</p>';
+    html += '<p class="layers-hint help-version">MapApp version ' + escapeHtml(String(APP_VERSION)) + "</p>";
+    layersViewHelp.innerHTML = html;
+    const input = el("helpSearchInput");
+    input.addEventListener("input", () => { const pos = input.selectionStart; renderHelpTab(input.value); const again = el("helpSearchInput"); again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {} });
+    input.addEventListener("click", (e) => e.stopPropagation());
+    layersViewHelp.querySelectorAll("[data-help-go]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); helpGo(b.dataset.helpGo); }));
+  }
+  function closeLayersPanelForHelp() {
+    layersPanel.classList.remove("show");
+    layersToggleBtn.classList.remove("active");
+  }
+  // Briefly rings a control so it's easy to spot.
+  function helpPointAt(element) {
+    if (!element) return;
+    element.scrollIntoView({ block: "nearest", inline: "nearest" });
+    element.classList.remove("help-pulse"); void element.offsetWidth; element.classList.add("help-pulse");
+    setTimeout(() => element.classList.remove("help-pulse"), 3200);
+  }
+  function helpGo(go) {
+    const [kind, arg] = [go.slice(0, go.indexOf(":")), go.slice(go.indexOf(":") + 1)];
+    if (kind === "highlight") { closeLayersPanelForHelp(); helpPointAt(el(arg)); return; }
+    if (kind === "panel") { closeLayersPanelForHelp(); openPanel(); switchPanelTab(arg); return; }
+    if (kind === "layers") { switchLayersTab(arg); layersPanel.scrollTop = 0; return; }
+    if (kind === "settings") {
+      switchLayersTab("settings");
+      const title = [...layersViewSettings.querySelectorAll(".layers-section-title")].find((p) => p.textContent.trim() === arg);
+      if (title) { title.scrollIntoView({ block: "start", behavior: "smooth" }); helpPointAt(title.closest(".layers-section") || title); }
+      return;
+    }
+    if (kind === "fn") {
+      closeLayersPanelForHelp();
+      if (arg === "concierge") openItineraryConcierge(null);
+      else if (arg === "paper") openPaperMapModal(null);
+      else if (arg === "directions") el("rideDropdownDirectionsBtn").click();
+      else if (arg === "measure") el("rideDropdownMeasureBtn").click();
+    }
+  }
+  el("layersTabHelpBtn").addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("help"); });
+
   layersPanelCloseBtn.addEventListener("click", () => {
     layersPanel.classList.remove("show");
     layersToggleBtn.classList.remove("active");
