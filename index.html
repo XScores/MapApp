@@ -2029,6 +2029,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .region-add-btn:hover{color:var(--text); border-color:var(--cyan);}
   .region-tab-input{width:9em; margin-bottom:6px; padding:3px 7px; border-radius:7px; border:1px solid var(--cyan); background:var(--surface-2); color:var(--text);
     font:inherit; font-size:14px; font-weight:600;}
+  .region-del-choice{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--border); border-radius:12px; margin-bottom:8px; cursor:pointer;}
+  .region-del-choice input[type="radio"]{margin-top:3px; accent-color:var(--cyan); flex-shrink:0;}
+  .region-del-choice.danger input[type="radio"]{accent-color:#f87171;}
+  .region-del-choice > span{display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; font-size:13.5px; color:var(--text);}
+  .region-del-sub{font-size:12px; color:var(--text-dim);}
+  .region-del-choice select{margin-top:4px;}
+  #regionDeleteChoices.hidden{display:none;}
   .region-del-btn{flex-shrink:0; margin-bottom:6px; width:24px; height:24px; border-radius:6px; border:1px solid rgba(248,113,113,.5); background:none; color:#fca5a5;
     display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer;}
   .waypoint-region-eye-btn{background:none; border:none; padding:0 0 6px; margin:0; cursor:pointer; color:var(--text-mute); display:flex; align-items:center;}
@@ -3551,6 +3558,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="regionDeleteOverlay">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header"><div><h2 id="regionDeleteTitle">Delete region</h2><p class="paper-wiz-step-label" id="regionDeleteSubtitle"></p></div><button class="icon-btn" id="regionDeleteCloseBtn" data-icon="x"></button></div>
+      <div id="regionDeleteChoices">
+        <label class="region-del-choice"><input type="radio" name="regionDeleteMode" value="move" checked />
+          <span><b>Move everything to another region</b><span class="region-del-sub">Folders keep their structure.</span>
+            <select class="field-input" id="regionDeleteTarget"></select></span></label>
+        <label class="region-del-choice danger"><input type="radio" name="regionDeleteMode" value="delete" />
+          <span><b>Delete everything inside</b><span class="region-del-sub" id="regionDeleteEverythingSub"></span></span></label>
+        <label class="confirm-modal-option hidden" id="regionDeleteConfirmRow"><input type="checkbox" id="regionDeleteConfirm" /><span>I understand this permanently deletes these waypoints and folders.</span></label>
+      </div>
+      <p class="layers-hint" id="regionDeleteNote"></p>
+      <div class="btn-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-secondary" id="regionDeleteCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="regionDeleteGoBtn">Delete region</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay hidden" id="itinTimesModalOverlay">
     <div class="modal-card" style="max-width:360px;">
       <div class="modal-header"><div><h2>Day times</h2><p class="paper-wiz-step-label" id="itinTimesSubtitle"></p></div><button class="icon-btn" id="itinTimesCloseBtn" data-icon="x"></button></div>
@@ -81093,7 +81118,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "570";
+  const APP_VERSION = "571";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -87604,8 +87629,15 @@ return maplibregl$1;
     if (payload.settings && Array.isArray(payload.settings.regions)) {
       const mine = regionList(), ids = new Set(mine.map((r) => r.id));
       let addedRegions = 0;
-      payload.settings.regions.forEach((r) => { if (r && typeof r.id === "string" && typeof r.name === "string" && !ids.has(r.id)) { mine.push({ id: r.id, name: r.name.slice(0, 30) }); ids.add(r.id); addedRegions++; } });
-      if (addedRegions) { saveSettings(); renderRegionTabs(); }
+      const gone = new Set((settings.deletedRegions || []).concat(Array.isArray(payload.settings.deletedRegions) ? payload.settings.deletedRegions : []));
+      payload.settings.regions.forEach((r) => { if (r && typeof r.id === "string" && typeof r.name === "string" && !ids.has(r.id) && !gone.has(r.id)) { mine.push({ id: r.id, name: r.name.slice(0, 30) }); ids.add(r.id); addedRegions++; } });
+      // A region deleted on another device goes here too, once nothing here is left in it.
+      let removedRegions = 0;
+      if (Array.isArray(payload.settings.deletedRegions)) {
+        settings.deletedRegions = Array.from(new Set((settings.deletedRegions || []).concat(payload.settings.deletedRegions.filter((x) => typeof x === "string" && x !== "personal"))));
+        settings.regions = mine.filter((r) => { const drop = r.id !== "personal" && payload.settings.deletedRegions.includes(r.id) && !regionContents(r.id).wps.length && !regionContents(r.id).folders.length; if (drop) removedRegions++; return !drop; });
+      }
+      if (addedRegions || removedRegions) { saveSettings(); renderRegionTabs(); }
     }
     let locationMarkersAdded = 0;
     const incomingMarker = payload.settings && payload.settings.customLocationMarker;
@@ -89023,12 +89055,14 @@ return maplibregl$1;
   ];
   function canadaProvinceFolderId(name) { return "ca-prov-" + name.toLowerCase().replace(/[^a-z]+/g, "-"); }
   function seedCanadaProvinceFolders() {
+    if ((settings.deletedRegions || []).includes("canada")) return; // the person deleted the Canada region
     const hasAnyCanadaFolder = waypointFolders.some((f) => (f.region || "personal") === "canada");
     if (hasAnyCanadaFolder) return;
     const now = Date.now();
     CANADA_PROVINCES_AND_TERRITORIES.forEach((name) => {
       const id = canadaProvinceFolderId(name);
       if (deletedIds.waypointFolders.includes(id)) return; // deleted on purpose, maybe on another device
+      if (waypointFolders.some((f) => f.id === id)) return;   // already exists (moved to another region, say)
       waypointFolders.push({ id, name, parentFolderId: null, isTrip: false, isItinerary: false, region: "canada", createdAt: now, updatedAt: now });
     });
     saveWaypointFolders();
@@ -95244,15 +95278,14 @@ return maplibregl$1;
     input.type = "text"; input.className = "region-tab-input"; input.value = region.name; input.maxLength = 30;
     input.setAttribute("aria-label", "Region name");
     tab.replaceWith(input);
-    // A region the person added can be deleted while it's empty.
+    // Any region but Personal (where waypoints without a region belong) can be deleted.
     let del = null;
-    const empty = !waypoints.some((w) => (w.region || "personal") === id) && !waypointFolders.some((f) => (f.region || "personal") === id);
-    if (!DEFAULT_REGIONS.some((r) => r.id === id) && empty) {
+    if (id !== "personal" && regionList().length > 1) {
       del = document.createElement("button");
-      del.type = "button"; del.className = "region-del-btn"; del.title = "Delete this empty region"; del.setAttribute("aria-label", "Delete this empty region");
-      del.innerHTML = icon("x", 13);
+      del.type = "button"; del.className = "region-del-btn"; del.title = "Delete this region"; del.setAttribute("aria-label", "Delete this region");
+      del.innerHTML = icon("trash", 13);
       del.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the input from blurring first
-      del.addEventListener("click", (e) => { e.stopPropagation(); done = true; deleteRegion(id); });
+      del.addEventListener("click", (e) => { e.stopPropagation(); finish(true); openRegionDelete(id); });
       input.after(del);
     }
     let done = false;
@@ -95281,14 +95314,86 @@ return maplibregl$1;
     renderList();
     setTimeout(() => startRegionRename(id), 50);
   }
-  function deleteRegion(id) {
+  // Deleting a region: its waypoints and folders either move to another
+  // region (folders keep their structure) or are deleted for good. The
+  // region's removal is recorded (settings.deletedRegions) so a sync
+  // doesn't bring it back, and other devices drop it too once it's empty there.
+  let regionDeleteId = null;
+  function regionContents(id) {
+    return { wps: waypoints.filter((w) => (w.region || "personal") === id), folders: waypointFolders.filter((f) => (f.region || "personal") === id) };
+  }
+  function openRegionDelete(id) {
+    const region = regionList().find((r) => r.id === id);
+    if (!region || id === "personal") return;
+    regionDeleteId = id;
+    const { wps, folders } = regionContents(id);
+    const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+    const what = [wps.length ? plural(wps.length, "waypoint") : "", folders.length ? plural(folders.length, "folder") : ""].filter(Boolean).join(" and ");
+    el("regionDeleteTitle").textContent = "Delete \u201c" + region.name + "\u201d?";
+    el("regionDeleteSubtitle").textContent = what ? "It holds " + what + "." : "It's empty.";
+    el("regionDeleteChoices").classList.toggle("hidden", !what);
+    el("regionDeleteTarget").innerHTML = regionList().filter((r) => r.id !== id).map((r) => '<option value="' + escapeHtml(r.id) + '">' + escapeHtml(r.name) + "</option>").join("");
+    el("regionDeleteEverythingSub").textContent = what ? "Permanently deletes the " + what + ". This can't be undone." : "";
+    document.querySelector('input[name="regionDeleteMode"][value="move"]').checked = true;
+    el("regionDeleteConfirm").checked = false;
+    syncRegionDeleteUI();
+    el("regionDeleteOverlay").classList.remove("hidden");
+  }
+  function syncRegionDeleteUI() {
+    const mode = (document.querySelector('input[name="regionDeleteMode"]:checked') || {}).value;
+    const hasStuff = !el("regionDeleteChoices").classList.contains("hidden");
+    el("regionDeleteConfirmRow").classList.toggle("hidden", !(hasStuff && mode === "delete"));
+    el("regionDeleteTarget").disabled = mode !== "move";
+    el("regionDeleteGoBtn").textContent = !hasStuff ? "Delete region" : mode === "move" ? "Move and delete region" : "Delete region and everything in it";
+    el("regionDeleteGoBtn").disabled = hasStuff && mode === "delete" && !el("regionDeleteConfirm").checked;
+    const target = regionList().find((r) => r.id === el("regionDeleteTarget").value);
+    el("regionDeleteNote").textContent = hasStuff && mode === "move" && target ? "Everything moves to \u201c" + target.name + "\u201d." : "";
+  }
+  document.querySelectorAll('input[name="regionDeleteMode"]').forEach((r) => r.addEventListener("change", syncRegionDeleteUI));
+  el("regionDeleteConfirm").addEventListener("change", syncRegionDeleteUI);
+  el("regionDeleteTarget").addEventListener("change", syncRegionDeleteUI);
+  const closeRegionDelete = () => { el("regionDeleteOverlay").classList.add("hidden"); regionDeleteId = null; };
+  el("regionDeleteCloseBtn").addEventListener("click", closeRegionDelete);
+  el("regionDeleteCancelBtn").addEventListener("click", closeRegionDelete);
+  el("regionDeleteGoBtn").addEventListener("click", () => {
+    const id = regionDeleteId;
+    if (!id) return;
+    const region = regionList().find((r) => r.id === id);
+    const { wps, folders } = regionContents(id);
+    const mode = (document.querySelector('input[name="regionDeleteMode"]:checked') || {}).value;
+    const now = Date.now();
+    let msg;
+    if (wps.length || folders.length) {
+      if (mode === "move") {
+        const target = el("regionDeleteTarget").value;
+        wps.forEach((w) => { w.region = target; w.updatedAt = now; });
+        folders.forEach((f) => { f.region = target; f.updatedAt = now; });
+        // Shown on the map if the region they're joining is shown.
+        wps.forEach((w) => { const m = markers[w.id]; if (!m) return; const show = regionShown(target); if (show && !map.hasLayer(m)) m.addTo(map); else if (!show && map.hasLayer(m)) map.removeLayer(m); });
+        msg = "Deleted \u201c" + region.name + "\u201d and moved its contents to \u201c" + regionName(target) + "\u201d.";
+        activeWaypointRegion = target;
+      } else {
+        const wpIds = new Set(wps.map((w) => w.id)), folderIds = new Set(folders.map((f) => f.id));
+        wps.forEach((w) => { if (markers[w.id]) { map.removeLayer(markers[w.id]); delete markers[w.id]; } if (selectedWaypointId === w.id) selectedWaypointId = null; deletedIds.waypoints.push(w.id); });
+        waypoints = waypoints.filter((w) => !wpIds.has(w.id));
+        folders.forEach((f) => { deletedIds.waypointFolders.push(f.id); expandedFolderIds.delete(f.id); });
+        waypointFolders = waypointFolders.filter((f) => !folderIds.has(f.id));
+        saveDeletedIds();
+        msg = "Deleted \u201c" + region.name + "\u201d and everything in it.";
+      }
+      saveWaypoints(); saveWaypointFolders();
+    } else msg = "Deleted \u201c" + region.name + "\u201d.";
     settings.regions = regionList().filter((r) => r.id !== id);
+    settings.deletedRegions = Array.from(new Set((settings.deletedRegions || []).concat([id])));
     delete regionVisibility[id];
     saveSettings();
-    if (activeWaypointRegion === id) activeWaypointRegion = settings.regions[0].id;
+    if (activeWaypointRegion === id || !settings.regions.some((r) => r.id === activeWaypointRegion)) activeWaypointRegion = settings.regions[0].id;
+    closeRegionDelete();
     renderRegionTabs();
     renderList();
-  }
+    updateCounters();
+    showToast(msg);
+  });
   // Region names shown elsewhere (the import dialogs' "Add these waypoints to" choices).
   function refreshRegionNamesElsewhere() {
     document.querySelectorAll(".directions-mode-row").forEach((row) => {
