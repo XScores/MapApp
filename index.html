@@ -2018,7 +2018,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
   .journal-tab-btn.active{color:var(--text); border-bottom-color:var(--amber-light);}
   .journal-tab-btn.hidden{display:none;}
-  .waypoint-region-tab-group{display:flex; align-items:center; gap:5px;}
+  .waypoint-region-tab-group{display:flex; align-items:center; gap:5px; flex-shrink:0;}
+  /* Region tabs: one scrolling strip when there are more than fit. */
+  .region-tab-row{flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:thin; padding-bottom:2px; align-items:center;}
+  .region-tab-row::-webkit-scrollbar{height:4px;}
+  .region-tab-row::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35); border-radius:2px;}
+  .region-tab{white-space:nowrap; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+  .region-add-btn{flex-shrink:0; width:28px; height:28px; margin-bottom:6px; border-radius:8px; border:1px dashed var(--border-soft); background:none; color:var(--text-dim);
+    display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+  .region-add-btn:hover{color:var(--text); border-color:var(--cyan);}
+  .region-tab-input{width:9em; margin-bottom:6px; padding:3px 7px; border-radius:7px; border:1px solid var(--cyan); background:var(--surface-2); color:var(--text);
+    font:inherit; font-size:14px; font-weight:600;}
+  .region-del-btn{flex-shrink:0; margin-bottom:6px; width:24px; height:24px; border-radius:6px; border:1px solid rgba(248,113,113,.5); background:none; color:#fca5a5;
+    display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer;}
   .waypoint-region-eye-btn{background:none; border:none; padding:0 0 6px; margin:0; cursor:pointer; color:var(--text-mute); display:flex; align-items:center;}
   .waypoint-region-eye-btn:hover{color:var(--text-dim);}
   .waypoint-region-eye-btn.active{color:var(--cyan);}
@@ -3937,20 +3949,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button class="panel-close" id="panelCloseBtn" data-icon="x"></button>
       </div>
     </div>
-    <div class="journal-tab-row" id="waypointRegionTabRow" style="margin:12px 16px 0;">
-      <span class="waypoint-region-tab-group">
-        <button type="button" class="waypoint-region-eye-btn active" id="waypointRegionPersonalEyeBtn" data-region="personal" title="Show/hide Personal on map"></button>
-        <button type="button" class="journal-tab-btn active" id="waypointRegionPersonalBtn" data-region="personal">Personal</button>
-      </span>
-      <span class="waypoint-region-tab-group">
-        <button type="button" class="waypoint-region-eye-btn active" id="waypointRegionCanadaEyeBtn" data-region="canada" title="Show/hide Canada on map"></button>
-        <button type="button" class="journal-tab-btn" id="waypointRegionCanadaBtn" data-region="canada">Canada</button>
-      </span>
-      <span class="waypoint-region-tab-group">
-        <button type="button" class="waypoint-region-eye-btn active" id="waypointRegionUsaEyeBtn" data-region="usa" title="Show/hide USA on map"></button>
-        <button type="button" class="journal-tab-btn" id="waypointRegionUsaBtn" data-region="usa">USA</button>
-      </span>
-    </div>
+    <div class="journal-tab-row region-tab-row" id="waypointRegionTabRow" style="margin:12px 16px 0;"></div>
     <div class="panel-subtitle-row">
       <div class="list-filter-wrap" id="listIconFilterWrap">
         <button type="button" class="list-filter-btn" id="listIconFilterBtn" title="Filter by icon">
@@ -81094,7 +81093,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "567";
+  const APP_VERSION = "570";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -81486,7 +81485,7 @@ return maplibregl$1;
   // before switchWaypointRegion is defined further down) reads this --
   // a plain `let` declared only near switchWaypointRegion would throw a
   // temporal-dead-zone error on that first, startup call.
-  let activeWaypointRegion = "personal"; // personal | canada | usa
+  let activeWaypointRegion = "personal"; // personal | canada | usa | rg_... (see settings.regions)
   // Independent of activeWaypointRegion (which list is being browsed) --
   // this controls whether that region's waypoints show as markers on the
   // map at all, so any combination can be visible together or hidden
@@ -81766,12 +81765,6 @@ return maplibregl$1;
   const measurementsPanelList = el("measurementsPanelList");
   const panelTabWaypoints = el("panelTabWaypoints");
   const waypointRegionTabRow = el("waypointRegionTabRow");
-  const waypointRegionPersonalBtn = el("waypointRegionPersonalBtn");
-  const waypointRegionCanadaBtn = el("waypointRegionCanadaBtn");
-  const waypointRegionUsaBtn = el("waypointRegionUsaBtn");
-  const waypointRegionPersonalEyeBtn = el("waypointRegionPersonalEyeBtn");
-  const waypointRegionCanadaEyeBtn = el("waypointRegionCanadaEyeBtn");
-  const waypointRegionUsaEyeBtn = el("waypointRegionUsaEyeBtn");
   const panelTabRoutes = el("panelTabRoutes");
   const panelTabMeasurements = el("panelTabMeasurements");
   const panelWaypointsView = el("panelWaypointsView");
@@ -85016,6 +85009,7 @@ return maplibregl$1;
       // until the person removes something themselves.
       settings.customLocationMarker.images.push({ id, image: dataUrl });
       settings.customLocationMarker.activeId = id;
+      settings.customLocationMarker.chosen = true;
       saveSettings();
       refreshLocationMarkerSettingsUi();
       refreshLivePositionMarkerIcon();
@@ -85026,6 +85020,10 @@ return maplibregl$1;
   }
   function selectLocationMarker(id) {
     settings.customLocationMarker.activeId = id || null;
+    // Marks this device's choice as made, so a sync never swaps it for
+    // another device's icon (the default dot is stored as "no image", which
+    // used to look like "not chosen yet" to the sync).
+    settings.customLocationMarker.chosen = true;
     saveSettings();
     refreshLocationMarkerSettingsUi();
     refreshLivePositionMarkerIcon();
@@ -87601,6 +87599,14 @@ return maplibregl$1;
     // actively using one this device hasn't seen yet. Which one is
     // currently ACTIVE, though, is a per-device preference (like home),
     // so that's only adopted if this device hasn't chosen one of its own.
+    // Regions: any region another device has that this one doesn't is added
+    // (this device's own names are kept for regions it already has).
+    if (payload.settings && Array.isArray(payload.settings.regions)) {
+      const mine = regionList(), ids = new Set(mine.map((r) => r.id));
+      let addedRegions = 0;
+      payload.settings.regions.forEach((r) => { if (r && typeof r.id === "string" && typeof r.name === "string" && !ids.has(r.id)) { mine.push({ id: r.id, name: r.name.slice(0, 30) }); ids.add(r.id); addedRegions++; } });
+      if (addedRegions) { saveSettings(); renderRegionTabs(); }
+    }
     let locationMarkersAdded = 0;
     const incomingMarker = payload.settings && payload.settings.customLocationMarker;
     if (incomingMarker && Array.isArray(incomingMarker.images)) {
@@ -87612,7 +87618,9 @@ return maplibregl$1;
           locationMarkersAdded++;
         }
       });
-      if (!settings.customLocationMarker.activeId && incomingMarker.activeId && localIds.has(incomingMarker.activeId)) {
+      // Only on a device that has never picked a marker itself (a fresh
+      // install, say). Picking the default blue dot counts as a choice.
+      if (!settings.customLocationMarker.chosen && !settings.customLocationMarker.activeId && incomingMarker.activeId && localIds.has(incomingMarker.activeId)) {
         settings.customLocationMarker.activeId = incomingMarker.activeId;
         settings.customLocationMarker.size = incomingMarker.size || settings.customLocationMarker.size;
       }
@@ -87634,13 +87642,14 @@ return maplibregl$1;
           }
         });
       }
-      if (locationMarkersAdded > 0 || incomingMarker.activeId || favoritesChanged) {
+      if (locationMarkersAdded > 0 || favoritesChanged || settings.customLocationMarker.activeId === incomingMarker.activeId) {
         saveSettings();
         refreshLocationMarkerSettingsUi();
         refreshLivePositionMarkerIcon();
       }
     }
 
+    if (dedupeCanadaProvinceFolders()) renderList();
     return {
       added, updated, skipped, routesAdded, routesUpdated, routesSkipped,
       measurementsAdded, measurementsUpdated, measurementsSkipped,
@@ -88865,7 +88874,7 @@ return maplibregl$1;
     // Waypoints without a region tag are the user's own existing,
     // pre-region-feature saves -- treated as "personal" by default so
     // nothing they already had disappears because of this new toggle.
-    if (regionVisibility[wp.region || "personal"]) marker.addTo(map);
+    if (regionVisibility[wp.region || "personal"] !== false) marker.addTo(map);
     marker.on("click", (e) => {
       // A marker's click doesn't bubble up to the map's own click handler
       // in Leaflet, so measuring has to be checked here too -- otherwise
@@ -89001,32 +89010,70 @@ return maplibregl$1;
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") centerOnCurrentLocation();
   });
-  // One-time seed: gives the Canada tab its provinces and territories as
-  // ready-made top-level folders from the start, so future CSV imports
-  // (or manual organizing) have somewhere to go immediately instead of
-  // starting from a completely empty section. Only runs if no Canada
-  // folder exists yet, so it never re-creates or duplicates them on a
-  // later load, and never touches a folder the user has since renamed,
-  // deleted, or reorganized.
+  // The Canada tab's provinces and territories, as ready-made top-level
+  // folders. Each has a fixed id ("ca-prov-ontario"), so every device and
+  // install creates the same folders and sync sees one folder, not one per
+  // device. (They used to get random ids, so each new install added a full
+  // set and sync merged them all: six installs, six Ontarios.)
+  const CANADA_PROVINCES_AND_TERRITORIES = [
+    "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+    "Newfoundland and Labrador", "Nova Scotia", "Ontario",
+    "Prince Edward Island", "Quebec", "Saskatchewan",
+    "Northwest Territories", "Nunavut", "Yukon"
+  ];
+  function canadaProvinceFolderId(name) { return "ca-prov-" + name.toLowerCase().replace(/[^a-z]+/g, "-"); }
   function seedCanadaProvinceFolders() {
     const hasAnyCanadaFolder = waypointFolders.some((f) => (f.region || "personal") === "canada");
     if (hasAnyCanadaFolder) return;
-    const PROVINCES_AND_TERRITORIES = [
-      "Alberta", "British Columbia", "Manitoba", "New Brunswick",
-      "Newfoundland and Labrador", "Nova Scotia", "Ontario",
-      "Prince Edward Island", "Quebec", "Saskatchewan",
-      "Northwest Territories", "Nunavut", "Yukon"
-    ];
     const now = Date.now();
-    PROVINCES_AND_TERRITORIES.forEach((name, i) => {
-      waypointFolders.push({
-        id: (now + i) + "-" + Math.random().toString(36).slice(2, 8),
-        name, parentFolderId: null, isTrip: false, isItinerary: false,
-        region: "canada", createdAt: now, updatedAt: now
-      });
+    CANADA_PROVINCES_AND_TERRITORIES.forEach((name) => {
+      const id = canadaProvinceFolderId(name);
+      if (deletedIds.waypointFolders.includes(id)) return; // deleted on purpose, maybe on another device
+      waypointFolders.push({ id, name, parentFolderId: null, isTrip: false, isItinerary: false, region: "canada", createdAt: now, updatedAt: now });
     });
     saveWaypointFolders();
   }
+  // Keeps one top-level Canada folder per province or territory. Duplicates
+  // are merged into the one kept: anything inside them (waypoints or
+  // folders) moves across first, then the extras are deleted, with the
+  // deletions recorded so sync removes them on other devices too. The kept
+  // folder takes the fixed id, so every device ends up with the same one.
+  // Runs at start-up and after each sync; does nothing once all is tidy.
+  function dedupeCanadaProvinceFolders() {
+    let changed = false, removed = 0;
+    CANADA_PROVINCES_AND_TERRITORIES.forEach((name) => {
+      const fixedId = canadaProvinceFolderId(name);
+      const same = waypointFolders.filter((f) => (f.region || "personal") === "canada" && !f.parentFolderId && String(f.name || "").trim().toLowerCase() === name.toLowerCase());
+      if (!same.length) return;
+      const contents = (f) => waypoints.filter((w) => w.folderId === f.id).length + waypointFolders.filter((x) => x.parentFolderId === f.id).length;
+      // Keep the one already using the fixed id, else the one holding the most, else the oldest.
+      const keep = same.find((f) => f.id === fixedId) || same.slice().sort((x, y) => contents(y) - contents(x) || (x.createdAt || 0) - (y.createdAt || 0))[0];
+      const moveInto = (fromId, toId) => {
+        waypoints.forEach((w) => { if (w.folderId === fromId) { w.folderId = toId; w.updatedAt = Date.now(); } });
+        waypointFolders.forEach((x) => { if (x.parentFolderId === fromId) { x.parentFolderId = toId; x.updatedAt = Date.now(); } });
+      };
+      same.forEach((f) => {
+        if (f === keep) return;
+        moveInto(f.id, keep.id);
+        waypointFolders = waypointFolders.filter((x) => x !== f);
+        if (!deletedIds.waypointFolders.includes(f.id)) deletedIds.waypointFolders.push(f.id);
+        expandedFolderIds.delete(f.id);
+        removed++; changed = true;
+      });
+      if (keep.id !== fixedId && !waypointFolders.some((x) => x.id === fixedId)) {
+        const oldId = keep.id;
+        moveInto(oldId, fixedId);
+        keep.id = fixedId; keep.updatedAt = Date.now();
+        if (!deletedIds.waypointFolders.includes(oldId)) deletedIds.waypointFolders.push(oldId);
+        if (expandedFolderIds.has(oldId)) { expandedFolderIds.delete(oldId); expandedFolderIds.add(fixedId); }
+        changed = true;
+      }
+    });
+    if (changed) { saveDeletedIds(); saveWaypointFolders(); saveWaypoints(); }
+    return removed;
+  }
+  const canadaDuplicatesRemoved = dedupeCanadaProvinceFolders();
+  if (canadaDuplicatesRemoved) setTimeout(() => showToast("Tidied the Canada folders: removed " + canadaDuplicatesRemoved + " duplicate province and territory folders."), 1500);
   seedCanadaProvinceFolders();
   updateHud();
   updateCounters();
@@ -95129,47 +95176,167 @@ return maplibregl$1;
   // they show a simple "not yet added" placeholder rather than an empty
   // version of the personal list, so it's clear this is a real, separate
   // section rather than the app losing track of any waypoints.
+  /* ---------- Region tabs ----------
+     Regions are stored on each waypoint and folder by id ("personal",
+     "canada", "usa", or "rg_..." for ones the person adds); their names
+     and order live in settings.regions, so they can be renamed and new
+     ones added. Double-click a tab (computer) or long-press it (touch) to
+     rename it; "+" adds a region. The row scrolls sideways when full. */
+  const DEFAULT_REGIONS = [{ id: "personal", name: "Personal" }, { id: "canada", name: "Canada" }, { id: "usa", name: "USA" }];
+  function regionList() {
+    if (!Array.isArray(settings.regions) || !settings.regions.length) settings.regions = DEFAULT_REGIONS.map((r) => Object.assign({}, r));
+    // Any region found on saved data but missing from the list (from another
+    // device, say) is added, so nothing is ever left without a tab.
+    const known = new Set(settings.regions.map((r) => r.id));
+    let added = false;
+    waypoints.concat(waypointFolders).forEach((x) => {
+      const id = x.region || "personal";
+      if (!known.has(id)) { settings.regions.push({ id, name: "Region " + (settings.regions.length + 1) }); known.add(id); added = true; }
+    });
+    if (added) saveSettings();
+    return settings.regions;
+  }
+  function regionName(id) { const r = regionList().find((x) => x.id === (id || "personal")); return r ? r.name : "Personal"; }
+  function regionShown(id) { return regionVisibility[id || "personal"] !== false; }
+  function renderRegionTabs() {
+    const regions = regionList();
+    if (!regions.some((r) => r.id === activeWaypointRegion)) activeWaypointRegion = regions[0].id;
+    waypointRegionTabRow.innerHTML = regions.map((r) =>
+      '<span class="waypoint-region-tab-group" data-region-group="' + escapeHtml(r.id) + '">' +
+        '<button type="button" class="waypoint-region-eye-btn' + (regionShown(r.id) ? " active" : "") + '" data-region-eye="' + escapeHtml(r.id) + '" title="Show/hide ' + escapeHtml(r.name) + ' on map">' + icon(regionShown(r.id) ? "eye" : "eyeOff", 15) + "</button>" +
+        '<button type="button" class="journal-tab-btn region-tab' + (r.id === activeWaypointRegion ? " active" : "") + '" data-region="' + escapeHtml(r.id) + '" title="Double-click or long-press to rename">' + escapeHtml(r.name) + "</button>" +
+      "</span>").join("") +
+      '<button type="button" class="region-add-btn" id="regionAddBtn" title="Add a region" aria-label="Add a region">' + icon("plus", 15) + "</button>";
+    waypointRegionTabRow.querySelectorAll("[data-region-eye]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); toggleRegionVisibility(b.dataset.regionEye); }));
+    waypointRegionTabRow.querySelectorAll(".region-tab").forEach(wireRegionTab);
+    el("regionAddBtn").addEventListener("click", (e) => { e.stopPropagation(); addRegion(); });
+    const act = waypointRegionTabRow.querySelector(".region-tab.active");
+    if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
+    refreshRegionNamesElsewhere();
+  }
   function switchWaypointRegion(region) {
     activeWaypointRegion = region;
-    waypointRegionPersonalBtn.classList.toggle("active", region === "personal");
-    waypointRegionCanadaBtn.classList.toggle("active", region === "canada");
-    waypointRegionUsaBtn.classList.toggle("active", region === "usa");
+    waypointRegionTabRow.querySelectorAll(".region-tab").forEach((b) => b.classList.toggle("active", b.dataset.region === region));
     renderList();
   }
-  waypointRegionPersonalBtn.addEventListener("click", () => switchWaypointRegion("personal"));
-  waypointRegionCanadaBtn.addEventListener("click", () => switchWaypointRegion("canada"));
-  waypointRegionUsaBtn.addEventListener("click", () => switchWaypointRegion("usa"));
+  // A tap switches; a double-click (computer) or long-press (touch) renames.
+  function wireRegionTab(btn) {
+    let timer = null, startX = 0, startY = 0, longPressed = false;
+    btn.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return;
+      longPressed = false; startX = e.clientX; startY = e.clientY;
+      timer = setTimeout(() => { timer = null; longPressed = true; startRegionRename(btn.dataset.region); }, 550);
+    });
+    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    btn.addEventListener("pointermove", (e) => { if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > 8) cancel(); }); // swiping the row scrolls, not renames
+    btn.addEventListener("pointerup", cancel);
+    btn.addEventListener("pointercancel", cancel);
+    btn.addEventListener("contextmenu", (e) => e.preventDefault()); // no iOS/Android callout on long-press
+    btn.addEventListener("click", (e) => { e.stopPropagation(); if (longPressed) { longPressed = false; return; } switchWaypointRegion(btn.dataset.region); });
+    btn.addEventListener("dblclick", (e) => { e.preventDefault(); startRegionRename(btn.dataset.region); });
+  }
+  function startRegionRename(id) {
+    const group = waypointRegionTabRow.querySelector('[data-region-group="' + CSS.escape(id) + '"]');
+    const tab = group && group.querySelector(".region-tab");
+    if (!tab) return;
+    const region = regionList().find((r) => r.id === id);
+    const input = document.createElement("input");
+    input.type = "text"; input.className = "region-tab-input"; input.value = region.name; input.maxLength = 30;
+    input.setAttribute("aria-label", "Region name");
+    tab.replaceWith(input);
+    // A region the person added can be deleted while it's empty.
+    let del = null;
+    const empty = !waypoints.some((w) => (w.region || "personal") === id) && !waypointFolders.some((f) => (f.region || "personal") === id);
+    if (!DEFAULT_REGIONS.some((r) => r.id === id) && empty) {
+      del = document.createElement("button");
+      del.type = "button"; del.className = "region-del-btn"; del.title = "Delete this empty region"; del.setAttribute("aria-label", "Delete this empty region");
+      del.innerHTML = icon("x", 13);
+      del.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the input from blurring first
+      del.addEventListener("click", (e) => { e.stopPropagation(); done = true; deleteRegion(id); });
+      input.after(del);
+    }
+    let done = false;
+    const finish = (save) => {
+      if (done) return; done = true;
+      const name = input.value.trim().replace(/\s+/g, " ");
+      if (save && name && name !== region.name) { region.name = name; saveSettings(); showToast("Renamed to \u201c" + name + "\u201d"); }
+      renderRegionTabs();
+      if (id === activeWaypointRegion) renderList(); // the list's own text names the region
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); finish(true); } else if (e.key === "Escape") { e.preventDefault(); finish(false); } });
+    input.addEventListener("blur", () => setTimeout(() => finish(true), 0));
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.focus(); input.select();
+    input.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  function addRegion() {
+    const regions = regionList();
+    let n = 2, name = "New region";
+    while (regions.some((r) => r.name === name)) name = "New region " + n++;
+    const id = "rg_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    regions.push({ id, name });
+    saveSettings();
+    activeWaypointRegion = id;
+    renderRegionTabs();
+    renderList();
+    setTimeout(() => startRegionRename(id), 50);
+  }
+  function deleteRegion(id) {
+    settings.regions = regionList().filter((r) => r.id !== id);
+    delete regionVisibility[id];
+    saveSettings();
+    if (activeWaypointRegion === id) activeWaypointRegion = settings.regions[0].id;
+    renderRegionTabs();
+    renderList();
+  }
+  // Region names shown elsewhere (the import dialogs' "Add these waypoints to" choices).
+  function refreshRegionNamesElsewhere() {
+    document.querySelectorAll(".directions-mode-row").forEach((row) => {
+      const base = row.querySelector('.directions-mode-btn[data-region="personal"]');
+      if (!base) return;
+      regionList().forEach((r) => {
+        let b = row.querySelector('.directions-mode-btn[data-region="' + CSS.escape(r.id) + '"]');
+        if (!b) {
+          // A region added by the person: choosing it reuses the dialog's own choice handling.
+          b = document.createElement("button");
+          b.type = "button"; b.className = "directions-mode-btn"; b.dataset.region = r.id; b.dataset.customRegion = "1";
+          b.addEventListener("click", () => {
+            base.dataset.region = r.id; base.click(); base.dataset.region = "personal";
+            row.querySelectorAll(".directions-mode-btn[data-region]").forEach((x) => x.classList.toggle("active", x === b));
+          });
+          row.appendChild(b);
+          // When the dialog resets to its first choice, these follow.
+          if (!base.__regionObserver) {
+            base.__regionObserver = new MutationObserver(() => { if (base.classList.contains("active")) row.querySelectorAll("[data-custom-region]").forEach((x) => x.classList.remove("active")); });
+            base.__regionObserver.observe(base, { attributes: true, attributeFilter: ["class"] });
+          }
+        }
+        b.textContent = r.name;
+      });
+      row.querySelectorAll("[data-custom-region]").forEach((b) => { if (!regionList().some((r) => r.id === b.dataset.region)) b.remove(); });
+    });
+  }
 
   // The eyeball toggles a region's markers on the map on/off -- separate
   // from the tab label, which only switches which region's list is being
   // browsed. Keeping them as two different click targets (rather than
   // folding visibility into the tab-switch itself) is what lets someone
-  // browse Canada's list while, say, Personal and USA both stay visible
-  // on the map -- any combination shown together, or isolated
-  // independently.
-  function updateRegionEyeIcon(region, btn) {
-    btn.innerHTML = icon(regionVisibility[region] ? "eye" : "eyeOff", 15);
-    btn.classList.toggle("active", regionVisibility[region]);
-  }
-  function toggleRegionVisibility(region, btn) {
-    regionVisibility[region] = !regionVisibility[region];
-    updateRegionEyeIcon(region, btn);
+  // browse one region's list while others stay visible on the map.
+  function toggleRegionVisibility(region) {
+    regionVisibility[region] = !regionShown(region);
+    const btn = waypointRegionTabRow.querySelector('[data-region-eye="' + CSS.escape(region) + '"]');
+    if (btn) { btn.innerHTML = icon(regionShown(region) ? "eye" : "eyeOff", 15); btn.classList.toggle("active", regionShown(region)); }
     waypoints.forEach((wp) => {
       if ((wp.region || "personal") !== region) return;
       const marker = markers[wp.id];
       if (!marker) return;
-      const shouldShow = regionVisibility[region];
+      const shouldShow = regionShown(region);
       const isShown = map.hasLayer(marker);
       if (shouldShow && !isShown) marker.addTo(map);
       else if (!shouldShow && isShown) map.removeLayer(marker);
     });
   }
-  updateRegionEyeIcon("personal", waypointRegionPersonalEyeBtn);
-  updateRegionEyeIcon("canada", waypointRegionCanadaEyeBtn);
-  updateRegionEyeIcon("usa", waypointRegionUsaEyeBtn);
-  waypointRegionPersonalEyeBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleRegionVisibility("personal", waypointRegionPersonalEyeBtn); });
-  waypointRegionCanadaEyeBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleRegionVisibility("canada", waypointRegionCanadaEyeBtn); });
-  waypointRegionUsaEyeBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleRegionVisibility("usa", waypointRegionUsaEyeBtn); });
+  renderRegionTabs();
   function switchPanelTab(tab) {
     activePanelTab = tab;
     panelTabWaypoints.classList.toggle("active", tab === "waypoints");
@@ -99362,7 +99529,7 @@ return maplibregl$1;
     renderList();
     updateCounters();
     fetchElevationsForNewWaypoints(result.imported);
-    const regionLabel = importTextSelectedRegion === "canada" ? "Canada" : importTextSelectedRegion === "usa" ? "USA" : "Personal";
+    const regionLabel = regionName(importTextSelectedRegion);
     let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + " into " + regionLabel + ".";
     if (result.skipped) msg += " Skipped " + result.skipped + ".";
     showToast(msg);
@@ -99438,9 +99605,7 @@ return maplibregl$1;
   let importFolderPickerPath = []; // [{id, name}] breadcrumb trail below the region's own name
   let importFolderPickerOnChoose = null; // (folderId | null) => void, called once a level is confirmed or created
 
-  function regionDisplayLabel(region) {
-    return region === "canada" ? "Canada" : region === "usa" ? "USA" : "Personal";
-  }
+  function regionDisplayLabel(region) { return regionName(region); }
   // Opens the picker scoped to one region's folder tree -- browsing,
   // creating, and choosing a folder here can never cross into a
   // different region's folders, since a folder's region is fixed at
@@ -99733,7 +99898,7 @@ return maplibregl$1;
     renderList();
     updateCounters();
     fetchElevationsForNewWaypoints(result.imported);
-    const regionLabel = importCsvSelectedRegion === "canada" ? "Canada" : importCsvSelectedRegion === "usa" ? "USA" : "Personal";
+    const regionLabel = regionName(importCsvSelectedRegion);
     let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + " into " + regionLabel + ".";
     if (result.skipped) msg += " Skipped " + result.skipped + ".";
     showToast(msg);
@@ -99902,7 +100067,7 @@ return maplibregl$1;
     renderList();
     updateCounters();
     fetchElevationsForNewWaypoints(result.imported);
-    const regionLabel = importGpxSelectedRegion === "canada" ? "Canada" : importGpxSelectedRegion === "usa" ? "USA" : "Personal";
+    const regionLabel = regionName(importGpxSelectedRegion);
     let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + " into " + regionLabel + ".";
     if (result.skipped) msg += " Skipped " + result.skipped + ".";
     showToast(msg);
@@ -100180,7 +100345,7 @@ return maplibregl$1;
       renderList();
       updateCounters();
       fetchElevationsForNewWaypoints(result.imported);
-      const regionLabel = selectedRegion === "canada" ? "Canada" : selectedRegion === "usa" ? "USA" : "Personal";
+      const regionLabel = regionName(selectedRegion);
       let msg = "Imported " + result.imported.length + " waypoint" + (result.imported.length === 1 ? "" : "s") + " into " + regionLabel + ".";
       if (result.skipped) msg += " Skipped " + result.skipped + ".";
       showToast(msg);
@@ -105305,7 +105470,7 @@ return maplibregl$1;
         panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
           "<p>No waypoints yet. Tap the map, search a place, or drop your current location to start your log.</p></div>";
       } else {
-        const regionLabel = activeWaypointRegion === "canada" ? "Canada" : "USA";
+        const regionLabel = regionName(activeWaypointRegion);
         panelList.innerHTML = '<div class="empty-state">' + icon("mapPin", 28) +
           "<p>No " + regionLabel + " folders or waypoints yet. Use the folder button above to start organizing this section, or import a CSV.</p></div>";
       }
