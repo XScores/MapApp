@@ -1055,6 +1055,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .help-pulse{animation:helppulse 1s ease-out 3; position:relative; z-index:1200;}
   @keyframes helppulse{0%{box-shadow:0 0 0 0 rgba(34,211,238,.9);} 100%{box-shadow:0 0 0 14px rgba(34,211,238,0);}}
   .search-result-action{background:rgba(34,211,238,.08);}
+  .search-result-message.busy{animation:searchbusy 1.4s ease-in-out infinite;}
+  .search-retry-btn{margin-left:6px; font-style:normal;}
+  @keyframes searchbusy{0%,100%{opacity:1;} 50%{opacity:.55;}}
   /* Nearby results: the details (distance, rating, hours) get their own line. */
   .search-result-row.search-result-nearby{flex-wrap:wrap; row-gap:3px;}
   .search-result-row.search-result-nearby > span{flex:1 1 0; min-width:0;}
@@ -81175,7 +81178,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "576";
+  const APP_VERSION = "578";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -99257,6 +99260,10 @@ return maplibregl$1;
     searchResultsEl.classList.remove("show");
   });
   document.addEventListener("click", (e) => {
+    // A tap on something the search just replaced (the "Find ... near you"
+    // row, say, which the search swaps for its progress message) is still
+    // inside the search, not outside it: the box stays open.
+    if (!e.target.isConnected) return;
     if (!e.target.closest(".search-wrap")) {
       searchResultsEl.classList.remove("show");
       searchWrap.classList.remove("expanded");
@@ -99837,7 +99844,11 @@ return maplibregl$1;
   // name (many burger places, say, aren't tagged as such in OpenStreetMap).
   const FOOD_PLACES = '["amenity"~"^(restaurant|fast_food|food_court|cafe|pub|bar)$"]';
   function foodKind(re, label, cuisine, nameWord) {
-    return { re, label, food: true, filters: [FOOD_PLACES + '["cuisine"~"' + cuisine + '",i]', FOOD_PLACES + '["name"~"' + nameWord + '",i]'] };
+    // Text matching inside the place-service query is slow enough to time
+    // out, so this fetches places to eat (quick) and matches cuisine and
+    // name here on the device.
+    const cRe = new RegExp(cuisine, "i"), nRe = new RegExp(nameWord, "i");
+    return { re, label, food: true, term: nameWord.split("|")[0], filters: [FOOD_PLACES], match: (t) => cRe.test(t.cuisine || "") || nRe.test(t.name || "") || nRe.test(t.brand || "") };
   }
   NEARBY_KINDS.push(
     foodKind(/^(burgers?|hamburgers?|cheeseburgers?)$/, "burger places", "burger", "burger"),
@@ -99857,9 +99868,9 @@ return maplibregl$1;
     foodKind(/^(steak|steakhouse|steaks)$/, "steakhouses", "steak", "steak"),
     foodKind(/^(sandwich(es)?|subs?|deli|delis)$/, "sandwich places", "sandwich|deli|sub", "sandwich|deli|sub"),
     foodKind(/^(vegan|vegetarian|plant[- ]based)$/, "vegan and vegetarian places", "vegan|vegetarian", "vegan|veggie|plant"),
-    { re: /^(donuts?|doughnuts?|tim hortons|timmies)$/, label: "donut shops", food: true, filters: ['["amenity"~"^(cafe|fast_food)$"]["cuisine"~"donut|coffee_shop",i]', '["name"~"donut|doughnut|tim hortons",i]'] },
+    { re: /^(donuts?|doughnuts?|tim hortons|timmies)$/, label: "donut shops", food: true, filters: ['["amenity"~"^(cafe|fast_food)$"]'], match: (t) => /donut|doughnut/i.test(t.cuisine || "") || /donut|doughnut|tim hortons/i.test((t.name || "") + " " + (t.brand || "")) },
     { re: /^(bakery|bakeries|bread|pastr(y|ies)|croissants?)$/, label: "bakeries", food: true, filters: ['["shop"~"^(bakery|pastry)$"]'] },
-    { re: /^(breakfast|brunch|diners?)$/, label: "breakfast places", food: true, filters: [FOOD_PLACES + '["cuisine"~"breakfast|diner|brunch",i]', FOOD_PLACES + '["name"~"breakfast|brunch|diner|eggs",i]'] }
+    { re: /^(breakfast|brunch|diners?)$/, label: "breakfast places", food: true, filters: [FOOD_PLACES], match: (t) => /breakfast|diner|brunch/i.test(t.cuisine || "") || /breakfast|brunch|diner|eggs/i.test(t.name || "") }
   );
   function nearbyQueryText(q) { return String(q || "").toLowerCase().trim().replace(/^(find|show( me)?|where('s| is)( the)?( nearest| closest)?|nearest|closest|any)\s+/, "").replace(/\s+(near me|nearby|around here|close by)$/, "").replace(/[.?!]+$/, "").trim(); }
   function quickNearbyKind(q) { const t = nearbyQueryText(q); return NEARBY_KINDS.find((k) => k.re.test(t)) || null; }
@@ -99923,12 +99934,19 @@ return maplibregl$1;
       "Only include addresses you actually found. If you can't find this business, reply with []."
     ].join("\n");
     const text = await callAI(prompt, { webSearch: true });
+    return await placeWebAddresses(text, origin, name, 5);
+  }
+  // Takes an AI's JSON list of {name, address, website, source}, places each
+  // address with the normal address lookup (one a second, as it asks), and
+  // returns them nearest first. Addresses that can't be placed are left out.
+  async function placeWebAddresses(text, origin, fallbackName, max) {
     const m = /\[[\s\S]*\]/.exec(String(text));
     if (!m) return [];
     let rows = [];
     try { rows = JSON.parse(m[0]); } catch (e) { return []; }
     const found = [];
-    for (const r of (Array.isArray(rows) ? rows : []).slice(0, 5)) {
+    const name = fallbackName;
+    for (const r of (Array.isArray(rows) ? rows : []).slice(0, max)) {
       const address = String((r && r.address) || "").trim();
       if (address.length < 6) continue;
       // Place the address with the normal address lookup (one request a second, as it asks).
@@ -99947,6 +99965,64 @@ return maplibregl$1;
     }
     return found.sort((a, b) => a.km - b.km);
   }
+  // ---- When OpenStreetMap's place service doesn't answer ----
+  // 1. The map's address search (Photon, then Nominatim): separate services
+  //    that can also find businesses near a point. No AI needed.
+  const ADDRESS_SEARCH_SKIP_KEYS = /^(place|boundary|highway|landuse|natural|waterway|railway|route|building)$/;
+  function nearbySearchTerm(intent, q) {
+    if (intent.term) return intent.term;
+    if (intent.nameSearch) return intent.businessName || nearbyQueryText(q);
+    return nearbyQueryText(q) || String(intent.label || "").replace(/s\b/g, "");
+  }
+  async function addressSearchNearby(intent, q, origin) {
+    const term = nearbySearchTerm(intent, q);
+    const within = (lat, lng) => haversineMeters(origin.lat, origin.lng, lat, lng) <= 30000;
+    let rows = [];
+    try {
+      const res = await fetch("https://photon.komoot.io/api/?limit=40&lat=" + origin.lat.toFixed(5) + "&lon=" + origin.lng.toFixed(5) + "&q=" + encodeURIComponent(term));
+      if (res.ok) {
+        const data = await res.json();
+        rows = (data.features || []).map((f) => {
+          const pr = f.properties || {}, c = f.geometry && f.geometry.coordinates;
+          if (!c || !pr.name || ADDRESS_SEARCH_SKIP_KEYS.test(pr.osm_key || "")) return null;
+          return { name: pr.name, lat: c[1], lng: c[0], address: [pr.housenumber, pr.street].filter(Boolean).join(" "), city: pr.city || "", kind: pr.osm_value || "", key: pr.osm_key || "" };
+        }).filter(Boolean);
+      }
+    } catch (e) { rows = []; }
+    if (!rows.filter((r) => within(r.lat, r.lng)).length) {
+      try {
+        const dLat = 0.27, dLng = 0.27 / Math.max(0.2, Math.cos(origin.lat * Math.PI / 180));
+        const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=40&addressdetails=1&extratags=1&bounded=1&viewbox=" +
+          [origin.lng - dLng, origin.lat + dLat, origin.lng + dLng, origin.lat - dLat].map((v) => v.toFixed(5)).join(",") + "&q=" + encodeURIComponent(term));
+        if (res.ok) {
+          const arr = await res.json();
+          rows = (Array.isArray(arr) ? arr : []).map((h) => {
+            const a = h.address || {}, nm = h.name || (h.display_name || "").split(",")[0];
+            if (!nm || ADDRESS_SEARCH_SKIP_KEYS.test(h.class || "")) return null;
+            return { name: nm, lat: parseFloat(h.lat), lng: parseFloat(h.lon), address: [a.house_number, a.road].filter(Boolean).join(" "), city: a.city || a.town || "", kind: h.type || "", key: h.class || "",
+              web: h.extratags ? placeWebsiteFromTags(h.extratags) : "" };
+          }).filter(Boolean);
+        }
+      } catch (e) { /* nothing more to try here */ }
+    }
+    const foodKinds = /^(restaurant|fast_food|food_court|cafe|pub|bar|biergarten|ice_cream|bakery|pastry)$/;
+    return rows.filter((r) => isFinite(r.lat) && within(r.lat, r.lng)).map((r) => ({
+      name: r.name, lat: r.lat, lng: r.lng, km: haversineMeters(origin.lat, origin.lng, r.lat, r.lng) / 1000, address: r.address, city: r.city, web: r.web || "", hours: "",
+      isFood: foodKinds.test(r.kind), viaAddressSearch: true
+    })).sort((a, b) => a.km - b.km).slice(0, 10);
+  }
+  // 2. A web-searching AI: the nearest matching places, from the web.
+  async function aiWebNearby(intent, q, origin) {
+    const what = intent.nameSearch ? "\"" + nearbySearchTerm(intent, q) + "\"" : intent.label || nearbyQueryText(q);
+    const prompt = [
+      "Using web search, find the up to 10 places nearest to latitude " + origin.lat.toFixed(4) + ", longitude " + origin.lng.toFixed(4) + " that match: " + what + ".",
+      "Only real, currently open places within about 30 km. Use their own websites or reliable listings for addresses.",
+      "Reply with only a JSON array, no other text, nearest first: [{\"name\": \"place name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"source\": \"site the address came from\"}].",
+      "Only include places you actually found. If you find none, reply with []."
+    ].join("\n");
+    const text = await callAI(prompt, { webSearch: true });
+    return (await placeWebAddresses(text, origin, "", 10)).filter((pl) => pl.km <= 40).map((pl) => Object.assign(pl, { isFood: !!intent.food }));
+  }
   function nearbyOrigin() {
     return new Promise((resolve) => {
       if (lastLivePosition && isFinite(lastLivePosition.lat)) { resolve({ lat: lastLivePosition.lat, lng: lastLivePosition.lng, where: "you" }); return; }
@@ -99960,13 +100036,19 @@ return maplibregl$1;
     // A business name usually has only a few locations: one wide search is enough.
     for (const radius of (intent.nameSearch ? [30000] : [3000, 10000, 30000])) {
       const around = "(around:" + radius + "," + origin.lat.toFixed(6) + "," + origin.lng.toFixed(6) + ")";
-      const q = "[out:json][timeout:25];(" + intent.filters.map((f) => "nwr" + f + around + ";").join("") + ");out center tags 200;";
-      const r = await overpassQuery(q, 25000);
+      // A bounding box in the query's settings limits the whole search to
+      // this area before anything else, which keeps it quick.
+      const dLat = radius / 111000, dLng = radius / (111000 * Math.max(0.2, Math.cos(origin.lat * Math.PI / 180)));
+      const bbox = [origin.lat - dLat, origin.lng - dLng, origin.lat + dLat, origin.lng + dLng].map((v) => v.toFixed(5)).join(",");
+      // Dishes and cuisines are matched on the device, so they need every place to eat in range.
+      const q = "[out:json][timeout:20][bbox:" + bbox + "];(" + intent.filters.map((f) => "nwr" + f + around + ";").join("") + ");out center tags " + (intent.match ? 4000 : 400) + ";";
+      const r = await overpassQuery(q, 18000);
       if (!r.ok) { if (found.length) break; throw new Error(r.offline ? "you're offline" : r.error); }
       const seen = new Set();
       found = r.elements.map((e) => {
         const t = e.tags || {}, lat = e.lat != null ? e.lat : e.center && e.center.lat, lng = e.lon != null ? e.lon : e.center && e.center.lon;
         if (lat == null) return null;
+        if (intent.match && !intent.match(t)) return null; // dishes and cuisines are matched here, not by the server
         const name = t.name || t.brand || t.operator || "";
         const key = (name || "") + "|" + lat.toFixed(4) + "," + lng.toFixed(4);
         if (seen.has(key)) return null;
@@ -100015,8 +100097,12 @@ return maplibregl$1;
   async function runNearbySearch(q, opts) {
     const o = opts || {}, seq = ++nearbySeq;
     searchSeq++; // any text search still in flight is now out of date
-    const msg = (text) => { searchResultsEl.innerHTML = '<div class="search-result-row search-result-message">' + escapeHtml(text) + "</div>"; searchResultsEl.classList.add("show"); };
-    if (navigator.onLine === false) { msg("Nearby search needs a connection."); if (o.spoken) speak("Nearby search needs a connection."); return; }
+    // The search box stays open, showing what's being looked for, while this runs.
+    if (window.matchMedia("(max-width:600px)").matches) searchWrap.classList.add("expanded");
+    if (searchInput.value.trim() !== String(q).trim() && !o.keepInput) searchInput.value = q;
+    searchClearBtn.style.display = "flex";
+    const msg = (text, busy) => { searchResultsEl.innerHTML = '<div class="search-result-row search-result-message' + (busy === false ? "" : " busy") + '">' + escapeHtml(text) + "</div>"; searchResultsEl.classList.add("show"); };
+    if (navigator.onLine === false) { msg("Nearby search needs a connection.", false); if (o.spoken) speak("Nearby search needs a connection."); return; }
     searchSpinner.style.display = "block";
     try {
       let intent = quickNearbyKind(q);
@@ -100028,11 +100114,28 @@ return maplibregl$1;
       if (!intent) intent = keywordNearbyIntent(q);
       msg("Finding the closest " + intent.label + "\u2026");
       const origin = await nearbyOrigin();
-      const places = await nearbyPlaces(intent, origin);
+      let places, source = "osm";
+      try { places = await nearbyPlaces(intent, origin); }
+      catch (err) {
+        // OpenStreetMap's place service (and its backups) didn't answer.
+        if (navigator.onLine === false) throw err;
+        if (seq !== nearbySeq) return;
+        msg("The main place service didn't answer. Trying the map's address search\u2026");
+        places = await addressSearchNearby(intent, q, origin).catch(() => []);
+        source = "address";
+        if (seq !== nearbySeq) return;
+        if (!places.length && aiWebSearchAvailable()) {
+          msg("\u2728 Still nothing. Asking AI to search the web for " + (intent.label || nearbyQueryText(q)) + "\u2026");
+          places = await aiWebNearby(intent, q, origin).catch(() => []);
+          source = "web";
+          if (seq !== nearbySeq) return;
+        }
+        if (!places.length) throw err;
+      }
       if (seq !== nearbySeq) return;
       // A business name OpenStreetMap doesn't have: look its address up on the web.
-      let fromWeb = false;
-      if (!places.length && intent.nameSearch && aiWebSearchAvailable()) {
+      let fromWeb = source === "web";
+      if (!places.length && source === "osm" && intent.nameSearch && aiWebSearchAvailable()) {
         msg("\u2728 Not in OpenStreetMap nearby. Looking up \u201c" + nearbyQueryText(q) + "\u201d on the web\u2026");
         const web = await webLookupBusiness(intent.businessName || nearbyQueryText(q), origin).catch(() => []);
         if (seq !== nearbySeq) return;
@@ -100063,7 +100166,11 @@ return maplibregl$1;
           ranked = true;
         }
       }
-      const head = fromWeb
+      const head = source === "web"
+        ? { isMessage: true, text: "\u2728 The map services didn't answer, so these were found on the web by AI, nearest first. Check before you go." }
+        : source === "address"
+        ? { isMessage: true, text: "The main place service didn't answer, so these come from the map's address search, nearest first. It may miss some places." }
+        : fromWeb
         ? { isMessage: true, text: "\u2728 Not in OpenStreetMap, so " + (places.length === 1 ? "this address was" : "these addresses were") + " found on the web, nearest first. Check before you go." }
         : { isMessage: true, text: (intent.ai ? "\u2728 " : "") + (places.length === 1 ? "The closest " + intent.label.replace(/^places/, "place") : "The " + places.length + " closest " + intent.label) + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
       const rows = places.map((pl, i) => ({
@@ -100079,7 +100186,14 @@ return maplibregl$1;
         speak("Found " + places.length + " " + intent.label + ". " + (ranked && first.rating != null ? "The best reviewed is " + first.name + ", " + first.rating.toFixed(1) + " stars, " : "The closest is " + first.name + ", ") + fmtNearbyKm(first.km).replace("km", "kilometres").replace(" m", " metres") + " away.");
       }
     } catch (e) {
-      if (seq === nearbySeq) { msg("Couldn't search nearby: " + (e && e.message ? e.message : "unknown error") + "."); if (o.spoken) speak("Sorry, the nearby search didn't work."); }
+      if (seq === nearbySeq) {
+        msg("Couldn't search nearby: " + (e && e.message ? e.message : "unknown error") + ".", false);
+        const again = document.createElement("button");
+        again.type = "button"; again.className = "cc-link-btn search-retry-btn"; again.textContent = "Try again";
+        again.addEventListener("click", (ev) => { ev.stopPropagation(); runNearbySearch(q, o); });
+        searchResultsEl.querySelector(".search-result-message").appendChild(again);
+        if (o.spoken) speak("Sorry, the nearby search didn't work.");
+      }
     } finally {
       if (seq === nearbySeq) searchSpinner.style.display = "none";
     }
@@ -100089,7 +100203,11 @@ return maplibregl$1;
     if (e.key !== "Enter") return;
     const q = searchInput.value.trim();
     if (!q || parseLatLngQuery(q)) return;
-    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q) && !/^\d+\s/.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
+    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q) && !/^\d+\s/.test(q))) {
+      e.preventDefault(); clearTimeout(searchDebounce);
+      searchWrap.classList.add("expanded"); // stays open with its text and progress while the search runs
+      runNearbySearch(q); searchInput.blur();
+    }
   });
   searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
 
