@@ -1054,6 +1054,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .help-version{text-align:center; margin-top:10px;}
   .help-pulse{animation:helppulse 1s ease-out 3; position:relative; z-index:1200;}
   @keyframes helppulse{0%{box-shadow:0 0 0 0 rgba(34,211,238,.9);} 100%{box-shadow:0 0 0 14px rgba(34,211,238,0);}}
+  .search-result-action{background:rgba(34,211,238,.08);}
+  /* Nearby results: the details (distance, rating, hours) get their own line. */
+  .search-result-row.search-result-nearby{flex-wrap:wrap; row-gap:3px;}
+  .search-result-row.search-result-nearby > span{flex:1 1 0; min-width:0;}
+  .search-result-row.search-result-nearby .search-result-detail{flex-basis:100%; padding-left:46px; white-space:normal; overflow:visible; text-overflow:clip; max-width:none;}
+  .search-result-action span{color:var(--cyan); font-weight:600;}
+  .nearby-pin-wrap{background:none; border:none;}
+  .nearby-pin{display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#0e7490; color:#fff; font:700 12px/1 system-ui, sans-serif;
+    border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45);}
   .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
   .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
@@ -81118,7 +81127,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "571";
+  const APP_VERSION = "572";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -84431,6 +84440,7 @@ return maplibregl$1;
   const HELP_SECTIONS = [
     { title: "Finding your way around", items: [
       { t: "Search", d: "Find a place, an address, coordinates (for example 45.42, -75.69) or a 3-word address. From a result you can save it as a waypoint or get directions.", go: "highlight:searchInput", label: "Show me" },
+      { t: "Find things nearby", d: "Search for a kind of place, like \u201cgas\u201d or \u201ccoffee\u201d, and choose \u201cFind \u2026 near you\u201d (or press Enter) to see the 10 closest, numbered on the map. With a Gemini key you can search for anything, like \u201ceggrolls\u201d, and food and drink are listed best reviewed first, using ratings from review sites. With hands-free voice on, just say \u201cfind gas\u201d.", go: "highlight:searchInput", label: "Show me" },
       { t: "Moving and zooming", d: "Drag to pan; pinch or use the zoom slider at the bottom right. The coordinates of the map's centre and a scale bar are shown along the bottom.", go: "highlight:zoomSliderControl", label: "Show me" },
       { t: "Turning the map", d: "Keep north up, twist the map with two fingers, or have it turn so the way you're moving is at the top. A compass appears when the map is turned; tap it to point north again.", go: "settings:Map orientation", label: "Open Map orientation" },
       { t: "Home", d: "Set a home base, then tap the house button to fly back to it from anywhere.", go: "settings:Home base", label: "Set your home" }
@@ -98772,6 +98782,16 @@ return maplibregl$1;
 
     if (voiceCaptureState === "idle") {
       const now = Date.now();
+      // "Find gas", "find eggrolls", "search for pizza": a nearby search, with the answer spoken.
+      const findMatch = isFinal && transcript.match(/^\s*(?:find|search for|look for|where(?:'s| is) the nearest)\s+(.+)/i);
+      if (findMatch) {
+        const what = findMatch[1].trim().replace(/[.?!]+$/, "");
+        searchInput.value = what;
+        searchClearBtn.style.display = "flex";
+        searchWrap.classList.add("expanded");
+        runNearbySearch(what, { spoken: true });
+        return;
+      }
       // "Add to [waypoint name]" jumps straight into note-taking for an
       // *existing* waypoint, preloaded with its current notes so whatever
       // gets said next is appended to the end rather than replacing them --
@@ -99447,7 +99467,12 @@ return maplibregl$1;
     // Saved waypoints (and Home) need no connection, so they appear at once; the place lookup then adds to them.
     const waypointRows = searchSavedWaypoints(q, 5);
     const homeRow = searchHomeResult(q, waypointRows);
-    const localRows = (homeRow ? [homeRow] : []).concat(waypointRows);
+    // "Find ... near you": always for common kinds of place, and for anything when an AI key is set.
+    const quickKind = quickNearbyKind(q);
+    const nearbyRow = quickKind || (settings.geminiApiKey && q.length >= 3)
+      ? [{ kind: "nearbyAction", query: q, display_name: quickKind ? "Find the closest " + quickKind.label + " near you" : "Find \u201c" + nearbyQueryText(q) + "\u201d near you", detail: quickKind ? "" : "Uses AI to work out what to look for", tag: quickKind ? "Nearby" : "\u2728 AI" }]
+      : [];
+    const localRows = nearbyRow.concat(homeRow ? [homeRow] : []).concat(waypointRows);
     if (localRows.length) renderSearchResults(localRows);
     searchSpinner.style.display = "block";
     let outcome;
@@ -99478,7 +99503,7 @@ return maplibregl$1;
     if (results.length === 0) { searchResultsEl.classList.remove("show"); searchResultsEl.innerHTML = ""; return; }
     searchResultsEl.innerHTML = results.map((r, i) => {
       if (r.isMessage) return '<div class="search-result-row search-result-message">' + escapeHtml(r.text) + "</div>";
-      return '<div class="search-result-row" data-idx="' + i + '"' + (r.title ? ' title="' + escapeHtml(r.title) + '"' : "") + ">" + icon("mapPin", 14) +
+      return '<div class="search-result-row' + (r.kind === "nearbyAction" ? " search-result-action" : r.kind === "nearby" ? " search-result-nearby" : "") + '" data-idx="' + i + '"' + (r.title ? ' title="' + escapeHtml(r.title) + '"' : "") + ">" + icon(r.kind === "nearbyAction" ? "search" : "mapPin", 14) +
         (r.tag ? '<em class="search-result-tag search-result-tag-' + (r.kind || "") + '">' + escapeHtml(r.tag) + "</em>" : "") +
         "<span>" + escapeHtml(r.display_name) + "</span>" +
         (r.detail ? '<small class="search-result-detail">' + escapeHtml(r.detail) + "</small>" : "") + "</div>";
@@ -99487,6 +99512,7 @@ return maplibregl$1;
     searchResultsEl.querySelectorAll(".search-result-row[data-idx]").forEach((rowEl) => {
       rowEl.addEventListener("click", () => {
         const r = results[Number(rowEl.dataset.idx)];
+        if (r.kind === "nearbyAction") { runNearbySearch(r.query); return; }
         searchResultsEl.classList.remove("show");
         searchWrap.classList.remove("expanded");
         if (r.kind === "waypoint") {
@@ -99524,6 +99550,178 @@ return maplibregl$1;
       });
     });
   }
+
+
+  /* ================================================================ */
+  /*  Nearby search ("find gas", "eggrolls")                           */
+  /*  Finds the 10 closest matching places to where you are (or the   */
+  /*  map's centre). Common kinds of place work without AI; anything   */
+  /*  else is interpreted by Gemini when a key is set. Food and drink  */
+  /*  results are ranked best-reviewed first, using ratings Gemini      */
+  /*  finds on review sites (Yelp, Google, TripAdvisor...) through its */
+  /*  web search tool; places with no rating found follow, nearest     */
+  /*  first. Ratings are never invented: unknown stays unknown.        */
+  /* ================================================================ */
+  const NEARBY_KINDS = [
+    { re: /^(gas|gas stations?|fuel|petrol|gasoline)$/, label: "gas stations", filters: ['["amenity"="fuel"]'], food: false },
+    { re: /^(ev|ev charg\w*|charging( stations?)?|chargers?|electric car charg\w*)$/, label: "EV charging stations", filters: ['["amenity"="charging_station"]'], food: false },
+    { re: /^(coffee|caf[eé]s?|coffee shops?)$/, label: "coffee shops", filters: ['["amenity"="cafe"]'], food: true },
+    { re: /^(food|restaurants?|eat|somewhere to eat|dinner|lunch|breakfast|brunch)$/, label: "restaurants", filters: ['["amenity"~"^(restaurant|fast_food|food_court)$"]'], food: true },
+    { re: /^(fast food|takeout|take-out|drive[- ]?thru)$/, label: "fast food", filters: ['["amenity"="fast_food"]'], food: true },
+    { re: /^(bars?|pubs?|beer|brewery|breweries|drinks)$/, label: "bars and pubs", filters: ['["amenity"~"^(bar|pub|biergarten)$"]', '["craft"="brewery"]'], food: true },
+    { re: /^(ice cream|gelato)$/, label: "ice cream", filters: ['["amenity"="ice_cream"]', '["cuisine"~"ice_cream"]'], food: true },
+    { re: /^(groceries|grocery( stores?)?|supermarkets?|food store)$/, label: "grocery stores", filters: ['["shop"~"^(supermarket|grocery|greengrocer)$"]'], food: false },
+    { re: /^(convenience( stores?)?|corner store|depanneur|dépanneur)$/, label: "convenience stores", filters: ['["shop"="convenience"]'], food: false },
+    { re: /^(pharmacy|pharmacies|drug ?store|chemist)$/, label: "pharmacies", filters: ['["amenity"="pharmacy"]'], food: false },
+    { re: /^(hospitals?|emergency|er)$/, label: "hospitals", filters: ['["amenity"="hospital"]'], food: false },
+    { re: /^(atms?|cash( machine)?|bank machine)$/, label: "ATMs", filters: ['["amenity"="atm"]'], food: false },
+    { re: /^(banks?)$/, label: "banks", filters: ['["amenity"="bank"]'], food: false },
+    { re: /^(parking|car park|parking lots?)$/, label: "parking", filters: ['["amenity"="parking"]'], food: false },
+    { re: /^(hotels?|motels?|lodging|somewhere to stay)$/, label: "places to stay", filters: ['["tourism"~"^(hotel|motel|guest_house|hostel)$"]'], food: false },
+    { re: /^(camp(ing|grounds?|sites?)?)$/, label: "campgrounds", filters: ['["tourism"~"^(camp_site|caravan_site)$"]'], food: false },
+    { re: /^(washrooms?|restrooms?|toilets?|bathrooms?)$/, label: "washrooms", filters: ['["amenity"="toilets"]'], food: false },
+    { re: /^(propane)$/, label: "propane", filters: ['["shop"="gas"]', '["amenity"="fuel"]["fuel:lpg"="yes"]'], food: false }
+  ];
+  function nearbyQueryText(q) { return String(q || "").toLowerCase().trim().replace(/^(find|show( me)?|where('s| is)( the)?( nearest| closest)?|nearest|closest|any)\s+/, "").replace(/\s+(near me|nearby|around here|close by)$/, "").replace(/[.?!]+$/, "").trim(); }
+  function quickNearbyKind(q) { const t = nearbyQueryText(q); return NEARBY_KINDS.find((k) => k.re.test(t)) || null; }
+  // Only well-formed Overpass tag filters are used from the AI's answer.
+  const NEARBY_FILTER_RE = /^(\["[a-z_:]{2,30}"(=|~)"[^"\\]{1,80}"\]){1,3}$/;
+  async function aiNearbyIntent(q) {
+    const prompt = [
+      "Someone using a map app searched for: \"" + String(q).slice(0, 120) + "\".",
+      "Decide whether they want nearby places of some kind (a category, a food or dish, a service, a shop), or one specific named place/address.",
+      "Respond with JSON only, in exactly this shape:",
+      '{"kind":"nearby" or "place","label":"plural noun phrase for what was found, e.g. egg roll spots","food":true or false,"filters":["OpenStreetMap Overpass tag filters"],"cuisine":"OSM cuisine values that fit, or empty"}',
+      "Rules for filters: 1 to 5 entries, each one or more bracketed tag tests exactly like [\"amenity\"=\"fuel\"] or [\"amenity\"~\"^(restaurant|fast_food)$\"][\"cuisine\"~\"chinese|vietnamese\"]. Use real OSM tags. For a dish, use restaurants and fast food whose cuisine typically serves it.",
+      "food is true for anything to eat or drink (restaurants, cafes, bakeries, bars, dishes)."
+    ].join("\n");
+    const text = await callGeminiChain(prompt, { json: true });
+    const data = JSON.parse(String(text).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, ""));
+    if (!data || data.kind !== "nearby") return null;
+    const filters = (Array.isArray(data.filters) ? data.filters : []).map((f) => String(f).trim()).filter((f) => NEARBY_FILTER_RE.test(f)).slice(0, 5);
+    if (!filters.length) return null;
+    return { label: String(data.label || nearbyQueryText(q)).slice(0, 60), filters, food: !!data.food, ai: true };
+  }
+  function nearbyOrigin() {
+    return new Promise((resolve) => {
+      if (lastLivePosition && isFinite(lastLivePosition.lat)) { resolve({ lat: lastLivePosition.lat, lng: lastLivePosition.lng, where: "you" }); return; }
+      const centre = () => { const c = map.getCenter(); resolve({ lat: c.lat, lng: c.lng, where: "the map's centre" }); };
+      if (!navigator.geolocation) { centre(); return; }
+      navigator.geolocation.getCurrentPosition((pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, where: "you" }), centre, { timeout: 6000, maximumAge: 120000, enableHighAccuracy: false });
+    });
+  }
+  async function nearbyPlaces(intent, origin) {
+    let found = [];
+    for (const radius of [3000, 10000, 30000]) {
+      const around = "(around:" + radius + "," + origin.lat.toFixed(6) + "," + origin.lng.toFixed(6) + ")";
+      const q = "[out:json][timeout:25];(" + intent.filters.map((f) => "nwr" + f + around + ";").join("") + ");out center tags 200;";
+      const r = await overpassQuery(q, 25000);
+      if (!r.ok) { if (found.length) break; throw new Error(r.offline ? "you're offline" : r.error); }
+      const seen = new Set();
+      found = r.elements.map((e) => {
+        const t = e.tags || {}, lat = e.lat != null ? e.lat : e.center && e.center.lat, lng = e.lon != null ? e.lon : e.center && e.center.lon;
+        if (lat == null) return null;
+        const name = t.name || t.brand || t.operator || "";
+        const key = (name || "") + "|" + lat.toFixed(4) + "," + lng.toFixed(4);
+        if (seen.has(key)) return null;
+        seen.add(key);
+        return { name: name || intent.label.replace(/s$/, ""), lat, lng, km: haversineMeters(origin.lat, origin.lng, lat, lng) / 1000,
+          address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" "), city: t["addr:city"] || "", web: placeWebsiteFromTags(t), hours: t.opening_hours || "" };
+      }).filter(Boolean).sort((a, b) => a.km - b.km);
+      if (found.length >= 10) break;
+    }
+    return found.slice(0, 10);
+  }
+  // Review ratings from the web, through Gemini's search tool. Returns how many places got one.
+  async function rateNearbyPlaces(places, label) {
+    const list = places.map((pl, i) => (i + 1) + ". " + pl.name + (pl.address ? ", " + pl.address : "") + (pl.city ? ", " + pl.city : "") + " (" + pl.lat.toFixed(4) + ", " + pl.lng.toFixed(4) + ")").join("\n");
+    const prompt = [
+      "Look up current customer review ratings for these " + label + " using web search (Yelp, Google Maps, TripAdvisor or similar review sites).",
+      list,
+      "Reply with only a JSON array, no other text: [{\"n\": list number, \"rating\": average stars out of 5, \"reviews\": number of reviews, \"source\": \"site name\"}].",
+      "Only include places you actually found ratings for, matched by name and location. Never guess or invent a rating."
+    ].join("\n");
+    const text = await callGeminiChain(prompt, { webSearch: true });
+    const m = /\[[\s\S]*\]/.exec(String(text));
+    if (!m) return 0;
+    let rows = [];
+    try { rows = JSON.parse(m[0]); } catch (e) { return 0; }
+    let n = 0;
+    (Array.isArray(rows) ? rows : []).forEach((r) => {
+      const pl = places[(Number(r.n) || 0) - 1], rating = Number(r.rating);
+      if (!pl || !(rating > 0 && rating <= 5)) return;
+      pl.rating = Math.round(rating * 10) / 10; pl.reviews = Math.max(0, Math.round(Number(r.reviews) || 0)); pl.ratingSource = String(r.source || "web reviews").slice(0, 30);
+      n++;
+    });
+    return n;
+  }
+  // Temporary numbered markers for the results, until the search is cleared.
+  const nearbyLayer = L.layerGroup().addTo(map);
+  function showNearbyOnMap(places, origin) {
+    nearbyLayer.clearLayers();
+    places.forEach((pl, i) => L.marker([pl.lat, pl.lng], { interactive: false, keyboard: false,
+      icon: L.divIcon({ className: "nearby-pin-wrap", html: '<span class="nearby-pin">' + (i + 1) + "</span>", iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(nearbyLayer));
+    try { map.fitBounds(L.latLngBounds(places.map((pl) => [pl.lat, pl.lng]).concat([[origin.lat, origin.lng]])), { padding: [60, 60], maxZoom: 16 }); } catch (e) {}
+  }
+  function fmtNearbyKm(km) { return km < 1 ? Math.round(km * 1000) + " m" : km < 10 ? km.toFixed(1) + " km" : Math.round(km) + " km"; }
+  let nearbySeq = 0;
+  async function runNearbySearch(q, opts) {
+    const o = opts || {}, seq = ++nearbySeq;
+    searchSeq++; // any text search still in flight is now out of date
+    const msg = (text) => { searchResultsEl.innerHTML = '<div class="search-result-row search-result-message">' + escapeHtml(text) + "</div>"; searchResultsEl.classList.add("show"); };
+    if (navigator.onLine === false) { msg("Nearby search needs a connection."); if (o.spoken) speak("Nearby search needs a connection."); return; }
+    searchSpinner.style.display = "block";
+    try {
+      let intent = quickNearbyKind(q);
+      if (!intent && settings.geminiApiKey) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch(() => null); }
+      if (seq !== nearbySeq) return;
+      if (!intent) {
+        msg(settings.geminiApiKey ? "That looks like a specific place rather than a kind of place; try it as a normal search." : "Add a Gemini key in Settings to search for anything nearby; without one, try gas, coffee, restaurants, groceries, pharmacy, ATM or similar.");
+        if (o.spoken) speak("Sorry, I couldn't work out what to look for.");
+        return;
+      }
+      msg("Finding the closest " + intent.label + "\u2026");
+      const origin = await nearbyOrigin();
+      const places = await nearbyPlaces(intent, origin);
+      if (seq !== nearbySeq) return;
+      if (!places.length) { msg("No " + intent.label + " found within 30 km of " + origin.where + "."); if (o.spoken) speak("I couldn't find any " + intent.label + " nearby."); return; }
+      let ranked = false;
+      if (intent.food && settings.geminiApiKey) {
+        msg("Found " + places.length + " " + intent.label + ". Checking reviews\u2026");
+        const got = await rateNearbyPlaces(places, intent.label).catch(() => 0);
+        if (seq !== nearbySeq) return;
+        if (got) {
+          places.sort((a, b) => (b.rating != null) - (a.rating != null) || (b.rating || 0) - (a.rating || 0) || (b.reviews || 0) - (a.reviews || 0) || a.km - b.km);
+          ranked = true;
+        }
+      }
+      const head = { isMessage: true, text: (intent.ai ? "\u2728 " : "") + "The " + places.length + " closest " + intent.label + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
+      const rows = places.map((pl, i) => ({
+        display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1),
+        detail: [fmtNearbyKm(pl.km) + " away", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
+        title: pl.web || ""
+      }));
+      if (ranked) rows.push({ isMessage: true, text: "Ratings come from review sites found by Gemini's web search, and may be out of date." });
+      renderSearchResults([head].concat(rows));
+      showNearbyOnMap(places, origin);
+      if (o.spoken) {
+        const first = places[0];
+        speak("Found " + places.length + " " + intent.label + ". " + (ranked && first.rating != null ? "The best reviewed is " + first.name + ", " + first.rating.toFixed(1) + " stars, " : "The closest is " + first.name + ", ") + fmtNearbyKm(first.km).replace("km", "kilometres").replace(" m", " metres") + " away.");
+      }
+    } catch (e) {
+      if (seq === nearbySeq) { msg("Couldn't search nearby: " + (e && e.message ? e.message : "unknown error") + "."); if (o.spoken) speak("Sorry, the nearby search didn't work."); }
+    } finally {
+      if (seq === nearbySeq) searchSpinner.style.display = "none";
+    }
+  }
+  // Enter in the search box runs a nearby search when the text looks like one.
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const q = searchInput.value.trim();
+    if (!q || parseLatLngQuery(q)) return;
+    if (quickNearbyKind(q) || (settings.geminiApiKey && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
+  });
+  searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
 
   /* ================================================================ */
   /*  Slide-out panel                                                   */
@@ -102796,6 +102994,8 @@ return maplibregl$1;
     };
     // Structured callers (the Itinerary Concierge) ask for JSON output.
     if (opts && opts.json) body.generationConfig.responseMimeType = "application/json";
+    // Web search (for current facts such as review ratings).
+    if (opts && opts.webSearch) body.tools = [{ google_search: {} }];
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": settings.geminiApiKey },
@@ -102809,8 +103009,8 @@ return maplibregl$1;
       err.status = res.status;
       throw err;
     }
-    const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
-      data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    const text = Array.isArray(parts) ? parts.map((pt) => pt && typeof pt.text === "string" ? pt.text : "").join("") : "";
     if (!text) throw new Error("Gemini returned an empty response.");
     return text.trim();
   }
