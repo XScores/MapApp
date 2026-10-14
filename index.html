@@ -1082,6 +1082,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .ai-prov-test-result.good{color:#4ade80;}
   .ai-prov-test-result.bad{color:#fca5a5;}
   .ai-add-btn{width:100%;}
+  .search-pick-card{max-width:400px;}
+  .search-pick-actions{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+  .search-pick-btn{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:12px 14px; border-radius:12px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font:inherit; cursor:pointer;}
+  .search-pick-btn:hover{border-color:var(--cyan);}
+  .search-pick-btn.hidden{display:none;}
+  .search-pick-btn > .icon{color:var(--cyan); flex-shrink:0; display:inline-flex;}
+  .search-pick-btn > span:last-child{display:flex; flex-direction:column; gap:2px;}
+  .search-pick-btn b{font-size:14.5px;}
+  .search-pick-btn small{font-size:12px; color:var(--text-dim);}
+  .search-pick-btn.primary{border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.12);}
+  .search-pick-btn.primary > .icon{color:var(--amber);}
   .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
   .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
@@ -3608,6 +3620,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="btn-row" style="margin-top:12px;">
         <button type="button" class="btn btn-secondary" id="regionDeleteCancelBtn">Cancel</button>
         <button type="button" class="btn btn-danger" id="regionDeleteGoBtn">Delete region</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay hidden search-pick-overlay" id="searchPickOverlay">
+    <div class="modal-card search-pick-card">
+      <div class="modal-header"><div><h2 id="searchPickTitle"></h2><p class="paper-wiz-step-label" id="searchPickSubtitle"></p></div><button class="icon-btn" id="searchPickCloseBtn" data-icon="x"></button></div>
+      <div class="search-pick-actions">
+        <button type="button" class="search-pick-btn" id="searchPickSaveBtn"><span class="icon"></span><span><b>Save as a waypoint</b><small>Opens the waypoint form, filled in</small></span></button>
+        <button type="button" class="search-pick-btn" id="searchPickRouteBtn"><span class="icon"></span><span><b>Directions</b><small>Route there from where you are</small></span></button>
+        <button type="button" class="search-pick-btn primary" id="searchPickBothBtn"><span class="icon"></span><span><b>Save and get directions</b><small>Saves it now, then routes there</small></span></button>
       </div>
     </div>
   </div>
@@ -81153,7 +81175,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "575";
+  const APP_VERSION = "576";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -94207,6 +94229,8 @@ return maplibregl$1;
   }
   function getCurrentLocationPoint() {
     return new Promise((resolve, reject) => {
+      // Already tracking where you are: use that at once rather than waiting for a fresh fix.
+      if (lastLivePosition && isFinite(lastLivePosition.lat) && isFinite(lastLivePosition.lng)) { resolve({ lat: lastLivePosition.lat, lng: lastLivePosition.lng, label: "Current location" }); return; }
       if (!navigator.geolocation) { reject(new Error("Geolocation not available")); return; }
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "Current location" }),
@@ -94277,6 +94301,21 @@ return maplibregl$1;
       steps
     };
   }
+  // Directions to an exact spot (a search result, say) from where you are:
+  // the destination is used as given, not looked up again by name, which
+  // could find a different place with the same name.
+  let directionsPinnedTo = null;
+  function routeToPoint(pl) {
+    openDirectionsModal();
+    directionsUseCurrentLocation = true;
+    directionsFromCurrentBtn.classList.add("active");
+    directionsFromInput.disabled = true;
+    directionsFromInput.value = "";
+    directionsFromInput.placeholder = "Using current location";
+    directionsToInput.value = pl.name;
+    directionsPinnedTo = { query: pl.name, lat: pl.lat, lng: pl.lng, label: pl.name };
+    runDirections();
+  }
   async function runDirections() {
     const toQuery = directionsToInput.value.trim();
     if (!toQuery) { directionsStatusText.textContent = "Enter a destination."; return; }
@@ -94290,7 +94329,7 @@ return maplibregl$1;
     try {
       const fromPoint = directionsUseCurrentLocation ? await getCurrentLocationPoint() : await geocodePoint(fromQuery);
       if (!fromPoint) { directionsStatusText.textContent = "Couldn't find that starting point -- try a more specific name."; directionsGoBtn.disabled = false; return; }
-      const toPoint = await geocodePoint(toQuery);
+      const toPoint = directionsPinnedTo && directionsPinnedTo.query === toQuery ? { lat: directionsPinnedTo.lat, lng: directionsPinnedTo.lng, label: directionsPinnedTo.label } : await geocodePoint(toQuery);
       if (!toPoint) { directionsStatusText.textContent = "Couldn't find that destination -- try a more specific name."; directionsGoBtn.disabled = false; return; }
       directionsStatusText.textContent = "Calculating route…";
       const route = await fetchDirectionsRoute(fromPoint, toPoint, directionsSelectedProfile);
@@ -99735,6 +99774,7 @@ return maplibregl$1;
           flyTo(wp.lat, wp.lng);
           setSelectedWaypointMarker(wp.id);
           searchInput.value = wp.name || "";
+          openSearchPick({ name: wp.name || "Waypoint", lat: wp.lat, lng: wp.lng, savedId: wp.id });
           return;
         }
         if (r.kind === "home") {
@@ -99756,9 +99796,8 @@ return maplibregl$1;
         map.setMaxBounds(WORLD_BOUNDS);
         flyTo(lat, lng, 14);
         searchInput.value = r.display_name.split(",")[0];
-        handleMapPick(lat, lng, false);
-        nameInput.value = r.display_name.split(",")[0];
-        if (r.website) urlInput.value = r.website; // a nearby result's own website comes along
+        // Save it, route to it, or both.
+        openSearchPick({ name: r.display_name.split(",")[0], address: r.display_name.split(",").slice(1).join(",").trim(), lat, lng, website: r.website || "", detail: r.detail || "" });
       });
     });
   }
@@ -100053,6 +100092,39 @@ return maplibregl$1;
     if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q) && !/^\d+\s/.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
   });
   searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
+
+  /* ---------- After choosing a search result: save, route, or both ---------- */
+  let searchPick = null;
+  const searchPickOverlay = el("searchPickOverlay");
+  function openSearchPick(place) {
+    searchPick = place;
+    el("searchPickTitle").textContent = place.name;
+    el("searchPickSubtitle").textContent = [place.address, place.detail].filter(Boolean).join(" \u00b7 ");
+    // A saved waypoint needs no saving: it offers directions only.
+    el("searchPickSaveBtn").classList.toggle("hidden", !!place.savedId);
+    el("searchPickBothBtn").classList.toggle("hidden", !!place.savedId);
+    searchPickOverlay.classList.remove("hidden");
+  }
+  function closeSearchPick() { searchPickOverlay.classList.add("hidden"); }
+  // Opens the waypoint form at the place, filled in with what search knows.
+  function startSearchPickSave(pl) {
+    handleMapPick(pl.lat, pl.lng, false);
+    nameInput.value = pl.name;
+    if (pl.website) urlInput.value = pl.website;
+    if (pl.address && !notesInput.value.trim()) notesInput.value = pl.address;
+  }
+  el("searchPickCloseBtn").addEventListener("click", closeSearchPick);
+  searchPickOverlay.addEventListener("click", (e) => { if (e.target === searchPickOverlay) closeSearchPick(); });
+  el("searchPickSaveBtn").addEventListener("click", () => { const pl = searchPick; closeSearchPick(); if (pl) startSearchPickSave(pl); });
+  el("searchPickRouteBtn").addEventListener("click", () => { const pl = searchPick; closeSearchPick(); if (pl) routeToPoint(pl); });
+  el("searchPickBothBtn").addEventListener("click", () => {
+    const pl = searchPick; closeSearchPick();
+    if (!pl) return;
+    startSearchPickSave(pl);
+    saveBtn.click(); // saves straight away, with the details filled in
+    routeToPoint(pl);
+  });
+  [["searchPickSaveBtn", "mapPin"], ["searchPickRouteBtn", "directions"], ["searchPickBothBtn", "navigation"]].forEach(([id, ic]) => { el(id).querySelector(".icon").innerHTML = icon(ic, 20); });
 
   /* ================================================================ */
   /*  Slide-out panel                                                   */
