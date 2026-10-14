@@ -81153,7 +81153,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "573";
+  const APP_VERSION = "575";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -99626,8 +99626,9 @@ return maplibregl$1;
       clearTimeout(timer);
     }
   }
-  async function runSearch(q) {
+  async function runSearch(q, opts) {
     const seq = ++searchSeq;
+    const noNearbyRow = !!(opts && opts.noNearbyRow); // already tried a nearby search for this
     const coords = parseLatLngQuery(q);
     if (coords) {
       renderSearchResults([{
@@ -99679,7 +99680,7 @@ return maplibregl$1;
     const homeRow = searchHomeResult(q, waypointRows);
     // "Find ... near you": always for common kinds of place, and for anything when an AI key is set.
     const quickKind = quickNearbyKind(q);
-    const nearbyRow = quickKind || (aiAvailable() && q.length >= 3)
+    const nearbyRow = !noNearbyRow && (quickKind || (aiAvailable() && q.length >= 3))
       ? [{ kind: "nearbyAction", query: q, display_name: quickKind ? "Find the closest " + quickKind.label + " near you" : "Find \u201c" + nearbyQueryText(q) + "\u201d near you", detail: quickKind ? "" : "Uses AI to work out what to look for", tag: quickKind ? "Nearby" : "\u2728 AI" }]
       : [];
     const localRows = nearbyRow.concat(homeRow ? [homeRow] : []).concat(waypointRows);
@@ -99757,6 +99758,7 @@ return maplibregl$1;
         searchInput.value = r.display_name.split(",")[0];
         handleMapPick(lat, lng, false);
         nameInput.value = r.display_name.split(",")[0];
+        if (r.website) urlInput.value = r.website; // a nearby result's own website comes along
       });
     });
   }
@@ -99792,6 +99794,34 @@ return maplibregl$1;
     { re: /^(washrooms?|restrooms?|toilets?|bathrooms?)$/, label: "washrooms", filters: ['["amenity"="toilets"]'], food: false },
     { re: /^(propane)$/, label: "propane", filters: ['["shop"="gas"]', '["amenity"="fuel"]["fuel:lpg"="yes"]'], food: false }
   ];
+  // Dishes and cuisines: by how the place is tagged, or with the word in its
+  // name (many burger places, say, aren't tagged as such in OpenStreetMap).
+  const FOOD_PLACES = '["amenity"~"^(restaurant|fast_food|food_court|cafe|pub|bar)$"]';
+  function foodKind(re, label, cuisine, nameWord) {
+    return { re, label, food: true, filters: [FOOD_PLACES + '["cuisine"~"' + cuisine + '",i]', FOOD_PLACES + '["name"~"' + nameWord + '",i]'] };
+  }
+  NEARBY_KINDS.push(
+    foodKind(/^(burgers?|hamburgers?|cheeseburgers?)$/, "burger places", "burger", "burger"),
+    foodKind(/^(pizzas?|pizzeria)$/, "pizza places", "pizza", "pizz"),
+    foodKind(/^(sushi|japanese( food)?|ramen)$/, "sushi and Japanese places", "sushi|japanese|ramen", "sushi|ramen"),
+    foodKind(/^(tacos?|burritos?|mexican( food)?)$/, "Mexican places", "mexican|taco|burrito", "taco|burrito|mexic"),
+    foodKind(/^(shawarma|falafel|lebanese|middle eastern|kebabs?|donairs?)$/, "shawarma and Middle Eastern places", "shawarma|lebanese|kebab|falafel|middle_eastern|arab", "shawarma|kebab|falafel|donair"),
+    foodKind(/^(poutine|fries|chip stands?|french fries)$/, "poutine and fry places", "poutine|chips|fries", "poutine|fries|frites|chip"),
+    foodKind(/^((chicken )?wings|fried chicken|chicken)$/, "chicken and wings places", "chicken|wings", "chicken|wing"),
+    foodKind(/^(pho|vietnamese( food)?|banh mi)$/, "Vietnamese places", "vietnamese", "pho|viet|banh"),
+    foodKind(/^(chinese( food)?|dim sum|dumplings?|egg ?rolls?)$/, "Chinese places", "chinese|dim_sum|dumpling", "dim sum|dumpling|wok|china|chinese"),
+    foodKind(/^(thai( food)?|pad thai)$/, "Thai places", "thai", "thai"),
+    foodKind(/^(indian( food)?|curry|curries)$/, "Indian places", "indian|curry", "india|curry|tandoor"),
+    foodKind(/^(italian( food)?|pasta)$/, "Italian places", "italian|pasta", "trattoria|pasta|italia"),
+    foodKind(/^(korean( food)?|bbq|barbecue|barbeque|smokehouse)$/, "barbecue and Korean places", "korean|bbq|barbecue", "bbq|barbecue|smokehouse|korean"),
+    foodKind(/^(seafood|fish( and | & )chips|fish)$/, "seafood places", "seafood|fish", "fish|seafood|oyster"),
+    foodKind(/^(steak|steakhouse|steaks)$/, "steakhouses", "steak", "steak"),
+    foodKind(/^(sandwich(es)?|subs?|deli|delis)$/, "sandwich places", "sandwich|deli|sub", "sandwich|deli|sub"),
+    foodKind(/^(vegan|vegetarian|plant[- ]based)$/, "vegan and vegetarian places", "vegan|vegetarian", "vegan|veggie|plant"),
+    { re: /^(donuts?|doughnuts?|tim hortons|timmies)$/, label: "donut shops", food: true, filters: ['["amenity"~"^(cafe|fast_food)$"]["cuisine"~"donut|coffee_shop",i]', '["name"~"donut|doughnut|tim hortons",i]'] },
+    { re: /^(bakery|bakeries|bread|pastr(y|ies)|croissants?)$/, label: "bakeries", food: true, filters: ['["shop"~"^(bakery|pastry)$"]'] },
+    { re: /^(breakfast|brunch|diners?)$/, label: "breakfast places", food: true, filters: [FOOD_PLACES + '["cuisine"~"breakfast|diner|brunch",i]', FOOD_PLACES + '["name"~"breakfast|brunch|diner|eggs",i]'] }
+  );
   function nearbyQueryText(q) { return String(q || "").toLowerCase().trim().replace(/^(find|show( me)?|where('s| is)( the)?( nearest| closest)?|nearest|closest|any)\s+/, "").replace(/\s+(near me|nearby|around here|close by)$/, "").replace(/[.?!]+$/, "").trim(); }
   function quickNearbyKind(q) { const t = nearbyQueryText(q); return NEARBY_KINDS.find((k) => k.re.test(t)) || null; }
   // Only well-formed Overpass tag filters are used from the AI's answer.
@@ -99799,18 +99829,84 @@ return maplibregl$1;
   async function aiNearbyIntent(q) {
     const prompt = [
       "Someone using a map app searched for: \"" + String(q).slice(0, 120) + "\".",
-      "Decide whether they want nearby places of some kind (a category, a food or dish, a service, a shop), or one specific named place/address.",
+      "Decide which of these they mean:",
+      "- \"nearby\": a kind of place, a food or dish, a service or a type of shop (burgers, gas, hardware store);",
+      "- \"name\": a specific business, brand or chain by its name (Tim Hortons, Borderline Outdoor, Canadian Tire), which may have several locations;",
+      "- \"address\": a street address, town, city, region or landmark to look up on the map.",
       "Respond with JSON only, in exactly this shape:",
-      '{"kind":"nearby" or "place","label":"plural noun phrase for what was found, e.g. egg roll spots","food":true or false,"filters":["OpenStreetMap Overpass tag filters"],"cuisine":"OSM cuisine values that fit, or empty"}',
+      '{"kind":"nearby" or "name" or "address","name":"the business name as usually written, for kind name","label":"plural noun phrase for what was found, e.g. burger places","food":true or false,"filters":["OpenStreetMap Overpass tag filters, for kind nearby"]}',
       "Rules for filters: 1 to 5 entries, each one or more bracketed tag tests exactly like [\"amenity\"=\"fuel\"] or [\"amenity\"~\"^(restaurant|fast_food)$\"][\"cuisine\"~\"chinese|vietnamese\"]. Use real OSM tags. For a dish, use restaurants and fast food whose cuisine typically serves it.",
       "food is true for anything to eat or drink (restaurants, cafes, bakeries, bars, dishes)."
     ].join("\n");
     const text = await callGeminiChain(prompt, { json: true });
     const data = JSON.parse(String(text).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, ""));
-    if (!data || data.kind !== "nearby") return null;
-    const filters = (Array.isArray(data.filters) ? data.filters : []).map((f) => String(f).trim()).filter((f) => NEARBY_FILTER_RE.test(f)).slice(0, 5);
-    if (!filters.length) return null;
+    if (!data) return null;
+    if (data.kind === "address") return { address: true };
+    if (data.kind === "name" || data.kind === "place") return Object.assign(nameNearbyIntent(String(data.name || nearbyQueryText(q))), { food: data.food === true ? true : undefined, ai: true, businessName: String(data.name || "").trim() || undefined });
+    // Filters in common near-miss forms are tidied into the strict form, then checked.
+    const filters = (Array.isArray(data.filters) ? data.filters : []).map(tidyOverpassFilter).filter((f) => f && NEARBY_FILTER_RE.test(f)).slice(0, 5);
+    if (!filters.length) return Object.assign(keywordNearbyIntent(q), { food: data.food === true ? true : undefined, ai: true });
     return { label: String(data.label || nearbyQueryText(q)).slice(0, 60), filters, food: !!data.food, ai: true };
+  }
+  // amenity=fast_food, [amenity=fast_food], ["amenity"="fast_food"] all become the last form.
+  function tidyOverpassFilter(f) {
+    let t = String(f || "").trim();
+    if (!t) return "";
+    if (!t.startsWith("[")) t = t.split(/\]\s*\[|\s+and\s+|\s*,\s*/i).map((part) => "[" + part.replace(/^\[|\]$/g, "") + "]").join("");
+    return t.replace(/\[\s*"?([a-z_:]{2,30})"?\s*(=|~)\s*"?([^"\]]{1,80}?)"?\s*\]/gi, (m, k, op, v) => '["' + k.toLowerCase() + '"' + op + '"' + v.replace(/"/g, "") + '"]');
+  }
+  // Text for an Overpass regular expression, matched literally.
+  // (Special characters become "any character", which is safe in an Overpass
+  // string and still matches the name: "A&W" or "Tim Horton's" work as written.)
+  function overpassLiteral(text) { return String(text).replace(/[.*+?^${}()|[\]\\"]/g, "."); }
+  // A business or brand by name: the nearest places with that name.
+  function nameNearbyIntent(name) {
+    const n = overpassLiteral(name.trim().slice(0, 60));
+    return { label: "places named \u201c" + name.trim() + "\u201d", nameSearch: true, trusted: true,
+      filters: ['["name"~"' + n + '",i]', '["brand"~"' + n + '",i]', '["operator"~"' + n + '",i]'] };
+  }
+  // Anything else: places whose name, cuisine or kind of shop contains the word(s).
+  function keywordNearbyIntent(q) {
+    const t = nearbyQueryText(q), stem = overpassLiteral(t.replace(/(ies)$/, "y").replace(/(es|s)$/, ""));
+    return { label: "places matching \u201c" + t + "\u201d", nameSearch: true, trusted: true,
+      filters: ['["name"~"' + stem + '",i]', '["cuisine"~"' + stem.replace(/ /g, "_") + '",i]', '["shop"~"' + stem.replace(/ /g, "_") + '",i]'] };
+  }
+  /* A business that OpenStreetMap doesn't have (or has under another name):
+     a web-searching AI service finds its address(es), preferring the
+     business's own website; each address is then placed on the map by the
+     normal address lookup (not by coordinates from the AI), and the result
+     is labelled as coming from the web, with its source. */
+  async function webLookupBusiness(name, origin) {
+    const prompt = [
+      "Using web search, find the street address of the business called \"" + String(name).slice(0, 80) + "\" nearest to latitude " + origin.lat.toFixed(4) + ", longitude " + origin.lng.toFixed(4) + ".",
+      "Prefer the business's own website; otherwise a reliable listing. If it has several locations, give up to 5, nearest first.",
+      "Reply with only a JSON array, no other text: [{\"name\": \"business name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"source\": \"site the address came from\"}].",
+      "Only include addresses you actually found. If you can't find this business, reply with []."
+    ].join("\n");
+    const text = await callAI(prompt, { webSearch: true });
+    const m = /\[[\s\S]*\]/.exec(String(text));
+    if (!m) return [];
+    let rows = [];
+    try { rows = JSON.parse(m[0]); } catch (e) { return []; }
+    const found = [];
+    for (const r of (Array.isArray(rows) ? rows : []).slice(0, 5)) {
+      const address = String((r && r.address) || "").trim();
+      if (address.length < 6) continue;
+      // Place the address with the normal address lookup (one request a second, as it asks).
+      if (found.length) await sleep(1100);
+      let hit = null;
+      try {
+        const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address));
+        if (res.ok) { const arr = await res.json(); hit = Array.isArray(arr) && arr[0]; }
+      } catch (e) { hit = null; }
+      if (!hit) continue;
+      const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
+      if (!isFinite(lat) || !isFinite(lng)) continue;
+      const site = String((r && r.website) || "").trim();
+      found.push({ name: String(r.name || name).slice(0, 80), lat, lng, km: haversineMeters(origin.lat, origin.lng, lat, lng) / 1000, address, city: "",
+        web: /^https?:\/\//i.test(site) ? site : "", hours: "", fromWeb: String((r && r.source) || "the web").slice(0, 40), isFood: false });
+    }
+    return found.sort((a, b) => a.km - b.km);
   }
   function nearbyOrigin() {
     return new Promise((resolve) => {
@@ -99822,7 +99918,8 @@ return maplibregl$1;
   }
   async function nearbyPlaces(intent, origin) {
     let found = [];
-    for (const radius of [3000, 10000, 30000]) {
+    // A business name usually has only a few locations: one wide search is enough.
+    for (const radius of (intent.nameSearch ? [30000] : [3000, 10000, 30000])) {
       const around = "(around:" + radius + "," + origin.lat.toFixed(6) + "," + origin.lng.toFixed(6) + ")";
       const q = "[out:json][timeout:25];(" + intent.filters.map((f) => "nwr" + f + around + ";").join("") + ");out center tags 200;";
       const r = await overpassQuery(q, 25000);
@@ -99836,7 +99933,8 @@ return maplibregl$1;
         if (seen.has(key)) return null;
         seen.add(key);
         return { name: name || intent.label.replace(/s$/, ""), lat, lng, km: haversineMeters(origin.lat, origin.lng, lat, lng) / 1000,
-          address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" "), city: t["addr:city"] || "", web: placeWebsiteFromTags(t), hours: t.opening_hours || "" };
+          address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" "), city: t["addr:city"] || "", web: placeWebsiteFromTags(t), hours: t.opening_hours || "",
+          isFood: /^(restaurant|fast_food|food_court|cafe|pub|bar|biergarten|ice_cream)$/.test(t.amenity || "") || /^(bakery|pastry)$/.test(t.shop || "") };
       }).filter(Boolean).sort((a, b) => a.km - b.km);
       if (found.length >= 10) break;
     }
@@ -99885,16 +99983,37 @@ return maplibregl$1;
       let intent = quickNearbyKind(q);
       if (!intent && aiAvailable()) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch(() => null); }
       if (seq !== nearbySeq) return;
-      if (!intent) {
-        msg(aiAvailable() ? "That looks like a specific place rather than a kind of place; try it as a normal search." : "Add an AI service in Settings to search for anything nearby; without one, try gas, coffee, restaurants, groceries, pharmacy, ATM or similar.");
-        if (o.spoken) speak("Sorry, I couldn't work out what to look for.");
-        return;
-      }
+      // An address, town or landmark: the normal search results.
+      if (intent && intent.address) { searchSpinner.style.display = "none"; runSearch(q, { noNearbyRow: true }); return; }
+      // Nothing better: the nearest places whose name, cuisine or kind of shop matches.
+      if (!intent) intent = keywordNearbyIntent(q);
       msg("Finding the closest " + intent.label + "\u2026");
       const origin = await nearbyOrigin();
       const places = await nearbyPlaces(intent, origin);
       if (seq !== nearbySeq) return;
-      if (!places.length) { msg("No " + intent.label + " found within 30 km of " + origin.where + "."); if (o.spoken) speak("I couldn't find any " + intent.label + " nearby."); return; }
+      // A business name OpenStreetMap doesn't have: look its address up on the web.
+      let fromWeb = false;
+      if (!places.length && intent.nameSearch && aiWebSearchAvailable()) {
+        msg("\u2728 Not in OpenStreetMap nearby. Looking up \u201c" + nearbyQueryText(q) + "\u201d on the web\u2026");
+        const web = await webLookupBusiness(intent.businessName || nearbyQueryText(q), origin).catch(() => []);
+        if (seq !== nearbySeq) return;
+        if (web.length) { places.push(...web.filter((pl) => pl.km <= 300).slice(0, 10)); fromWeb = places.length > 0; }
+      }
+      if (!places.length) {
+        // Nothing nearby: show the normal search results instead, with a note.
+        if (o.spoken) speak("I couldn't find any " + intent.label.replace(/[\u201c\u201d]/g, "") + " within 30 kilometres.");
+        searchSpinner.style.display = "none";
+        await runSearch(q, { noNearbyRow: true });
+        if (seq !== nearbySeq) return;
+        const note = document.createElement("div");
+        note.className = "search-result-row search-result-message";
+        note.textContent = "No " + intent.label + " within 30 km of " + origin.where + ". Other results:";
+        searchResultsEl.insertBefore(note, searchResultsEl.firstChild);
+        searchResultsEl.classList.add("show");
+        return;
+      }
+      // Name or keyword matches: ranked by reviews when most of them are places to eat or drink.
+      if (intent.food === undefined) intent.food = places.filter((pl) => pl.isFood).length * 2 >= places.length;
       let ranked = false;
       if (intent.food && aiWebSearchAvailable()) {
         msg("Found " + places.length + " " + intent.label + ". Checking reviews\u2026");
@@ -99905,10 +100024,12 @@ return maplibregl$1;
           ranked = true;
         }
       }
-      const head = { isMessage: true, text: (intent.ai ? "\u2728 " : "") + "The " + places.length + " closest " + intent.label + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
+      const head = fromWeb
+        ? { isMessage: true, text: "\u2728 Not in OpenStreetMap, so " + (places.length === 1 ? "this address was" : "these addresses were") + " found on the web, nearest first. Check before you go." }
+        : { isMessage: true, text: (intent.ai ? "\u2728 " : "") + (places.length === 1 ? "The closest " + intent.label.replace(/^places/, "place") : "The " + places.length + " closest " + intent.label) + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
       const rows = places.map((pl, i) => ({
-        display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1),
-        detail: [fmtNearbyKm(pl.km) + " away", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
+        display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1), website: pl.web || "",
+        detail: [fmtNearbyKm(pl.km) + " away", pl.fromWeb ? "address from " + pl.fromWeb : "", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
         title: pl.web || ""
       }));
       if (ranked) rows.push({ isMessage: true, text: "Ratings come from review sites found by Gemini's web search, and may be out of date." });
@@ -99929,7 +100050,7 @@ return maplibregl$1;
     if (e.key !== "Enter") return;
     const q = searchInput.value.trim();
     if (!q || parseLatLngQuery(q)) return;
-    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
+    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q) && !/^\d+\s/.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
   });
   searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
 
