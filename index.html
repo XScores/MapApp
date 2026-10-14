@@ -1063,6 +1063,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .nearby-pin-wrap{background:none; border:none;}
   .nearby-pin{display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#0e7490; color:#fff; font:700 12px/1 system-ui, sans-serif;
     border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45);}
+  .ai-provider-list{display:flex; flex-direction:column; gap:10px; margin:6px 0 10px;}
+  .ai-prov-card{border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:rgba(30,41,59,.35);}
+  .ai-prov-card.off{opacity:.65;}
+  .ai-prov-head{display:flex; align-items:center; gap:8px;}
+  .ai-prov-num{display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#0e7490; color:#fff; font-size:11px; font-weight:700; flex-shrink:0;}
+  .ai-prov-name{font-weight:600; font-size:13.5px; color:var(--text); flex:1; min-width:0;}
+  .ai-prov-state{font-size:11px; color:var(--amber-light); white-space:nowrap;}
+  .ai-prov-state.ok{color:#4ade80;}
+  .ai-prov-tools{display:inline-flex; gap:4px;}
+  .ai-prov-tools button{width:26px; height:26px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); cursor:pointer; padding:0; font-size:13px;}
+  .ai-prov-tools button:disabled{opacity:.35; cursor:default;}
+  .ai-prov-on{margin-top:4px;}
+  .ai-prov-card .field-label{margin-top:8px;}
+  .ai-prov-card .field-label a{font-weight:400; margin-left:6px; color:var(--cyan);}
+  .ai-prov-test{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;}
+  .ai-prov-test-result{font-size:12px; color:var(--text-dim);}
+  .ai-prov-test-result.good{color:#4ade80;}
+  .ai-prov-test-result.bad{color:#fca5a5;}
+  .ai-add-btn{width:100%;}
   .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
   .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
@@ -2653,6 +2672,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <span>Gemini key saved</span>
             <button id="geminiKeyForgetBtn">Remove</button>
           </div>
+        </div>
+
+        <div class="layers-section">
+          <p class="layers-section-title">AI services</p>
+          <p class="layers-hint">MapApp's AI features (Itinerary Concierge, A.I. Story, nearby search and review ratings) use these in order. If one can't answer (its free allowance is used up, it's busy, or the key is wrong), the next one is tried. Keys stay on this device and are never put in the synced file. Spoken narration always uses Gemini.</p>
+          <div id="aiProviderList" class="ai-provider-list"></div>
+          <button type="button" class="btn btn-secondary ai-add-btn" id="aiProviderAddBtn">+ Add an AI service</button>
         </div>
 
         <div class="layers-section">
@@ -81127,7 +81153,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "572";
+  const APP_VERSION = "573";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -83655,6 +83681,7 @@ return maplibregl$1;
     const hasKey = !!settings.geminiApiKey;
     geminiKeyPrompt.style.display = hasKey ? "none" : "block";
     geminiKeySaved.style.display = hasKey ? "flex" : "none";
+    if (typeof renderAiProviders === "function" && el("aiProviderList")) try { renderAiProviders(); } catch (e) { /* the list isn't set up yet during start-up */ }
   }
 
   const folderShareModalOverlay = el("folderShareModalOverlay");
@@ -84485,6 +84512,7 @@ return maplibregl$1;
     { title: "Settings and troubleshooting", items: [
       { t: "Units and location marker", d: "Choose kilometres or miles, and the icon that shows where you are.", go: "settings:Units", label: "Open Units" },
       { t: "API keys", d: "Add free keys for Thunderforest maps (removes the watermark and enables the live Street map), OpenWeatherMap weather, and Gemini (AI itineraries, stories and narration).", go: "settings:Thunderforest API key", label: "Open API keys" },
+      { t: "AI services and fallbacks", d: "Use ChatGPT, Claude, OpenRouter, Groq, Mistral, DeepSeek or any OpenAI-compatible service as well as, or instead of, Gemini. They're tried in the order you set: if one can't answer (out of free allowance, busy, or a bad key), the next takes over. Each has a Test button. Keys stay on this device.", go: "settings:AI services", label: "Open AI services" },
       { t: "Story narration voice", d: "Pick the voice used to read stories and narrations aloud.", go: "settings:Story Narration", label: "Open narration settings" },
       { t: "If the app won't start", d: "After an unexpected close, the next start opens in safe mode with the heaviest features off; tap Try normal mode when ready. Adding ?safe=1 to the address forces safe mode, and ?diag=1 shows a report you can copy or email.", go: "url:?diag=1", label: "Open the diagnostics page" }
     ] }
@@ -84628,6 +84656,182 @@ return maplibregl$1;
     refreshGeminiUi();
     showToast("API key removed");
   });
+
+
+  /* ================================================================ */
+  /*  AI services: an ordered list with fallback                       */
+  /*  Each AI request goes to the first enabled service with a key; if  */
+  /*  it fails (free allowance used up, rate-limited, unavailable, bad  */
+  /*  key), the next one is tried. Gemini is one entry (its key is the  */
+  /*  one in the Gemini section); others are added in Settings. Keys    */
+  /*  live only on this device (never synced).                          */
+  /* ================================================================ */
+  const AI_PROVIDER_TYPES = {
+    gemini: { label: "Gemini (Google)", web: true },
+    openai: { label: "ChatGPT (OpenAI)", base: "https://api.openai.com/v1", model: "gpt-4o-mini", keyUrl: "https://platform.openai.com/api-keys", web: false },
+    anthropic: { label: "Claude (Anthropic)", model: "claude-haiku-5-5", keyUrl: "https://console.anthropic.com/settings/keys", web: true },
+    openrouter: { label: "OpenRouter (many models)", base: "https://openrouter.ai/api/v1", model: "openrouter/auto", keyUrl: "https://openrouter.ai/keys", web: true },
+    groq: { label: "Groq", base: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", keyUrl: "https://console.groq.com/keys", web: false },
+    mistral: { label: "Mistral", base: "https://api.mistral.ai/v1", model: "mistral-small-latest", keyUrl: "https://console.mistral.ai/api-keys", web: false },
+    deepseek: { label: "DeepSeek", base: "https://api.deepseek.com/v1", model: "deepseek-chat", keyUrl: "https://platform.deepseek.com/api_keys", web: false },
+    custom: { label: "Other (OpenAI-compatible)", base: "", model: "", web: false }
+  };
+  function aiProviders() {
+    if (!Array.isArray(settings.aiProviders) || !settings.aiProviders.some((p) => p.type === "gemini")) {
+      settings.aiProviders = [{ id: "gemini", type: "gemini", enabled: true }].concat(Array.isArray(settings.aiProviders) ? settings.aiProviders.filter((p) => p.type !== "gemini") : []);
+    }
+    return settings.aiProviders;
+  }
+  function aiProviderKey(p) { return p.type === "gemini" ? settings.geminiApiKey : p.key; }
+  function aiProviderReady(p) { return p.enabled !== false && !!aiProviderKey(p) && (p.type !== "custom" || /^https?:\/\//i.test(p.baseUrl || "")); }
+  function aiAvailable() { return aiProviders().some(aiProviderReady); }
+  function aiWebSearchAvailable() { return aiProviders().some((p) => aiProviderReady(p) && AI_PROVIDER_TYPES[p.type].web); }
+  function aiProviderName(p) { return p.type === "custom" ? (p.label || "Custom AI") : AI_PROVIDER_TYPES[p.type].label.replace(/ \(.*\)$/, ""); }
+  // Pulls the JSON out of an answer that may wrap it in prose or ``` fences.
+  function aiExtractJson(text) {
+    const t = String(text || "").replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    if (/^[\[{]/.test(t)) return t;
+    const a = t.indexOf("{"), b = t.lastIndexOf("}"), c = t.indexOf("["), d = t.lastIndexOf("]");
+    if (c !== -1 && d > c && (a === -1 || c < a)) return t.slice(c, d + 1);
+    if (a !== -1 && b > a) return t.slice(a, b + 1);
+    return t;
+  }
+  async function aiHttpError(res, data) {
+    const msg = data && (data.error && (data.error.message || data.error.type || (typeof data.error === "string" ? data.error : ""))) || ("HTTP " + res.status);
+    const err = new Error(String(msg).slice(0, 200)); err.status = res.status; return err;
+  }
+  async function callOpenAICompatible(p, prompt, opts) {
+    const type = AI_PROVIDER_TYPES[p.type];
+    const base = (p.type === "custom" ? p.baseUrl : type.base).replace(/\/+$/, "");
+    let model = p.model || type.model;
+    if (p.type === "openrouter" && opts && opts.webSearch && !/:online$/.test(model)) model += ":online"; // OpenRouter's web-search variant
+    const send = async (jsonMode) => {
+      const body = { model, messages: [{ role: "user", content: prompt }] };
+      if (jsonMode) body.response_format = { type: "json_object" };
+      const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + aiProviderKey(p) };
+      if (p.type === "openrouter") { headers["HTTP-Referer"] = location.origin && location.origin !== "null" ? location.origin : "https://mapapp.local"; headers["X-Title"] = "MapApp"; }
+      const res = await fetch(base + "/chat/completions", { method: "POST", headers, body: JSON.stringify(body) });
+      let data = null; try { data = await res.json(); } catch (e) {}
+      if (!res.ok) throw await aiHttpError(res, data);
+      const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!text) throw new Error("empty answer");
+      return String(text).trim();
+    };
+    // Some services don't accept the JSON-output switch; the prompt asks for JSON anyway.
+    if (opts && opts.json && !/:online$/.test(model)) { try { return await send(true); } catch (e) { if (e.status === 400 || e.status === 422) return await send(false); throw e; } }
+    return await send(false);
+  }
+  async function callAnthropic(p, prompt, opts) {
+    const body = { model: p.model || AI_PROVIDER_TYPES.anthropic.model, max_tokens: 8000, messages: [{ role: "user", content: prompt }] };
+    if (opts && opts.webSearch) body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }];
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": aiProviderKey(p), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify(body)
+    });
+    let data = null; try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw await aiHttpError(res, data);
+    const text = (data && Array.isArray(data.content) ? data.content : []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    if (!text) throw new Error("empty answer");
+    return text.trim();
+  }
+  async function callAIProvider(p, prompt, opts) {
+    if (p.type === "gemini") return await callGeminiOnly(prompt, opts);
+    if (p.type === "anthropic") return await callAnthropic(p, prompt, opts);
+    return await callOpenAICompatible(p, prompt, opts);
+  }
+  // The one entry point for AI text. opts.json: answer must be JSON;
+  // opts.webSearch: needs current facts from the web (only services that
+  // can search are used, so nothing is made up from memory).
+  const aiFallbackNoticeShown = new Set();
+  async function callAI(prompt, opts) {
+    const o = opts || {};
+    const list = aiProviders().filter(aiProviderReady).filter((p) => !o.webSearch || AI_PROVIDER_TYPES[p.type].web);
+    if (!list.length) throw Object.assign(new Error(o.webSearch ? "None of your AI services can search the web." : "No AI service is set up. Add one in Settings."), { noKey: true });
+    const failures = [];
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      try {
+        let text = await callAIProvider(p, prompt, o);
+        if (o.json) text = aiExtractJson(text); // any service can wrap JSON in ``` fences or a sentence
+        if (o.json) JSON.parse(text); // an answer that isn't usable JSON counts as a failure, so the next service gets a turn
+        if (failures.length && !aiFallbackNoticeShown.has(p.id)) {
+          aiFallbackNoticeShown.add(p.id);
+          showToast(failures.map((f) => f.name).join(" and ") + " couldn't answer, so " + aiProviderName(p) + " was used.");
+        }
+        return text;
+      } catch (e) {
+        failures.push({ name: aiProviderName(p), message: e && e.message });
+        console.warn("[ai] " + aiProviderName(p) + " failed: " + (e && e.message) + (i < list.length - 1 ? "; trying " + aiProviderName(list[i + 1]) : ""));
+      }
+    }
+    throw new Error(list.length === 1 ? aiProviderName(list[0]) + " couldn't answer (" + (failures[0].message || "unknown error") + "). Try again later, or add another AI service in Settings as a fallback."
+      : "None of your AI services could answer right now. Try again in a few minutes.");
+  }
+
+  // ---- Settings: the list ----
+  const aiProviderListEl = el("aiProviderList");
+  function renderAiProviders() {
+    const list = aiProviders();
+    aiProviderListEl.innerHTML = list.map((p, i) => {
+      const t = AI_PROVIDER_TYPES[p.type];
+      const ready = aiProviderReady(p);
+      const head = '<div class="ai-prov-head"><span class="ai-prov-num">' + (i + 1) + '</span><span class="ai-prov-name">' + escapeHtml(p.type === "custom" && p.label ? p.label : t.label) + "</span>" +
+        '<span class="ai-prov-state ' + (ready ? "ok" : "") + '">' + (p.enabled === false ? "Off" : ready ? "Ready" : "Needs a key") + "</span>" +
+        '<span class="ai-prov-tools">' +
+        '<button type="button" data-ai-up="' + i + '" title="Try earlier" aria-label="Move up"' + (i === 0 ? " disabled" : "") + ">\u2191</button>" +
+        '<button type="button" data-ai-down="' + i + '" title="Try later" aria-label="Move down"' + (i === list.length - 1 ? " disabled" : "") + ">\u2193</button>" +
+        (p.type !== "gemini" ? '<button type="button" data-ai-remove="' + i + '" title="Remove" aria-label="Remove">\u2715</button>' : "") +
+        "</span></div>";
+      const on = '<label class="layers-option ai-prov-on"><input type="checkbox" data-ai-enabled="' + i + '"' + (p.enabled !== false ? " checked" : "") + " /><span>Use this service</span></label>";
+      let body;
+      if (p.type === "gemini") body = '<p class="layers-hint">Uses the key in the Gemini API section above' + (settings.geminiApiKey ? "." : " (none saved yet).") + " Can search the web (used for review ratings).</p>";
+      else {
+        body = '<label class="field-label">Service</label><select class="field-input" data-ai-type="' + i + '">' +
+          Object.keys(AI_PROVIDER_TYPES).filter((k) => k !== "gemini").map((k) => '<option value="' + k + '"' + (k === p.type ? " selected" : "") + ">" + escapeHtml(AI_PROVIDER_TYPES[k].label) + "</option>").join("") + "</select>" +
+          (p.type === "custom"
+            ? '<label class="field-label">Name</label><input class="field-input" data-ai-label="' + i + '" value="' + escapeHtml(p.label || "") + '" placeholder="e.g. My local model" />' +
+              '<label class="field-label">Address (OpenAI-compatible)</label><input class="field-input" data-ai-base="' + i + '" value="' + escapeHtml(p.baseUrl || "") + '" placeholder="https://example.com/v1" autocomplete="off" />'
+            : "") +
+          '<label class="field-label">API key' + (t.keyUrl ? ' <a href="' + t.keyUrl + '" target="_blank" rel="noopener">get one</a>' : "") + '</label><input class="field-input" type="password" data-ai-key="' + i + '" value="' + escapeHtml(p.key || "") + '" placeholder="Paste API key\u2026" autocomplete="off" />' +
+          '<label class="field-label">Model</label><input class="field-input" data-ai-model="' + i + '" value="' + escapeHtml(p.model || "") + '" placeholder="' + escapeHtml(t.model || "model name") + '" autocomplete="off" />' +
+          (t.web ? '<p class="layers-hint">Can search the web (used for review ratings).</p>' : "");
+      }
+      return '<div class="ai-prov-card' + (p.enabled === false ? " off" : "") + '">' + head + on + body +
+        '<div class="ai-prov-test"><button type="button" class="help-go" data-ai-test="' + i + '">Test</button><span class="ai-prov-test-result" id="aiTestResult' + i + '"></span></div></div>';
+    }).join("");
+    const save = () => { saveSettings(); };
+    const bind = (sel, fn, ev) => aiProviderListEl.querySelectorAll(sel).forEach((n) => n.addEventListener(ev || "change", fn));
+    bind("[data-ai-up]", (e) => { const i = +e.currentTarget.dataset.aiUp; [list[i - 1], list[i]] = [list[i], list[i - 1]]; save(); renderAiProviders(); }, "click");
+    bind("[data-ai-down]", (e) => { const i = +e.currentTarget.dataset.aiDown; [list[i + 1], list[i]] = [list[i], list[i + 1]]; save(); renderAiProviders(); }, "click");
+    bind("[data-ai-remove]", (e) => { list.splice(+e.currentTarget.dataset.aiRemove, 1); save(); renderAiProviders(); }, "click");
+    bind("[data-ai-enabled]", (e) => { list[+e.currentTarget.dataset.aiEnabled].enabled = e.currentTarget.checked; save(); renderAiProviders(); });
+    bind("[data-ai-type]", (e) => { const p = list[+e.currentTarget.dataset.aiType]; p.type = e.currentTarget.value; p.model = ""; save(); renderAiProviders(); });
+    bind("[data-ai-key]", (e) => { list[+e.currentTarget.dataset.aiKey].key = e.currentTarget.value.trim(); save(); renderAiProviders(); });
+    bind("[data-ai-model]", (e) => { list[+e.currentTarget.dataset.aiModel].model = e.currentTarget.value.trim(); save(); });
+    bind("[data-ai-base]", (e) => { list[+e.currentTarget.dataset.aiBase].baseUrl = e.currentTarget.value.trim(); save(); renderAiProviders(); });
+    bind("[data-ai-label]", (e) => { list[+e.currentTarget.dataset.aiLabel].label = e.currentTarget.value.trim().slice(0, 40); save(); renderAiProviders(); });
+    bind("[data-ai-test]", async (e) => {
+      const i = +e.currentTarget.dataset.aiTest, p = list[i], out = el("aiTestResult" + i);
+      if (!aiProviderKey(p)) { out.textContent = "Add a key first."; out.className = "ai-prov-test-result bad"; return; }
+      out.textContent = "Testing\u2026"; out.className = "ai-prov-test-result";
+      const t0 = performance.now();
+      try {
+        const reply = await callAIProvider(p, "Reply with just the word OK.", {});
+        out.textContent = "Works (" + ((performance.now() - t0) / 1000).toFixed(1) + " s): \u201c" + reply.slice(0, 30) + "\u201d";
+        out.className = "ai-prov-test-result good";
+      } catch (err) {
+        out.textContent = "Didn't work: " + (err && err.message ? err.message : "unknown error") + (err && err.name === "TypeError" ? " (this service may not accept requests from a web app)" : "");
+        out.className = "ai-prov-test-result bad";
+      }
+    }, "click");
+  }
+  el("aiProviderAddBtn").addEventListener("click", () => {
+    aiProviders().push({ id: "ai_" + Date.now().toString(36), type: "openai", key: "", model: "", enabled: true });
+    saveSettings(); renderAiProviders();
+    const cards = aiProviderListEl.querySelectorAll(".ai-prov-card"); cards[cards.length - 1].scrollIntoView({ block: "nearest" });
+  });
+  renderAiProviders();
 
   /* ---------- home base ---------- */
   let homeMarker = null;
@@ -88329,6 +88533,8 @@ return maplibregl$1;
     delete payload.githubToken;
     delete payload.githubRepo;
     if (payload.settings) SYNC_SECRET_SETTINGS.forEach((k) => { delete payload.settings[k]; });
+    // AI service keys stay on this device (the list itself is left out too).
+    if (payload.settings) delete payload.settings.aiProviders;
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
@@ -98277,7 +98483,11 @@ return maplibregl$1;
         return await callGeminiTtsOnce(promptText, voiceName);
       } catch (e) {
         const isTransient = e && (e.status === 429 || e.status === 503);
-        if (!isTransient || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
+        // A used-up allowance (quota) won't come back in a few seconds: move
+        // on at once (to the next model, or the next AI service) instead of
+        // waiting through retries.
+        const quotaGone = e && e.status === 429 && /quota|exhaust|billing|limit: 0/i.test(e.message || "");
+        if (!isTransient || quotaGone || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
         console.warn("[gemini-tts] returned " + e.status + " (attempt " + (attempt + 1) + "). Retrying in " + GEMINI_RETRY_DELAYS_MS[attempt] + "ms\u2026");
         await sleep(GEMINI_RETRY_DELAYS_MS[attempt]);
       }
@@ -99469,7 +99679,7 @@ return maplibregl$1;
     const homeRow = searchHomeResult(q, waypointRows);
     // "Find ... near you": always for common kinds of place, and for anything when an AI key is set.
     const quickKind = quickNearbyKind(q);
-    const nearbyRow = quickKind || (settings.geminiApiKey && q.length >= 3)
+    const nearbyRow = quickKind || (aiAvailable() && q.length >= 3)
       ? [{ kind: "nearbyAction", query: q, display_name: quickKind ? "Find the closest " + quickKind.label + " near you" : "Find \u201c" + nearbyQueryText(q) + "\u201d near you", detail: quickKind ? "" : "Uses AI to work out what to look for", tag: quickKind ? "Nearby" : "\u2728 AI" }]
       : [];
     const localRows = nearbyRow.concat(homeRow ? [homeRow] : []).concat(waypointRows);
@@ -99673,10 +99883,10 @@ return maplibregl$1;
     searchSpinner.style.display = "block";
     try {
       let intent = quickNearbyKind(q);
-      if (!intent && settings.geminiApiKey) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch(() => null); }
+      if (!intent && aiAvailable()) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch(() => null); }
       if (seq !== nearbySeq) return;
       if (!intent) {
-        msg(settings.geminiApiKey ? "That looks like a specific place rather than a kind of place; try it as a normal search." : "Add a Gemini key in Settings to search for anything nearby; without one, try gas, coffee, restaurants, groceries, pharmacy, ATM or similar.");
+        msg(aiAvailable() ? "That looks like a specific place rather than a kind of place; try it as a normal search." : "Add an AI service in Settings to search for anything nearby; without one, try gas, coffee, restaurants, groceries, pharmacy, ATM or similar.");
         if (o.spoken) speak("Sorry, I couldn't work out what to look for.");
         return;
       }
@@ -99686,7 +99896,7 @@ return maplibregl$1;
       if (seq !== nearbySeq) return;
       if (!places.length) { msg("No " + intent.label + " found within 30 km of " + origin.where + "."); if (o.spoken) speak("I couldn't find any " + intent.label + " nearby."); return; }
       let ranked = false;
-      if (intent.food && settings.geminiApiKey) {
+      if (intent.food && aiWebSearchAvailable()) {
         msg("Found " + places.length + " " + intent.label + ". Checking reviews\u2026");
         const got = await rateNearbyPlaces(places, intent.label).catch(() => 0);
         if (seq !== nearbySeq) return;
@@ -99719,7 +99929,7 @@ return maplibregl$1;
     if (e.key !== "Enter") return;
     const q = searchInput.value.trim();
     if (!q || parseLatLngQuery(q)) return;
-    if (quickNearbyKind(q) || (settings.geminiApiKey && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
+    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q))) { e.preventDefault(); clearTimeout(searchDebounce); runNearbySearch(q); searchInput.blur(); }
   });
   searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
 
@@ -103025,7 +103235,11 @@ return maplibregl$1;
         return await callGeminiModel(model, prompt, opts);
       } catch (e) {
         const isTransient = e && (e.status === 429 || e.status === 503);
-        if (!isTransient || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
+        // A used-up allowance (quota) won't come back in a few seconds: move
+        // on at once (to the next model, or the next AI service) instead of
+        // waiting through retries.
+        const quotaGone = e && e.status === 429 && /quota|exhaust|billing|limit: 0/i.test(e.message || "");
+        if (!isTransient || quotaGone || attempt >= GEMINI_RETRY_DELAYS_MS.length) throw e;
         console.warn("[gemini] " + model + " returned " + e.status + " (attempt " + (attempt + 1) + "). Retrying in " + GEMINI_RETRY_DELAYS_MS[attempt] + "ms\u2026");
         await sleep(GEMINI_RETRY_DELAYS_MS[attempt]);
       }
@@ -103046,7 +103260,10 @@ return maplibregl$1;
   async function callGeminiForStory(prompt) { return callGeminiChain(prompt); }
   // The shared chain: primary model with retries, then fallbacks. Used by
   // A.I. Story (plain text) and the Itinerary Concierge (JSON).
-  async function callGeminiChain(prompt, opts) {
+  // Every AI request now goes through the list of AI services (Settings),
+  // of which Gemini (this model chain) is one.
+  async function callGeminiChain(prompt, opts) { return callAI(prompt, opts); }
+  async function callGeminiOnly(prompt, opts) {
     const models = [GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS];
     let lastErr = null;
     for (let i = 0; i < models.length; i++) {
@@ -103062,6 +103279,7 @@ return maplibregl$1;
       }
     }
     if (lastErr && lastErr.status && lastErr.status !== 429 && lastErr.status !== 503 && opts && opts.json) throw lastErr;
+    if (lastErr && lastErr.status === 429 && /quota|exhaust|billing|limit: 0/i.test(lastErr.message || "")) throw new Error("Gemini's free allowance is used up for now");
     throw new Error("The AI service is temporarily unavailable. Please try again in a few minutes.");
   }
 
@@ -103294,7 +103512,7 @@ return maplibregl$1;
   // Calls Gemini through the same retrying, model-falling-back chain as
   // the A.I. Story feature, asking for JSON.
   async function generateItineraryWithAI(userInputs) {
-    if (!settings.geminiApiKey) throw Object.assign(new Error("no Gemini API key"), { noKey: true });
+    if (!aiAvailable()) throw Object.assign(new Error("no AI service set up"), { noKey: true });
     const text = await callGeminiChain(buildItineraryPrompt(userInputs), { json: true, thinking: "low" });
     return normalizeItineraryPayload(text, userInputs, "ai");
   }
@@ -103528,9 +103746,9 @@ return maplibregl$1;
     ccEls.paceList.querySelectorAll("[data-pace]").forEach((r) => r.classList.toggle("selected", r.dataset.pace === cc.pace));
     ccEls.vibeChips.querySelectorAll("[data-vibe]").forEach((c) => c.setAttribute("aria-pressed", String(cc.vibes.has(c.dataset.vibe))));
     ccEls.transitSeg.querySelectorAll("[data-transit]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.transit === cc.transit)));
-    ccEls.sourceNote.textContent = settings.geminiApiKey
-      ? "Stops will be planned by Gemini, using your key from Settings. You'll choose which to keep before anything is created."
-      : "No Gemini key is set, so stops will be suggested from OpenStreetMap places instead (no AI). For AI-planned days, add a free key in Settings \u2192 Gemini API.";
+    ccEls.sourceNote.textContent = aiAvailable()
+      ? "Stops will be planned by " + aiProviderName(aiProviders().find(aiProviderReady)) + " (from your AI services in Settings, with the others as fallbacks). You'll choose which to keep before anything is created."
+      : "No AI service is set up, so stops will be suggested from OpenStreetMap places instead (no AI). For AI-planned days, add a free Gemini key or another AI service in Settings.";
   }
   function ccRenderPreview() {
     const hasPlan = !!cc.plan;
@@ -103656,7 +103874,7 @@ return maplibregl$1;
     ccEls.fallbackRow.classList.add("hidden");
     ccEls.verifyStatus.textContent = "";
     const u = ccInputs();
-    const useAi = !forceLocal && !!settings.geminiApiKey;
+    const useAi = !forceLocal && aiAvailable();
     ccEls.generatingTitle.textContent = useAi ? "Planning your days\u2026" : "Finding places on OpenStreetMap\u2026";
     ccEls.generatingHint.textContent = useAi ? "Gemini is choosing " + CC_PACE[cc.pace].range + " stops for each of " + u.days + " day" + (u.days === 1 ? "" : "s") + ". This usually takes 10 to 30 seconds." : "Looking for well-known places in " + u.destination + ".";
     ccGo("preview");
@@ -105371,8 +105589,8 @@ return maplibregl$1;
     const folder = waypointFolders.find((f) => f.id === folderId);
     if (!folder || !(folder.isTrip || folder.isItinerary)) return;
     if (aiStoryGeneratingFolderIds.has(folderId)) return; // already in flight (one generation at a time per folder)
-    if (!settings.geminiApiKey) {
-      showErrorToast("Add a free Gemini API key in Settings \u2192 Gemini API first.");
+    if (!aiAvailable()) {
+      showErrorToast("Add an AI service first: a free Gemini key, or another service under Settings \u2192 AI services.");
       return;
     }
     const storyFolderIds = getFolderAndDescendantIds(folderId); // walks into Day subfolders too, for an Itinerary folder -- see getFolderAndDescendantIds
