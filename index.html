@@ -1025,6 +1025,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border-radius:10px; padding:0 10px; height:34px; box-sizing:border-box; display:flex; align-items:center; gap:8px;
     user-select:none; pointer-events:none; visibility:hidden;}
   .map-scale.ready{visibility:visible;}
+  /* Safe mode indicator, centred in the footer between the scale bar and the zoom control. */
+  .safe-mode-pill{position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:23; height:34px; box-sizing:border-box;
+    display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:10px; border:1px solid rgba(245,158,11,.75);
+    background:rgba(69,40,6,.92); color:#fcd34d; font:600 12.5px/1 system-ui, -apple-system, sans-serif; white-space:nowrap; cursor:pointer;
+    box-shadow:0 1px 5px rgba(0,0,0,.4);}
+  .safe-mode-pill.hidden{display:none;}
+  .safe-mode-pill .icon{display:inline-flex;}
+  /* Not enough room between the footer controls (phones): just above them, still centred. */
+  .safe-mode-pill.above-footer{bottom:52px;}
   /* Phones held upright: no room for the coordinates in the bottom row, so they're hidden there
      (still shown on computers, iPads, and phones turned sideways). The scale bar takes their place. */
   @media (orientation: portrait) and (max-width: 600px){ .hud{display:none;} }
@@ -2807,6 +2816,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <button type="button" class="map-compass hidden" id="mapCompassBtn" title="Point north" aria-label="Point north">
     <svg class="map-compass-needle" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 5 L25 20 L15 20 Z" fill="#ef4444"/><path d="M20 35 L25 20 L15 20 Z" fill="#e2e8f0"/><text x="20" y="14.5" text-anchor="middle" font-size="7" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">N</text></svg>
   </button>
+  <button type="button" class="safe-mode-pill hidden" id="safeModePill" title="MapApp is running in safe mode. Tap for details." aria-label="Safe mode is on. Tap for details."><span class="icon"></span><span>Safe mode</span></button>
   <div class="map-scale" id="mapScale" aria-label="Map scale"><div class="map-scale-bar" id="mapScaleBar"></div><span class="map-scale-label mono" id="mapScaleLabel"></span></div>
 
   <!-- naming modal -->
@@ -78080,7 +78090,7 @@ module.exports.zip = require('./src/zip')
   window.FitProfile = profile_default;
 })();
 </script>
-<script>
+<script type="text/plain" id="pdfLibSource">
 /* Bundled: pdf-lib.min.js v1.17.1 (was previously loaded from cdnjs.cloudflare.com) */
 !function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t=t||self).PDFLib={})}(this,(function(t){"use strict";
 /*! *****************************************************************************
@@ -81178,7 +81188,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "578";
+  const APP_VERSION = "580";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -81329,6 +81339,70 @@ return maplibregl$1;
   const photoStore = (() => { try { return localforage.createInstance({ name: "MapAppPhotos", storeName: "photos" }); } catch (e) { return null; } })();
   const PHOTO_REF = "mphoto:";
   const photoIdByData = new Map(); // photo (data URL string) -> its id in the store
+  /* Photos are held in memory only as references ("mphoto:<id>"). Each has
+     a small thumbnail (about 240 px) plus its content fingerprint and type,
+     kept in their own store and loaded at start-up (a few KB each), so cards
+     show thumbnails without the full photos ever being loaded. The full photo
+     is read from the photo store only when something needs it: tapping a
+     thumbnail, sharing, a PDF, an export, a backup, or uploading it in sync. */
+  const thumbStore = (() => { try { return localforage.createInstance({ name: "MapAppThumbs", storeName: "thumbs" }); } catch (e) { return null; } })();
+  const photoMeta = new Map(); // id -> { thumb, hash, mime }
+  function photoRefId(p) { return typeof p === "string" && p.startsWith(PHOTO_REF) ? p.slice(PHOTO_REF.length) : null; }
+  // A few recently viewed full photos stay ready, so flicking back and forth is instant.
+  const fullPhotoCache = new Map();
+  async function getPhotoData(p) {
+    const id = photoRefId(p);
+    if (!id) return p; // already an image (a just-added photo, or a web address)
+    if (fullPhotoCache.has(id)) return fullPhotoCache.get(id);
+    let data = null;
+    try { data = photoStore ? await photoStore.getItem(id) : null; } catch (e) { data = null; }
+    if (typeof data !== "string") return null;
+    fullPhotoCache.set(id, data);
+    while (fullPhotoCache.size > 4) fullPhotoCache.delete(fullPhotoCache.keys().next().value);
+    return data;
+  }
+  // Thumbnail, fingerprint and type from a photo's data, saved for next time.
+  async function rememberPhotoMeta(id, dataUrl) {
+    const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || "");
+    if (!m) return null;
+    let thumb = null;
+    try { thumb = await generatePhotoThumbnail(dataUrl); } catch (e) { thumb = null; }
+    const meta = { thumb: thumb || PHOTO_THUMB_PLACEHOLDER, hash: hashPhotoContent(m[2]), mime: m[1] };
+    photoMeta.set(id, meta);
+    if (thumbStore) { try { await thumbStore.setItem(id, meta); } catch (e) {} }
+    if (thumb) document.querySelectorAll('img[data-photo-hash="id:' + id + '"]').forEach((imgEl) => { imgEl.src = thumb; });
+    return meta;
+  }
+  // Photos saved before thumbnails existed get theirs made once, one at a time, in the background.
+  const metaQueue = [], metaQueued = new Set();
+  let metaWorking = false;
+  function queuePhotoMeta(id) {
+    if (!id || photoMeta.has(id) || metaQueued.has(id)) return;
+    metaQueued.add(id); metaQueue.push(id);
+    pumpPhotoMeta();
+  }
+  async function pumpPhotoMeta() {
+    if (metaWorking) return;
+    metaWorking = true;
+    try {
+      while (metaQueue.length) {
+        const id = metaQueue.shift();
+        if (!photoMeta.has(id)) {
+          let data = null;
+          try { data = photoStore ? await photoStore.getItem(id) : null; } catch (e) { data = null; }
+          if (typeof data === "string") await rememberPhotoMeta(id, data);
+          data = null;
+        }
+        metaQueued.delete(id);
+        await sleep(30);
+      }
+    } finally { metaWorking = false; }
+  }
+  // Waits until every photo has its fingerprint (sync compares photos by it).
+  async function ensureAllPhotoMeta() {
+    waypoints.forEach((w) => (w.photos || []).forEach((p) => { const id = photoRefId(p); if (id && !photoMeta.has(id)) queuePhotoMeta(id); }));
+    while (metaQueue.length || metaWorking) await sleep(60);
+  }
   const photoWritten = new Set();  // ids already in the store
   function newPhotoId() { return "ph_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   // Waypoints as they're saved: photos replaced by references, with any new
@@ -81341,6 +81415,7 @@ return maplibregl$1;
       if (!Array.isArray(w.photos) || !w.photos.length) return w;
       let changed = false;
       const refs = w.photos.map((ph) => {
+        if (photoRefId(ph)) { changed = true; return ph; } // already a reference
         if (typeof ph !== "string" || !ph.startsWith("data:")) return ph;
         let id = photoIdByData.get(ph);
         if (!id) { id = newPhotoId(); photoIdByData.set(ph, id); }
@@ -81357,7 +81432,20 @@ return maplibregl$1;
       if (photoWritten.has(id)) continue;
       await photoStore.setItem(id, ph);
       photoWritten.add(id);
+      if (!photoMeta.has(id)) await rememberPhotoMeta(id, ph);
     }
+    // Once safely stored, the photos in memory become references: the full
+    // images no longer sit in memory (they're read back only when needed).
+    waypoints.forEach((w) => {
+      if (!Array.isArray(w.photos)) return;
+      w.photos = w.photos.map((ph) => {
+        if (typeof ph !== "string" || !ph.startsWith("data:")) return ph;
+        const id = photoIdByData.get(ph);
+        if (!id || !photoWritten.has(id)) return ph;
+        photoIdByData.delete(ph);
+        return PHOTO_REF + id;
+      });
+    });
     return slim;
   }
   // Swaps saved references back for photos, a few at a time. Returns how
@@ -81372,17 +81460,19 @@ return maplibregl$1;
         else if (typeof ph === "string" && ph.startsWith("data:")) inline++;
       });
     });
-    if (jobs.length && photoStore) {
-      for (let k = 0; k < jobs.length; k += 6) {
-        await Promise.all(jobs.slice(k, k + 6).map(async (j) => {
-          let data = null;
-          try { data = await photoStore.getItem(j.id); } catch (e) { data = null; }
-          if (typeof data === "string") { j.w.photos[j.i] = data; photoIdByData.set(data, j.id); photoWritten.add(j.id); }
-          else { j.w.photos[j.i] = null; missing++; }
+    // References stay references (the full photos aren't loaded); only
+    // their thumbnails are, a few at a time. Photos without a thumbnail yet
+    // get one made in the background after start-up.
+    if (jobs.length && thumbStore) {
+      for (let k = 0; k < jobs.length; k += 12) {
+        await Promise.all(jobs.slice(k, k + 12).map(async (j) => {
+          photoWritten.add(j.id);
+          let meta = null;
+          try { meta = await thumbStore.getItem(j.id); } catch (e) { meta = null; }
+          if (meta && meta.hash) photoMeta.set(j.id, meta);
         }));
       }
-      list.forEach((w) => { if (Array.isArray(w.photos) && w.photos.some((x) => x === null)) w.photos = w.photos.filter((x) => x !== null); });
-      if (missing) console.warn("[photos] " + missing + " stored photo(s) could not be found");
+      setTimeout(() => jobs.forEach((j) => { if (!photoMeta.has(j.id)) queuePhotoMeta(j.id); }), 9000);
     }
     return inline;
   }
@@ -81390,10 +81480,10 @@ return maplibregl$1;
   async function cleanUpPhotoStore() {
     if (!photoStore || waypointSaveRunning) return;
     const inUse = new Set();
-    waypoints.forEach((w) => (w.photos || []).forEach((ph) => { const id = typeof ph === "string" && photoIdByData.get(ph); if (id) inUse.add(id); }));
+    waypoints.forEach((w) => (w.photos || []).forEach((ph) => { const id = photoRefId(ph) || (typeof ph === "string" && photoIdByData.get(ph)); if (id) inUse.add(id); }));
     let keys = [];
     try { keys = await photoStore.keys(); } catch (e) { return; }
-    for (const k of keys) { if (!inUse.has(k)) { try { await photoStore.removeItem(k); photoWritten.delete(k); } catch (e) {} } }
+    for (const k of keys) { if (!inUse.has(k)) { try { await photoStore.removeItem(k); photoWritten.delete(k); photoMeta.delete(k); if (thumbStore) await thumbStore.removeItem(k); } catch (e) {} } }
   }
 
   let waypointSaveTimer = null, waypointSaveRunning = false, waypointSaveAgain = false;
@@ -81547,11 +81637,15 @@ return maplibregl$1;
         try { localStorage.setItem(KEY, JSON.stringify({ state: "starting", t: Date.now(), crashes, stage: name, trail })); } catch (e) {}
       },
       done() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now() })); } catch (e) {} },
+      // Sent to the background during start-up (switching apps): iOS may
+      // then reclaim the app while it's out of sight, which isn't a crash,
+      // so this start no longer counts towards safe mode.
       // (the early guard keeps the history of past start-ups; see "mapapp:boothist")
       reset() { finished = true; try { localStorage.setItem(KEY, JSON.stringify({ state: "ok", t: Date.now(), reset: true })); } catch (e) {} }
     };
     g.stage("loading your saved data");
     window.__mapappBootGuard = g;
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && !g.finishedFlag) { g.finishedFlag = true; g.done(); } });
     return g;
   })();
   const _persisted = await loadPersistedState();
@@ -82789,7 +82883,10 @@ return maplibregl$1;
     document.body.classList.add("modal-open");
   }
   function renderPhotoViewCurrent() {
-    photoViewImg.src = photoViewPhotos[photoViewIndex] || "";
+    // The thumbnail shows at once; the full photo replaces it when it's been read.
+    const shownIndex = photoViewIndex, ph = photoViewPhotos[photoViewIndex];
+    photoViewImg.src = (photoRefId(ph) ? getCachedPhotoThumb(ph) || PHOTO_THUMB_PLACEHOLDER : ph) || "";
+    if (photoRefId(ph)) getPhotoData(ph).then((full) => { if (full && photoViewIndex === shownIndex && photoViewPhotos[shownIndex] === ph) photoViewImg.src = full; });
     const hasMultiple = photoViewPhotos.length > 1;
     photoViewPrevBtn.classList.toggle("hidden", !hasMultiple);
     photoViewNextBtn.classList.toggle("hidden", !hasMultiple);
@@ -83426,6 +83523,26 @@ return maplibregl$1;
   // first time the live Street map is needed (never in safe mode, and never
   // on other map styles), then frees that copy.
   let maplibreLoading = null;
+  // The PDF library (about 0.5 MB) is kept inert in the page and only run
+  // the first time a PDF is made, like the live Street map renderer, so it
+  // costs nothing at start-up.
+  let pdfLibLoading = null;
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve(true);
+    if (!pdfLibLoading) pdfLibLoading = new Promise((resolve) => {
+      try {
+        const srcEl = document.getElementById("pdfLibSource");
+        if (!srcEl) { resolve(false); return; }
+        const url = URL.createObjectURL(new Blob([srcEl.textContent], { type: "text/javascript" }));
+        const sc = document.createElement("script");
+        sc.src = url;
+        sc.onload = () => { URL.revokeObjectURL(url); srcEl.remove(); resolve(!!window.PDFLib); };
+        sc.onerror = () => { URL.revokeObjectURL(url); pdfLibLoading = null; resolve(false); };
+        document.head.appendChild(sc);
+      } catch (e) { pdfLibLoading = null; resolve(false); }
+    });
+    return pdfLibLoading;
+  }
   function loadMapLibre() {
     if (window.maplibregl) return Promise.resolve(true);
     if (!maplibreLoading) maplibreLoading = new Promise((resolve) => {
@@ -83960,7 +84077,7 @@ return maplibregl$1;
   // helpers that engine already established, just without any of the
   // map-drawing machinery.
   async function generateTripPlanPdf(folder) {
-    if (!window.PDFLib) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
+    if (!(await loadPdfLib())) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
     const { PDFDocument, rgb, StandardFonts } = PDFLib;
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -87487,12 +87604,22 @@ return maplibregl$1;
       githubRepo: githubRepo || ""
     }));
   }
-  async function buildBackupPayload() {
+  async function buildBackupPayload(opts) {
     const settingsPayload = await buildSettingsPayload();
+    const wpCopy = JSON.parse(JSON.stringify(waypoints));
+    // A backup file holds the photos themselves; sync keeps the references (it uploads photos separately).
+    if (!(opts && opts.photoRefs)) {
+      for (const w of wpCopy) {
+        if (!Array.isArray(w.photos)) continue;
+        const out = [];
+        for (const ph of w.photos) { const d = await getPhotoData(ph); if (d) out.push(d); }
+        w.photos = out;
+      }
+    }
     return {
       version: 2, // bumped: settings is now the FULL object plus github credentials, not the old 3-field subset
       exportedAt: new Date().toISOString(),
-      waypoints: JSON.parse(JSON.stringify(waypoints)),
+      waypoints: wpCopy,
       rides: JSON.parse(JSON.stringify(rides)),
       measurements: JSON.parse(JSON.stringify(measurements)),
       waypointFolders: JSON.parse(JSON.stringify(waypointFolders)),
@@ -88412,6 +88539,8 @@ return maplibregl$1;
   // place -- deliberately not a full list re-render, since that would
   // defeat the purpose.
   function getCachedPhotoThumb(photoDataUrl) {
+    const refId = photoRefId(photoDataUrl);
+    if (refId) { const meta = photoMeta.get(refId); if (meta && meta.thumb && meta.thumb !== PHOTO_THUMB_PLACEHOLDER) return meta.thumb; queuePhotoMeta(refId); return null; }
     if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return null; // not a local data: photo (e.g. a raw GitHub URL) -- nothing to shrink
     const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) return null;
@@ -88428,6 +88557,8 @@ return maplibregl$1;
   // above needs to find this <img> later, so card rendering always tags it
   // even on a render where the thumbnail isn't ready yet.
   function photoContentHashAttr(photoDataUrl) {
+    const refId = photoRefId(photoDataUrl);
+    if (refId) return "id:" + refId; // patched in place when its thumbnail is ready
     if (typeof photoDataUrl !== "string" || !photoDataUrl.startsWith("data:")) return "";
     const match = photoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
     return match ? hashPhotoContent(match[2]) : "";
@@ -88455,7 +88586,9 @@ return maplibregl$1;
   function localPhotoHashes(photosArr) {
     const hashes = new Set();
     (photosArr || []).forEach((p) => {
-      if (typeof p === "string" && p.startsWith("data:")) {
+      const refId = photoRefId(p);
+      if (refId) { const meta = photoMeta.get(refId); if (meta && meta.hash) hashes.add(meta.hash); }
+      else if (typeof p === "string" && p.startsWith("data:")) {
         const match = p.match(/^data:([^;]+);base64,(.+)$/);
         if (match) hashes.add(hashPhotoContent(match[2]));
       } else if (p && p.repoPath) {
@@ -88489,6 +88622,18 @@ return maplibregl$1;
     for (const wp of waypoints) {
       if (!Array.isArray(wp.photos)) continue;
       for (const src of wp.photos) {
+        // A stored photo: its fingerprint and type are known without reading it;
+        // the photo itself is read only if it needs uploading (below).
+        const refId = photoRefId(src);
+        if (refId) {
+          const meta = photoMeta.get(refId);
+          if (!meta || !meta.hash) continue;
+          if (cache[meta.hash] || seenHashes.has(meta.hash)) continue;
+          seenHashes.add(meta.hash);
+          const ext = /png/.test(meta.mime) ? "png" : /webp/.test(meta.mime) ? "webp" : "jpg";
+          needsUpload.push({ hash: meta.hash, ref: src, path: "images/" + meta.hash + "." + ext, waypointId: wp.id, waypointName: wp.name, dataUrl: src });
+          continue;
+        }
         if (typeof src !== "string" || !src.startsWith("data:")) continue;
         const match = src.match(/^data:([^;]+);base64,(.+)$/);
         if (!match) continue;
@@ -88506,7 +88651,9 @@ return maplibregl$1;
     const failures = []; // {waypointId, waypointName, hash, path, message}
     await runWithConcurrencyLimit(needsUpload, PHOTO_FETCH_CONCURRENCY, async (item) => {
       try {
+        if (!item.base64Data && item.ref) { const d = await getPhotoData(item.ref); item.base64Data = d ? d.split(",")[1] : ""; if (!item.base64Data) throw new Error("photo not found on this device"); }
         await putRepoFileSmart(owner, repo, item.path, item.base64Data, "Add photo " + item.hash + " (waypoint " + item.waypointId + ")");
+        item.base64Data = null; // don't keep it once uploaded
         cache[item.hash] = item.path;
         anyUploaded = true;
       } catch (e) {
@@ -88554,12 +88701,26 @@ return maplibregl$1;
   // device's keys.
   const SYNC_SECRET_SETTINGS = ["geminiApiKey", "thunderforestApiKey", "owmApiKey"];
   async function buildRepoSyncPayload(photoCache) {
-    const payload = await buildBackupPayload();
+    const payload = await buildBackupPayload({ photoRefs: true });
     delete payload.githubToken;
     delete payload.githubRepo;
     if (payload.settings) SYNC_SECRET_SETTINGS.forEach((k) => { delete payload.settings[k]; });
     // AI service keys stay on this device (the list itself is left out too).
     if (payload.settings) delete payload.settings.aiProviders;
+    // Stored photos: uploaded ones become {repoPath}; any not uploaded are embedded (read one at a time).
+    for (const wp of payload.waypoints) {
+      if (!Array.isArray(wp.photos)) continue;
+      const out = [];
+      for (const p of wp.photos) {
+        const refId = photoRefId(p);
+        if (!refId) { out.push(p); continue; }
+        const meta = photoMeta.get(refId);
+        if (meta && meta.hash && photoCache[meta.hash]) { out.push({ repoPath: photoCache[meta.hash] }); continue; }
+        const d = await getPhotoData(p);
+        if (d) out.push(d);
+      }
+      wp.photos = out;
+    }
     payload.waypoints = payload.waypoints.map((wp) => {
       if (!Array.isArray(wp.photos)) return wp;
       return Object.assign({}, wp, {
@@ -88696,6 +88857,7 @@ return maplibregl$1;
     panelSyncBtn.disabled = true;
     panelSyncBtn.classList.add("syncing");
     setPanelSyncStatus("Syncing…");
+    await ensureAllPhotoMeta(); // sync compares photos by fingerprint
     const pullResult = await performRepoPull();
     if (!pullResult.ok) {
       gistSyncBtn.disabled = false;
@@ -90147,7 +90309,7 @@ return maplibregl$1;
   }
 
   async function generatePaperMapPdf(opts, onProgress) {
-    if (!window.PDFLib) throw new Error("the PDF library failed to load");
+    if (!(await loadPdfLib())) throw new Error("the PDF library failed to load");
     if (!opts.source) opts.source = { live: navigator.onLine !== false, retained: new Map(), retainedBytes: 0, usedKeys: new Set(), overflow: false };
     const plan = planPaperSheets(opts.area, opts.scale, opts.paper, opts.orientation);
     if (!plan.sheets.length) throw new Error("the area is empty");
@@ -101239,10 +101401,12 @@ return maplibregl$1;
   // trailing blank lines from each block (meant for stray whitespace in
   // a hand-edited file), which would otherwise eat a trailing empty
   // field and throw off the expected 7-line count entirely.
-  function exportWaypointsAsText() {
+  async function exportWaypointsAsText() {
     const wps = getAllWaypointsForExport();
-    const blocks = wps.map((wp) => [
-      wp.name || "", (wp.photos && wp.photos[0]) || "", "-", wp.notes || "",
+    const firstPhotos = [];
+    for (const wp of wps) firstPhotos.push(wp.photos && wp.photos[0] ? (await getPhotoData(wp.photos[0])) || "" : "");
+    const blocks = wps.map((wp, i) => [
+      wp.name || "", firstPhotos[i], "-", wp.notes || "",
       wp.lat + ", " + wp.lng, wp.code || "-", "-"
     ].join("\n"));
     triggerDownload([blocks.join("\n---\n")], "text/plain", "mapapp-waypoints-" + new Date().toISOString().slice(0, 10) + ".txt");
@@ -101251,12 +101415,14 @@ return maplibregl$1;
   // round-trip reason. Province/State, Address, Operator/Owner, and Type
   // aren't tracked as their own fields in this app (they're folded into
   // notes on import), so those four columns are left blank on export.
-  function exportWaypointsAsCsv() {
+  async function exportWaypointsAsCsv() {
     const wps = getAllWaypointsForExport();
+    const photoCols = [];
+    for (const wp of wps) { const parts = []; for (const ph of (wp.photos || [])) parts.push((await getPhotoData(ph)) || ""); photoCols.push(parts.filter(Boolean).join("|")); }
     const header = ["Waypoint Name", "Latitude", "Longitude", "Province/State", "Address", "Operator/Owner", "Type", "Notes", "Images", "Website"];
     const rows = wps.map((wp) => [
       wp.name || "", wp.lat, wp.lng, "", "", "", "",
-      wp.notes || "", (wp.photos || []).join("|"), wp.url || ""
+      wp.notes || "", photoCols[wps.indexOf(wp)], wp.url || ""
     ].map(csvField).join(","));
     triggerDownload([[header.join(","), ...rows].join("\n")], "text/csv", "mapapp-waypoints-" + new Date().toISOString().slice(0, 10) + ".csv");
   }
@@ -101486,7 +101652,7 @@ return maplibregl$1;
       try {
         const safeName = (wp.name || "waypoint").replace(/[^\w\-]+/g, "_").slice(0, 60) || "waypoint";
         files = await Promise.all(wp.photos.slice(0, 10).map(async (src, i) => {
-          const blob = await (await fetch(src)).blob();
+          const blob = await (await fetch(await getPhotoData(src))).blob();
           const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
           return new File([blob], safeName + "-" + (i + 1) + "." + ext, { type: blob.type || "image/jpeg" });
         }));
@@ -102984,6 +103150,7 @@ return maplibregl$1;
   // skipped rather than thrown on, so one unusual photo format can't
   // abort the whole export.
   async function pdfEmbedPhotoScaled(pdfDoc, dataUrl, maxW, maxH) {
+    dataUrl = await getPhotoData(dataUrl);
     const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
     if (!match) return null;
     const mime = match[1];
@@ -103005,6 +103172,7 @@ return maplibregl$1;
   // nothing actually reaching the corners to clip -- which is exactly why
   // the thumbnail rounding wasn't showing up.
   async function pdfEmbedPhotoCover(pdfDoc, dataUrl, boxSize) {
+    dataUrl = await getPhotoData(dataUrl);
     const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
     if (!match) return null;
     const mime = match[1];
@@ -103020,7 +103188,7 @@ return maplibregl$1;
   }
 
   async function generateTripPdf(folder, basemapKey, showDistances, includeAiContent) {
-    if (!window.PDFLib) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
+    if (!(await loadPdfLib())) { showErrorToast("PDF export isn't available right now — the PDF library failed to load."); return; }
     const wps = mergeWaypointsAtSameLocation(pdfWaypointsForFolder(folder));
     if (wps.length === 0) { showToast("This trip has no waypoints to export yet."); return; }
 
@@ -105034,7 +105202,7 @@ return maplibregl$1;
   }
 
   async function generateItineraryPdf(itinId, opts, progress) {
-    if (!window.PDFLib) throw new Error("the PDF library failed to load");
+    if (!(await loadPdfLib())) throw new Error("the PDF library failed to load");
     const itin = waypointFolders.find((f) => f.id === itinId);
     if (!itin) throw new Error("the itinerary no longer exists");
     const data = itineraryPrintData(itin);
@@ -105875,13 +106043,39 @@ return maplibregl$1;
   // photo store (each written on its own), once start-up has settled.
   if (inlinePhotosAtLoad && !bootGuard.safe) setTimeout(() => saveWaypoints(), 6000);
   setTimeout(() => { cleanUpPhotoStore(); }, 40000);
-  if (bootGuard.safe) {
-    setTimeout(() => openConfirmModal("MapApp opened in safe mode",
+  // Safe mode: an indicator in the middle of the footer; tapping it explains
+  // what's off and offers to go back to normal.
+  function showSafeModeDetails() {
+    openConfirmModal("MapApp is in safe mode",
       (bootGuard.crashes >= 1
         ? "MapApp closed unexpectedly while starting" + (bootGuard.crashes > 1 ? " (" + bootGuard.crashes + " times in a row)" : "") + ". Its last steps were: " + bootGuard.lastStage + ". "
         : "Safe mode was requested. ") +
       "To keep it running, the live Street map, map rotation, itinerary route lines and day boxes, weather lookups and start-up tidying are switched off for now. Everything you've saved is untouched. If it keeps happening, open the app's address with ?diag=1 at the end for a report you can send.",
-      () => { bootGuard.reset(); forceRefreshApp(); }, { confirmLabel: "Try normal mode", danger: false }), 1200);
+      () => { bootGuard.reset(); forceRefreshApp(); }, { confirmLabel: "Try normal mode", danger: false });
+  }
+  // Centred in the free space between the footer's left items (coordinates,
+  // scale bar) and the zoom control; above the footer when that's too narrow.
+  function positionSafeModePill() {
+    const pill = el("safeModePill");
+    if (!pill || pill.classList.contains("hidden")) return;
+    const box = (n) => { if (!n) return null; const cs = getComputedStyle(n); if (cs.display === "none" || cs.visibility === "hidden") return null; const r = n.getBoundingClientRect(); return r.width ? r : null; };
+    const lefts = [box(document.querySelector(".hud")), box(el("mapScale"))].filter(Boolean);
+    const zoom = box(el("zoomSliderControl"));
+    const from = lefts.length ? Math.max(...lefts.map((r) => r.right)) : 0, to = zoom ? zoom.left : window.innerWidth;
+    const need = pill.offsetWidth + 16;
+    if (to - from >= need) { pill.style.left = Math.round((from + to) / 2) + "px"; pill.classList.remove("above-footer"); }
+    else { pill.style.left = "50%"; pill.classList.add("above-footer"); }
+  }
+  if (bootGuard.safe) {
+    const pill = el("safeModePill");
+    pill.querySelector(".icon").innerHTML = icon("gear", 14);
+    pill.classList.remove("hidden");
+    pill.addEventListener("click", (e) => { e.stopPropagation(); showSafeModeDetails(); });
+    positionSafeModePill();
+    window.addEventListener("resize", () => setTimeout(positionSafeModePill, 50));
+    map.on("zoomend moveend", positionSafeModePill); // the scale bar's width changes with zoom
+    setTimeout(positionSafeModePill, 800);
+    setTimeout(showSafeModeDetails, 1200);
   }
   {
     const renderListBase = renderList;
