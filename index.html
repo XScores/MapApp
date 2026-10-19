@@ -879,10 +879,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .layers-panel.show{display:block;}
   .layers-panel-header{position:sticky; top:-14px; margin:-14px -14px 12px; padding:14px 14px 12px;
     background:rgba(15,23,42,.98); z-index:1; display:flex; justify-content:space-between; align-items:center;}
-  .layers-tabs{display:flex; gap:4px;}
-  .layers-tab{background:none; border:none; color:var(--text-mute); font-size:14px; font-weight:600;
-    padding:6px 10px; border-radius:8px; cursor:pointer;}
-  .layers-tab.active{background:var(--surface-2); color:var(--text);}
+  /* Same look as the other tabs (region and panel tabs): plain text, the active one underlined in orange. */
+  .layers-tabs{display:flex; gap:16px; align-items:flex-end;}
+  .layers-tab{background:none; border:none; border-bottom:2px solid transparent; border-radius:0; color:var(--text-mute); font-size:14px; font-weight:600;
+    padding:6px 0 4px; margin:0; cursor:pointer;}
+  .layers-tab:hover{color:var(--text-dim);}
+  .layers-tab.active{color:var(--text); border-bottom-color:var(--amber-light);}
   .layers-panel-body.hidden{display:none;}
   .layers-section + .layers-section{margin-top:14px; padding-top:14px; border-top:1px solid #1e293b;}
   .layers-section-title{font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-mute);
@@ -1066,6 +1068,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .search-result-action{background:rgba(34,211,238,.08);}
   .search-result-message.busy{animation:searchbusy 1.4s ease-in-out infinite;}
   .search-retry-btn{margin-left:6px; font-style:normal;}
+  /* Messages run the full width of the results list, with any "Try again"
+     link following the text, rather than squeezed beside it in a column. */
+  .search-result-row.search-result-message{display:block; white-space:pre-line;}
+  /* On wide screens the list can be wider than the search box, so messages and results have room. */
+  @media (min-width:700px){ .search-results{right:auto; width:max(100%, min(640px, calc(100vw - 32px)));} }
+  .search-result-message .search-retry-btn{display:inline; padding:0; white-space:nowrap; vertical-align:baseline;}
   @keyframes searchbusy{0%,100%{opacity:1;} 50%{opacity:.55;}}
   /* Nearby results: the details (distance, rating, hours) get their own line. */
   .search-result-row.search-result-nearby{flex-wrap:wrap; row-gap:3px;}
@@ -1106,6 +1114,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .search-pick-btn small{font-size:12px; color:var(--text-dim);}
   .search-pick-btn.primary{border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.12);}
   .search-pick-btn.primary > .icon{color:var(--amber);}
+  .selftest-card{max-width:500px; display:flex; flex-direction:column;}
+  .selftest-summary{font-size:13.5px; font-weight:600; margin:8px 0 4px; color:var(--text);}
+  .selftest-summary.good{color:#4ade80;} .selftest-summary.meh{color:var(--amber-light);} .selftest-summary.bad{color:#fca5a5;}
+  .selftest-list{max-height:52vh; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  .selftest-group{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-mute); margin:10px 0 4px;}
+  .selftest-row{display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px solid #1e293b;}
+  .selftest-mark{flex-shrink:0; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+    background:var(--surface-2); color:var(--text-dim);}
+  .selftest-row.pass .selftest-mark{background:rgba(74,222,128,.18); color:#4ade80;}
+  .selftest-row.fail .selftest-mark{background:rgba(248,113,113,.2); color:#fca5a5;}
+  .selftest-row.warn .selftest-mark{background:rgba(245,158,11,.2); color:var(--amber-light);}
+  .selftest-row.info .selftest-mark{background:rgba(34,211,238,.15); color:var(--cyan);}
+  .selftest-row.running .selftest-mark{animation:searchbusy 1.2s ease-in-out infinite;}
+  .selftest-body{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .selftest-body b{font-size:13px; color:var(--text);}
+  .selftest-detail{font-size:12px; color:var(--text-dim); line-height:1.4; overflow-wrap:anywhere;}
   .confirm-modal-option{display:flex; align-items:flex-start; gap:10px; margin:-4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:13.5px; color:var(--text); line-height:1.4; cursor:pointer;}
   .confirm-modal-option input{margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:#f87171;}
@@ -1725,10 +1749,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .panel.open{transform:translateX(0); box-shadow:-20px 0 60px rgba(0,0,0,.5);}
   .panel-header{display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--border);}
   .panel-header-actions{display:flex; align-items:center; gap:8px;}
-  .panel-tabs{display:flex; gap:4px;}
-  .panel-tab{background:none; border:none; color:var(--text-mute); font-size:14px; font-weight:600;
-    padding:6px 10px; border-radius:8px; cursor:pointer;}
-  .panel-tab.active{background:var(--surface-2); color:var(--text);}
+  /* Same look as the region tabs (Personal, Canada, USA): plain text, the
+     active tab underlined in orange. */
+  .panel-tabs{display:flex; gap:16px; align-items:flex-end;}
+  .panel-tab{background:none; border:none; border-bottom:2px solid transparent; border-radius:0; color:var(--text-mute); font-size:14px; font-weight:600;
+    padding:6px 0 4px; margin:0; cursor:pointer;}
+  .panel-tab:hover{color:var(--text-dim);}
+  .panel-tab.active{color:var(--text); border-bottom-color:var(--amber-light);}
   .panel-subtitle{font-size:12px; color:var(--text-mute); margin:0;}
   .panel-subtitle-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 16px 0;}
   .panel-subtitle-row .panel-subtitle{flex:1; min-width:0;}
@@ -2008,7 +2035,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-notes-tab-row{display:flex; gap:14px; margin-bottom:4px;}
   .card-notes-tab-btn{background:none; border:none; padding:0 0 2px; margin:0; font-size:11px; font-weight:600;
     color:var(--text-mute); cursor:pointer; border-bottom:2px solid transparent;}
-  .card-notes-tab-btn.active{color:var(--text-dim); border-bottom-color:var(--amber-light);}
+  .card-notes-tab-btn.active{color:var(--text); border-bottom-color:var(--amber-light);}
   .card-notes-tab-btn.has-review{color:var(--text);}
   .story-title-label{cursor:pointer; color:#a78bfa; border-bottom-color:#a78bfa;}
   .card-url{margin-top:6px; display:flex; align-items:center; gap:6px;}
@@ -2081,6 +2108,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .region-add-btn:hover{color:var(--text); border-color:var(--cyan);}
   .region-tab-input{width:9em; margin-bottom:6px; padding:3px 7px; border-radius:7px; border:1px solid var(--cyan); background:var(--surface-2); color:var(--text);
     font:inherit; font-size:14px; font-weight:600;}
+  #regionDeleteOverlay{z-index:35;} /* above the Regions list it can be opened from */
+  .region-manage-btn{font-size:18px; line-height:1; font-weight:700;}
+  .region-manage-list{display:flex; flex-direction:column; gap:8px;}
+  .region-manage-row{display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:rgba(30,41,59,.35);}
+  .region-manage-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .region-manage-name{padding:6px 9px; font-weight:600;}
+  .region-manage-what{font-size:12px; color:var(--text-dim);}
+  .region-manage-fixed{font-size:11.5px; color:var(--text-mute); padding:0 6px;}
+  .region-manage-del{width:36px; height:36px; border-radius:9px; border:1px solid rgba(248,113,113,.5); background:none; color:#fca5a5; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
+  .region-manage-del:hover{background:rgba(248,113,113,.12);}
   .region-del-choice{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--border); border-radius:12px; margin-bottom:8px; cursor:pointer;}
   .region-del-choice input[type="radio"]{margin-top:3px; accent-color:var(--cyan); flex-shrink:0;}
   .region-del-choice.danger input[type="radio"]{accent-color:#f87171;}
@@ -2570,6 +2607,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <p class="layers-section-title" id="appVersionLabel">App version</p>
           <div class="home-actions">
             <button class="home-action-btn" id="refreshAppBtn">Refresh app</button>
+            <button type="button" class="home-action-btn" id="selfTestBtn">Test Suite</button>
           </div>
         </div>
         <div class="layers-section">
@@ -3623,10 +3661,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="modal-header"><div><h2 id="regionDeleteTitle">Delete region</h2><p class="paper-wiz-step-label" id="regionDeleteSubtitle"></p></div><button class="icon-btn" id="regionDeleteCloseBtn" data-icon="x"></button></div>
       <div id="regionDeleteChoices">
         <label class="region-del-choice"><input type="radio" name="regionDeleteMode" value="move" checked />
-          <span><b>Move everything to another region</b><span class="region-del-sub">Folders keep their structure.</span>
+          <span><b>Keep everything: delete just the tab</b><span class="region-del-sub">Its waypoints and folders move to the region below (Personal unless you choose another), keeping their folder structure.</span>
             <select class="field-input" id="regionDeleteTarget"></select></span></label>
         <label class="region-del-choice danger"><input type="radio" name="regionDeleteMode" value="delete" />
-          <span><b>Delete everything inside</b><span class="region-del-sub" id="regionDeleteEverythingSub"></span></span></label>
+          <span><b>Delete the tab and everything in it</b><span class="region-del-sub" id="regionDeleteEverythingSub"></span></span></label>
         <label class="confirm-modal-option hidden" id="regionDeleteConfirmRow"><input type="checkbox" id="regionDeleteConfirm" /><span>I understand this permanently deletes these waypoints and folders.</span></label>
       </div>
       <p class="layers-hint" id="regionDeleteNote"></p>
@@ -3644,6 +3682,27 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button type="button" class="search-pick-btn" id="searchPickRouteBtn"><span class="icon"></span><span><b>Directions</b><small>Route there from where you are</small></span></button>
         <button type="button" class="search-pick-btn primary" id="searchPickBothBtn"><span class="icon"></span><span><b>Save and get directions</b><small>Saves it now, then routes there</small></span></button>
       </div>
+    </div>
+  </div>
+  <div class="modal-overlay hidden" id="selfTestOverlay">
+    <div class="modal-card selftest-card">
+      <div class="modal-header"><div><h2>Test Suite</h2><p class="paper-wiz-step-label" id="selfTestSubtitle">Checks MapApp on this device. Your data is only read, never changed.</p></div><button class="icon-btn" id="selfTestCloseBtn" data-icon="x"></button></div>
+      <label class="layers-option"><input type="checkbox" id="selfTestOnline" checked /><span>Include online services (map, places, routing, GitHub)</span></label>
+      <label class="layers-option"><input type="checkbox" id="selfTestAi" /><span>Include AI services (uses one request per service)</span></label>
+      <p class="selftest-summary" id="selfTestSummary"></p>
+      <div class="selftest-list" id="selfTestList"></div>
+      <div class="btn-row selftest-actions">
+        <button type="button" class="btn btn-secondary" id="selfTestCopyBtn" disabled>Copy report</button>
+        <button type="button" class="btn btn-primary" id="selfTestRunBtn">Run tests</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="regionManageOverlay">
+    <div class="modal-card" style="max-width:440px;">
+      <div class="modal-header"><div><h2>Regions</h2><p class="paper-wiz-step-label">The tabs above your waypoints. Personal can be renamed but not deleted.</p></div><button class="icon-btn" id="regionManageCloseBtn" data-icon="x"></button></div>
+      <div class="region-manage-list" id="regionManageList"></div>
+      <button type="button" class="btn btn-secondary" id="regionManageAddBtn" style="width:100%; margin-top:10px;">+ Add a region</button>
     </div>
   </div>
   <div class="modal-overlay hidden" id="itinTimesModalOverlay">
@@ -81188,7 +81247,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "580";
+  const APP_VERSION = "588";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -81436,16 +81495,20 @@ return maplibregl$1;
     }
     // Once safely stored, the photos in memory become references: the full
     // images no longer sit in memory (they're read back only when needed).
+    // (The same photo can be on several waypoints, an A.I. Story's copies
+    // say: every copy is converted before the photo itself is let go.)
+    const converted = new Set();
     waypoints.forEach((w) => {
       if (!Array.isArray(w.photos)) return;
       w.photos = w.photos.map((ph) => {
         if (typeof ph !== "string" || !ph.startsWith("data:")) return ph;
         const id = photoIdByData.get(ph);
         if (!id || !photoWritten.has(id)) return ph;
-        photoIdByData.delete(ph);
+        converted.add(ph);
         return PHOTO_REF + id;
       });
     });
+    converted.forEach((ph) => photoIdByData.delete(ph));
     return slim;
   }
   // Swaps saved references back for photos, a few at a time. Returns how
@@ -84621,7 +84684,7 @@ return maplibregl$1;
       { t: "Hands-free voice", d: "Turn on the microphone and say \u201cwaypoint\u201d to save where you are, \u201cadd to\u201d and a name to add notes to an existing waypoint, or \u201ccancel\u201d to undo while dictating.", go: "highlight:voiceWaypointBtn", label: "Show me" },
       { t: "What a waypoint holds", d: "Each waypoint can have notes (typed or dictated), photos, a website link, reviews, elevation, a weather forecast and a spoken narration. Open one from the list or tap its marker.", go: "panel:waypoints", label: "Open your waypoints" },
       { t: "Folders, trips and favourites", d: "Organise waypoints into folders and trips, mark favourites, filter by icon, and search the list. Select several to move them together, or drag a card by its grip handle onto a folder.", go: "panel:waypoints", label: "Open your waypoints" },
-      { t: "Regions", d: "Keep waypoints in Personal, Canada or USA collections, and show or hide each one on the map with its eye button.", go: "panel:waypoints", label: "Open your waypoints" },
+      { t: "Regions", d: "Keep waypoints in Personal, Canada, USA or your own regions, and show or hide each one on the map with its eye button. The \u22ef button after the tabs lets you rename, add or delete regions; deleting one can keep its waypoints (moved to Personal or another region) or delete them too.", go: "panel:waypoints", label: "Open your waypoints" },
       { t: "Deleting a folder", d: "When you delete a folder you can keep what's inside it, or tick the box to delete everything in it as well." }
     ] },
     { title: "Trips and itineraries", items: [
@@ -84656,6 +84719,7 @@ return maplibregl$1;
       { t: "API keys", d: "Add free keys for Thunderforest maps (removes the watermark and enables the live Street map), OpenWeatherMap weather, and Gemini (AI itineraries, stories and narration).", go: "settings:Thunderforest API key", label: "Open API keys" },
       { t: "AI services and fallbacks", d: "Use ChatGPT, Claude, OpenRouter, Groq, Mistral, DeepSeek or any OpenAI-compatible service as well as, or instead of, Gemini. They're tried in the order you set: if one can't answer (out of free allowance, busy, or a bad key), the next takes over. Each has a Test button. Keys stay on this device.", go: "settings:AI services", label: "Open AI services" },
       { t: "Story narration voice", d: "Pick the voice used to read stories and narrations aloud.", go: "settings:Story Narration", label: "Open narration settings" },
+      { t: "Test Suite", d: "Settings \u2192 Test Suite checks MapApp on this device: saving data, photos, PDFs, schedules, search, and (optionally) the online services and your AI services. It only reads your data, never changes it, and you can copy the results as a report.", go: "fn:selftest", label: "Open Test Suite" },
       { t: "If the app won't start", d: "After an unexpected close, the next start opens in safe mode with the heaviest features off; tap Try normal mode when ready. Adding ?safe=1 to the address forces safe mode, and ?diag=1 shows a report you can copy or email.", go: "url:?diag=1", label: "Open the diagnostics page" }
     ] }
   ];
@@ -84713,6 +84777,7 @@ return maplibregl$1;
       else if (arg === "paper") openPaperMapModal(null);
       else if (arg === "directions") el("rideDropdownDirectionsBtn").click();
       else if (arg === "measure") el("rideDropdownMeasureBtn").click();
+      else if (arg === "selftest") el("selfTestBtn").click();
     }
   }
   el("layersTabHelpBtn").addEventListener("click", (e) => { e.stopPropagation(); switchLayersTab("help"); });
@@ -84813,7 +84878,7 @@ return maplibregl$1;
     openai: { label: "ChatGPT (OpenAI)", base: "https://api.openai.com/v1", model: "gpt-4o-mini", keyUrl: "https://platform.openai.com/api-keys", web: false },
     anthropic: { label: "Claude (Anthropic)", model: "claude-haiku-5-5", keyUrl: "https://console.anthropic.com/settings/keys", web: true },
     openrouter: { label: "OpenRouter (many models)", base: "https://openrouter.ai/api/v1", model: "openrouter/auto", keyUrl: "https://openrouter.ai/keys", web: true },
-    groq: { label: "Groq", base: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", keyUrl: "https://console.groq.com/keys", web: false },
+    groq: { label: "Groq", base: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b", keyUrl: "https://console.groq.com/keys", web: false },
     mistral: { label: "Mistral", base: "https://api.mistral.ai/v1", model: "mistral-small-latest", keyUrl: "https://console.mistral.ai/api-keys", web: false },
     deepseek: { label: "DeepSeek", base: "https://api.deepseek.com/v1", model: "deepseek-chat", keyUrl: "https://platform.deepseek.com/api_keys", web: false },
     custom: { label: "Other (OpenAI-compatible)", base: "", model: "", web: false }
@@ -84842,10 +84907,46 @@ return maplibregl$1;
     const msg = data && (data.error && (data.error.message || data.error.type || (typeof data.error === "string" ? data.error : ""))) || ("HTTP " + res.status);
     const err = new Error(String(msg).slice(0, 200)); err.status = res.status; return err;
   }
-  async function callOpenAICompatible(p, prompt, opts) {
+  /* Services retire models over time (Groq's Llama 3.3 70B became
+     Enterprise-only, say). When the default model is refused and the person
+     hasn't chosen a model, MapApp asks the service which models this key can
+     use, picks a suitable chat model, retries, and remembers the choice. */
+  const AI_MODEL_PREFERENCES = {
+    groq: [/^openai\/gpt-oss-120b$/, /^openai\/gpt-oss-20b$/, /qwen/i, /llama/i],
+    openai: [/^gpt-5(\.\d+)?-mini$/, /^gpt-4\.1-mini$/, /^gpt-4o-mini$/, /^gpt-5(\.\d+)?$/, /^gpt-4\.1$/, /^gpt-4o$/],
+    mistral: [/^mistral-small-latest$/, /^mistral-medium-latest$/, /^mistral-large-latest$/, /latest$/],
+    deepseek: [/^deepseek-chat$/, /deepseek/],
+    openrouter: [/^openrouter\/auto$/],
+    custom: []
+  };
+  const AI_NOT_CHAT_MODEL = /whisper|tts|orpheus|guard|safeguard|embed|moderation|dall-e|image|audio|transcri|realtime|search-preview|codex|ocr/i;
+  function aiModelRefused(e) { return e && (e.status === 404 || /does not exist|not found|no access|not have access|model_not_found|decommission|deprecat|not supported|unknown model|invalid model/i.test(e.message || "")); }
+  async function aiPickAvailableModel(p) {
     const type = AI_PROVIDER_TYPES[p.type];
     const base = (p.type === "custom" ? p.baseUrl : type.base).replace(/\/+$/, "");
-    let model = p.model || type.model;
+    const res = await fetch(base + "/models", { headers: { "Authorization": "Bearer " + aiProviderKey(p) } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const ids = (Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []).map((m) => m && (m.id || m.name)).filter((id) => typeof id === "string" && !AI_NOT_CHAT_MODEL.test(id));
+    if (!ids.length) return null;
+    for (const re of (AI_MODEL_PREFERENCES[p.type] || [])) { const hit = ids.find((id) => re.test(id)); if (hit) return hit; }
+    return ids[0];
+  }
+  async function callOpenAICompatible(p, prompt, opts) {
+    try { return await callOpenAICompatibleOnce(p, prompt, opts); }
+    catch (e) {
+      if (p.model || !aiModelRefused(e)) throw e;
+      const picked = await aiPickAvailableModel(p).catch(() => null);
+      if (!picked || picked === p.autoModel) throw e;
+      p.autoModel = picked; saveSettings();
+      if (typeof renderAiProviders === "function" && el("aiProviderList")) try { renderAiProviders(); } catch (er) {}
+      return await callOpenAICompatibleOnce(p, prompt, opts);
+    }
+  }
+  async function callOpenAICompatibleOnce(p, prompt, opts) {
+    const type = AI_PROVIDER_TYPES[p.type];
+    const base = (p.type === "custom" ? p.baseUrl : type.base).replace(/\/+$/, "");
+    let model = p.model || p.autoModel || type.model;
     if (p.type === "openrouter" && opts && opts.webSearch && !/:online$/.test(model)) model += ":online"; // OpenRouter's web-search variant
     const send = async (jsonMode) => {
       const body = { model, messages: [{ role: "user", content: prompt }] };
@@ -84936,7 +85037,8 @@ return maplibregl$1;
               '<label class="field-label">Address (OpenAI-compatible)</label><input class="field-input" data-ai-base="' + i + '" value="' + escapeHtml(p.baseUrl || "") + '" placeholder="https://example.com/v1" autocomplete="off" />'
             : "") +
           '<label class="field-label">API key' + (t.keyUrl ? ' <a href="' + t.keyUrl + '" target="_blank" rel="noopener">get one</a>' : "") + '</label><input class="field-input" type="password" data-ai-key="' + i + '" value="' + escapeHtml(p.key || "") + '" placeholder="Paste API key\u2026" autocomplete="off" />' +
-          '<label class="field-label">Model</label><input class="field-input" data-ai-model="' + i + '" value="' + escapeHtml(p.model || "") + '" placeholder="' + escapeHtml(t.model || "model name") + '" autocomplete="off" />' +
+          '<label class="field-label">Model</label><input class="field-input" data-ai-model="' + i + '" value="' + escapeHtml(p.model || "") + '" placeholder="' + escapeHtml(p.autoModel || t.model || "model name") + '" autocomplete="off" />' +
+          (p.autoModel && !p.model ? '<p class="layers-hint">Using ' + escapeHtml(p.autoModel) + ", chosen automatically because the default wasn't available to this key. Type a model name to choose your own.</p>" : "") +
           (t.web ? '<p class="layers-hint">Can search the web (used for review ratings).</p>' : "");
       }
       return '<div class="ai-prov-card' + (p.enabled === false ? " off" : "") + '">' + head + on + body +
@@ -84948,21 +85050,27 @@ return maplibregl$1;
     bind("[data-ai-down]", (e) => { const i = +e.currentTarget.dataset.aiDown; [list[i + 1], list[i]] = [list[i], list[i + 1]]; save(); renderAiProviders(); }, "click");
     bind("[data-ai-remove]", (e) => { list.splice(+e.currentTarget.dataset.aiRemove, 1); save(); renderAiProviders(); }, "click");
     bind("[data-ai-enabled]", (e) => { list[+e.currentTarget.dataset.aiEnabled].enabled = e.currentTarget.checked; save(); renderAiProviders(); });
-    bind("[data-ai-type]", (e) => { const p = list[+e.currentTarget.dataset.aiType]; p.type = e.currentTarget.value; p.model = ""; save(); renderAiProviders(); });
+    bind("[data-ai-type]", (e) => { const p = list[+e.currentTarget.dataset.aiType]; p.type = e.currentTarget.value; p.model = ""; delete p.autoModel; save(); renderAiProviders(); });
     bind("[data-ai-key]", (e) => { list[+e.currentTarget.dataset.aiKey].key = e.currentTarget.value.trim(); save(); renderAiProviders(); });
     bind("[data-ai-model]", (e) => { list[+e.currentTarget.dataset.aiModel].model = e.currentTarget.value.trim(); save(); });
+    // A different key or service may have different models: forget the automatic choice.
+    bind("[data-ai-key]", (e) => { delete list[+e.currentTarget.dataset.aiKey].autoModel; save(); });
     bind("[data-ai-base]", (e) => { list[+e.currentTarget.dataset.aiBase].baseUrl = e.currentTarget.value.trim(); save(); renderAiProviders(); });
     bind("[data-ai-label]", (e) => { list[+e.currentTarget.dataset.aiLabel].label = e.currentTarget.value.trim().slice(0, 40); save(); renderAiProviders(); });
     bind("[data-ai-test]", async (e) => {
-      const i = +e.currentTarget.dataset.aiTest, p = list[i], out = el("aiTestResult" + i);
+      const i = +e.currentTarget.dataset.aiTest, p = list[i];
+      let out = el("aiTestResult" + i);
       if (!aiProviderKey(p)) { out.textContent = "Add a key first."; out.className = "ai-prov-test-result bad"; return; }
       out.textContent = "Testing\u2026"; out.className = "ai-prov-test-result";
       const t0 = performance.now();
       try {
         const reply = await callAIProvider(p, "Reply with just the word OK.", {});
-        out.textContent = "Works (" + ((performance.now() - t0) / 1000).toFixed(1) + " s): \u201c" + reply.slice(0, 30) + "\u201d";
+        out = el("aiTestResult" + i) || out; // the list may have been redrawn (an automatic model choice)
+        const used = p.type === "gemini" ? "" : p.type === "anthropic" ? (p.model || AI_PROVIDER_TYPES.anthropic.model) : (p.model || p.autoModel || AI_PROVIDER_TYPES[p.type].model);
+        out.textContent = "Works (" + ((performance.now() - t0) / 1000).toFixed(1) + " s" + (used ? ", " + used : "") + "): \u201c" + reply.slice(0, 30) + "\u201d";
         out.className = "ai-prov-test-result good";
       } catch (err) {
+        out = el("aiTestResult" + i) || out;
         out.textContent = "Didn't work: " + (err && err.message ? err.message : "unknown error") + (err && err.name === "TypeError" ? " (this service may not accept requests from a web app)" : "");
         out.className = "ai-prov-test-result bad";
       }
@@ -95660,10 +95768,12 @@ return maplibregl$1;
         '<button type="button" class="waypoint-region-eye-btn' + (regionShown(r.id) ? " active" : "") + '" data-region-eye="' + escapeHtml(r.id) + '" title="Show/hide ' + escapeHtml(r.name) + ' on map">' + icon(regionShown(r.id) ? "eye" : "eyeOff", 15) + "</button>" +
         '<button type="button" class="journal-tab-btn region-tab' + (r.id === activeWaypointRegion ? " active" : "") + '" data-region="' + escapeHtml(r.id) + '" title="Double-click or long-press to rename">' + escapeHtml(r.name) + "</button>" +
       "</span>").join("") +
-      '<button type="button" class="region-add-btn" id="regionAddBtn" title="Add a region" aria-label="Add a region">' + icon("plus", 15) + "</button>";
+      '<button type="button" class="region-add-btn" id="regionAddBtn" title="Add a region" aria-label="Add a region">' + icon("plus", 15) + "</button>" +
+      '<button type="button" class="region-add-btn region-manage-btn" id="regionManageBtn" title="Manage regions: rename or delete" aria-label="Manage regions">\u22ef</button>';
     waypointRegionTabRow.querySelectorAll("[data-region-eye]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); toggleRegionVisibility(b.dataset.regionEye); }));
     waypointRegionTabRow.querySelectorAll(".region-tab").forEach(wireRegionTab);
     el("regionAddBtn").addEventListener("click", (e) => { e.stopPropagation(); addRegion(); });
+    el("regionManageBtn").addEventListener("click", (e) => { e.stopPropagation(); openRegionManage(); });
     const act = waypointRegionTabRow.querySelector(".region-tab.active");
     if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
     refreshRegionNamesElsewhere();
@@ -95764,7 +95874,7 @@ return maplibregl$1;
     const hasStuff = !el("regionDeleteChoices").classList.contains("hidden");
     el("regionDeleteConfirmRow").classList.toggle("hidden", !(hasStuff && mode === "delete"));
     el("regionDeleteTarget").disabled = mode !== "move";
-    el("regionDeleteGoBtn").textContent = !hasStuff ? "Delete region" : mode === "move" ? "Move and delete region" : "Delete region and everything in it";
+    el("regionDeleteGoBtn").textContent = !hasStuff ? "Delete region" : mode === "move" ? "Delete tab, keep everything" : "Delete tab and everything in it";
     el("regionDeleteGoBtn").disabled = hasStuff && mode === "delete" && !el("regionDeleteConfirm").checked;
     const target = regionList().find((r) => r.id === el("regionDeleteTarget").value);
     el("regionDeleteNote").textContent = hasStuff && mode === "move" && target ? "Everything moves to \u201c" + target.name + "\u201d." : "";
@@ -95812,8 +95922,37 @@ return maplibregl$1;
     renderRegionTabs();
     renderList();
     updateCounters();
+    if (!el("regionManageOverlay").classList.contains("hidden")) renderRegionManage();
     showToast(msg);
   });
+  // ---- Manage regions: every region with what it holds, Rename and Delete ----
+  function openRegionManage() { renderRegionManage(); el("regionManageOverlay").classList.remove("hidden"); }
+  function renderRegionManage() {
+    const listEl = el("regionManageList");
+    listEl.innerHTML = regionList().map((r) => {
+      const { wps, folders } = regionContents(r.id);
+      const what = [wps.length + " waypoint" + (wps.length === 1 ? "" : "s"), folders.length + " folder" + (folders.length === 1 ? "" : "s")].join(", ");
+      return '<div class="region-manage-row" data-rid="' + escapeHtml(r.id) + '">' +
+        '<div class="region-manage-main"><input class="field-input region-manage-name" value="' + escapeHtml(r.name) + '" maxlength="30" aria-label="Name of ' + escapeHtml(r.name) + '" /><span class="region-manage-what">' + escapeHtml(what) + "</span></div>" +
+        (r.id === "personal" ? '<span class="region-manage-fixed" title="Personal is where waypoints without a region belong">Default</span>'
+          : '<button type="button" class="region-manage-del" data-rdel="' + escapeHtml(r.id) + '" title="Delete ' + escapeHtml(r.name) + '" aria-label="Delete ' + escapeHtml(r.name) + '">' + icon("trash", 15) + "</button>") +
+        "</div>";
+    }).join("");
+    listEl.querySelectorAll(".region-manage-name").forEach((inp) => {
+      const save = () => {
+        const id = inp.closest(".region-manage-row").dataset.rid, r = regionList().find((x) => x.id === id), name = inp.value.trim().replace(/\s+/g, " ");
+        if (!r) return;
+        if (!name) { inp.value = r.name; return; }
+        if (name !== r.name) { r.name = name; saveSettings(); renderRegionTabs(); if (id === activeWaypointRegion) renderList(); showToast("Renamed to \u201c" + name + "\u201d"); }
+      };
+      inp.addEventListener("change", save);
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+    });
+    listEl.querySelectorAll("[data-rdel]").forEach((b) => b.addEventListener("click", () => openRegionDelete(b.dataset.rdel)));
+  }
+  el("regionManageCloseBtn").addEventListener("click", () => el("regionManageOverlay").classList.add("hidden"));
+  el("regionManageAddBtn").addEventListener("click", () => { el("regionManageOverlay").classList.add("hidden"); addRegion(); });
+
   // Region names shown elsewhere (the import dialogs' "Add these waypoints to" choices).
   function refreshRegionNamesElsewhere() {
     document.querySelectorAll(".directions-mode-row").forEach((row) => {
@@ -98025,6 +98164,7 @@ return maplibregl$1;
     const wp = {
       id, lat, lng, name, notes, url, code: generateWordCode(lat, lng), isCurrentLocation: !!isCurrentLocation,
       markerStyle, markerColor, markerEmoji, photos: pendingPhotos.slice(), folderId: getOpenFolderId(),
+      region: regionForNewWaypoint(getOpenFolderId()),
       review: reviewHasContent(pendingReview) ? pendingReview : null,
       createdAt: dateTimeValuesToMs(waypointDateInput.value, waypointTimeInput.value, Date.now()), updatedAt: Date.now(), weather: null
     };
@@ -100092,7 +100232,7 @@ return maplibregl$1;
     const prompt = [
       "Using web search, find the street address of the business called \"" + String(name).slice(0, 80) + "\" nearest to latitude " + origin.lat.toFixed(4) + ", longitude " + origin.lng.toFixed(4) + ".",
       "Prefer the business's own website; otherwise a reliable listing. If it has several locations, give up to 5, nearest first.",
-      "Reply with only a JSON array, no other text: [{\"name\": \"business name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"source\": \"site the address came from\"}].",
+      "Reply with only a JSON array, no other text: [{\"name\": \"business name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"lat\": latitude if the listing shows it, \"lng\": longitude if the listing shows it, \"source\": \"site the address came from\"}].",
       "Only include addresses you actually found. If you can't find this business, reply with []."
     ].join("\n");
     const text = await callAI(prompt, { webSearch: true });
@@ -100111,19 +100251,30 @@ return maplibregl$1;
     for (const r of (Array.isArray(rows) ? rows : []).slice(0, max)) {
       const address = String((r && r.address) || "").trim();
       if (address.length < 6) continue;
-      // Place the address with the normal address lookup (one request a second, as it asks).
+      // Place the address: the normal address lookup (one request a second,
+      // as it asks), then Photon, then, as a last resort, the position the AI
+      // read from the listing, if it's plausible (labelled approximate).
       if (found.length) await sleep(1100);
-      let hit = null;
+      let lat = NaN, lng = NaN, approx = false;
       try {
         const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address));
-        if (res.ok) { const arr = await res.json(); hit = Array.isArray(arr) && arr[0]; }
-      } catch (e) { hit = null; }
-      if (!hit) continue;
-      const lat = parseFloat(hit.lat), lng = parseFloat(hit.lon);
+        if (res.ok) { const arr = await res.json(); const hit = Array.isArray(arr) && arr[0]; if (hit) { lat = parseFloat(hit.lat); lng = parseFloat(hit.lon); } }
+      } catch (e) {}
+      if (!isFinite(lat)) {
+        try {
+          const res = await fetch("https://photon.komoot.io/api/?limit=1&lat=" + origin.lat.toFixed(4) + "&lon=" + origin.lng.toFixed(4) + "&q=" + encodeURIComponent(address));
+          if (res.ok) { const d = await res.json(); const f = d.features && d.features[0]; if (f && f.geometry) { lng = f.geometry.coordinates[0]; lat = f.geometry.coordinates[1]; } }
+        } catch (e) {}
+      }
+      if (!isFinite(lat)) {
+        const aLat = Number(r && r.lat), aLng = Number(r && r.lng);
+        if (isFinite(aLat) && isFinite(aLng) && Math.abs(aLat) <= 90 && Math.abs(aLng) <= 180 && !(aLat === 0 && aLng === 0) &&
+            haversineMeters(origin.lat, origin.lng, aLat, aLng) <= 300000) { lat = aLat; lng = aLng; approx = true; }
+      }
       if (!isFinite(lat) || !isFinite(lng)) continue;
       const site = String((r && r.website) || "").trim();
       found.push({ name: String(r.name || name).slice(0, 80), lat, lng, km: haversineMeters(origin.lat, origin.lng, lat, lng) / 1000, address, city: "",
-        web: /^https?:\/\//i.test(site) ? site : "", hours: "", fromWeb: String((r && r.source) || "the web").slice(0, 40), isFood: false });
+        web: /^https?:\/\//i.test(site) ? site : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(site) ? "https://" + site : "", hours: "", fromWeb: String((r && r.source) || "the web").slice(0, 40), isFood: false, approx });
     }
     return found.sort((a, b) => a.km - b.km);
   }
@@ -100179,7 +100330,7 @@ return maplibregl$1;
     const prompt = [
       "Using web search, find the up to 10 places nearest to latitude " + origin.lat.toFixed(4) + ", longitude " + origin.lng.toFixed(4) + " that match: " + what + ".",
       "Only real, currently open places within about 30 km. Use their own websites or reliable listings for addresses.",
-      "Reply with only a JSON array, no other text, nearest first: [{\"name\": \"place name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"source\": \"site the address came from\"}].",
+      "Reply with only a JSON array, no other text, nearest first: [{\"name\": \"place name\", \"address\": \"full street address with city, province or state, and postal code\", \"website\": \"official website or empty\", \"lat\": latitude if the listing shows it, \"lng\": longitude if the listing shows it, \"source\": \"site the address came from\"}].",
       "Only include places you actually found. If you find none, reply with []."
     ].join("\n");
     const text = await callAI(prompt, { webSearch: true });
@@ -100268,7 +100419,8 @@ return maplibregl$1;
     searchSpinner.style.display = "block";
     try {
       let intent = quickNearbyKind(q);
-      if (!intent && aiAvailable()) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch(() => null); }
+      let aiIntentProblem = "";
+      if (!intent && aiAvailable()) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch((e) => { aiIntentProblem = (e && e.message) || "no answer"; return null; }); }
       if (seq !== nearbySeq) return;
       // An address, town or landmark: the normal search results.
       if (intent && intent.address) { searchSpinner.style.display = "none"; runSearch(q, { noNearbyRow: true }); return; }
@@ -100276,42 +100428,72 @@ return maplibregl$1;
       if (!intent) intent = keywordNearbyIntent(q);
       msg("Finding the closest " + intent.label + "\u2026");
       const origin = await nearbyOrigin();
-      let places, source = "osm";
-      try { places = await nearbyPlaces(intent, origin); }
-      catch (err) {
+      // What was tried and how each went, for an honest message if nothing turns up.
+      const steps = [];
+      if (aiIntentProblem) steps.push("understanding the search with AI: " + aiIntentProblem);
+      // A business by name: the web lookup starts now, alongside OpenStreetMap,
+      // rather than only once everything else has come up empty.
+      const searchName = intent.businessName || nearbyQueryText(q);
+      const webWanted = !!intent.nameSearch && aiWebSearchAvailable();
+      const webPromise = webWanted ? webLookupBusiness(searchName, origin).then((r) => ({ ok: true, places: r })).catch((e) => ({ ok: false, error: (e && e.message) || "no answer" })) : null;
+      let places = [], source = "osm", osmError = null;
+      try {
+        places = await nearbyPlaces(intent, origin);
+        steps.push("OpenStreetMap places: " + (places.length ? "found " + places.length : "nothing within 30 km"));
+      } catch (err) {
         // OpenStreetMap's place service (and its backups) didn't answer.
         if (navigator.onLine === false) throw err;
+        osmError = err;
+        steps.push("OpenStreetMap places: " + (err && err.message ? err.message : "no answer"));
         if (seq !== nearbySeq) return;
         msg("The main place service didn't answer. Trying the map's address search\u2026");
         places = await addressSearchNearby(intent, q, origin).catch(() => []);
         source = "address";
-        if (seq !== nearbySeq) return;
-        if (!places.length && aiWebSearchAvailable()) {
-          msg("\u2728 Still nothing. Asking AI to search the web for " + (intent.label || nearbyQueryText(q)) + "\u2026");
-          places = await aiWebNearby(intent, q, origin).catch(() => []);
-          source = "web";
-          if (seq !== nearbySeq) return;
-        }
-        if (!places.length) throw err;
+        steps.push("map address search: " + (places.length ? "found " + places.length : "nothing within 30 km"));
       }
       if (seq !== nearbySeq) return;
-      // A business name OpenStreetMap doesn't have: look its address up on the web.
-      let fromWeb = source === "web";
-      if (!places.length && source === "osm" && intent.nameSearch && aiWebSearchAvailable()) {
-        msg("\u2728 Not in OpenStreetMap nearby. Looking up \u201c" + nearbyQueryText(q) + "\u201d on the web\u2026");
-        const web = await webLookupBusiness(intent.businessName || nearbyQueryText(q), origin).catch(() => []);
+      let fromWeb = false, webResult = null;
+      if (webPromise) {
+        if (!places.length) {
+          msg("\u2728 Not found on the map. Checking the web for \u201c" + searchName + "\u201d\u2026");
+          webResult = await webPromise;
+          if (seq !== nearbySeq) return;
+          const found = webResult.ok ? webResult.places.filter((pl) => pl.km <= 300).slice(0, 10) : [];
+          steps.push("web search by AI: " + (webResult.ok ? (found.length ? "found " + found.length : webResult.places.length ? "found it, but more than 300 km away" : "nothing found") : webResult.error));
+          if (found.length) { places = found; source = "web"; fromWeb = true; }
+        }
+      } else if (!places.length && osmError && aiWebSearchAvailable()) {
+        // A kind of place, when both map services failed: the web, as a last resort.
+        msg("\u2728 Still nothing. Asking AI to search the web for " + (intent.label || nearbyQueryText(q)) + "\u2026");
+        let err2 = null;
+        const found = await aiWebNearby(intent, q, origin).catch((e) => { err2 = e; return []; });
+        steps.push("web search by AI: " + (err2 ? err2.message : found.length ? "found " + found.length : "nothing found"));
         if (seq !== nearbySeq) return;
-        if (web.length) { places.push(...web.filter((pl) => pl.km <= 300).slice(0, 10)); fromWeb = places.length > 0; }
+        if (found.length) { places = found; source = "web"; fromWeb = true; }
+      } else if (!places.length) {
+        steps.push("web search by AI: " + (!aiAvailable() ? "no AI service is set up on this device (keys aren't synced between devices)" : !aiWebSearchAvailable() ? "none of your AI services can search the web" : "not needed"));
       }
       if (!places.length) {
-        // Nothing nearby: show the normal search results instead, with a note.
+        // One step per line; an AI problem's advice is given once, at the end.
+        let aiAdvice = "";
+        const clean = steps.map((st) => {
+          const m = / Try (again )?later, or add another AI service in Settings as a fallback\.?$/.exec(st);
+          if (m) { aiAdvice = "Tip: add another AI service in Settings as a fallback, or try again later."; st = st.slice(0, m.index); }
+          return st.replace(/[.\s]+$/, "");
+        });
+        const tried = "Tried:\n" + clean.map((st) => "\u2022 " + st.charAt(0).toUpperCase() + st.slice(1)).join("\n") + (aiAdvice ? "\n" + aiAdvice : "");
+        if (osmError) {
+          // Nothing could be reached or found: say what was tried, with Try again.
+          throw Object.assign(new Error("nothing found.\n" + tried), { detailed: true });
+        }
+        // The map answered but had nothing nearby: show the normal search results instead, with a note.
         if (o.spoken) speak("I couldn't find any " + intent.label.replace(/[\u201c\u201d]/g, "") + " within 30 kilometres.");
         searchSpinner.style.display = "none";
         await runSearch(q, { noNearbyRow: true });
         if (seq !== nearbySeq) return;
         const note = document.createElement("div");
         note.className = "search-result-row search-result-message";
-        note.textContent = "No " + intent.label + " within 30 km of " + origin.where + ". Other results:";
+        note.textContent = "No " + intent.label + " within 30 km of " + origin.where + ".\n" + tried + "\nOther results:";
         searchResultsEl.insertBefore(note, searchResultsEl.firstChild);
         searchResultsEl.classList.add("show");
         return;
@@ -100329,7 +100511,7 @@ return maplibregl$1;
         }
       }
       const head = source === "web"
-        ? { isMessage: true, text: "\u2728 The map services didn't answer, so these were found on the web by AI, nearest first. Check before you go." }
+        ? { isMessage: true, text: "\u2728 Found on the web by AI, nearest first. Check before you go." }
         : source === "address"
         ? { isMessage: true, text: "The main place service didn't answer, so these come from the map's address search, nearest first. It may miss some places." }
         : fromWeb
@@ -100337,19 +100519,31 @@ return maplibregl$1;
         : { isMessage: true, text: (intent.ai ? "\u2728 " : "") + (places.length === 1 ? "The closest " + intent.label.replace(/^places/, "place") : "The " + places.length + " closest " + intent.label) + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
       const rows = places.map((pl, i) => ({
         display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1), website: pl.web || "",
-        detail: [fmtNearbyKm(pl.km) + " away", pl.fromWeb ? "address from " + pl.fromWeb : "", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
+        detail: [fmtNearbyKm(pl.km) + " away", pl.fromWeb ? (pl.approx ? "approximate position; address from " : "address from ") + pl.fromWeb : "", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
         title: pl.web || ""
       }));
       if (ranked) rows.push({ isMessage: true, text: "Ratings come from review sites found by Gemini's web search, and may be out of date." });
       renderSearchResults([head].concat(rows));
       showNearbyOnMap(places, origin);
+      // The web lookup (for a business name) may still be running: when it
+      // answers, any website it found is attached to the matching place, so
+      // saving it as a waypoint includes the link.
+      if (webPromise && !webResult) webPromise.then((wr) => {
+        if (!wr.ok || seq !== nearbySeq) return;
+        rows.forEach((row, i) => {
+          if (row.website) return;
+          const pl = places[i];
+          const match = wr.places.find((w) => w.web && haversineMeters(w.lat, w.lng, pl.lat, pl.lng) < 600);
+          if (match) { row.website = match.web; pl.web = match.web; }
+        });
+      });
       if (o.spoken) {
         const first = places[0];
         speak("Found " + places.length + " " + intent.label + ". " + (ranked && first.rating != null ? "The best reviewed is " + first.name + ", " + first.rating.toFixed(1) + " stars, " : "The closest is " + first.name + ", ") + fmtNearbyKm(first.km).replace("km", "kilometres").replace(" m", " metres") + " away.");
       }
     } catch (e) {
       if (seq === nearbySeq) {
-        msg("Couldn't search nearby: " + (e && e.message ? e.message : "unknown error") + ".", false);
+        msg(e && e.detailed ? "Couldn't find “" + String(q).trim() + "”: " + e.message : "Couldn't search nearby: " + (e && e.message ? e.message : "unknown error") + ".", false);
         const again = document.createElement("button");
         again.type = "button"; again.className = "cc-link-btn search-retry-btn"; again.textContent = "Try again";
         again.addEventListener("click", (ev) => { ev.stopPropagation(); runNearbySearch(q, o); });
@@ -101890,7 +102084,32 @@ return maplibregl$1;
   // marker-placement bug if nothing calls it out, since the map simply
   // shows nothing where the new pin should be.
   function hiddenFolderWarningSuffix(wp) {
-    return isWaypointHiddenByFolder(wp) ? " \u2014 its folder is hidden from the map" : "";
+    if (isWaypointHiddenByFolder(wp)) return " \u2014 its folder is hidden from the map";
+    if (typeof regionShown === "function" && !regionShown(wp.region)) return " \u2014 the " + regionName(wp.region) + " region is hidden on the map (tap its eye to show it)";
+    return "";
+  }
+  /* A waypoint's region always matches its folder's. A waypoint saved into
+     a folder used to keep no region of its own, which counts as Personal,
+     so one saved into, say, Canada's Ontario folder followed Personal's
+     show/hide eye: with Personal hidden, its icon never appeared. */
+  function regionForNewWaypoint(folderId) {
+    const f = folderId && waypointFolders.find((x) => x.id === folderId);
+    return (f && f.region) || activeWaypointRegion || "personal";
+  }
+  // Brings any waypoint whose region differs from its folder's into line,
+  // showing or hiding its icon to match. Returns how many were changed.
+  function syncWaypointRegionsWithFolders() {
+    let n = 0;
+    const regionOf = new Map(waypointFolders.map((f) => [f.id, f.region || "personal"]));
+    waypoints.forEach((w) => {
+      if (!w.folderId || !regionOf.has(w.folderId)) return;
+      const want = regionOf.get(w.folderId);
+      if ((w.region || "personal") === want) return;
+      w.region = want; n++;
+      const m = markers[w.id];
+      if (m) { const show = regionShown(want) && !isWaypointEffectivelyHidden(w); if (show && !map.hasLayer(m)) m.addTo(map); else if (!show && map.hasLayer(m)) map.removeLayer(m); }
+    });
+    return n;
   }
   // The combined rule an individual waypoint's marker actually obeys:
   // hidden if its own toggle is on, OR if it's inside a hidden folder
@@ -105841,6 +106060,239 @@ return maplibregl$1;
     dayTlRender();
   }
 
+
+  /* ================================================================ */
+  /*  Test Suite (Settings): checks MapApp on this device, in its real */
+  /*  browser and against the real services. Non-destructive: it only  */
+  /*  reads your data; anything it writes is a scratch item, removed    */
+  /*  afterwards. Results can be copied as a report.                    */
+  /* ================================================================ */
+  function selfTestImage(w, h) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d");
+    for (let i = 0; i < 300; i++) { x.fillStyle = "hsl(" + (i * 37 % 360) + ",60%,50%)"; x.fillRect((i * 53) % w, (i * 29) % h, 24, 24); }
+    return c.toDataURL("image/jpeg", 0.85);
+  }
+  function selfTestAssert(cond, msg) { if (!cond) throw new Error(msg); }
+  function selfTestTimed(promise, ms, what) {
+    return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(what + " took longer than " + Math.round(ms / 1000) + " s")), ms))]);
+  }
+  const SELF_TESTS = [
+    // ---------- This device ----------
+    { group: "This device", name: "Browser and app", run: async () => {
+      const webkit = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|CriOS|Android/.test(navigator.userAgent);
+      const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+      return { status: "info", detail: "MapApp " + APP_VERSION + " \u00b7 " + (webkit ? "Safari engine (WebKit)" : "other browser engine") + " \u00b7 " + (standalone ? "home-screen app" : "in a browser tab") + " \u00b7 " + screen.width + "\u00d7" + screen.height + " @" + (window.devicePixelRatio || 1) + "x" };
+    } },
+    { group: "This device", name: "Saving and reading data", run: async () => {
+      const probe = { t: Date.now(), text: "MapApp test \u00e9\u00e8 \u2713" };
+      await dataStore.setItem("selftest:probe", probe);
+      const back = await dataStore.getItem("selftest:probe");
+      await dataStore.removeItem("selftest:probe");
+      selfTestAssert(back && back.t === probe.t && back.text === probe.text, "what was read back didn't match what was saved");
+      return { status: "pass", detail: "A test item was saved, read back exactly, and removed." };
+    } },
+    { group: "This device", name: "Storage space", run: async () => {
+      if (!(navigator.storage && navigator.storage.estimate)) return { status: "skip", detail: "This browser doesn't report storage use." };
+      const e = await navigator.storage.estimate();
+      const used = e.usage / 1048576, quota = e.quota / 1048576, pct = quota ? used / quota * 100 : 0;
+      return { status: pct > 80 ? "warn" : "pass", detail: used.toFixed(1) + " MB used of about " + (quota >= 1024 ? (quota / 1024).toFixed(1) + " GB" : Math.round(quota) + " MB") + (pct > 80 ? ": nearly full." : ".") };
+    } },
+    { group: "This device", name: "Start-ups and safe mode", run: async () => {
+      let hist = [];
+      try { hist = JSON.parse(localStorage.getItem("mapapp:boothist") || "[]"); } catch (e) {}
+      const crashed = hist.filter((h) => h.crashed).length;
+      return { status: bootGuard.safe ? "warn" : crashed ? "warn" : "pass",
+        detail: (bootGuard.safe ? "Running in safe mode now. " : "Normal mode. ") + (hist.length ? crashed + " of the last " + hist.length + " start-ups didn't finish." : "No start-up history yet.") };
+    } },
+    { group: "This device", name: "Location", run: async () => {
+      if (!navigator.geolocation) return { status: "fail", detail: "This browser has no location service." };
+      let state = "unknown";
+      try { state = (await navigator.permissions.query({ name: "geolocation" })).state; } catch (e) {}
+      return { status: state === "denied" ? "warn" : "pass", detail: state === "granted" ? "Allowed." : state === "denied" ? "Blocked for MapApp: allow it in Settings for your position, directions and nearby search." : "Available (MapApp will ask when needed)." };
+    } },
+    { group: "This device", name: "Live Street map support (WebGL)", run: async () => {
+      const c = document.createElement("canvas");
+      const ok = !!(c.getContext("webgl2") || c.getContext("webgl"));
+      return { status: ok ? "pass" : "warn", detail: ok ? "Supported." : "Not available: the Street map uses image tiles instead." };
+    } },
+    { group: "This device", name: "Spoken directions and narration", run: async () => {
+      if (!("speechSynthesis" in window)) return { status: "warn", detail: "This browser can't speak." };
+      let voices = speechSynthesis.getVoices();
+      if (!voices.length) { await new Promise((r) => setTimeout(r, 400)); voices = speechSynthesis.getVoices(); }
+      return { status: "pass", detail: voices.length ? voices.length + " voices available." : "Available." };
+    } },
+    // ---------- Your data and the app ----------
+    { group: "Your data", name: "Waypoints, folders and photos", run: async () => {
+      const refs = [], inline = [];
+      waypoints.forEach((w) => (w.photos || []).forEach((p) => { if (photoRefId(p)) refs.push(photoRefId(p)); else if (String(p).startsWith("data:")) inline.push(p); }));
+      const noThumb = refs.filter((id) => !photoMeta.has(id)).length;
+      return { status: noThumb ? "warn" : "pass", detail: waypoints.length + " waypoints, " + waypointFolders.length + " folders, " + rides.length + " routes, " + (refs.length + inline.length) + " photos" +
+        (noThumb ? ". " + noThumb + " thumbnails are still being made in the background." : ".") };
+    } },
+    { group: "Your data", name: "Photos can be opened", run: async () => {
+      const ids = [];
+      waypoints.forEach((w) => (w.photos || []).forEach((p) => { const id = photoRefId(p); if (id) ids.push({ p, w }); }));
+      if (!ids.length) return { status: "skip", detail: "No stored photos to check." };
+      const pick = [ids[0], ids[Math.floor(ids.length / 2)], ids[ids.length - 1]].filter((x, i, a) => a.indexOf(x) === i);
+      const bad = [];
+      for (const x of pick) { const d = await getPhotoData(x.p); if (!d || !/^data:image\//.test(d)) bad.push(x.w.name || "a waypoint"); }
+      return bad.length ? { status: "fail", detail: "Couldn't open a photo on: " + bad.join(", ") + "." } : { status: "pass", detail: pick.length + " sample photos opened in full (of " + ids.length + ")." };
+    } },
+    { group: "Your data", name: "Photo storage", run: async () => {
+      const img = selfTestImage(320, 240), id = "selftest_" + Date.now().toString(36);
+      await photoStore.setItem(id, img);
+      const back = await photoStore.getItem(id);
+      await photoStore.removeItem(id);
+      selfTestAssert(back === img, "the test photo read back differently");
+      const thumb = await generatePhotoThumbnail(img);
+      selfTestAssert(/^data:image\/jpeg/.test(thumb) && thumb.length < img.length, "the thumbnail maker didn't produce a smaller image");
+      return { status: "pass", detail: "A test photo was stored, read back exactly, thumbnailed and removed." };
+    } },
+    { group: "Your data", name: "Regions", run: async () => {
+      const list = regionList(), ids = list.map((r) => r.id);
+      selfTestAssert(new Set(ids).size === ids.length, "two regions share an id");
+      const orphan = waypoints.filter((w) => !ids.includes(w.region || "personal")).length;
+      selfTestAssert(!orphan, orphan + " waypoints are in a region with no tab");
+      return { status: "pass", detail: list.map((r) => r.name).join(", ") + "." };
+    } },
+    { group: "The app", name: "Day schedules", run: async () => {
+      const stops = [{ category: "food" }, { category: "culture" }, { estimatedTimeMinutes: 45 }];
+      const legs = [{ min: 5 }, { min: 5 }, { min: 5 }, { min: 5 }];
+      const sch = buildDaySchedule(stops, legs, true, hhmmToMin("09:00"));
+      selfTestAssert(sch.items[0].arrive === 545 && sch.items[0].stay === 60, "restaurant timing is wrong");
+      selfTestAssert(sch.items[1].stay === 120 && sch.items[2].depart === 780 && sch.finish === 785, "the day's times don't add up");
+      selfTestAssert(minToHHMM(785) === "13:05", "time formatting is wrong");
+      return { status: "pass", detail: "A sample day works out to 9:00 AM \u2013 1:05 PM, as expected." };
+    } },
+    { group: "The app", name: "Nearby search understanding", run: async () => {
+      const b = quickNearbyKind("Burgers"), g = quickNearbyKind("find gas");
+      selfTestAssert(b && /burger/.test(b.label) && b.match({ name: "Smash Burger" }) && !b.match({ name: "Mario Pizza", cuisine: "pizza" }), "\u201cburgers\u201d isn't understood");
+      selfTestAssert(g && /fuel/.test(g.filters[0]), "\u201cfind gas\u201d isn't understood");
+      selfTestAssert(tidyOverpassFilter("amenity=fast_food") === '["amenity"="fast_food"]', "map search tags aren't tidied");
+      selfTestAssert(!/["\\]/.test(overpassLiteral('say "hi" \\ there')), "names aren't made safe for map searches");
+      selfTestAssert(aiExtractJson("Here:\n```json\n{\"a\":1}\n```") === '{"a":1}', "AI answers aren't cleaned up");
+      return { status: "pass", detail: "Burgers, gas, map search tags and AI answers are all handled." };
+    } },
+    { group: "The app", name: "PDF making", run: async () => {
+      selfTestAssert(await selfTestTimed(loadPdfLib(), 15000, "Loading the PDF maker"), "the PDF maker didn't load");
+      const doc = await PDFLib.PDFDocument.create();
+      const page = doc.addPage([300, 300]);
+      const img = await pdfEmbedPhotoCover(doc, selfTestImage(200, 150), 100);
+      selfTestAssert(img && img.image, "a photo couldn't be put into the PDF");
+      page.drawImage(img.image, { x: 10, y: 10, width: img.width, height: img.height });
+      const bytes = await doc.save();
+      selfTestAssert(bytes && bytes.length > 1000, "the test PDF came out empty");
+      return { status: "pass", detail: "A one-page PDF with a photo was made (" + Math.round(bytes.length / 1024) + " KB) and discarded." };
+    } },
+    { group: "The app", name: "QR codes", run: async () => {
+      selfTestAssert(typeof qrcode === "function", "the QR maker isn't available");
+      const q = qrcode(0, "M"); q.addData("https://example.com/mapapp"); q.make();
+      selfTestAssert(q.getModuleCount() >= 21, "the QR code is malformed");
+      return { status: "pass", detail: "A test QR code was made." };
+    } },
+    { group: "The app", name: "Map", run: async () => {
+      selfTestAssert(map && map.getCenter && isFinite(map.getZoom()), "the map isn't running");
+      return { status: "pass", detail: "Running at zoom " + map.getZoom() + "." };
+    } },
+    // ---------- Online services ----------
+    { group: "Online services", online: true, name: "Map tiles", run: async () => {
+      const key = settings.thunderforestApiKey || "";
+      const url = "https://tile.thunderforest.com/atlas/10/301/366.png" + (key ? "?apikey=" + encodeURIComponent(key) : "");
+      const t0 = performance.now();
+      await selfTestTimed(new Promise((res, rej) => { const im = new Image(); im.onload = res; im.onerror = () => rej(new Error("the tile didn't load")); im.src = url; }), 12000, "A map tile");
+      return { status: key ? "pass" : "warn", detail: "Loaded in " + Math.round(performance.now() - t0) + " ms" + (key ? "." : ", but without a Thunderforest key the maps carry a watermark.") };
+    } },
+    { group: "Online services", online: true, name: "Places (OpenStreetMap)", run: async () => {
+      const t0 = performance.now();
+      const r = await overpassQuery("[out:json][timeout:10];node(1);out;", 12000);
+      selfTestAssert(r.ok, "no answer: " + r.error);
+      return { status: "pass", detail: "Answered in " + Math.round(performance.now() - t0) + " ms by " + overpassEndpoints()[overpassEndpoints.preferred].replace(/^https:\/\/([^/]+).*/, "$1") + "." };
+    } },
+    { group: "Online services", online: true, name: "Address search (Photon and Nominatim)", run: async () => {
+      const t0 = performance.now(), res = [];
+      for (const [name, url] of [["Photon", "https://photon.komoot.io/api/?limit=1&q=Ottawa"], ["Nominatim", "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Ottawa"]]) {
+        try { const r = await selfTestTimed(fetch(url), 10000, name); res.push(name + (r.ok ? " ok" : " error " + r.status)); } catch (e) { res.push(name + " unreachable"); }
+      }
+      const bad = res.filter((x) => !/ ok$/.test(x)).length;
+      return { status: bad === 2 ? "fail" : bad ? "warn" : "pass", detail: res.join(", ") + " (" + Math.round(performance.now() - t0) + " ms)." };
+    } },
+    { group: "Online services", online: true, name: "Routing", run: async () => {
+      const t0 = performance.now();
+      const r = await selfTestTimed(osrmRouteThrough([{ lat: 45.4215, lng: -75.6972 }, { lat: 45.4250, lng: -75.6900 }], "driving"), 15000, "Routing");
+      selfTestAssert(r && r.distanceMeters > 0, "no route came back");
+      return { status: "pass", detail: "A test route (" + (r.distanceMeters / 1000).toFixed(1) + " km) came back in " + Math.round(performance.now() - t0) + " ms." };
+    } },
+    { group: "Online services", online: true, name: "GitHub sync connection", run: async () => {
+      const token = await safeLocalStorageGet(GITHUB_TOKEN_KEY), repoStr = await safeLocalStorageGet(GITHUB_REPO_KEY);
+      if (!token || !repoStr) return { status: "skip", detail: "GitHub sync isn't set up." };
+      const m = /([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(String(repoStr).trim());
+      if (!m) return { status: "fail", detail: "The repository setting doesn't look like owner/name." };
+      const r = await selfTestTimed(fetch("https://api.github.com/repos/" + m[1] + "/" + m[2], { headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" } }), 12000, "GitHub");
+      if (r.status === 401) return { status: "fail", detail: "GitHub didn't accept the access token (it may have expired)." };
+      if (r.status === 404) return { status: "fail", detail: "GitHub can't see " + m[1] + "/" + m[2] + " with this token." };
+      selfTestAssert(r.ok, "GitHub answered " + r.status);
+      const info = await r.json();
+      return { status: info.permissions && info.permissions.push === false ? "warn" : "pass", detail: "Connected to " + info.full_name + (info.permissions && info.permissions.push === false ? ", but this token can't write to it." : ".") };
+    } },
+    { group: "Online services", online: true, ai: true, name: "AI services", run: async () => {
+      const list = aiProviders().filter(aiProviderReady);
+      if (!list.length) return { status: "skip", detail: "No AI service is set up." };
+      const out = [];
+      let ok = 0;
+      for (const p of list) {
+        try { const t0 = performance.now(); await selfTestTimed(callAIProvider(p, "Reply with just the word OK.", {}), 30000, aiProviderName(p)); ok++; out.push(aiProviderName(p) + " ok (" + ((performance.now() - t0) / 1000).toFixed(1) + " s)"); }
+        catch (e) { out.push(aiProviderName(p) + ": " + (e && e.message ? e.message.slice(0, 80) : "failed")); }
+      }
+      return { status: ok === list.length ? "pass" : ok ? "warn" : "fail", detail: out.join("; ") + "." };
+    } }
+  ];
+  let selfTestReport = "";
+  async function runSelfTests() {
+    const online = el("selfTestOnline").checked && navigator.onLine !== false, ai = el("selfTestAi").checked;
+    const tests = SELF_TESTS.filter((t) => (!t.online || online) && (!t.ai || ai));
+    const listEl = el("selfTestList"), sumEl = el("selfTestSummary");
+    el("selfTestRunBtn").disabled = true; el("selfTestCopyBtn").disabled = true;
+    listEl.innerHTML = ""; sumEl.textContent = "Running " + tests.length + " checks\u2026";
+    const results = [];
+    let group = "";
+    for (const t of tests) {
+      if (t.group !== group) { group = t.group; const h = document.createElement("p"); h.className = "selftest-group"; h.textContent = group; listEl.appendChild(h); }
+      const row = document.createElement("div"); row.className = "selftest-row running";
+      row.innerHTML = '<span class="selftest-mark">\u2026</span><span class="selftest-body"><b>' + escapeHtml(t.name) + '</b><span class="selftest-detail">Running\u2026</span></span>';
+      listEl.appendChild(row);
+      row.scrollIntoView({ block: "nearest" });
+      const t0 = performance.now();
+      let r;
+      try { r = await t.run(); } catch (e) { r = { status: "fail", detail: (e && e.message ? e.message.charAt(0).toUpperCase() + e.message.slice(1) : "Failed") + "." }; }
+      const ms = Math.round(performance.now() - t0);
+      results.push({ group: t.group, name: t.name, status: r.status, detail: r.detail, ms });
+      const marks = { pass: "\u2713", fail: "\u2717", warn: "!", skip: "\u2013", info: "i" };
+      row.className = "selftest-row " + r.status;
+      row.querySelector(".selftest-mark").textContent = marks[r.status] || "?";
+      row.querySelector(".selftest-detail").textContent = r.detail;
+    }
+    const n = (s) => results.filter((r) => r.status === s).length;
+    const passed = n("pass"), failed = n("fail"), warned = n("warn"), skipped = n("skip");
+    sumEl.textContent = failed ? failed + " failed, " + passed + " passed" + (warned ? ", " + warned + " to look at" : "") + "." : "All checks passed" + (warned ? ", with " + warned + " to look at" : "") + (skipped ? " (" + skipped + " skipped)" : "") + ".";
+    sumEl.className = "selftest-summary " + (failed ? "bad" : warned ? "meh" : "good");
+    selfTestReport = ["MapApp Test Suite report", new Date().toLocaleString(), navigator.userAgent, "", sumEl.textContent, ""]
+      .concat(results.map((r) => "[" + r.status.toUpperCase() + "] " + r.group + " / " + r.name + ": " + r.detail + " (" + r.ms + " ms)")).join("\n");
+    window.__selfTestResults = results; // also read by the developer test suite
+    el("selfTestRunBtn").disabled = false; el("selfTestCopyBtn").disabled = false;
+    el("selfTestRunBtn").textContent = "Run again";
+  }
+  el("selfTestBtn").addEventListener("click", () => {
+    el("selfTestOverlay").classList.remove("hidden");
+    el("selfTestOnline").checked = navigator.onLine !== false;
+  });
+  el("selfTestCloseBtn").addEventListener("click", () => el("selfTestOverlay").classList.add("hidden"));
+  el("selfTestRunBtn").addEventListener("click", () => { runSelfTests(); });
+  el("selfTestCopyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(selfTestReport); showToast("Test report copied."); }
+    catch (e) { showToast("Couldn't copy: select the results and copy them instead."); }
+  });
+
   // ---- Day times dialog ----
   let itinTimesId = null;
   function openItineraryTimes(itinId) {
@@ -106032,6 +106484,8 @@ return maplibregl$1;
     if (n && !bootGuard.safe) saveWaypoints();
   })();
   if (!bootGuard.safe && reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
+  // Waypoints saved into another region's folder before this was fixed get that region (and their icons).
+  if (syncWaypointRegionsWithFolders()) saveWaypoints();
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
@@ -106083,6 +106537,7 @@ return maplibregl$1;
       // Itineraries are tidied before every list render (which follows any
       // edit), so the list, map, badges, boxes and routes all show the result.
       if (!bootGuard.safe && reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
+      if (syncWaypointRegionsWithFolders()) saveWaypoints();
       const r = renderListBase.apply(this, arguments);
       refreshItineraryDayLines();
       return r;
