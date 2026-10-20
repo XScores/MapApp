@@ -81247,7 +81247,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "588";
+  const APP_VERSION = "589";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -84672,7 +84672,7 @@ return maplibregl$1;
   const HELP_SECTIONS = [
     { title: "Finding your way around", items: [
       { t: "Search", d: "Find a place, an address, coordinates (for example 45.42, -75.69) or a 3-word address. From a result you can save it as a waypoint or get directions.", go: "highlight:searchInput", label: "Show me" },
-      { t: "Find things nearby", d: "Search for a kind of place, like \u201cgas\u201d or \u201ccoffee\u201d, and choose \u201cFind \u2026 near you\u201d (or press Enter) to see the 10 closest, numbered on the map. With a Gemini key you can search for anything, like \u201ceggrolls\u201d, and food and drink are listed best reviewed first, using ratings from review sites. With hands-free voice on, just say \u201cfind gas\u201d.", go: "highlight:searchInput", label: "Show me" },
+      { t: "Find things nearby", d: "Type what you want and press Enter (or tap \u201cSearch with AI\u201d). Searches starting with a word (gas, pizza, Milano\u2019s) go to your AI service first, which works out whether you mean a kind of place, a business or a town, and shows the closest, numbered on the map; food and drink are listed best reviewed first. Searches starting with a number (an address or coordinates) go straight to the map\u2019s address search. Without an AI service, common kinds of place still work. With hands-free voice on, just say \u201cfind gas\u201d.", go: "highlight:searchInput", label: "Show me" },
       { t: "Moving and zooming", d: "Drag to pan; pinch or use the zoom slider at the bottom right. The coordinates of the map's centre and a scale bar are shown along the bottom.", go: "highlight:zoomSliderControl", label: "Show me" },
       { t: "Turning the map", d: "Keep north up, twist the map with two fingers, or have it turn so the way you're moving is at the top. A compass appears when the map is turned; tap it to point north again.", go: "settings:Map orientation", label: "Open Map orientation" },
       { t: "Home", d: "Set a home base, then tap the house button to fly back to it from anywhere.", go: "settings:Home base", label: "Set your home" }
@@ -100028,8 +100028,11 @@ return maplibregl$1;
     const homeRow = searchHomeResult(q, waypointRows);
     // "Find ... near you": always for common kinds of place, and for anything when an AI key is set.
     const quickKind = quickNearbyKind(q);
-    const nearbyRow = !noNearbyRow && (quickKind || (aiAvailable() && q.length >= 3))
-      ? [{ kind: "nearbyAction", query: q, display_name: quickKind ? "Find the closest " + quickKind.label + " near you" : "Find \u201c" + nearbyQueryText(q) + "\u201d near you", detail: quickKind ? "" : "Uses AI to work out what to look for", tag: quickKind ? "Nearby" : "\u2728 AI" }]
+    const useAi = aiAvailable() && q.length >= 2;
+    const nearbyRow = !noNearbyRow && !searchLooksLikeAddress(q) && (quickKind || useAi)
+      ? [useAi
+        ? { kind: "nearbyAction", query: q, display_name: "Search with AI: \u201c" + q + "\u201d", detail: "Finds places, businesses and dishes near you (or press Enter)", tag: "\u2728 AI" }
+        : { kind: "nearbyAction", query: q, display_name: "Find the closest " + quickKind.label + " near you", detail: "", tag: "Nearby" }]
       : [];
     const localRows = nearbyRow.concat(homeRow ? [homeRow] : []).concat(waypointRows);
     if (localRows.length) renderSearchResults(localRows);
@@ -100174,6 +100177,14 @@ return maplibregl$1;
     { re: /^(bakery|bakeries|bread|pastr(y|ies)|croissants?)$/, label: "bakeries", food: true, filters: ['["shop"~"^(bakery|pastry)$"]'] },
     { re: /^(breakfast|brunch|diners?)$/, label: "breakfast places", food: true, filters: [FOOD_PLACES], match: (t) => /breakfast|diner|brunch/i.test(t.cuisine || "") || /breakfast|brunch|diner|eggs/i.test(t.name || "") }
   );
+  /* What a search looks like: starting with a number (an address, coordinates,
+     a postcode) or a what3words-style address, it goes to the map's address
+     search first; starting with a word (gas, pizza, Milano's), it goes to the
+     AI first when one is set up, with the built-in kinds as the backup. */
+  function searchLooksLikeAddress(q) {
+    const t = String(q || "").trim();
+    return /^[-+]?\d/.test(t) || /^[a-z]+\.[a-z]+\.[a-z]+$/i.test(t) || !!parseLatLngQuery(t);
+  }
   function nearbyQueryText(q) { return String(q || "").toLowerCase().trim().replace(/^(find|show( me)?|where('s| is)( the)?( nearest| closest)?|nearest|closest|any)\s+/, "").replace(/\s+(near me|nearby|around here|close by)$/, "").replace(/[.?!]+$/, "").trim(); }
   function quickNearbyKind(q) { const t = nearbyQueryText(q); return NEARBY_KINDS.find((k) => k.re.test(t)) || null; }
   // Only well-formed Overpass tag filters are used from the AI's answer.
@@ -100418,10 +100429,20 @@ return maplibregl$1;
     if (navigator.onLine === false) { msg("Nearby search needs a connection.", false); if (o.spoken) speak("Nearby search needs a connection."); return; }
     searchSpinner.style.display = "block";
     try {
-      let intent = quickNearbyKind(q);
+      const quick = quickNearbyKind(q);
+      let intent = null;
       let aiIntentProblem = "";
-      if (!intent && aiAvailable()) { msg("\u2728 Working out what \u201c" + q + "\u201d means\u2026"); intent = await aiNearbyIntent(q).catch((e) => { aiIntentProblem = (e && e.message) || "no answer"; return null; }); }
+      if (aiAvailable()) {
+        msg("\u2728 Asking AI about \u201c" + q + "\u201d\u2026");
+        intent = await aiNearbyIntent(q).catch((e) => { aiIntentProblem = (e && e.message) || "no answer"; return null; });
+        // The AI recognised a kind of place the app also knows (gas, pizza):
+        // the app's quick on-device matching does the map lookup, which is
+        // faster and more reliable than a text search on the server.
+        if (intent && !intent.address && !intent.nameSearch && quick) intent = Object.assign({}, quick, { ai: true });
+      }
       if (seq !== nearbySeq) return;
+      // No AI, or it couldn't answer: the built-in kinds are the backup.
+      if (!intent && quick) intent = aiIntentProblem ? Object.assign({}, quick, { backup: true }) : quick;
       // An address, town or landmark: the normal search results.
       if (intent && intent.address) { searchSpinner.style.display = "none"; runSearch(q, { noNearbyRow: true }); return; }
       // Nothing better: the nearest places whose name, cuisine or kind of shop matches.
@@ -100516,7 +100537,7 @@ return maplibregl$1;
         ? { isMessage: true, text: "The main place service didn't answer, so these come from the map's address search, nearest first. It may miss some places." }
         : fromWeb
         ? { isMessage: true, text: "\u2728 Not in OpenStreetMap, so " + (places.length === 1 ? "this address was" : "these addresses were") + " found on the web, nearest first. Check before you go." }
-        : { isMessage: true, text: (intent.ai ? "\u2728 " : "") + (places.length === 1 ? "The closest " + intent.label.replace(/^places/, "place") : "The " + places.length + " closest " + intent.label) + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
+        : { isMessage: true, text: (intent.backup ? "The AI couldn't answer, so the built-in search was used. " : "") + (intent.ai ? "\u2728 " : "") + (places.length === 1 ? "The closest " + intent.label.replace(/^places/, "place") : "The " + places.length + " closest " + intent.label) + " to " + origin.where + (ranked ? ", best reviewed first" : ", nearest first") + "." };
       const rows = places.map((pl, i) => ({
         display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1), website: pl.web || "",
         detail: [fmtNearbyKm(pl.km) + " away", pl.fromWeb ? (pl.approx ? "approximate position; address from " : "address from ") + pl.fromWeb : "", pl.rating != null ? "\u2605 " + pl.rating.toFixed(1) + (pl.reviews ? " (" + pl.reviews.toLocaleString() + " reviews, " + pl.ratingSource + ")" : " (" + pl.ratingSource + ")") : (ranked ? "no rating found" : ""), pl.hours ? "Hours: " + pl.hours : ""].filter(Boolean).join(" \u00b7 "),
@@ -100558,12 +100579,12 @@ return maplibregl$1;
   searchInput.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const q = searchInput.value.trim();
-    if (!q || parseLatLngQuery(q)) return;
-    if (quickNearbyKind(q) || (aiAvailable() && !/^[a-z]+\.[a-z]+\.[a-z]+$/i.test(q) && !/^\d+\s/.test(q))) {
-      e.preventDefault(); clearTimeout(searchDebounce);
-      searchWrap.classList.add("expanded"); // stays open with its text and progress while the search runs
-      runNearbySearch(q); searchInput.blur();
-    }
+    if (!q) return;
+    e.preventDefault(); clearTimeout(searchDebounce);
+    searchWrap.classList.add("expanded"); // stays open with its text and progress while the search runs
+    if (searchLooksLikeAddress(q)) { runSearch(q); return; } // an address: the map's address search, now
+    if (quickNearbyKind(q) || aiAvailable()) { runNearbySearch(q); searchInput.blur(); }
+    else runSearch(q);
   });
   searchClearBtn.addEventListener("click", () => { nearbySeq++; nearbyLayer.clearLayers(); });
 
