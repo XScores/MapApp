@@ -81247,7 +81247,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "589";
+  const APP_VERSION = "590";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -82657,6 +82657,7 @@ return maplibregl$1;
     confirmModalConfirmBtn.classList.toggle("btn-danger", options.danger !== false);
     confirmModalConfirmBtn.classList.toggle("btn-primary", options.danger === false);
     confirmModalCancelBtn.textContent = options.cancelLabel || "Cancel";
+    confirmModalCancelBtn.classList.toggle("hidden", !!options.hideCancel); // an information-only message has just one button
     confirmModalCallback = onConfirm;
     confirmModalCancelCallback = options.onCancel || null;
     // options.option: { label, onChange(checked) } adds a checkbox (unticked
@@ -92849,6 +92850,7 @@ return maplibregl$1;
     }
     lastPositionTimestamp = now;
     ridePoints.push({ lat: latitude, lng: longitude, t: now, speedKmh: currentSpeedKmh, alt: typeof altitude === "number" ? altitude : null });
+    maybeCheckpointRide();
     ridePolyline.addLatLng([latitude, longitude]);
     refreshDistanceMarkers(ridePoints, activityInfo(currentActivityType).color, rideDistanceMarkers);
     updateRidePositionMarker(latitude, longitude, currentActivityType);
@@ -93445,6 +93447,73 @@ return maplibregl$1;
     showToast(info.label + " tracking started.");
   }
 
+  /* ---------- Saving the route as it's recorded ----------
+     A route being tracked lives in memory until Save, so a dead battery
+     (or iOS closing the app) used to lose all of it. Now it's checkpointed
+     every 30 seconds or 20 new points, and at once when the app goes to the
+     background or closes; the next start offers it back, ready to save or
+     resume. Stored compactly in localStorage (written immediately, so even a
+     save in the app's last moment completes): about 40 bytes a point. */
+  const RIDE_CHECKPOINT_KEY = "mapapp:rideCheckpoint";
+  let rideCheckpointAt = 0, rideCheckpointCount = 0;
+  function writeRideCheckpoint() {
+    if (!(rideTracking || ridePaused) || ridePoints.length < 2) return;
+    try {
+      const t0 = rideStartTime || ridePoints[0].t;
+      const acc = rideAccumulatedMs + (rideTracking && rideSegmentStartTime ? Date.now() - rideSegmentStartTime : 0);
+      const pts = ridePoints.map((pt) => [Math.round(pt.lat * 1e6) / 1e6, Math.round(pt.lng * 1e6) / 1e6, Math.round((pt.t - t0) / 1000),
+        pt.speedKmh != null ? Math.round(pt.speedKmh * 10) / 10 : null, pt.alt != null ? Math.round(pt.alt) : null]);
+      localStorage.setItem(RIDE_CHECKPOINT_KEY, JSON.stringify({ v: 1, type: currentActivityType, start: t0, acc, dist: Math.round(rideDistanceMeters), saved: Date.now(), pts }));
+      rideCheckpointAt = Date.now(); rideCheckpointCount = ridePoints.length;
+    } catch (e) { console.warn("[ride] checkpoint not written", e); }
+  }
+  function maybeCheckpointRide() {
+    if (ridePoints.length - rideCheckpointCount >= 20 || Date.now() - rideCheckpointAt >= 30000) writeRideCheckpoint();
+  }
+  function clearRideCheckpoint() { try { localStorage.removeItem(RIDE_CHECKPOINT_KEY); } catch (e) {} rideCheckpointAt = 0; rideCheckpointCount = 0; }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") writeRideCheckpoint(); });
+  window.addEventListener("pagehide", writeRideCheckpoint);
+  // At start-up: a route that was being recorded when the app closed comes
+  // back as a paused route, with the usual Save, Resume and Discard.
+  function restoreRideCheckpoint() {
+    let cp = null;
+    try { cp = JSON.parse(localStorage.getItem(RIDE_CHECKPOINT_KEY) || "null"); } catch (e) { cp = null; }
+    if (!cp || cp.v !== 1 || !Array.isArray(cp.pts) || cp.pts.length < 2) { if (cp) clearRideCheckpoint(); return; }
+    if (rideTracking || ridePaused) return;
+    currentActivityType = cp.type || currentActivityType;
+    const info = activityInfo(currentActivityType);
+    ridePoints = cp.pts.map((a) => ({ lat: a[0], lng: a[1], t: cp.start + a[2] * 1000, speedKmh: a[3], alt: a[4] }));
+    rideDistanceMeters = cp.dist || 0;
+    rideStartTime = cp.start;
+    rideAccumulatedMs = cp.acc || 0;
+    rideSegmentStartTime = null;
+    rideTracking = false;
+    ridePaused = true;
+    pendingRideEndTime = cp.saved;
+    if (ridePolyline) map.removeLayer(ridePolyline);
+    ridePolyline = L.polyline(ridePoints.map((pt) => [pt.lat, pt.lng]), { color: info.color, weight: 4, opacity: 0.9 }).addTo(map);
+    ridePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ridePoints); });
+    refreshDistanceMarkers(ridePoints, info.color, rideDistanceMarkers);
+    const { start, end } = placeEndpointMarkers(ridePoints, currentActivityType);
+    rideStartMarker = start; rideEndMarker = end;
+    rideBtn.style.setProperty("--ride-color", info.color);
+    rideHudLabel1.textContent = "Time";
+    rideHudLabel2.textContent = "Distance (" + distanceUnitLabel() + ")";
+    rideHudLabel3.textContent = "Speed (" + speedUnitLabel() + ")";
+    rideHud.classList.remove("hidden");
+    showRideHudState("unsaved");
+    updateRideHud();
+    rideCheckpointAt = Date.now(); rideCheckpointCount = ridePoints.length;
+    try { map.fitBounds(ridePolyline.getBounds(), { padding: [50, 50], maxZoom: 16 }); } catch (e) {}
+    const mins = Math.round((cp.acc || 0) / 60000);
+    openConfirmModal("Your route was saved as you went",
+      "MapApp closed while recording a " + info.label.toLowerCase() + " route (the battery may have run out). Everything up to " +
+      new Date(cp.saved).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " was kept: " + formatDistance(cp.dist || 0) + (mins ? " over " + itinMinutes(mins) : "") +
+      ". Use the route bar to Save it, Resume recording, or Cancel to discard it.",
+      () => {}, { confirmLabel: "Got it", danger: false, hideCancel: true });
+  }
+  setTimeout(restoreRideCheckpoint, 1500);
+
   // Pause stops recording but keeps everything in memory so Resume can pick
   // straight back up — it does NOT finalize the route the way the old Stop
   // used to. The elapsed-time display freezes too (moving time, not wall
@@ -93467,6 +93536,7 @@ return maplibregl$1;
       rideHudCurrentState = null;
       rideTracking = false;
       ridePaused = false;
+      clearRideCheckpoint();
       return;
     }
 
@@ -93479,6 +93549,7 @@ return maplibregl$1;
     const { start, end } = placeEndpointMarkers(ridePoints, currentActivityType);
     rideStartMarker = start; rideEndMarker = end;
     showRideHudState("unsaved");
+    writeRideCheckpoint();
     if (!silent) showToast("Route paused.");
   }
   rideHudStopBtn.addEventListener("click", () => pauseRide(false));
@@ -93585,6 +93656,7 @@ return maplibregl$1;
     };
     rides.push(ride);
     saveRides();
+    clearRideCheckpoint(); // saved for real now
     renderRoutesList();
     fetchElevationForRide(ride); // fire-and-forget -- the card shows a loading state, then the profile once it resolves
     showToast('Saved "' + ride.name + '" — ' + formatDistance(rideDistanceMeters) + " in " + formatDuration(ride.durationMs));
@@ -93625,6 +93697,7 @@ return maplibregl$1;
     rideHudCurrentState = null;
     rideTracking = false;
     ridePaused = false;
+    clearRideCheckpoint();
     showToast("Route discarded.");
   }
 
