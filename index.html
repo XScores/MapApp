@@ -13,6 +13,12 @@
   var unfinished = !!(prev && prev.state === "starting" && Date.now() - (prev.t || 0) < 30 * 60 * 1000);
   var crashes = unfinished ? (prev.crashes || 0) + 1 : 0;
   window.__mapappBoot = { prev: prev, unfinished: unfinished, crashes: crashes };
+  // Interface style (Settings > Appearance), applied before the page is drawn.
+  try {
+    var uiStyle = localStorage.getItem("mapapp:uiStyle");
+    if (uiStyle === "apple" || uiStyle === "google") document.documentElement.classList.add("ui-" + uiStyle);
+    if (uiStyle === "google") { var lf = document.createElement("link"); lf.id = "robotoFont"; lf.rel = "stylesheet"; lf.href = "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"; document.head.appendChild(lf); }
+  } catch (e) {}
   // A short history of past start-ups (newest first), for the diagnostics page.
   try {
     var hist = JSON.parse(localStorage.getItem("mapapp:boothist") || "[]");
@@ -717,7 +723,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   :root{
     --bg:#020617; --panel-bg:rgba(15,23,42,.95); --surface:#0f172a; --surface-2:#1e293b;
     --border:#334155; --border-soft:#475569; --text:#f1f5f9; --text-dim:#c3cddc; --text-mute:#aebacb;
-    --amber:#f59e0b; --amber-light:#fbbf24; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
+    --amber:#f59e0b; --amber-light:#fbbf24; --accent-rgb:245,158,11; --cyan:#22d3ee; --red:#f87171; --green:#34d399;
     /* Hover/active steps for every round icon button (topbar buttons, modal
        close buttons, panel sync/close) -- the button's own idle background
        stays dark/solid (var(--surface) or var(--surface-2), same tone as
@@ -725,6 +731,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
        two are only for a visibly lighter hover, and a lighter-still
        pressed/active look on top of that. */
     --btn-icon-bg-hover:#334155; --btn-icon-bg-active:#475569;
+    /* Contrast (WCAG 2.1 AA): field edges at least 3:1 against both panel
+       backgrounds (1.4.11); text colours at least 4.5:1 (1.4.3). */
+    --field-border:#6b7b93;
   }
   *{box-sizing:border-box;}
   html,body,#app{height:100%; margin:0;}
@@ -754,11 +763,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
       linear-gradient(to bottom, rgba(0,0,0,.25), transparent 80px),
       linear-gradient(to top, rgba(0,0,0,.25), transparent 80px);}
   #map.map-drag-over::after{content:""; position:absolute; inset:8px; border:3px dashed var(--amber); border-radius:14px;
-    pointer-events:none; z-index:750; background:rgba(245,158,11,.06);}
+    pointer-events:none; z-index:750; background:rgba(var(--accent-rgb),.06);}
   #map.measuring-active{cursor:crosshair;}
   .map-drop-hint{position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:16; display:none;
     background:rgba(15,23,42,.95); border:1px solid var(--amber); border-radius:12px; padding:14px 20px;
-    color:#fbbf24; font-size:14px; font-weight:600; pointer-events:none; text-align:center;}
+    color:var(--amber-light); font-size:14px; font-weight:600; pointer-events:none; text-align:center;}
   .map-drop-hint.show{display:block;}
 
   /* ---------- top bar ---------- */
@@ -784,7 +793,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /* Where a search result came from: a saved waypoint, Home, or the place names saved with a downloaded map. */
   .search-result-tag{flex-shrink:0; align-self:center; font-style:normal; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
     padding:2px 6px; border-radius:999px; background:var(--surface-2); color:var(--text-mute); border:1px solid var(--border);}
-  .search-result-tag-waypoint{color:var(--amber-light); border-color:rgba(245,158,11,.45);}
+  .search-result-tag-waypoint{color:var(--amber-light); border-color:rgba(var(--accent-rgb),.45);}
   .search-result-tag-home{color:#4ade80; border-color:rgba(74,222,128,.45);}
   .search-result-tag-offline{color:#38bdf8; border-color:rgba(56,189,248,.45);}
   .search-result-detail{flex-shrink:0; align-self:center; max-width:38%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:var(--text-mute);}
@@ -850,9 +859,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .ride-dropdown-option .icon{display:flex; flex-shrink:0;}
   .ride-dropdown-divider{height:1px; background:#1e293b; margin:4px 2px;}
   .btn-icon.home-btn:hover{border-color:rgba(52,211,153,.5);}
-  .btn-icon.home-btn.picking{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
+  .btn-icon.home-btn.picking{color:var(--amber); border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1);}
   .btn-icon.panel-toggle{color:var(--amber); order:7;}
-  .btn-icon.panel-toggle:hover{border-color:rgba(245,158,11,.5);}
+  .btn-icon.panel-toggle:hover{border-color:rgba(var(--accent-rgb),.5);}
   .count-badge{position:absolute; top:-6px; right:-6px; background:var(--amber); color:#020617; font-size:10px;
     font-weight:700; border-radius:9px; min-width:18px; height:18px; display:none; align-items:center; justify-content:center; padding:0 4px;}
   .count-badge.show{display:flex;}
@@ -922,7 +931,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .token-input-row .field-input{flex:1; min-width:0;}
   .token-visibility-btn{flex-shrink:0; width:32px; height:32px; border-radius:8px; background:var(--surface-2);
     border:1px solid var(--border); color:var(--text-mute); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
-  .token-visibility-btn:hover{color:var(--text-dim); border-color:rgba(245,158,11,.4);}
+  .token-visibility-btn:hover{color:var(--text-dim); border-color:rgba(var(--accent-rgb),.4);}
   .layers-option{display:flex; align-items:center; gap:9px; padding:6px 2px; cursor:pointer; font-size:13px; color:#e2e8f0;}
   .layers-option > span:last-child{flex:1; min-width:0;}
   .layers-option input{accent-color:var(--cyan); width:15px; height:15px; flex-shrink:0; cursor:pointer;}
@@ -943,7 +952,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .elevation-chart-wrap{position:relative; margin:6px 0 2px;}
   .elevation-chart-wrap .elevation-profile-svg{height:60px; margin:0;}
   .elevation-chart-marker.endpoint{border-color:#a78bfa; font-size:9px;}
-  .elevation-chart-marker.picked{background:#f59e0b; border-color:#fbbf24; color:#0f172a; z-index:2; box-shadow:0 0 0 3px rgba(245,158,11,.35);}
+  .elevation-chart-marker.picked{background:var(--amber); border-color:var(--amber-light); color:#0f172a; z-index:2; box-shadow:0 0 0 3px rgba(var(--accent-rgb),.35);}
   .elevation-chart-wrap.pickable{cursor:pointer;}
   .elevation-chart-marker{position:absolute; width:18px; height:18px; box-sizing:border-box; border-radius:50%; transform:translate(-50%, -50%);
     background:rgba(15,23,42,.92); border:2px solid #22d3ee; color:#fff; font-size:9.5px; font-weight:700; line-height:1;
@@ -993,7 +1002,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     padding:7px 8px; cursor:pointer;}
   .home-action-btn:hover{background:var(--surface);}
   .home-action-btn.danger{color:var(--red);}
-  .home-action-btn.picking-active{color:var(--amber); border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.1);}
+  .home-action-btn.picking-active{color:var(--amber); border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1);}
 
   .home-address-results{position:static; margin-top:8px; max-height:180px; display:none;}
 
@@ -1006,7 +1015,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .unit-slider-label.active{color:var(--text); font-weight:700;}
   .unit-slider-switch{position:relative; width:42px; height:23px; border-radius:12px; background:var(--surface-2);
     border:1px solid var(--border); cursor:pointer; flex-shrink:0; padding:0; transition:background .15s, border-color .15s;}
-  .unit-slider-switch.imperial{background:rgba(245,158,11,.35); border-color:rgba(245,158,11,.6);}
+  .unit-slider-switch.imperial{background:rgba(var(--accent-rgb),.35); border-color:rgba(var(--accent-rgb),.6);}
   .unit-slider-thumb{position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%;
     background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.4); transition:transform .15s;}
   .unit-slider-switch.imperial .unit-slider-thumb{transform:translateX(19px);}
@@ -1112,7 +1121,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .search-pick-btn > span:last-child{display:flex; flex-direction:column; gap:2px;}
   .search-pick-btn b{font-size:14.5px;}
   .search-pick-btn small{font-size:12px; color:var(--text-dim);}
-  .search-pick-btn.primary{border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.12);}
+  .search-pick-btn.primary{border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.12);}
   .search-pick-btn.primary > .icon{color:var(--amber);}
   .selftest-card{max-width:500px; display:flex; flex-direction:column;}
   .selftest-summary{font-size:13.5px; font-weight:600; margin:8px 0 4px; color:var(--text);}
@@ -1426,7 +1435,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .name-row #nameInput{flex:1; min-width:0; width:auto;}
   .field-input, textarea{width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
     padding:10px 12px; color:var(--text); font-size:14px; outline:none; font-family:inherit;}
-  .field-input:focus, textarea:focus{border-color:rgba(245,158,11,.6);}
+  .field-input:focus, textarea:focus{border-color:rgba(var(--accent-rgb),.6);}
   /* The native calendar/clock icon browsers draw inside date/time inputs
      renders solid black by default, with no direct CSS color property
      exposed for it -- inverting it is the standard, well-supported
@@ -1449,15 +1458,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #waypointDateTimeSection{margin-bottom:16px;}
   .mic-btn{width:44px; height:44px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
-  .mic-btn:hover{border-color:rgba(245,158,11,.5);}
+  .mic-btn:hover{border-color:rgba(var(--accent-rgb),.5);}
   .mic-btn.listening{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.6); color:var(--red);}
 
   /* ---------- marker style / color customization ---------- */
   .field-row{margin-bottom:14px;}
   .photo-dropzone{position:relative; min-height:36px; border:1.5px dashed var(--border-soft); border-radius:10px;
     padding:6px; margin-bottom:6px; cursor:pointer; transition:border-color .15s, background .15s;}
-  .photo-dropzone:hover, .photo-dropzone:focus{outline:none; border-color:rgba(245,158,11,.6);}
-  .photo-dropzone.drag-over{border-color:var(--amber); background:rgba(245,158,11,.08);}
+  .photo-dropzone:hover, .photo-dropzone:focus{outline:none; border-color:rgba(var(--accent-rgb),.6);}
+  .photo-dropzone.drag-over{border-color:var(--amber); background:rgba(var(--accent-rgb),.08);}
   .photo-dropzone-empty{display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px; text-align:center;
     color:var(--text-mute); font-size:12px; padding:4px;}
   .photo-dropzone-empty .icon{color:var(--text-mute); margin-bottom:0; display:flex;}
@@ -1514,8 +1523,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .measure-vertex.numbered{width:22px; height:22px; box-sizing:border-box; display:flex; align-items:center; justify-content:center;
     font-size:10.5px; font-weight:700; color:#0f172a; line-height:1;}
   /* A point picked for comparison, on the map (numbered view marker or edit handle) -- matches its highlighted row in the panel. */
-  .measure-point-selected .distance-marker, .measure-point-selected .measure-vertex{background:#f59e0b !important; color:#0f172a !important;
-    border-color:#fbbf24 !important; box-shadow:0 0 0 4px rgba(245,158,11,.35) !important;}
+  .measure-point-selected .distance-marker, .measure-point-selected .measure-vertex{background:var(--amber) !important; color:#0f172a !important;
+    border-color:var(--amber-light) !important; box-shadow:0 0 0 4px rgba(var(--accent-rgb),.35) !important;}
   .measure-edit-banner{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
     display:flex; flex-direction:column; gap:10px; background:rgba(15,23,42,.97); border:1px solid var(--cyan); border-radius:12px;
     padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; color:var(--text-dim); min-width:260px; max-width:min(480px, 94vw);}
@@ -1558,9 +1567,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border:1px solid var(--border-soft); background:var(--surface); cursor:grab; user-select:none;}
   .csv-column-order-item:active{cursor:grabbing;}
   .csv-column-order-item.dragging{opacity:.4;}
-  .csv-column-order-item.drag-over{border-color:var(--amber-light); background:rgba(245,158,11,.08);}
+  .csv-column-order-item.drag-over{border-color:var(--amber-light); background:rgba(var(--accent-rgb),.08);}
   .csv-column-drag-handle{color:var(--text-mute); display:flex; flex-shrink:0;}
-  .csv-column-index{flex-shrink:0; width:20px; height:20px; border-radius:50%; background:rgba(245,158,11,.15);
+  .csv-column-index{flex-shrink:0; width:20px; height:20px; border-radius:50%; background:rgba(var(--accent-rgb),.15);
     color:var(--amber-light); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
   .csv-column-label{font-size:13px; color:var(--text);}
   .csv-column-required{color:var(--amber-light); font-size:11px; margin-left:4px;}
@@ -1583,16 +1592,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-photo-add{width:38px; height:38px; border-radius:6px; flex-shrink:0; cursor:pointer;
     border:1.5px dashed var(--border-soft); background:none; color:var(--text-mute);
     display:flex; align-items:center; justify-content:center;}
-  .card-photo-add:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
-  .card.drag-over{border-color:var(--amber); background:rgba(245,158,11,.07);}
+  .card-photo-add:hover{border-color:rgba(var(--accent-rgb),.6); color:var(--amber-light);}
+  .card.drag-over{border-color:var(--amber); background:rgba(var(--accent-rgb),.07);}
   .card-photo-drop-empty{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-mute);
     margin:8px 0 0 0; padding:6px 10px; border-radius:8px; border:1.5px dashed var(--border-soft);
     cursor:pointer; background:none;}
-  .card-photo-drop-empty:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
+  .card-photo-drop-empty:hover{border-color:rgba(var(--accent-rgb),.6); color:var(--amber-light);}
   .card-photo-drop-link{background:none; border:none; padding:0; font:inherit; color:var(--amber-light);
     text-decoration:underline dotted; cursor:pointer;}
-  .card-photo-drop-empty.paste-armed, .card-photos.paste-armed{outline:none; border-color:rgba(245,158,11,.7);
-    box-shadow:0 0 0 2px rgba(245,158,11,.35); border-radius:8px;}
+  .card-photo-drop-empty.paste-armed, .card-photos.paste-armed{outline:none; border-color:rgba(var(--accent-rgb),.7);
+    box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35); border-radius:8px;}
   .location-marker-gallery-wrap{position:relative;}
   .location-marker-gallery{display:flex; gap:8px; flex-wrap:wrap; max-height:190px; overflow-y:auto; overflow-x:hidden;
     padding:2px 6px 8px 2px; scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2);}
@@ -1613,7 +1622,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .location-marker-gallery-item.active{border-color:var(--amber);}
   .location-marker-gallery-item-wrap.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5);}
   .location-marker-gallery-item-wrap.drop-target{transform:scale(1.08);}
-  .location-marker-gallery-item-wrap.drop-target .location-marker-gallery-item{border-color:var(--amber); background:rgba(245,158,11,.35);}
+  .location-marker-gallery-item-wrap.drop-target .location-marker-gallery-item{border-color:var(--amber); background:rgba(var(--accent-rgb),.35);}
   .location-marker-gallery-item img{max-width:78%; max-height:78%;}
   .location-marker-gallery-favorite{position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%;
     background:var(--surface); border:1px solid var(--border); color:var(--text-mute); line-height:1;
@@ -1626,10 +1635,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .location-marker-gallery-remove:hover{background:var(--red);}
   .location-marker-drop{display:flex; flex-direction:column; align-items:center; gap:8px; font-size:12px; color:var(--text-mute);
     padding:14px 10px; border-radius:10px; border:1.5px dashed var(--border-soft); cursor:pointer; background:none; text-align:center;}
-  .location-marker-drop:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
-  .location-marker-drop.paste-armed{outline:none; border-color:rgba(245,158,11,.7); box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .location-marker-drop:hover{border-color:rgba(var(--accent-rgb),.6); color:var(--amber-light);}
+  .location-marker-drop.paste-armed{outline:none; border-color:rgba(var(--accent-rgb),.7); box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35);}
   .connect-backend-banner{display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--amber-light);
-    background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:10px; padding:10px 12px; margin-top:8px;}
+    background:rgba(var(--accent-rgb),.08); border:1px solid rgba(var(--accent-rgb),.3); border-radius:10px; padding:10px 12px; margin-top:8px;}
   .connect-backend-banner.hidden{display:none;}
   .connect-accept-row{display:flex; gap:8px;}
   .connect-accept-row .field-input{flex:1;}
@@ -1641,7 +1650,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
      box now owns that spacing instead. */
   .tile-set-item{background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:14px; padding:10px 12px;
     margin-bottom:8px; transition:border-color .15s;}
-  .tile-set-item:hover{border-color:rgba(245,158,11,.35);}
+  .tile-set-item:hover{border-color:rgba(var(--accent-rgb),.35);}
   .tile-set-item:last-child{margin-bottom:0;}
   .tile-set-item .connect-folder-row{border-bottom:none; padding:0 0 4px;}
   .connect-folder-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -1658,7 +1667,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .style-toggle-row{display:flex; gap:8px; margin-bottom:14px;}
   .style-toggle-btn{flex:1; padding:9px; border-radius:10px; font-size:13px; text-align:center; cursor:pointer;
     border:1px solid var(--border); background:var(--surface-2); color:#cbd5e1;}
-  .style-toggle-btn.active{border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.12); color:var(--amber-light);}
+  .style-toggle-btn.active{border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.12); color:var(--amber-light);}
   .color-picker-row{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
   .color-picker-row input[type="color"]{width:38px; height:38px; border-radius:10px; border:1px solid var(--border);
     background:var(--surface-2); padding:2px; cursor:pointer; flex-shrink:0;}
@@ -1684,7 +1693,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .emoji-quick-pick-fade.hidden{opacity:0;}
   .emoji-quick-pick{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; max-height:190px; overflow-y:auto; padding-right:6px;
     scrollbar-width:thin; scrollbar-color:var(--border-soft) var(--surface-2); border-radius:10px;}
-  .emoji-quick-pick.paste-armed{outline:none; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .emoji-quick-pick.paste-armed{outline:none; box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35);}
   .emoji-quick-pick::-webkit-scrollbar{width:8px;}
   .emoji-quick-pick::-webkit-scrollbar-track{background:var(--surface-2); border-radius:4px;}
   .emoji-quick-pick::-webkit-scrollbar-thumb{background:var(--border-soft); border-radius:4px;}
@@ -1700,10 +1709,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
      own coloring, the same reasoning most emoji keyboards use. */
   .emoji-quick-btn{width:100%; height:100%; border-radius:10px; background:#c0c5cc; border:1px solid #cbd5e1;
     font-size:26px; display:flex; align-items:center; justify-content:center; cursor:grab; padding:0; user-select:none;}
-  .emoji-quick-btn:hover{background:#adb5bf; border-color:rgba(245,158,11,.6);}
+  .emoji-quick-btn:hover{background:#adb5bf; border-color:rgba(var(--accent-rgb),.6);}
   .emoji-quick-item.dragging{cursor:grabbing; opacity:.55; z-index:5; box-shadow:0 8px 20px rgba(0,0,0,.5);}
   .emoji-quick-item.drop-target{transform:scale(1.08);}
-  .emoji-quick-item.drop-target .emoji-quick-btn{border-color:var(--amber); background:rgba(245,158,11,.35);}
+  .emoji-quick-item.drop-target .emoji-quick-btn{border-color:var(--amber); background:rgba(var(--accent-rgb),.35);}
   /* A separate small badge in the corner, not part of the main button --
      its own hit target, so favoriting can never be mistaken for a tap on
      the icon itself or the start of a drag. Heart + red-when-favorited
@@ -1721,13 +1730,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .emoji-remove-toggle:hover{background:var(--red);}
   .emoji-quick-add-btn{width:100%; height:100%; border-radius:10px; background:none; border:1.5px dashed var(--border-soft);
     display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-mute); padding:0;}
-  .emoji-quick-add-btn:hover{border-color:rgba(245,158,11,.6); color:var(--amber-light);}
+  .emoji-quick-add-btn:hover{border-color:rgba(var(--accent-rgb),.6); color:var(--amber-light);}
   .wp-emoji-marker{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:28px; line-height:1; box-shadow:0 3px 8px rgba(0,0,0,.4); border:2px solid rgba(15,23,42,.55);}
   .wp-div-icon.wp-selected .wp-pin{
-    filter:drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 9px rgba(245,158,11,.9));}
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 9px rgba(var(--accent-rgb),.9));}
   .wp-div-icon.wp-selected .wp-emoji-marker{
-    box-shadow:0 0 0 3px #fff, 0 0 0 6px rgba(245,158,11,.85), 0 3px 8px rgba(0,0,0,.4);}
+    box-shadow:0 0 0 3px #fff, 0 0 0 6px rgba(var(--accent-rgb),.85), 0 3px 8px rgba(0,0,0,.4);}
 
   .btn-row{display:flex; gap:10px;}
   .btn-row.hidden{display:none;}
@@ -1804,14 +1813,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
     align-items:center; justify-content:center; padding:8px 0; z-index:5;}
   .az-letter-btn{flex:1; width:24px; display:flex; align-items:center; justify-content:center; background:none; border:none;
     color:var(--text-mute); font-size:12px; font-weight:700; cursor:pointer; padding:0; line-height:1; border-radius:4px;}
-  .az-letter-btn:hover{color:var(--amber-light); background:rgba(245,158,11,.12);}
-  .az-letter-btn.active{color:var(--amber); background:rgba(245,158,11,.22); font-weight:700;}
+  .az-letter-btn:hover{color:var(--amber-light); background:rgba(var(--accent-rgb),.12);}
+  .az-letter-btn.active{color:var(--amber); background:rgba(var(--accent-rgb),.22); font-weight:700;}
   .az-letter-btn.no-match{color:#3a4356;}
   .empty-state{text-align:center; margin-top:60px; padding:0 24px; color:var(--text-mute);}
   .empty-state .icon{color:#334155; margin-bottom:10px;}
   .empty-state p{font-size:13px; margin:0;}
 
-  .folder-create-panel{padding:12px; margin:0 12px 8px; background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.3);
+  .folder-create-panel{padding:12px; margin:0 12px 8px; background:rgba(var(--accent-rgb),.06); border:1px solid rgba(var(--accent-rgb),.3);
     border-radius:12px; flex-shrink:0;}
   .folder-create-panel.hidden{display:none;}
   .folder-create-panel .field-input{margin-bottom:10px;}
@@ -1830,7 +1839,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:12px;
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
   .folder-accordion.expanded > .folder-accordion-header{border-radius:12px 12px 0 0; border-color:var(--cyan) var(--cyan) transparent var(--cyan);}
-  .folder-accordion-header:hover{border-color:rgba(245,158,11,.35);}
+  .folder-accordion-header:hover{border-color:rgba(var(--accent-rgb),.35);}
   .drag-armed{outline:2px solid var(--amber-light); outline-offset:2px; border-radius:10px;}
   .drag-source-hidden{opacity:.35;}
   .drag-ghost{position:fixed; z-index:9999; pointer-events:none; opacity:.92; box-shadow:0 8px 24px rgba(0,0,0,.4);
@@ -1902,7 +1911,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .folder-picker-list{display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto;}
   .folder-picker-row{display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
     background:rgba(30,41,59,.6); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13.5px;}
-  .folder-picker-row:hover{border-color:rgba(245,158,11,.35);}
+  .folder-picker-row:hover{border-color:rgba(var(--accent-rgb),.35);}
   .folder-picker-row .icon{flex:0 0 auto !important; color:var(--amber-light); display:flex;}
   .folder-picker-row span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;}
   .folder-picker-new{color:var(--cyan);}
@@ -1939,7 +1948,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
        longer scrolls the list -- only the gaps between cards, or the
        list's own padding, still do. */
     touch-action:pan-y;} /* swiping a card scrolls the list; dragging starts from its grip handle */
-  .card:hover{border-color:rgba(245,158,11,.35);}
+  .card:hover{border-color:rgba(var(--accent-rgb),.35);}
   /* Grip handle on draggable cards: the same dots and placement as on itinerary items. */
   .card.has-drag-handle{position:relative; padding-left:32px;}
   .card-drag-handle{position:absolute; left:4px; top:0; bottom:0; width:24px; display:flex; align-items:center; justify-content:center;
@@ -1950,7 +1959,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .itinerary-draggable-card-wrap .card.has-drag-handle{padding-left:12px;}
   .itinerary-draggable-card-wrap .card-drag-handle{display:none;}
   .drag-ghost .card-drag-handle{color:var(--text);}
-  .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(245,158,11,.35);}
+  .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35);}
   .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   /* Top row is reserved purely for the action buttons, right-aligned.
      The round marker icon used to share this row with them (with the
@@ -1980,7 +1989,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     text-overflow:ellipsis; margin:0;}
   .ride-card-name-editable{cursor:text;}
   .ride-card-name-editable:hover{text-decoration:underline dotted;}
-  .card-name-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
+  .card-name-input{background:var(--surface); border:1px solid rgba(var(--accent-rgb),.5); border-radius:6px;
     padding:2px 6px; font-size:14px; color:var(--text); outline:none; width:100%;}
   .card-meta{display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-mute); margin:2px 0 0;}
   .card-meta-weather{display:flex; align-items:center; gap:2px;}
@@ -2028,7 +2037,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:3px 8px; cursor:default; white-space:nowrap;}
   .card-elevation .icon{display:flex; color:var(--text-mute);}
   .card-elevation.placeholder{color:var(--text-mute); font-style:italic; border-style:dashed; cursor:pointer;}
-  .card-elevation.placeholder:hover{color:var(--amber-light); border-color:rgba(245,158,11,.5);}
+  .card-elevation.placeholder:hover{color:var(--amber-light); border-color:rgba(var(--accent-rgb),.5);}
   .card-elevation.placeholder:hover .icon{color:var(--amber-light);}
   .card-elevation.loading{opacity:.6; pointer-events:none;}
   .card-notes{margin-top:6px;}
@@ -2046,7 +2055,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-url-btn{display:flex; gap:6px; align-items:center; font-size:12px; color:var(--text-mute); cursor:text;
     background:none; border:none; padding:0; text-align:left; font-style:italic;}
   .card-url-btn:hover{color:var(--amber-light);}
-  .card-url-input{background:var(--surface); border:1px solid rgba(245,158,11,.5); border-radius:6px;
+  .card-url-input{background:var(--surface); border:1px solid rgba(var(--accent-rgb),.5); border-radius:6px;
     padding:2px 6px; font-size:12px; color:var(--text); outline:none; width:100%;}
   .card-notes-btn{display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:text;
     background:none; border:none; padding:0; width:100%; text-align:left;}
@@ -2061,7 +2070,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .field-label-row .rte-toolbar{margin-bottom:0;}
   .rte-btn{width:32px; height:28px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border);
     color:#cbd5e1; cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
-  .rte-btn:hover{background:var(--surface); border-color:rgba(245,158,11,.5); color:var(--amber-light);}
+  .rte-btn:hover{background:var(--surface); border-color:rgba(var(--accent-rgb),.5); color:var(--amber-light);}
   .rte-mic-btn{color:#f472b6;}
   .rte-mic-btn.listening{color:#fff; background:var(--red); border-color:var(--red); animation:voice-pulse 1.6s ease-in-out infinite;}
   .journal-modal-card{max-width:min(560px, 94vw);}
@@ -2238,16 +2247,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .measure-hud-points-head #measureHudHint{text-transform:none; letter-spacing:0; font-style:italic;}
   .measure-pt-row{display:flex; align-items:center; gap:10px; padding:6px 6px; cursor:pointer; border:1px solid transparent; border-bottom-color:var(--border); border-radius:0;}
   .measure-pt-row:last-child{border-bottom-color:transparent;}
-  .measure-pt-row.selected{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.55); border-radius:8px;}
+  .measure-pt-row.selected{background:rgba(var(--accent-rgb),.12); border-color:rgba(var(--accent-rgb),.55); border-radius:8px;}
   .measure-pt-num{flex:0 0 24px; height:24px; border-radius:12px; background:rgba(15,23,42,.92); border:2px solid #22d3ee; box-sizing:border-box;
     display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff;}
-  .measure-pt-row.selected .measure-pt-num{background:#f59e0b; border-color:#fbbf24; color:#0f172a;}
+  .measure-pt-row.selected .measure-pt-num{background:var(--amber); border-color:var(--amber-light); color:#0f172a;}
   .measure-pt-main{flex:1; min-width:0; display:flex; flex-direction:column;}
   .measure-pt-coords{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; color:var(--text); white-space:nowrap;}
   .measure-pt-next{font-size:11px; color:var(--text-mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .measure-pt-elev{flex:0 0 auto; font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
   .measure-pt-elev.unknown{color:var(--text-mute); font-weight:400;}
-  .measure-hud-compare{flex:0 0 auto; margin-top:8px; padding:8px 10px; border:1px solid rgba(245,158,11,.55); background:rgba(245,158,11,.08); border-radius:10px; font-size:12.5px;}
+  .measure-hud-compare{flex:0 0 auto; margin-top:8px; padding:8px 10px; border:1px solid rgba(var(--accent-rgb),.55); background:rgba(var(--accent-rgb),.08); border-radius:10px; font-size:12.5px;}
   .measure-hud-compare.hidden{display:none;}
   .measure-cmp-title{font-weight:700; color:var(--text); margin-bottom:4px;}
   .measure-cmp-grid{display:grid; grid-template-columns:auto 1fr; gap:2px 12px; align-items:baseline;}
@@ -2291,7 +2300,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #routeHudCompare .measure-cmp-grid{gap:1px 12px; font-size:12px;}
   .route-pt-right{flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; line-height:1.25;}
   .route-pt-time{font-size:11px; color:var(--text-mute); font-variant-numeric:tabular-nums;}
-  .route-pick-marker{background:#f59e0b !important; color:#0f172a !important; border-color:#fbbf24 !important; box-shadow:0 0 0 4px rgba(245,158,11,.35) !important;}
+  .route-pick-marker{background:var(--amber) !important; color:#0f172a !important; border-color:var(--amber-light) !important; box-shadow:0 0 0 4px rgba(var(--accent-rgb),.35) !important;}
   .ride-hud-btn-row{display:flex; gap:8px; margin-top:6px;}
   .ride-hud-btn-row.hidden{display:none;}
   .ride-hud-stop-btn{flex:1; background:#7c3aed; color:#fff; font-size:12px; font-weight:700;
@@ -2422,7 +2431,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .directions-mode-row{display:flex; gap:8px; margin-bottom:16px;}
   .directions-mode-btn{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 4px;
     border-radius:10px; border:1.5px solid var(--border-soft); background:none; color:var(--text-dim); font-size:12px; cursor:pointer;}
-  .directions-mode-btn.active{border-color:var(--amber); color:var(--amber-light); background:rgba(245,158,11,.1);}
+  .directions-mode-btn.active{border-color:var(--amber); color:var(--amber-light); background:rgba(var(--accent-rgb),.1);}
   .directions-input-row{display:flex; gap:8px; align-items:center; margin-bottom:12px;}
   .directions-input-row .field-input{flex:1; margin-bottom:0;}
   .directions-current-loc-btn{flex-shrink:0; width:43px; height:43px; display:flex; align-items:center; justify-content:center;
@@ -2461,12 +2470,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border-radius:10px; padding:0 4px; height:34px; box-sizing:border-box; display:flex; align-items:center; gap:2px;
     box-shadow:0 1px 5px rgba(0,0,0,.4); border:1px solid rgba(148,163,184,.25);}
   .zoom-unified-btn{flex-shrink:0; width:30px; height:30px; border-radius:7px; background:none; border:none;
-    color:#f59e0b; font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
-  .zoom-unified-btn:hover{background:rgba(245,158,11,.15);}
-  .zoom-unified-btn:active{background:rgba(245,158,11,.28);}
+    color:var(--amber); font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
+  .zoom-unified-btn:hover{background:rgba(var(--accent-rgb),.15);}
+  .zoom-unified-btn:active{background:rgba(var(--accent-rgb),.28);}
   .zoom-slider-wrap{width:110px; height:20px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
   .zoom-slider-wrap input[type="range"]{width:104px; height:20px; margin:0;
-    cursor:pointer; accent-color:#f59e0b; background:transparent;}
+    cursor:pointer; accent-color:var(--amber); background:transparent;}
   /* Phones: the coordinates and the full-width zoom slider together are wider
      than the screen (they overlapped at 390px), so the slider gets shorter. */
   @media (max-width:440px){
@@ -2476,6 +2485,165 @@ svg.leaflet-image-layer.leaflet-interactive path {
   }
   .leaflet-control-attribution{background:rgba(15,23,42,.75) !important; color:#94a3b8 !important; font-size:10px !important;}
   .leaflet-control-attribution a{color:#cbd5e1 !important;}
+
+  /* ---------- Contrast (WCAG 2.1 AA) ----------
+     Field edges stand out at least 3:1 (1.4.11 non-text contrast);
+     placeholder text is at least 4.5:1 (1.4.3); the browser default grey
+     placeholder fell short on the dark panels. */
+  .field-input, textarea, select, .panel-search-row, .journal-textarea, #markerColorInput,
+  input[type="date"], input[type="time"], input[type="number"], input[type="color"], input[type="text"]:not(.search-box input):not(.panel-search-input){border-color:var(--field-border);}
+  /* ...and the field with the cursor keeps its accent border (focus must stay visible). */
+  :is(.field-input, textarea, select, .journal-textarea, #markerColorInput,
+  input[type="date"], input[type="time"], input[type="number"], input[type="color"], input[type="text"]:not(.search-box input):not(.panel-search-input)):focus,
+  .panel-search-row:focus-within{border-color:var(--amber);}
+  ::placeholder{color:var(--text-mute); opacity:1;}
+  .search-box{border-color:var(--field-border);} /* its edge shows over light and dark maps (3:1 or more on both) */
+  .btn-danger{color:#450a0a;} /* dark text on the light red: 5.8:1 (white was 2.8:1) */
+  .btn-icon.ride-btn.tracking{color:var(--ride-ink, #fff);} /* white or dark, whichever stands out on the activity colour */
+
+  /* ================================================================
+     Interface styles (Settings → Appearance). "MapApp" is the original
+     design and adds nothing here. "Apple" and "Google" are layers applied
+     on top through a class on <html> (ui-apple / ui-google): they change
+     look and sizing only, never behaviour. Dark versions for now.
+     ================================================================ */
+
+  /* ---------- Apple (iOS, dark) ---------- */
+  html.ui-apple{
+    --bg:#000000; --panel-bg:rgba(28,28,30,.94); --surface:#1c1c1e; --surface-2:#2c2c2e;
+    --border:#38383a; --border-soft:#48484a; --text:#ffffff; --text-dim:rgba(235,235,245,.78); --text-mute:rgba(235,235,245,.62);
+    --amber:#409cff; --amber-light:#409cff; --accent-rgb:64,156,255; /* iOS high-contrast blue: 4.9:1 or more on every dark surface */ --cyan:#64d2ff; --red:#ff453a; --green:#30d158;
+    --btn-icon-bg-hover:#3a3a3c; --btn-icon-bg-active:#48484a; --field-border:#7c7c80;
+  }
+  html.ui-apple body, html.ui-apple button, html.ui-apple input, html.ui-apple select, html.ui-apple textarea{font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;}
+  /* Floating controls: frosted "material" over the map */
+  html.ui-apple .btn-icon{background:rgba(44,44,46,.72); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
+    border:0.5px solid rgba(255,255,255,.14); border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.35);}
+  html.ui-apple .search-box{background:rgba(44,44,46,.8); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); border:1px solid rgba(255,255,255,.45); border-radius:12px;}
+  html.ui-apple .zoom-slider-control, html.ui-apple .map-scale{background:rgba(44,44,46,.8); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,.12); border-radius:12px;}
+  html.ui-apple .panel, html.ui-apple .layers-panel{background:rgba(28,28,30,.94); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); border-color:rgba(84,84,88,.6);}
+  html.ui-apple .ride-hud, html.ui-apple .measure-hud{background:rgba(28,28,30,.94); border-color:rgba(84,84,88,.6); -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);}
+  /* Buttons: filled blue primary, tinted grey secondary, 44 pt tall */
+  html.ui-apple .btn{border-radius:12px; min-height:44px; font-size:17px; font-weight:600;}
+  html.ui-apple .btn-primary{background:#0071e3; color:#fff;} /* white on iOS blue is 3.65:1; Apple's #0071e3 is 4.7:1 */
+  html.ui-apple .btn-secondary{background:rgba(120,120,128,.24); border-color:transparent; color:#409cff;}
+  html.ui-apple .btn-danger{background:#d70015; color:#fff;} /* iOS's accessible red: 5.4:1 with white (the standard red is 3.4:1) */
+  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn{font-size:15px; font-weight:500; padding-left:8px; padding-right:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn-primary{font-weight:600;} /* side by side: iOS's secondary size, so labels stay on one line */
+  html.ui-apple .home-action-btn{min-height:44px; font-size:15px; border-radius:10px; background:rgba(120,120,128,.24); border:none; color:#409cff;}
+  /* Text: no all-caps headers; readable hints */
+  html.ui-apple .layers-section-title{text-transform:none; letter-spacing:0; font-size:13px; font-weight:400; color:rgba(235,235,245,.62);}
+  html.ui-apple .layers-hint{font-size:13px;}
+  html.ui-apple input[type="date"].field-input, html.ui-apple input[type="time"].field-input{font-size:15px; padding-left:8px; padding-right:6px;}
+  html.ui-google input[type="date"].field-input, html.ui-google input[type="time"].field-input{font-size:13px; padding-left:6px; padding-right:4px; letter-spacing:-.1px;}
+  html.ui-apple .field-input, html.ui-apple textarea{background:rgba(118,118,128,.24); border:1px solid var(--field-border); border-radius:10px; min-height:44px; font-size:17px;}
+  html.ui-apple .field-input:focus, html.ui-apple textarea:focus{box-shadow:0 0 0 2px #0a84ff;}
+  html.ui-apple .card, html.ui-apple .folder-accordion-header{background:#1c1c1e; border:0.5px solid #38383a; border-radius:12px;}
+  html.ui-apple .modal-card{background:#1c1c1e; border:0.5px solid #38383a; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  html.ui-apple .toast{background:rgba(44,44,46,.95); border-radius:14px; -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);}
+  /* Tabs: iOS segmented controls (panel and Map Layers tabs) */
+  html.ui-apple .panel-tabs, html.ui-apple .layers-tabs{background:rgba(118,118,128,.24); border-radius:9px; padding:2px; gap:2px; align-items:stretch;}
+  html.ui-apple .panel-tabs, html.ui-apple .layers-tabs{flex:1 1 auto; min-width:0;}
+  html.ui-apple .panel-tab, html.ui-apple .layers-tab{flex:0 1 auto; white-space:nowrap; border-bottom:none; border-radius:7px; padding:6px 8px; min-height:32px; font-size:13px; font-weight:600; color:var(--text);}
+  @media (max-width:430px){ html.ui-apple .layers-tab{font-size:12px; padding:6px 6px; letter-spacing:-.1px;} html.ui-apple .panel-tab{padding:6px 7px;} }
+  html.ui-apple .panel-tab.active, html.ui-apple .layers-tab.active{background:#636366; box-shadow:0 3px 8px rgba(0,0,0,.25);}
+  html.ui-apple .directions-mode-btn.active small{color:rgba(255,255,255,.85);}
+  /* Choices: segmented look */
+  html.ui-apple .directions-mode-btn{border:none; background:rgba(118,118,128,.24); color:var(--text);}
+  html.ui-apple .directions-mode-btn.active{background:#636366; color:#fff;}
+  /* On/off: iOS switches */
+  html.ui-apple .layers-option input[type="checkbox"]{-webkit-appearance:none; appearance:none; width:51px; height:31px; border-radius:31px; background:rgba(120,120,128,.32);
+    position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; margin:0;}
+  html.ui-apple .layers-option input[type="checkbox"]::before{content:""; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff;
+    box-shadow:0 3px 8px rgba(0,0,0,.25), 0 1px 1px rgba(0,0,0,.16); transition:transform .2s;}
+  html.ui-apple .layers-option input[type="checkbox"]:checked{background:#30d158;}
+  html.ui-apple .layers-option input[type="checkbox"]:checked::before{transform:translateX(20px);}
+  html.ui-apple .layers-option{min-height:44px;}
+  /* Small icon buttons: 44 pt hit areas without changing their look */
+  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button){position:relative;}
+  /* (Taller to 44 pt, but only 4 px wider each side, so icons 8 px apart never share a tap zone.) */
+  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button)::after{content:""; position:absolute; left:-4px; right:-4px; top:50%; height:44px; margin-top:-22px;}
+  /* The map screen's floating controls and bars: black, which makes their
+     icons stand out more than grey (with a fine light outline, so they stay
+     defined over dark satellite maps too). Panels and dialogs keep iOS grey. */
+  html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud,
+    .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help){
+    background:rgba(0,0,0,.86); -webkit-backdrop-filter:blur(20px) saturate(160%); backdrop-filter:blur(20px) saturate(160%);
+    border-color:rgba(255,255,255,.3);}
+  html.ui-apple :is(.btn-icon, .zoom-slider-control, .map-scale, .map-compass, .hud){border:1px solid rgba(255,255,255,.3);}
+  html.ui-apple .search-box{border:1px solid rgba(255,255,255,.45);}
+  html.ui-apple .btn-icon:hover{background:rgba(28,28,30,.92);}
+  html.ui-apple .btn-icon:active{background:rgba(44,44,46,.95);}
+  @media (prefers-reduced-transparency: reduce){
+    html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud,
+      .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help){background:#000; -webkit-backdrop-filter:none; backdrop-filter:none;}
+  }
+
+  /* iPhone: tasks open as sheets from the bottom, with a grabber */
+  @media (max-width:600px){
+    html.ui-apple .modal-overlay{align-items:flex-end; padding:0;}
+    html.ui-apple .modal-card{max-width:none; width:100%; border-radius:14px 14px 0 0; max-height:92vh; max-height:92dvh;
+      padding-top:22px; padding-bottom:calc(20px + env(safe-area-inset-bottom)); position:relative; animation:apple-sheet-up .28s cubic-bezier(.2,.9,.3,1);}
+    html.ui-apple .modal-card::before{content:""; position:absolute; top:7px; left:50%; width:36px; height:5px; margin-left:-18px; border-radius:3px; background:rgba(235,235,245,.3);}
+  }
+  @keyframes apple-sheet-up{from{transform:translateY(40px); opacity:.6;} to{transform:none; opacity:1;}}
+  @media (prefers-reduced-motion: reduce){ html.ui-apple .modal-card{animation:none;} }
+  /* Reduce Transparency: solid instead of frosted */
+  @media (prefers-reduced-transparency: reduce){
+    html.ui-apple :is(.btn-icon, .search-box, .zoom-slider-control, .map-scale, .panel, .layers-panel, .ride-hud, .measure-hud, .toast){-webkit-backdrop-filter:none; backdrop-filter:none; background:#1c1c1e;}
+  }
+
+  /* ---------- Google (Material Design 3, dark) ---------- */
+  html.ui-google{
+    --bg:#141218; --panel-bg:rgba(29,27,32,.97); --surface:#1d1b20; --surface-2:#2b2930;
+    --border:#49454f; --border-soft:#938f99; --text:#e6e0e9; --text-dim:#cac4d0; --text-mute:#cac4d0;
+    --amber:#d0bcff; --amber-light:#d0bcff; --accent-rgb:208,188,255; --cyan:#ccc2dc; --red:#f2b8b5; --green:#a8d5a2;
+    --btn-icon-bg-hover:#36343b; --btn-icon-bg-active:#49454f; --field-border:#938f99;
+  }
+  html.ui-google body, html.ui-google button, html.ui-google input, html.ui-google select, html.ui-google textarea{font-family:Roboto, "Google Sans", "Helvetica Neue", system-ui, sans-serif;}
+  /* Floating controls: tonal surfaces with soft elevation */
+  html.ui-google .btn-icon{background:#2b2930; border:none; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.3), 0 4px 8px 3px rgba(0,0,0,.15);}
+  html.ui-google .search-box{background:#2b2930; border:1px solid #938f99; border-radius:28px; padding:12px 16px; box-shadow:0 1px 3px rgba(0,0,0,.3), 0 2px 6px 2px rgba(0,0,0,.15);}
+  html.ui-google .zoom-slider-control, html.ui-google .map-scale{background:#2b2930; border:none; border-radius:16px;}
+  html.ui-google .panel, html.ui-google .layers-panel{background:#1d1b20; border-color:#49454f; -webkit-backdrop-filter:none; backdrop-filter:none;}
+  html.ui-google .panel{border-top-left-radius:28px; border-bottom-left-radius:28px;}
+  html.ui-google .layers-panel{border-radius:28px;}
+  html.ui-google .ride-hud, html.ui-google .measure-hud{background:#2b2930; border-color:#49454f; border-radius:16px;}
+  /* Buttons: pill shapes; filled, outlined and tonal */
+  html.ui-google .btn{border-radius:20px; min-height:40px; font-size:14px; font-weight:500; letter-spacing:.1px;}
+  html.ui-google .btn-primary{background:#d0bcff; color:#381e72;}
+  html.ui-google .btn-secondary{background:transparent; border:1px solid #938f99; color:#d0bcff;}
+  html.ui-google .btn-danger{background:#f2b8b5; color:#601410;}
+  html.ui-google .home-action-btn{min-height:40px; font-size:14px; font-weight:500; border-radius:20px; background:#4a4458; border:none; color:#e8def8;}
+  /* Text */
+  html.ui-google .layers-section-title{text-transform:none; letter-spacing:.1px; font-size:14px; font-weight:500; color:#d0bcff;}
+  html.ui-google .layers-hint{font-size:12px; color:#cac4d0;}
+  html.ui-google .field-input, html.ui-google textarea{background:transparent; border:1px solid #938f99; border-radius:4px; min-height:48px; font-size:16px;}
+  html.ui-google .field-input:focus, html.ui-google textarea:focus{border:2px solid #d0bcff;}
+  html.ui-google .card, html.ui-google .folder-accordion-header{background:#211f26; border:none; border-radius:12px;}
+  html.ui-google .modal-card{background:#2b2930; border:none; border-radius:28px; padding:24px; box-shadow:0 8px 12px 6px rgba(0,0,0,.15), 0 4px 4px rgba(0,0,0,.3);}
+  @media (max-width:430px){ html.ui-google .modal-card{padding:20px 18px;} }
+  html.ui-google .toast{background:#e6e0e9; color:#322f35; border-radius:4px; border:none;}
+  /* Tabs: Material primary tabs with a rounded 3 dp indicator */
+  html.ui-google :is(.panel-tab, .layers-tab, .journal-tab-btn){border-bottom-width:3px; border-radius:3px 3px 0 0; font-size:14px; font-weight:500; letter-spacing:.1px; min-height:40px;}
+  html.ui-google :is(.panel-tab, .layers-tab, .journal-tab-btn).active{color:#d0bcff; border-bottom-color:#d0bcff;}
+  /* Choices: segmented buttons */
+  html.ui-google .directions-mode-btn{border:1px solid #938f99; background:transparent; color:#e6e0e9; border-radius:20px;}
+  html.ui-google .directions-mode-btn.active{background:#4a4458; color:#e8def8; border-color:#938f99;}
+  /* On/off: Material switches */
+  html.ui-google .layers-option input[type="checkbox"]{-webkit-appearance:none; appearance:none; width:52px; height:32px; border-radius:16px; background:#36343b; border:2px solid #938f99;
+    position:relative; cursor:pointer; transition:background .2s, border-color .2s; flex-shrink:0; margin:0; box-sizing:border-box;}
+  html.ui-google .layers-option input[type="checkbox"]::before{content:""; position:absolute; top:50%; left:6px; width:16px; height:16px; margin-top:-8px; border-radius:50%; background:#938f99; transition:all .2s;}
+  html.ui-google .layers-option input[type="checkbox"]:checked{background:#d0bcff; border-color:#d0bcff;}
+  html.ui-google .layers-option input[type="checkbox"]:checked::before{left:24px; width:24px; height:24px; margin-top:-12px; background:#381e72;}
+  html.ui-google .layers-option{min-height:48px;}
+  /* Small icon buttons: 48 dp hit areas without changing their look */
+  html.ui-google :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button){position:relative;}
+  html.ui-google :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button)::after{content:""; position:absolute; left:-4px; right:-4px; top:50%; height:48px; margin-top:-24px;}
+
+  /* Settings: the style picker */
+  .ui-style-row .directions-mode-btn b{font-size:13px;}
+  .ui-style-row .directions-mode-btn small{font-size:10.5px; color:var(--text-mute);}
 </style>
 </head>
 <body>
@@ -2603,6 +2771,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
         <div class="layers-panel-body hidden help-view" id="layersViewHelp"></div>
         <div class="layers-panel-body hidden" id="layersViewSettings">
+        <div class="layers-section">
+          <p class="layers-section-title">Appearance</p>
+          <div class="directions-mode-row ui-style-row" id="uiStyleRow">
+            <button type="button" class="directions-mode-btn" data-ui-style="mapapp"><b>MapApp</b><small>Original</small></button>
+            <button type="button" class="directions-mode-btn" data-ui-style="apple"><b>Apple</b><small>iOS style</small></button>
+            <button type="button" class="directions-mode-btn" data-ui-style="google"><b>Google</b><small>Material style</small></button>
+          </div>
+          <p class="layers-hint">Changes how MapApp looks and how big its controls are, not how it works. Saved on this device only.</p>
+        </div>
         <div class="layers-section">
           <p class="layers-section-title" id="appVersionLabel">App version</p>
           <div class="home-actions">
@@ -81247,7 +81424,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "591";
+  const APP_VERSION = "595";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -84716,6 +84893,7 @@ return maplibregl$1;
       { t: "Import and export", d: "Bring in waypoints and routes from GPX, KML, KMZ, GeoJSON, CSV, Shapefile, FIT or plain text, and export them again.", go: "settings:Backup & sync", label: "Open Import and export" }
     ] },
     { title: "Settings and troubleshooting", items: [
+      { t: "Interface style", d: "Settings \u2192 Appearance switches between MapApp\u2019s original look, an Apple (iOS) style and a Google (Material) style. Only the look and the size of controls change; everything works the same. The choice is saved on each device.", go: "settings:Appearance", label: "Open Appearance" },
       { t: "Units and location marker", d: "Choose kilometres or miles, and the icon that shows where you are.", go: "settings:Units", label: "Open Units" },
       { t: "API keys", d: "Add free keys for Thunderforest maps (removes the watermark and enables the live Street map), OpenWeatherMap weather, and Gemini (AI itineraries, stories and narration).", go: "settings:Thunderforest API key", label: "Open API keys" },
       { t: "AI services and fallbacks", d: "Use ChatGPT, Claude, OpenRouter, Groq, Mistral, DeepSeek or any OpenAI-compatible service as well as, or instead of, Gemini. They're tried in the order you set: if one can't answer (out of free allowance, busy, or a bad key), the next takes over. Each has a Test button. Keys stay on this device.", go: "settings:AI services", label: "Open AI services" },
@@ -92871,7 +93049,7 @@ return maplibregl$1;
   // waypoint markers, without becoming actual entries in the waypoint list).
   function makeRouteEndpointIcon(activityType) {
     const info = activityInfo(activityType);
-    const html = '<div class="route-endpoint-marker" style="background:' + info.color + '; border-color:' + info.color + ';">' +
+    const html = '<div class="route-endpoint-marker" style="background:' + info.color + '; border-color:' + info.color + '; color:' + inkOn(info.color) + ';">' +
       icon(info.icon, 15) + "</div>";
     return L.divIcon({ html, className: "wp-div-icon", iconSize: [28, 28], iconAnchor: [14, 14] });
   }
@@ -92884,7 +93062,7 @@ return maplibregl$1;
     const info = activityInfo(activityType);
     const html = '<div class="current-position-marker">' +
       '<span class="wp-pulse-ring" style="border-color:' + info.color + '"></span>' +
-      '<div class="current-position-badge" style="background:' + info.color + '; border-color:' + info.color + ';">' +
+      '<div class="current-position-badge" style="background:' + info.color + '; color:' + inkOn(info.color) + '; border-color:' + info.color + ';">' +
         icon(info.icon, 14) +
       "</div></div>";
     return L.divIcon({ html, className: "wp-div-icon", iconSize: [30, 30], iconAnchor: [15, 15] });
@@ -93393,6 +93571,13 @@ return maplibregl$1;
     }
   }
 
+  // White or dark ink, whichever contrasts more with a background colour (WCAG).
+  function inkOn(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim()); if (!m) return "#fff";
+    const c = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    const L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    return (1.05 / (L + 0.05)) >= ((L + 0.05) / (0.0144 + 0.05)) ? "#fff" : "#0f172a";
+  }
   function startRide(activityType) {
     if (!navigator.geolocation) { showToast("Geolocation isn't available in this browser."); return; }
     blurActiveTextInput();
@@ -93417,7 +93602,7 @@ return maplibregl$1;
     clearRidePositionMarker();
     ridePolyline = L.polyline([], { color: info.color, weight: 4, opacity: 0.9 }).addTo(map);
     ridePolyline.on("click", (e) => { L.DomEvent.stopPropagation(e); showSegmentPopup(e.latlng, ridePoints); });
-    rideBtn.style.setProperty("--ride-color", info.color);
+    rideBtn.style.setProperty("--ride-color", info.color); rideBtn.style.setProperty("--ride-ink", inkOn(info.color));
     rideBtn.innerHTML = icon(info.icon, 18);
     rideBtn.classList.add("tracking");
     rideBtn.title = "Stop tracking " + info.label.toLowerCase();
@@ -93496,7 +93681,7 @@ return maplibregl$1;
     refreshDistanceMarkers(ridePoints, info.color, rideDistanceMarkers);
     const { start, end } = placeEndpointMarkers(ridePoints, currentActivityType);
     rideStartMarker = start; rideEndMarker = end;
-    rideBtn.style.setProperty("--ride-color", info.color);
+    rideBtn.style.setProperty("--ride-color", info.color); rideBtn.style.setProperty("--ride-ink", inkOn(info.color));
     rideHudLabel1.textContent = "Time";
     rideHudLabel2.textContent = "Distance (" + distanceUnitLabel() + ")";
     rideHudLabel3.textContent = "Speed (" + speedUnitLabel() + ")";
@@ -93590,7 +93775,7 @@ return maplibregl$1;
     clearRidePositionMarker();
     clearRideEndpointMarkers(); // the frozen "end" marker no longer applies once moving again
     const info = activityInfo(currentActivityType);
-    rideBtn.style.setProperty("--ride-color", info.color);
+    rideBtn.style.setProperty("--ride-color", info.color); rideBtn.style.setProperty("--ride-ink", inkOn(info.color));
     rideBtn.classList.add("tracking");
     rideBtn.innerHTML = icon(info.icon, 18);
     rideBtn.title = "Stop tracking " + info.label.toLowerCase();
@@ -97128,7 +97313,7 @@ return maplibregl$1;
   function refreshRoutesAzPickerAvailability() {
     const available = new Set(getRoutesAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     routesAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
-      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter)); btn.setAttribute("aria-disabled", String(!available.has(btn.dataset.letter)));
     });
   }
   renderRoutesAzPicker();
@@ -97177,7 +97362,7 @@ return maplibregl$1;
   function refreshMeasurementsAzPickerAvailability() {
     const available = new Set(getMeasurementsAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     measurementsAzPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
-      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter)); btn.setAttribute("aria-disabled", String(!available.has(btn.dataset.letter)));
     });
   }
   renderMeasurementsAzPicker();
@@ -106376,6 +106561,55 @@ return maplibregl$1;
     el("selfTestRunBtn").disabled = false; el("selfTestCopyBtn").disabled = false;
     el("selfTestRunBtn").textContent = "Run again";
   }
+  /* ---------- Interface style (Settings > Appearance) ----------
+     MapApp (the original design), Apple (iOS) or Google (Material). The
+     choice is kept on this device only (localStorage, read by the page's
+     first script so it's applied before anything is drawn). */
+  function currentUiStyle() { const c = document.documentElement.classList; return c.contains("ui-apple") ? "apple" : c.contains("ui-google") ? "google" : "mapapp"; }
+  function applyUiStyle(style) {
+    const root = document.documentElement;
+    root.classList.remove("ui-apple", "ui-google");
+    if (style === "apple" || style === "google") root.classList.add("ui-" + style);
+    if (style === "google" && !document.getElementById("robotoFont")) {
+      const lf = document.createElement("link"); lf.id = "robotoFont"; lf.rel = "stylesheet";
+      lf.href = "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"; document.head.appendChild(lf);
+    }
+    try { localStorage.setItem("mapapp:uiStyle", style); } catch (e) {}
+    document.querySelectorAll("#uiStyleRow [data-ui-style]").forEach((b) => b.classList.toggle("active", b.dataset.uiStyle === style));
+    // Sizes changed: let the map and the footer controls settle into the new layout.
+    setTimeout(() => { try { map.invalidateSize(); updateMapScale(); positionSafeModePill(); } catch (e) {} }, 60);
+  }
+  document.querySelectorAll("#uiStyleRow [data-ui-style]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); applyUiStyle(b.dataset.uiStyle); }));
+  document.querySelectorAll("#uiStyleRow [data-ui-style]").forEach((b) => b.classList.toggle("active", b.dataset.uiStyle === currentUiStyle()));
+  // Apple style on iPhone: a sheet can be swiped down from its top to close it.
+  (function sheetSwipeToClose() {
+    let drag = null;
+    document.addEventListener("touchstart", (e) => {
+      if (currentUiStyle() !== "apple" || !window.matchMedia("(max-width:600px)").matches || e.touches.length !== 1) return;
+      const card = e.target.closest(".modal-overlay:not(.hidden) .modal-card");
+      if (!card || card.scrollTop > 0 || e.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.touches[0].clientY - card.getBoundingClientRect().top > 64) return; // only from the grabber and header
+      drag = { card, y0: e.touches[0].clientY, dy: 0 };
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (!drag) return;
+      drag.dy = Math.max(0, e.touches[0].clientY - drag.y0);
+      drag.card.style.transition = "none";
+      drag.card.style.transform = "translateY(" + drag.dy + "px)";
+    }, { passive: true });
+    document.addEventListener("touchend", () => {
+      if (!drag) return;
+      const { card, dy } = drag; drag = null;
+      card.style.transition = "transform .2s"; card.style.transform = "";
+      setTimeout(() => { card.style.transition = ""; }, 220);
+      if (dy > 110) {
+        // The dialog's own close button (its ✕), never another header button like the camera.
+        const close = card.querySelector("[id$='CloseBtn']") || card.querySelector(".modal-header [data-icon='x']") || card.querySelector("[id$='CancelBtn']");
+        if (close) close.click();
+      }
+    });
+  })();
+
   el("selfTestBtn").addEventListener("click", () => {
     el("selfTestOverlay").classList.remove("hidden");
     el("selfTestOnline").checked = navigator.onLine !== false;
@@ -107369,7 +107603,7 @@ return maplibregl$1;
   function refreshAzPickerAvailability() {
     const available = new Set(getAzVisibleEntries().map((entry) => getIndexLetter(entry.name)));
     azPicker.querySelectorAll(".az-letter-btn").forEach((btn) => {
-      btn.classList.toggle("no-match", !available.has(btn.dataset.letter));
+      btn.classList.toggle("no-match", !available.has(btn.dataset.letter)); btn.setAttribute("aria-disabled", String(!available.has(btn.dataset.letter)));
     });
   }
   renderAzPicker();
