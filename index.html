@@ -734,6 +734,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     /* Contrast (WCAG 2.1 AA): field edges at least 3:1 against both panel
        backgrounds (1.4.11); text colours at least 4.5:1 (1.4.3). */
     --field-border:#6b7b93;
+    --trash:#f59e0b; --link:#22d3ee; /* card trash icon and link colour */
   }
   *{box-sizing:border-box;}
   html,body,#app{height:100%; margin:0;}
@@ -1842,6 +1843,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .folder-accordion-header:hover{border-color:rgba(var(--accent-rgb),.35);}
   .drag-armed{outline:2px solid var(--amber-light); outline-offset:2px; border-radius:10px;}
   .drag-source-hidden{opacity:.35;}
+  /* Dragging into a folder: the card itself, translucent, follows the finger (the same look as reordering an itinerary) */
+  .drag-moving{opacity:.6; position:relative; z-index:30; transition:none !important;}
+  /* The moving card gets a solid background (its usual one is see-through), so at 60% it reads as one
+     translucent card on top of the list, with what's beneath faintly showing, the same in both drags. */
+  .drag-moving, .itinerary-draggable-item.dragging .card, .itinerary-day-item.dragging .folder-accordion-header{background-color:var(--surface) !important; box-shadow:0 10px 28px rgba(0,0,0,.35);}
   .drag-ghost{position:fixed; z-index:9999; pointer-events:none; opacity:.92; box-shadow:0 8px 24px rgba(0,0,0,.4);
     border-radius:10px; transform:scale(1.03);}
   .drop-target-hover{outline:2px solid var(--cyan); outline-offset:-1px; background:rgba(34,211,238,.12) !important;}
@@ -1957,8 +1963,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-drag-handle:active{cursor:grabbing;}
   /* Cards inside itinerary days already sit beside the itinerary's own handle. */
   .itinerary-draggable-card-wrap .card.has-drag-handle{padding-left:12px;}
-  .itinerary-draggable-card-wrap .card-drag-handle{display:none;}
+  /* A day's reorder grip, at the right end of its header row: same look and touch area as the card grips */
+  .folder-accordion-header .folder-header-grip{position:relative; flex:0 0 auto; width:16px; height:28px; margin-right:-4px; padding:0; background:none; border:none; border-radius:0;
+    color:var(--amber-light); display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
+  .folder-accordion-header .folder-header-grip::after{content:""; position:absolute; left:-8px; right:-8px; top:50%; height:44px; margin-top:-22px;}
+  .folder-accordion-header .folder-header-grip:hover, .folder-accordion-header .folder-header-grip:active{color:var(--amber-light); background:none;}
+  html.ui-apple .folder-accordion-header .folder-header-grip, html.ui-apple .folder-accordion-header .folder-header-grip:hover, html.ui-apple .folder-accordion-header .folder-header-grip:active{color:#86868b;}
   .drag-ghost .card-drag-handle{color:var(--text);}
+  /* Waypoint cards: the handle sits at the right end of the header row. Plain dots (no background,
+     border or circle) so it reads as a handle, not another button. Its visible box stays compact so the
+     header row keeps its height; the touch area extends invisibly to 44 px. The dots keep their colour
+     at rest, on hover and while dragging. */
+  /* A hidden waypoint shown temporarily while selected: faded, with a dashed ring */
+  .leaflet-marker-icon.wp-peek{opacity:.6;}
+  .leaflet-marker-icon.wp-peek > *{outline:2px dashed var(--amber-light); outline-offset:3px; border-radius:50%;}
+  :is(.card-header-row, .ride-card-header) .card-header-grip{position:relative; left:auto; top:auto; bottom:auto; flex:0 0 auto; align-self:center; width:16px; height:28px;
+    margin-left:auto; margin-right:-6px; padding:0; overflow:visible; /* narrow, and partly in the card's empty right padding, so the title and date line keep their room */ background:none; border:none; border-radius:0; box-shadow:none; color:var(--amber-light);
+    display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; z-index:auto;}
+  :is(.card-header-row, .ride-card-header) .card-header-grip::after{content:""; position:absolute; left:-8px; right:-8px; top:50%; height:44px; margin-top:-22px;}
+  :is(.card-header-row, .ride-card-header) .card-header-grip svg{flex-shrink:0;}
+  :is(.card-header-row, .ride-card-header) .card-header-grip:hover, :is(.card-header-row, .ride-card-header) .card-header-grip:active, .drag-ghost :is(.card-header-row, .ride-card-header) .card-header-grip{color:var(--amber-light); background:none;}
+  html.ui-apple :is(.card-header-row, .ride-card-header) .card-header-grip,
+  html.ui-apple :is(.card-header-row, .ride-card-header) .card-header-grip:hover, html.ui-apple :is(.card-header-row, .ride-card-header) .card-header-grip:active,
+  html.ui-apple .drag-ghost :is(.card-header-row, .ride-card-header) .card-header-grip{color:#86868b;} /* Apple grey: iOS reorder-control grey #8e8e93 is 2.8:1 on the light card, #86868b is 3.25:1 */
   .card.selected{border-color:var(--amber) !important; box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35);}
   .card.bulk-selected{border-color:var(--cyan) !important; box-shadow:0 0 0 2px rgba(34,211,238,.35);}
   /* Top row is reserved purely for the action buttons, right-aligned.
@@ -2020,6 +2047,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     color:var(--text-mute); cursor:pointer; display:flex; align-items:center; justify-content:center;
     border:none; padding:0;}
   .card-delete-circle-btn:hover{background:rgba(248,113,113,.15); color:var(--red);}
+  .card-delete-circle-btn, .ride-card-icons-row .ride-card-delete-btn{color:var(--trash);} /* orange in every style, on every kind of card */
   .card-codes{display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;}
   .card-codes .code-badge{font-size:10px; padding:3px 6px;}
   /* Copy sits immediately before the three-word code now (it used to be
@@ -2055,6 +2083,48 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-url-btn{display:flex; gap:6px; align-items:center; font-size:12px; color:var(--text-mute); cursor:text;
     background:none; border:none; padding:0; text-align:left; font-style:italic;}
   .card-url-btn:hover{color:var(--amber-light);}
+  /* Elevation in the date line */
+  .card-meta .card-elevation{margin:0 0 0 6px; padding:0; border:none; background:none; border-radius:0; font-size:inherit; color:inherit; display:inline-flex; align-items:center; gap:3px; cursor:pointer;}
+  .card-meta .card-elevation .icon{color:inherit;}
+  .card-meta .card-elevation.placeholder{font-style:italic; text-decoration:underline dotted; text-underline-offset:2px;}
+  .card-meta .card-elevation:focus-visible{outline:2px solid var(--amber); outline-offset:2px; border-radius:3px;}
+  .card-meta .card-meta-weather{margin-left:6px;}
+  /* Date, elevation and weather share one row; only if they truly can't fit does the weather move down
+     (rather than being cut off). Each part itself never breaks. */
+  .card-title-row .card-meta{flex-wrap:wrap; row-gap:0; white-space:nowrap; min-width:0;}
+  .card-meta .card-elevation, .card-meta .card-meta-weather{margin-left:5px; gap:2px;}
+  /* The Link tab */
+  .card-notes-tab-btn.link-tab{display:inline-flex; align-items:center; gap:3px;}
+  .modal-link-tab{white-space:nowrap;}
+  /* The journal's Link panel */
+  .journal-links-list{display:flex; flex-direction:column; gap:8px; margin-bottom:10px;}
+  .journal-link-row{display:flex; gap:6px; align-items:center;}
+  .journal-link-row .journal-link-input{flex:1; min-width:0;}
+  .journal-link-btn{flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--link); font-size:16px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;}
+  .journal-link-btn:disabled{opacity:.4; cursor:default;}
+  .journal-link-btn.journal-link-delete{color:var(--trash);}
+  .journal-add-link-btn{align-self:flex-start;}
+  /* A card's menu of links to open */
+  .card-links-view{margin-top:6px;}
+  .card-links-view .journal-link-btn{width:36px; height:36px;}
+  #modalLinksPanel{margin-top:4px;}
+  .card-link-menu{position:fixed; z-index:96; min-width:200px; max-width:min(320px, calc(100vw - 16px)); background:var(--surface); border:1px solid var(--field-border); border-radius:12px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.35); display:flex; flex-direction:column;}
+  .card-link-menu button{background:none; border:none; text-align:left; padding:10px 12px; min-height:44px; border-radius:8px; color:var(--link); font-size:14px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .card-link-menu button:hover{background:var(--surface-2);}
+  .card-link-menu .card-link-menu-manage{color:var(--text-dim); border-top:1px solid var(--border); border-radius:0 0 8px 8px;}
+  .modal-link-tab.has-link{color:var(--link);}
+  /* With three tabs, the formatting toolbar moves under them when the row is too narrow, rather than overflowing */
+  #modalOverlay .field-label-row{flex-wrap:wrap; row-gap:6px;}
+  #modalOverlay .field-label-row .rte-toolbar{margin-left:auto;}
+  .modal-link-tab.pressing{opacity:.6;}
+  #urlFieldSection{margin-top:8px;}
+  .emoji-quick-pin-btn{width:100%; height:100%; min-height:40px; display:flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface-2); color:#ef4444; cursor:pointer;}
+  .emoji-quick-pin-btn.selected{border-color:var(--amber); box-shadow:0 0 0 2px rgba(var(--accent-rgb),.35);}
+  .card-notes-tab-btn.link-tab.has-link{color:var(--link); -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
+  .card-notes-tab-btn.link-tab.pressing{opacity:.6;}
+  .card-notes-tab-btn.link-tab.has-link .icon{display:inline-flex;}
+  .card-link-input{width:100%; margin-top:4px;}
   .card-url-input{background:var(--surface); border:1px solid rgba(var(--accent-rgb),.5); border-radius:6px;
     padding:2px 6px; font-size:12px; color:var(--text); outline:none; width:100%;}
   .card-notes-btn{display:flex; gap:6px; align-items:flex-start; font-size:12px; color:var(--text-dim); cursor:text;
@@ -2074,7 +2144,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .rte-mic-btn{color:#f472b6;}
   .rte-mic-btn.listening{color:#fff; background:var(--red); border-color:var(--red); animation:voice-pulse 1.6s ease-in-out infinite;}
   .journal-modal-card{max-width:min(560px, 94vw);}
-  #journalNotesPanel.hidden, #journalReviewsPanel.hidden{display:none;}
+  #journalNotesPanel.hidden, #journalReviewsPanel.hidden, #journalLinksPanel.hidden, #modalLinksPanel.hidden{display:none !important;} /* the link lists show only in their Link tab */
+  /* The journal editor keeps its top in one place whichever tab is showing (Notes, Reviews and Link differ
+     in height, and a centred window jumped as they switched): pinned near the top of the screen... */
+  #journalModalOverlay{align-items:flex-start; padding-top:max(16px, 5vh);}
+  #journalModalOverlay .modal-card{max-height:calc(100vh - max(16px, 5vh) - 16px); max-height:calc(100dvh - max(16px, 5vh) - 16px); overflow-y:auto;}
+  /* ...and as an iPhone sheet in the Apple style, a sheet of fixed height (its top stays put; each tab scrolls inside) */
+  @media (max-width:600px){
+    html.ui-apple #journalModalOverlay{align-items:flex-end; padding:0;}
+    html.ui-apple #journalModalOverlay .modal-card{height:92vh; height:92dvh; max-height:92dvh;}
+  }
   #ttsGeminiOptions.hidden{display:none;}
   #ttsGeminiOptions{margin-top:10px;}
   #ttsGeminiOptions .field-label{margin-top:10px;}
@@ -2508,90 +2587,451 @@ svg.leaflet-image-layer.leaflet-interactive path {
      look and sizing only, never behaviour. Dark versions for now.
      ================================================================ */
 
-  /* ---------- Apple (iOS, dark) ---------- */
-  html.ui-apple{
-    --bg:#000000; --panel-bg:rgba(28,28,30,.94); --surface:#1c1c1e; --surface-2:#2c2c2e;
-    --border:#38383a; --border-soft:#48484a; --text:#ffffff; --text-dim:rgba(235,235,245,.78); --text-mute:rgba(235,235,245,.62);
-    --amber:#409cff; --amber-light:#409cff; --accent-rgb:64,156,255; /* iOS high-contrast blue: 4.9:1 or more on every dark surface */ --cyan:#64d2ff; --red:#ff453a; --green:#30d158;
-    --btn-icon-bg-hover:#3a3a3c; --btn-icon-bg-active:#48484a; --field-border:#7c7c80;
-  }
-  html.ui-apple body, html.ui-apple button, html.ui-apple input, html.ui-apple select, html.ui-apple textarea{font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;}
-  /* Floating controls: frosted "material" over the map */
-  html.ui-apple .btn-icon{background:rgba(44,44,46,.72); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
-    border:0.5px solid rgba(255,255,255,.14); border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.35);}
-  html.ui-apple .search-box{background:rgba(44,44,46,.8); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); border:1px solid rgba(255,255,255,.45); border-radius:12px;}
-  html.ui-apple .zoom-slider-control, html.ui-apple .map-scale{background:rgba(44,44,46,.8); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,.12); border-radius:12px;}
-  html.ui-apple .panel, html.ui-apple .layers-panel{background:rgba(28,28,30,.94); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); border-color:rgba(84,84,88,.6);}
-  html.ui-apple .ride-hud, html.ui-apple .measure-hud{background:rgba(28,28,30,.94); border-color:rgba(84,84,88,.6); -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);}
-  /* Buttons: filled blue primary, tinted grey secondary, 44 pt tall */
-  html.ui-apple .btn{border-radius:12px; min-height:44px; font-size:17px; font-weight:600;}
-  html.ui-apple .btn-primary{background:#0071e3; color:#fff;} /* white on iOS blue is 3.65:1; Apple's #0071e3 is 4.7:1 */
-  html.ui-apple .btn-secondary{background:rgba(120,120,128,.24); border-color:transparent; color:#409cff;}
-  html.ui-apple .btn-danger{background:#d70015; color:#fff;} /* iOS's accessible red: 5.4:1 with white (the standard red is 3.4:1) */
-  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn{font-size:15px; font-weight:500; padding-left:8px; padding-right:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn-primary{font-weight:600;} /* side by side: iOS's secondary size, so labels stay on one line */
-  html.ui-apple .home-action-btn{min-height:44px; font-size:15px; border-radius:10px; background:rgba(120,120,128,.24); border:none; color:#409cff;}
-  /* Text: no all-caps headers; readable hints */
-  html.ui-apple .layers-section-title{text-transform:none; letter-spacing:0; font-size:13px; font-weight:400; color:rgba(235,235,245,.62);}
+  /* ---------- Apple (iOS, light) ----------
+     iOS light appearance, with colours chosen for WCAG AA: iOS's standard
+     blue, green and secondary grey fall short on white, so accessible
+     variants are used (#0066cc, #248a3d, #636366). */
+
+
+  /* Generated: iOS's type scale for the Apple style (Caption 2 11, Caption 1 12, Footnote 13,
+     Subheadline 15, Body 17), mapped from the app's own sizes so the hierarchy is kept. The
+     hand-written Apple rules after this take precedence. */
+  html.ui-apple .map-drop-hint{font-size:17px;}
+  html.ui-apple .search-box input{font-size:17px;}
+  html.ui-apple .search-result-row{font-size:17px;}
+  html.ui-apple .search-result-tag{font-size:11px;}
+  html.ui-apple .search-result-detail{font-size:13px;}
+  html.ui-apple .ride-dropdown-option{font-size:17px;}
+  html.ui-apple .count-badge{font-size:12px;}
+  html.ui-apple .counter-pill b{font-size:17px;}
+  html.ui-apple .counter-pill span{font-size:15px;}
+  html.ui-apple .layers-section-title{font-size:12px;}
+  html.ui-apple .check-photo-fail-label{font-size:12px;}
+  html.ui-apple .weather-snapshot-desc{font-size:17px;}
+  html.ui-apple .weather-snapshot-date{font-size:15px;}
+  html.ui-apple .weather-snapshot-sun{font-size:15px;}
+  html.ui-apple .layers-option{font-size:17px;}
+  html.ui-apple .owm-key-row input{font-size:15px;}
+  html.ui-apple .owm-key-row button{font-size:13px;}
   html.ui-apple .layers-hint{font-size:13px;}
-  html.ui-apple input[type="date"].field-input, html.ui-apple input[type="time"].field-input{font-size:15px; padding-left:8px; padding-right:6px;}
-  html.ui-google input[type="date"].field-input, html.ui-google input[type="time"].field-input{font-size:13px; padding-left:6px; padding-right:4px; letter-spacing:-.1px;}
-  html.ui-apple .field-input, html.ui-apple textarea{background:rgba(118,118,128,.24); border:1px solid var(--field-border); border-radius:10px; min-height:44px; font-size:17px;}
-  html.ui-apple .field-input:focus, html.ui-apple textarea:focus{box-shadow:0 0 0 2px #0a84ff;}
-  html.ui-apple .card, html.ui-apple .folder-accordion-header{background:#1c1c1e; border:0.5px solid #38383a; border-radius:12px;}
-  html.ui-apple .modal-card{background:#1c1c1e; border:0.5px solid #38383a; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.6);}
-  html.ui-apple .toast{background:rgba(44,44,46,.95); border-radius:14px; -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);}
-  /* Tabs: iOS segmented controls (panel and Map Layers tabs) */
-  html.ui-apple .panel-tabs, html.ui-apple .layers-tabs{background:rgba(118,118,128,.24); border-radius:9px; padding:2px; gap:2px; align-items:stretch;}
-  html.ui-apple .panel-tabs, html.ui-apple .layers-tabs{flex:1 1 auto; min-width:0;}
-  html.ui-apple .panel-tab, html.ui-apple .layers-tab{flex:0 1 auto; white-space:nowrap; border-bottom:none; border-radius:7px; padding:6px 8px; min-height:32px; font-size:13px; font-weight:600; color:var(--text);}
-  @media (max-width:430px){ html.ui-apple .layers-tab{font-size:12px; padding:6px 6px; letter-spacing:-.1px;} html.ui-apple .panel-tab{padding:6px 7px;} }
-  html.ui-apple .panel-tab.active, html.ui-apple .layers-tab.active{background:#636366; box-shadow:0 3px 8px rgba(0,0,0,.25);}
-  html.ui-apple .directions-mode-btn.active small{color:rgba(255,255,255,.85);}
-  /* Choices: segmented look */
-  html.ui-apple .directions-mode-btn{border:none; background:rgba(118,118,128,.24); color:var(--text);}
-  html.ui-apple .directions-mode-btn.active{background:#636366; color:#fff;}
-  /* On/off: iOS switches */
-  html.ui-apple .layers-option input[type="checkbox"]{-webkit-appearance:none; appearance:none; width:51px; height:31px; border-radius:31px; background:rgba(120,120,128,.32);
-    position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; margin:0;}
-  html.ui-apple .layers-option input[type="checkbox"]::before{content:""; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff;
-    box-shadow:0 3px 8px rgba(0,0,0,.25), 0 1px 1px rgba(0,0,0,.16); transition:transform .2s;}
-  html.ui-apple .layers-option input[type="checkbox"]:checked{background:#30d158;}
-  html.ui-apple .layers-option input[type="checkbox"]:checked::before{transform:translateX(20px);}
-  html.ui-apple .layers-option{min-height:44px;}
-  /* Small icon buttons: 44 pt hit areas without changing their look */
-  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button){position:relative;}
-  /* (Taller to 44 pt, but only 4 px wider each side, so icons 8 px apart never share a tap zone.) */
-  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button)::after{content:""; position:absolute; left:-4px; right:-4px; top:50%; height:44px; margin-top:-22px;}
-  /* The map screen's floating controls and bars: black, which makes their
-     icons stand out more than grey (with a fine light outline, so they stay
-     defined over dark satellite maps too). Panels and dialogs keep iOS grey. */
+  html.ui-apple .elevation-chart-marker.endpoint{font-size:11px;}
+  html.ui-apple .elevation-chart-marker{font-size:11px;}
+  html.ui-apple .elevation-stat{font-size:13px;}
+  html.ui-apple .poi-popup{font-size:17px;}
+  html.ui-apple .poi-popup strong{font-size:17px;}
+  html.ui-apple .poi-popup-type, html.ui-apple .poi-popup-brand{font-size:15px;}
+  html.ui-apple .poi-popup-website a{font-size:15px;}
+  html.ui-apple .poi-popup-save-btn{font-size:15px;}
+  html.ui-apple .info-help-btn{font-size:15px;}
+  html.ui-apple .owm-key-saved{font-size:13px;}
+  html.ui-apple .owm-key-saved button{font-size:13px;}
+  html.ui-apple .home-status{font-size:15px;}
+  html.ui-apple .home-action-btn{font-size:13px;}
+  html.ui-apple .units-row-label{font-size:17px;}
+  html.ui-apple .unit-slider-label{font-size:15px;}
+  html.ui-apple .home-modal-divider{font-size:13px;}
+  html.ui-apple .hud-coords{font-size:15px;}
+  html.ui-apple .maplibregl-ctrl-scale{font-size:11px;}
+  html.ui-apple .help-item-title{font-size:17px;}
+  html.ui-apple .help-item-text{font-size:15px;}
+  html.ui-apple .help-go{font-size:15px;}
+  html.ui-apple .ai-prov-num{font-size:13px;}
+  html.ui-apple .ai-prov-name{font-size:17px;}
+  html.ui-apple .ai-prov-state{font-size:13px;}
+  html.ui-apple .ai-prov-tools button{font-size:17px;}
+  html.ui-apple .ai-prov-test-result{font-size:15px;}
+  html.ui-apple .search-pick-btn b{font-size:17px;}
+  html.ui-apple .search-pick-btn small{font-size:15px;}
+  html.ui-apple .selftest-summary{font-size:17px;}
+  html.ui-apple .selftest-group{font-size:13px;}
+  html.ui-apple .selftest-mark{font-size:15px;}
+  html.ui-apple .selftest-body b{font-size:17px;}
+  html.ui-apple .selftest-detail{font-size:15px;}
+  html.ui-apple .confirm-modal-option{font-size:17px;}
+  html.ui-apple .paper-map-summary{font-size:15px;}
+  html.ui-apple .paper-wiz-step-label{font-size:15px;}
+  html.ui-apple .paper-wiz-row-sub{font-size:13px;}
+  html.ui-apple .paper-wiz-review dl > div{font-size:17px;}
+  html.ui-apple .paper-wiz-saved{font-size:17px;}
+  html.ui-apple .paper-wiz-box-info{font-size:15px;}
+  html.ui-apple .paper-wiz-pages-input span{font-size:17px;}
+  html.ui-apple .cc-optional{font-size:13px;}
+  html.ui-apple .cc-link-btn{font-size:17px;}
+  html.ui-apple .cc-chip{font-size:17px;}
+  html.ui-apple .cc-switch{font-size:17px;}
+  html.ui-apple .cc-day-title{font-size:17px;}
+  html.ui-apple .cc-day-theme{font-size:15px;}
+  html.ui-apple .cc-day-stats{font-size:13px;}
+  html.ui-apple .cc-day-over{font-size:15px;}
+  html.ui-apple .day-tl-time{font-size:13px;}
+  html.ui-apple .day-tl-time input{font-size:17px;}
+  html.ui-apple .day-tl-keep{font-size:15px;}
+  html.ui-apple .day-tl-status{font-size:15px;}
+  html.ui-apple .day-tl-hour span{font-size:13px;}
+  html.ui-apple .day-tl-mark span{font-size:13px;}
+  html.ui-apple .day-tl-now span{font-size:12px;}
+  html.ui-apple .day-tl-num{font-size:12px;}
+  html.ui-apple .day-tl-name{font-size:17px;}
+  html.ui-apple .day-tl-link::after{font-size:13px;}
+  html.ui-apple .day-tl-when{font-size:13px;}
+  html.ui-apple .day-tl-leg{font-size:13px;}
+  html.ui-apple .replace-stop-name{font-size:17px;}
+  html.ui-apple .replace-stop-meta{font-size:15px;}
+  html.ui-apple .replace-stop-search{font-size:15px;}
+  html.ui-apple .replace-stop-search::after{font-size:13px;}
+  html.ui-apple .replace-stop-link::after{font-size:13px;}
+  html.ui-apple .day-tl-warnings .day-tl-warn{font-size:15px;}
+  html.ui-apple .day-tl-keep{font-size:15px;}
+  html.ui-apple .itin-leg-row{font-size:15px;}
+  html.ui-apple .itin-day-bounds{font-size:15px;}
+  html.ui-apple .itin-time-line{font-size:15px;}
+  html.ui-apple .itin-stay-btn{font-size:13px;}
+  html.ui-apple .cc-day-over .cc-link-btn{font-size:15px;}
+  html.ui-apple .cc-sublabel{font-size:13px;}
+  html.ui-apple .cc-stop-num{font-size:15px;}
+  html.ui-apple .cc-stop-name{font-size:17px;}
+  html.ui-apple .cc-stop-meta{font-size:15px;}
+  html.ui-apple .cc-badge{font-size:12px;}
+  html.ui-apple .cc-tree{font-size:17px;}
+  html.ui-apple .cc-tree-count{font-size:15px;}
+  html.ui-apple .paper-map-coverage{font-size:13px;}
+  html.ui-apple .map-scale-label{font-size:15px;}
+  html.ui-apple .modal-header h2{font-size:17px;}
+  html.ui-apple .modal-coords{font-size:15px;}
+  html.ui-apple #modalWeatherContainer .weather-snapshot-summary b{font-size:17px;}
+  html.ui-apple .modal-elevation-inline{font-size:13px;}
+  html.ui-apple #rideHudWeatherContainer .weather-snapshot-summary b{font-size:17px;}
+  html.ui-apple .modal-forecast-btn{font-size:15px;}
+  html.ui-apple .code-badge{font-size:13px;}
+  html.ui-apple .field-label{font-size:15px;}
+  html.ui-apple .field-input, html.ui-apple textarea{font-size:17px;}
+  html.ui-apple .photo-dropzone-empty{font-size:15px;}
+  html.ui-apple .forecast-status{font-size:17px;}
+  html.ui-apple .forecast-day-name{font-size:17px;}
+  html.ui-apple .forecast-day-desc{font-size:15px;}
+  html.ui-apple .forecast-day-sun{font-size:13px;}
+  html.ui-apple .forecast-day-temps{font-size:17px;}
+  html.ui-apple .measure-total-label{font-size:15px;}
+  html.ui-apple .measure-segment-elev{font-size:13px;}
+  html.ui-apple .measure-segment-row{font-size:17px;}
+  html.ui-apple .measure-vertex.numbered{font-size:12px;}
+  html.ui-apple .measure-edit-banner{font-size:17px;}
+  html.ui-apple .measure-edit-banner-actions .btn{font-size:17px;}
+  html.ui-apple .point-edit-toolbar{font-size:15px;}
+  html.ui-apple .point-edit-toolbar-btn{font-size:15px;}
+  html.ui-apple .point-edit-mode-btn{font-size:15px;}
+  html.ui-apple .import-format-list{font-size:15px;}
+  html.ui-apple .csv-column-index{font-size:13px;}
+  html.ui-apple .csv-column-label{font-size:17px;}
+  html.ui-apple .csv-column-required{font-size:13px;}
+  html.ui-apple .import-format-list code, html.ui-apple .layers-hint code{font-size:13px;}
+  html.ui-apple .photo-view-counter{font-size:15px;}
+  html.ui-apple .card-photo-drop-empty{font-size:15px;}
+  html.ui-apple .location-marker-gallery-label{font-size:13px;}
+  html.ui-apple .location-marker-gallery-remove{font-size:15px;}
+  html.ui-apple .location-marker-drop{font-size:15px;}
+  html.ui-apple .connect-backend-banner{font-size:15px;}
+  html.ui-apple .connect-folder-name{font-size:17px;}
+  html.ui-apple .connect-folder-count{font-size:13px;}
+  html.ui-apple .connect-item-avatar{font-size:17px;}
+  html.ui-apple .connect-item-name{font-size:17px;}
+  html.ui-apple .connect-item-status{font-size:13px;}
+  html.ui-apple .connect-empty-hint{font-size:15px;}
+  html.ui-apple .style-toggle-btn{font-size:17px;}
+  html.ui-apple .marker-emoji-custom-overlay{font-size:17px;}
+  html.ui-apple .emoji-quick-pick-label{font-size:13px;}
+  html.ui-apple .emoji-remove-toggle{font-size:15px;}
+  html.ui-apple .btn{font-size:17px;}
+  html.ui-apple .panel-subtitle{font-size:15px;}
+  html.ui-apple .list-filter-option{font-size:17px;}
+  html.ui-apple .list-filter-option-count{font-size:13px;}
+  html.ui-apple .panel-sync-status{font-size:15px;}
+  html.ui-apple .panel-search-input{font-size:17px;}
+  html.ui-apple .panel-no-results{font-size:17px;}
+  html.ui-apple .az-letter-btn{font-size:15px;}
+  html.ui-apple .empty-state p{font-size:17px;}
+  html.ui-apple .folder-create-panel-header-title{font-size:17px;}
+  html.ui-apple .folder-create-panel-row .home-action-btn{font-size:15px;}
+  html.ui-apple .folder-accordion-name{font-size:17px;}
+  html.ui-apple .folder-accordion-count{font-size:15px;}
+  html.ui-apple .voice-test-status{font-size:15px;}
+  html.ui-apple .folder-accordion-empty{font-size:15px;}
+  html.ui-apple .bulk-select-bar{font-size:17px;}
+  html.ui-apple .bulk-select-actions .home-action-btn{font-size:15px;}
+  html.ui-apple .folder-picker-row{font-size:17px;}
+  html.ui-apple .import-folder-picker-path{font-size:17px;}
+  html.ui-apple .import-target-folder-btn{font-size:17px;}
+  html.ui-apple .story-format-regenerate-btn{font-size:13px;}
+  html.ui-apple .card-name{font-size:17px;}
+  html.ui-apple .card-name-input{font-size:17px;}
+  html.ui-apple .card-meta{font-size:12px;} /* iOS Caption 1, for metadata */
+  html.ui-apple .card-meta .card-elevation, html.ui-apple .card-meta .card-meta-weather{font-size:inherit;}
+  html.ui-apple .card-rating-badge{font-size:13px;}
+  html.ui-apple .card-codes .code-badge{font-size:12px;}
+  html.ui-apple .card-elevation{font-size:13px;}
+  html.ui-apple .card-notes-tab-btn{font-size:13px;}
+  html.ui-apple .card-url-link{font-size:15px;}
+  html.ui-apple .card-url-btn{font-size:15px;}
+  html.ui-apple .card-url-input{font-size:15px;}
+  html.ui-apple .card-notes-btn{font-size:15px;}
+  html.ui-apple .rte-btn{font-size:17px;}
+  html.ui-apple .journal-textarea{font-size:17px;}
+  html.ui-apple .journal-narration-label-input{font-size:17px;}
+  html.ui-apple .journal-tab-btn{font-size:17px;}
+  html.ui-apple .region-tab-input{font-size:17px;}
+  html.ui-apple .region-manage-what{font-size:15px;}
+  html.ui-apple .region-manage-fixed{font-size:13px;}
+  html.ui-apple .region-del-choice > span{font-size:17px;}
+  html.ui-apple .region-del-sub{font-size:15px;}
+  html.ui-apple .review-rating-badge{font-size:15px;}
+  html.ui-apple .review-price-badge{font-size:15px;}
+  html.ui-apple .review-notes-textarea{font-size:17px;}
+  html.ui-apple .review-tag-chip{font-size:15px;}
+  html.ui-apple .review-tag-chip button{font-size:17px;}
+  html.ui-apple .card-action-btn{font-size:13px;}
+  html.ui-apple .toast{font-size:15px;}
+  html.ui-apple .sync-suggestion-text{font-size:15px;}
+  html.ui-apple .sync-suggestion-pull-btn{font-size:15px;}
+  html.ui-apple .measure-hud-subtitle{font-size:13px;}
+  html.ui-apple .measure-hud .ride-hud-label{font-size:12px;}
+  html.ui-apple .measure-hud-caption{font-size:12px;}
+  html.ui-apple .measure-area-chip span{font-size:11px;}
+  html.ui-apple .measure-hud-points-head{font-size:13px;}
+  html.ui-apple .measure-pt-num{font-size:13px;}
+  html.ui-apple .measure-pt-coords{font-size:15px;}
+  html.ui-apple .measure-pt-next{font-size:13px;}
+  html.ui-apple .measure-pt-elev{font-size:17px;}
+  html.ui-apple .measure-hud-compare{font-size:15px;}
+  html.ui-apple .measure-cmp-grid .v.mono{font-size:13px;}
+  html.ui-apple .ride-hud-label{font-size:13px;}
+  html.ui-apple .ride-hud-details-toggle{font-size:15px;}
+  html.ui-apple #routeHudCompare .measure-cmp-grid{font-size:15px;}
+  html.ui-apple .route-pt-time{font-size:13px;}
+  html.ui-apple .ride-hud-stop-btn{font-size:15px;}
+  html.ui-apple .ride-hud-notes-textarea{font-size:17px;}
+  html.ui-apple .distance-marker{font-size:11px;}
+  html.ui-apple .segment-popup{font-size:17px;}
+  html.ui-apple .segment-popup b{font-size:17px;}
+  html.ui-apple .ride-card-info b{font-size:17px;}
+  html.ui-apple .ride-card-info span{font-size:15px;}
+  html.ui-apple .ride-card-title-row > b{font-size:17px;}
+  html.ui-apple .ride-card-title-row > b + span{font-size:15px;}
+  html.ui-apple .ride-card-notes{font-size:15px;}
+  html.ui-apple .voice-capture-header{font-size:13px;}
+  html.ui-apple .voice-capture-label{font-size:12px;}
+  html.ui-apple .voice-capture-value{font-size:17px;}
+  html.ui-apple .tile-download-percent{font-size:15px;}
+  html.ui-apple .tile-download-stats-row{font-size:15px;}
+  html.ui-apple .leaflet-control-attribution{font-size:11px;}
+  html.ui-apple{
+    color-scheme:light;
+    --bg:#f2f2f7; --panel-bg:rgba(242,242,247,.96); --surface:#ffffff; --surface-2:#f2f2f7;
+    --border:#c6c6c8; --border-soft:#d1d1d6; --text:#000000; --text-dim:#3c3c43; --text-mute:#636366;
+    --amber:#0066cc; --amber-light:#0066cc; --accent-rgb:0,102,204; --cyan:#0071a4; --red:#d70015; --green:#248a3d;
+    --btn-icon-bg-hover:#e5e5ea; --btn-icon-bg-active:#d1d1d6; --field-border:#86868b;
+    --trash:#c66900; --link:#0066cc; /* a deeper orange on white (bright orange is about 2:1) */
+  }
+  html.ui-apple body{background:#f2f2f7; color:#000;}
+  html.ui-apple body, html.ui-apple button, html.ui-apple input, html.ui-apple select, html.ui-apple textarea{font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;}
+  html.ui-apple .field-input::-webkit-calendar-picker-indicator, html.ui-apple input::-webkit-calendar-picker-indicator{filter:none;}
+  /* The map screen's floating controls and bars: black (the owner's choice), with a fine light
+     outline so they stay defined over dark satellite maps. Inside them the colours switch to their
+     dark-appearance versions (white text, light grey secondary text, the brighter iOS blue). */
   html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud,
     .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help){
+    --text:#ffffff; --text-dim:#d1d1d6; --text-mute:#aeaeb2; --amber:#409cff; --amber-light:#409cff; --accent-rgb:64,156,255; --cyan:#64d2ff;
+    --border:#48484a; --border-soft:#636366; --surface:#1c1c1e; --surface-2:#2c2c2e; --field-border:#7c7c80; --btn-icon-bg-hover:#2c2c2e; --btn-icon-bg-active:#3a3a3c;
     background:rgba(0,0,0,.86); -webkit-backdrop-filter:blur(20px) saturate(160%); backdrop-filter:blur(20px) saturate(160%);
-    border-color:rgba(255,255,255,.3);}
+    border-color:rgba(255,255,255,.3); color:#fff; box-shadow:0 4px 16px rgba(0,0,0,.25); color-scheme:dark;}
   html.ui-apple :is(.btn-icon, .zoom-slider-control, .map-scale, .map-compass, .hud){border:1px solid rgba(255,255,255,.3);}
   html.ui-apple .search-box{border:1px solid rgba(255,255,255,.45);}
+  html.ui-apple .btn-icon{border-radius:14px;}
+  html.ui-apple .search-box, html.ui-apple .zoom-slider-control, html.ui-apple .map-scale{border-radius:12px;}
+  html.ui-apple :is(.ride-hud, .measure-hud, .measure-edit-banner, .paper-wiz-hud, .point-edit-toolbar, .sync-suggestion-banner, .voice-capture-panel, .places-help) .btn-secondary{background:rgba(120,120,128,.32); color:#fff; border-color:transparent;}
+  /* Active states keep the black base under their tint, so icons stay clear over the map */
+  html.ui-apple .btn-icon.layers-toggle.active{background:linear-gradient(rgba(100,210,255,.24), rgba(100,210,255,.24)), rgba(0,0,0,.86); border-color:rgba(100,210,255,.75);}
+  html.ui-apple .btn-icon.home-btn.picking{background:linear-gradient(rgba(64,156,255,.24), rgba(64,156,255,.24)), rgba(0,0,0,.86); border-color:rgba(64,156,255,.75); color:#409cff;}
   html.ui-apple .btn-icon:hover{background:rgba(28,28,30,.92);}
   html.ui-apple .btn-icon:active{background:rgba(44,44,46,.95);}
-  @media (prefers-reduced-transparency: reduce){
-    html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud,
-      .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help){background:#000; -webkit-backdrop-filter:none; backdrop-filter:none;}
-  }
-
+  /* Panels: iOS grouped background with white rows */
+  html.ui-apple .panel, html.ui-apple .layers-panel{background:rgba(242,242,247,.97); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); border-color:#c6c6c8; color:#000;}
+  /* Buttons: filled blue primary, tinted secondary, 44 pt tall */
+  html.ui-apple .btn{border-radius:12px; min-height:44px; font-size:17px; font-weight:600;}
+  html.ui-apple .btn-primary{background:#0066cc; color:#fff;}
+  html.ui-apple .btn-secondary{background:rgba(118,118,128,.12); border-color:transparent; color:#0066cc;}
+  html.ui-apple .btn-danger{background:#d70015; color:#fff;}
+  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn{font-size:15px; font-weight:500; padding-left:8px; padding-right:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  html.ui-apple :is(.btn-row, .day-tl-actions, .home-actions) .btn-primary{font-weight:600;}
+  html.ui-apple .home-action-btn{min-height:44px; font-size:15px; border-radius:10px; background:rgba(118,118,128,.12); border:none; color:#0066cc;}
+  /* Text */
+  html.ui-apple .layers-section-title{text-transform:none; letter-spacing:0; font-size:13px; font-weight:400; color:#636366;}
+  html.ui-apple .layers-hint{font-size:13px; color:#636366;}
+  html.ui-apple input[type="date"].field-input, html.ui-apple input[type="time"].field-input{font-size:15px; padding-left:8px; padding-right:6px;}
+  html.ui-apple .field-input, html.ui-apple textarea{background:#ffffff; color:#000; border:1px solid var(--field-border); border-radius:10px; min-height:44px; font-size:17px;}
+  html.ui-apple .field-input:focus, html.ui-apple textarea:focus{box-shadow:0 0 0 3px rgba(0,102,204,.25);}
+  html.ui-apple .card, html.ui-apple .folder-accordion-header{background:#ffffff; border:1px solid #d1d1d6; border-radius:12px; color:#000;}
+  html.ui-apple .modal-card{background:#f2f2f7; border:1px solid #c6c6c8; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.25); color:#000;}
+  html.ui-apple .modal-overlay{background:rgba(0,0,0,.35);}
+  html.ui-apple .toast{background:rgba(30,30,30,.92); color:#fff; border-radius:14px; -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);}
+  /* Tabs: iOS segmented controls (panel and Map Layers tabs) */
+  html.ui-apple .panel-tabs, html.ui-apple .layers-tabs{flex:1 1 auto; min-width:0; background:rgba(118,118,128,.12); border-radius:9px; padding:2px; gap:2px; align-items:stretch;}
+  html.ui-apple .panel-tab, html.ui-apple .layers-tab{flex:0 1 auto; white-space:nowrap; border-bottom:none; border-radius:7px; padding:6px 8px; min-height:32px; font-size:13px; font-weight:600; color:#000;}
+  @media (max-width:430px){ html.ui-apple .layers-tab{font-size:12px; padding:6px 6px; letter-spacing:-.1px;} html.ui-apple .panel-tab{padding:6px 7px;} }
+  html.ui-apple .panel-tab.active, html.ui-apple .layers-tab.active{background:#ffffff; box-shadow:0 3px 8px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04);}
+  /* Choices: segmented look */
+  html.ui-apple .directions-mode-btn{border:none; background:rgba(118,118,128,.12); color:#000;}
+  html.ui-apple .directions-mode-btn.active{background:#ffffff; color:#000; box-shadow:0 3px 8px rgba(0,0,0,.12); outline:2px solid #0066cc; outline-offset:-2px;}
+  html.ui-apple .directions-mode-btn.active small{color:#3c3c43;}
+  /* On/off: iOS switches (accessible green) */
+  html.ui-apple .layers-option input[type="checkbox"]{-webkit-appearance:none; appearance:none; width:51px; height:31px; border-radius:31px; background:#e9e9eb; border:1px solid #86868b;
+    position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; margin:0; box-sizing:border-box;}
+  html.ui-apple .layers-option input[type="checkbox"]::before{content:""; position:absolute; top:1px; left:1px; width:27px; height:27px; border-radius:50%; background:#fff;
+    box-shadow:0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16); transition:transform .2s;}
+  html.ui-apple .layers-option input[type="checkbox"]:checked{background:#248a3d; border-color:#248a3d;}
+  html.ui-apple .layers-option input[type="checkbox"]:checked::before{transform:translateX(20px);}
+  html.ui-apple .layers-option{min-height:44px;}
+  /* Day timeline: stops as light tints of the day colour; short trips keep a warning orange */
+  html.ui-apple .day-tl-block.stop{background:color-mix(in srgb, var(--day) 14%, #ffffff); color:#000;}
+  html.ui-apple .day-tl-block.leg{background:rgba(118,118,128,.06);}
+  html.ui-apple .day-tl-block.leg.short{border-color:#c66900; background:rgba(198,105,0,.08);}
+  html.ui-apple .day-tl-block.leg.short .day-tl-leg{color:#9a5b00;}
+  html.ui-apple .day-tl-block.leg.short .day-tl-grip::after{background:#c66900;}
+  /* Minimum sizes for the last small text: the map credits and the style captions */
+  html.ui-apple .leaflet-control-attribution{font-size:12px !important;}
+  html.ui-apple .ui-style-row .directions-mode-btn small{font-size:12px;}
+  html.ui-apple .ui-style-row .directions-mode-btn b{font-size:15px;}
+  /* Type refinements where a row is tight (iOS's smaller standard sizes) */
+  html.ui-apple .search-result-message{font-size:15px;}
+  html.ui-apple .counter-pill b{font-size:15px;}
+  html.ui-apple .counter-pill span{font-size:13px;}
+  html.ui-apple .counter-pill{white-space:nowrap;}
+  html.ui-apple .panel-subtitle{font-size:13px; white-space:nowrap;}
+  html.ui-apple .folder-accordion-name{font-size:15px;}
+  html.ui-apple .az-letter-btn{font-size:12px;}
+  html.ui-apple .journal-tab-btn.region-tab{font-size:15px;}
+  html.ui-apple .units-row-label{font-weight:400;}
+  html.ui-apple .ride-hud-stop-btn{font-size:15px; font-weight:600;}
+  /* Toasts stay dark (like iOS notifications), with white text */
+  html.ui-apple .toast, html.ui-apple .toast *{color:#fff;}
+  html.ui-apple .toast-close-btn{color:rgba(255,255,255,.85);}
+  /* The route button while tracking: white or dark icon, whichever stands out on the activity colour */
+  html.ui-apple .btn-icon.ride-btn.tracking{color:var(--ride-ink, #fff);}
+  /* The map's credit line */
+  html.ui-apple .leaflet-control-attribution{background:rgba(255,255,255,.88) !important; color:#3c3c43 !important;}
+  html.ui-apple .leaflet-control-attribution a{color:#0066cc !important;}
+  /* Small icon buttons: 44 pt hit areas without changing their look
+     (taller to 44 pt, only 4 px wider each side, so neighbours never share a tap zone) */
+  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button){position:relative;}
+  html.ui-apple :is(.icon-btn, .folder-accordion-action, .waypoint-region-eye-btn, .region-add-btn, .itin-stay-btn, .day-tl-acts button, .itin-stop-acts button, .ai-prov-tools button)::after{content:""; position:absolute; left:-4px; right:-4px; top:50%; height:44px; margin-top:-22px;}
   /* iPhone: tasks open as sheets from the bottom, with a grabber */
   @media (max-width:600px){
     html.ui-apple .modal-overlay{align-items:flex-end; padding:0;}
     html.ui-apple .modal-card{max-width:none; width:100%; border-radius:14px 14px 0 0; max-height:92vh; max-height:92dvh;
       padding-top:22px; padding-bottom:calc(20px + env(safe-area-inset-bottom)); position:relative; animation:apple-sheet-up .28s cubic-bezier(.2,.9,.3,1);}
-    html.ui-apple .modal-card::before{content:""; position:absolute; top:7px; left:50%; width:36px; height:5px; margin-left:-18px; border-radius:3px; background:rgba(235,235,245,.3);}
+    html.ui-apple .modal-card::before{content:""; position:absolute; top:7px; left:50%; width:36px; height:5px; margin-left:-18px; border-radius:3px; background:rgba(60,60,67,.3);}
   }
   @keyframes apple-sheet-up{from{transform:translateY(40px); opacity:.6;} to{transform:none; opacity:1;}}
   @media (prefers-reduced-motion: reduce){ html.ui-apple .modal-card{animation:none;} }
   /* Reduce Transparency: solid instead of frosted */
   @media (prefers-reduced-transparency: reduce){
-    html.ui-apple :is(.btn-icon, .search-box, .zoom-slider-control, .map-scale, .panel, .layers-panel, .ride-hud, .measure-hud, .toast){-webkit-backdrop-filter:none; backdrop-filter:none; background:#1c1c1e;}
+    html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud, .panel, .layers-panel,
+      .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help, .toast){-webkit-backdrop-filter:none; backdrop-filter:none;}
+    html.ui-apple :is(.btn-icon, .search-box, .search-results, .zoom-slider-control, .map-scale, .map-compass, .hud,
+      .ride-hud, .measure-hud, .paper-wiz-hud, .ride-dropdown, .sync-suggestion-banner, .voice-capture-panel, .point-edit-toolbar, .measure-edit-banner, .map-drop-hint, .places-help){background:#000;}
   }
+
+
+
+
+  /* Generated: the app's own dark colours, in light equivalents for the Apple style. */
+  html.ui-apple .layers-panel{background-color:rgba(255,255,255,0.98);}
+  html.ui-apple .layers-panel-header{background-color:rgba(255,255,255,0.98);}
+  html.ui-apple .layers-section + .layers-section{border-top-color:#d1d1d6;}
+  html.ui-apple .gist-sync-block{border-top-color:#d1d1d6;}
+  html.ui-apple .layers-option{color:#1c1c1e;}
+  html.ui-apple .owm-key-row button{color:#3c3c43;}
+  html.ui-apple .elevation-chart-marker{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .home-status .mono{color:#1c1c1e;}
+  html.ui-apple .home-action-btn{color:#3c3c43;}
+  html.ui-apple .units-row{border-bottom-color:#d1d1d6;}
+  html.ui-apple .home-modal-divider::before, html.ui-apple .home-modal-divider::after{background-color:rgba(118,118,128,0.16);}
+  html.ui-apple .safe-mode-pill{color:#8a5300;}
+  html.ui-apple .maplibregl-ctrl-scale{border-color:#d1d1d6; border-top-color:#d1d1d6;}
+  html.ui-apple .help-item{border-bottom-color:#d1d1d6;}
+  html.ui-apple .ai-prov-card{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .ai-prov-state.ok{color:#1a7f37;}
+  html.ui-apple .ai-prov-test-result.good{color:#1a7f37;}
+  html.ui-apple .ai-prov-test-result.bad{color:#b4001b;}
+  html.ui-apple .selftest-summary.good{color:#1a7f37;}
+  html.ui-apple .selftest-summary.bad{color:#b4001b;}
+  html.ui-apple .selftest-row{border-bottom-color:#d1d1d6;}
+  html.ui-apple .selftest-row.pass .selftest-mark{color:#1a7f37;}
+  html.ui-apple .selftest-row.fail .selftest-mark{color:#b4001b;}
+  html.ui-apple .cc-day{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .day-tl-scroll{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .day-tl-mark span{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .day-tl-mark.finish.over span{color:#b4001b;}
+  html.ui-apple .day-tl-acts button, html.ui-apple .itin-stop-acts button{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .day-tl-acts button[data-act="remove"]:hover, html.ui-apple .itin-stop-acts button[data-unschedule-wp]:hover{color:#b4001b;}
+  html.ui-apple .replace-stop-item{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .day-tl-modes{background-color:rgba(255,255,255,1.0);}
+  html.ui-apple .cc-stop{border-top-color:#d1d1d6;}
+  html.ui-apple .paper-wiz-sheet-num span{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .modal-overlay{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .photo-thumb-remove{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .measure-vertex{border-color:#d1d1d6;}
+  html.ui-apple .photo-view-nav-btn{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .photo-view-nav-btn:hover{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .location-marker-gallery-remove{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .connect-folder-row{border-bottom-color:#d1d1d6;}
+  html.ui-apple .tile-set-item{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .connect-item-row{border-bottom-color:#d1d1d6;}
+  html.ui-apple .style-toggle-btn{color:#3c3c43;}
+  html.ui-apple .emoji-remove-toggle{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .wp-emoji-marker{border-color:#d1d1d6;}
+  html.ui-apple .btn-secondary{color:#3c3c43;}
+  html.ui-apple .panel{background-color:rgba(255,255,255,0.97); border-left-color:#d1d1d6;}
+  html.ui-apple .list-filter-dropdown{background-color:rgba(255,255,255,0.98);}
+  html.ui-apple .list-filter-option{color:#1c1c1e;}
+  html.ui-apple #waypointNewTripBtn{color:#6e40c9;}
+  html.ui-apple #waypointNewTripBtn:hover{color:#5b3cc4;}
+  html.ui-apple .folder-accordion-header{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .trip-folder > .folder-accordion-header .folder-accordion-icon{color:#6e40c9;}
+  html.ui-apple .itinerary-folder > .folder-accordion-header .folder-accordion-icon{color:#0071a4;}
+  html.ui-apple .folder-accordion-story-btn{color:#6e40c9;}
+  html.ui-apple .folder-accordion-story-btn:hover{color:#5b3cc4;}
+  html.ui-apple .folder-accordion-story-btn.generating{color:#5b3cc4;}
+  html.ui-apple .voice-test-status.loading{color:#6e40c9;}
+  html.ui-apple .folder-accordion-body{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .folder-picker-row{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .story-format-regenerate-btn{color:#6e40c9;}
+  html.ui-apple .story-format-regenerate-btn .icon{color:#6e40c9;}
+  html.ui-apple .card{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .story-title-label{color:#6e40c9;}
+  html.ui-apple .rte-btn{color:#3c3c43;}
+  html.ui-apple .rte-mic-btn{color:#b1206e;}
+  html.ui-apple .journal-narration-row .icon{color:#6e40c9;}
+  html.ui-apple .journal-narration-play-btn:hover{color:#6e40c9;}
+  html.ui-apple .journal-narration-play-btn.playing{color:#6e40c9;}
+  html.ui-apple .region-manage-row{background-color:rgba(118,118,128,0.12);}
+  html.ui-apple .region-manage-del{color:#b4001b;}
+  html.ui-apple .region-del-btn{color:#b4001b;}
+  html.ui-apple .card-action-btn{color:#3c3c43; background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .card-action-btn.listening{color:#6e40c9;}
+  html.ui-apple .card-action-btn.loading{color:#6e40c9;}
+  html.ui-apple #journalListenBtn.loading{color:#6e40c9;}
+  html.ui-apple #journalListenBtn{color:#6e40c9;}
+  html.ui-apple .toast{color:#1c1c1e;}
+  html.ui-apple .measure-pt-num{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .distance-marker{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .leaflet-popup-content-wrapper{background-color:rgba(255,255,255,0.97);}
+  html.ui-apple .leaflet-popup-tip{background-color:rgba(255,255,255,0.97);}
+  html.ui-apple .ride-card-notes{color:#636366;}
+  html.ui-apple .itin-day-label.off{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .itin-day-eye{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .itin-day-eye:hover{background-color:rgba(255,255,255,0.92);}
+  html.ui-apple .leaflet-control-attribution{background-color:rgba(255,255,255,0.92); color:#636366;}
+  html.ui-apple .leaflet-control-attribution a{color:#3c3c43;}
 
   /* ---------- Google (Material Design 3, dark) ---------- */
   html.ui-google{
@@ -2599,6 +3039,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     --border:#49454f; --border-soft:#938f99; --text:#e6e0e9; --text-dim:#cac4d0; --text-mute:#cac4d0;
     --amber:#d0bcff; --amber-light:#d0bcff; --accent-rgb:208,188,255; --cyan:#ccc2dc; --red:#f2b8b5; --green:#a8d5a2;
     --btn-icon-bg-hover:#36343b; --btn-icon-bg-active:#49454f; --field-border:#938f99;
+    --trash:#ffb74d; --link:#a8c7fa;
   }
   html.ui-google body, html.ui-google button, html.ui-google input, html.ui-google select, html.ui-google textarea{font-family:Roboto, "Google Sans", "Helvetica Neue", system-ui, sans-serif;}
   /* Floating controls: tonal surfaces with soft elevation */
@@ -3094,6 +3535,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="journal-tab-row" id="notesReviewTabRow">
           <button type="button" class="journal-tab-btn active" id="notesFieldLabelBtn">Notes</button>
           <button type="button" class="journal-tab-btn" id="reviewFieldLabelBtn">Reviews</button>
+          <button type="button" class="journal-tab-btn modal-link-tab" id="linkFieldLabelBtn" title="Add a link">Link</button>
         </div>
         <div class="rte-toolbar" id="notesToolbar">
           <button type="button" class="rte-btn rte-mic-btn" id="notesToolbarMicBtn" title="Dictate at cursor — or at the end if nothing's selected"><span class="icon"></span></button>
@@ -3104,45 +3546,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
       </div>
       <textarea id="notesInput" rows="3" placeholder="Add a travel journal entry, description, directions, or anything worth remembering…"></textarea>
+      <div id="modalLinksPanel" class="hidden journal-links-list"></div>
 
-      <div id="urlFieldSection">
-        <label class="field-label">Link</label>
-        <input id="urlInput" class="field-input" type="url" placeholder="Paste a link related to this waypoint…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-      </div>
-
-      <div id="modalNarrationsSection" class="journal-narrations-section hidden">
-        <div class="journal-narrations-header">
-          <span class="field-label" style="margin:0;">Narrations</span>
-          <button type="button" class="home-action-btn" id="modalGenerateNarrationBtn" style="padding:4px 10px; font-size:12px; flex:0 0 auto;">+ Generate</button>
-        </div>
-        <div id="modalNarrationsList" class="journal-narrations-list"></div>
-      </div>
-
-      <label class="field-label">Marker style</label>
-      <div class="style-toggle-row">
-        <button type="button" class="style-toggle-btn active" id="markerStyleEmojiBtn" data-style="emoji">Icons</button>
-        <button type="button" class="style-toggle-btn" id="markerStylePinBtn" data-style="pin">Pin</button>
-      </div>
-
-      <div class="field-row" id="markerColorField">
-        <label class="field-label">Marker color</label>
-        <div class="color-picker-row">
-          <input type="color" id="markerColorInput" value="#f59e0b" title="Marker color" />
-          <div class="color-swatches" id="markerColorSwatches"></div>
-        </div>
-      </div>
-
-      <div class="field-row" id="markerEmojiField" style="display:none;">
-        <label class="field-label">Icons</label>
-        <div class="marker-emoji-input-wrap">
-          <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
-          <div class="marker-emoji-custom-overlay hidden" id="markerEmojiCustomOverlay"></div>
-        </div>
-        <div class="emoji-quick-pick-wrap">
-          <div class="emoji-quick-pick" id="emojiQuickPick"></div>
-          <div class="emoji-quick-pick-fade" id="emojiQuickPickFade"></div>
-        </div>
-        <input type="file" id="customIconFileInput" accept="image/png,image/jpeg" style="display:none;" />
+      <!-- The Link tab's field: shown when adding or changing the link (as on the waypoint card) -->
+      <div id="urlFieldSection" style="display:none;">
+        <input id="urlInput" class="field-input" type="url" placeholder="Type or paste a link…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
       </div>
 
       <label class="field-label">Photos (optional)</label>
@@ -3155,6 +3563,35 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
       <input type="file" id="photoFileInput" accept="image/*" multiple style="display:none;" />
       <p class="layers-hint" id="photoStatus" style="display:none;"></p>
+
+      <div id="modalNarrationsSection" class="journal-narrations-section hidden">
+        <div class="journal-narrations-header">
+          <span class="field-label" style="margin:0;">Narrations</span>
+          <button type="button" class="home-action-btn" id="modalGenerateNarrationBtn" style="padding:4px 10px; font-size:12px; flex:0 0 auto;">+ Generate</button>
+        </div>
+        <div id="modalNarrationsList" class="journal-narrations-list"></div>
+      </div>
+
+      <div class="field-row" id="markerColorField">
+        <label class="field-label">Marker color</label>
+        <div class="color-picker-row">
+          <input type="color" id="markerColorInput" value="#f59e0b" title="Marker color" />
+          <div class="color-swatches" id="markerColorSwatches"></div>
+        </div>
+      </div>
+
+      <div class="field-row" id="markerEmojiField">
+        <label class="field-label">Icons</label>
+        <div class="marker-emoji-input-wrap">
+          <input type="text" id="markerEmojiInput" class="field-input" placeholder="Tap to type or pick an icon…" maxlength="8" />
+          <div class="marker-emoji-custom-overlay hidden" id="markerEmojiCustomOverlay"></div>
+        </div>
+        <div class="emoji-quick-pick-wrap">
+          <div class="emoji-quick-pick" id="emojiQuickPick"></div>
+          <div class="emoji-quick-pick-fade" id="emojiQuickPickFade"></div>
+        </div>
+        <input type="file" id="customIconFileInput" accept="image/png,image/jpeg" style="display:none;" />
+      </div>
 
       <div class="btn-row">
         <button class="btn btn-danger hidden" id="deleteWaypointBtn">Delete</button>
@@ -3522,6 +3959,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="journal-tab-row" id="journalTabRow">
           <button type="button" class="journal-tab-btn active" id="journalTabNotesBtn" data-tab="notes">Notes</button>
           <button type="button" class="journal-tab-btn" id="journalTabReviewsBtn" data-tab="reviews">Reviews</button>
+          <button type="button" class="journal-tab-btn modal-link-tab" id="journalTabLinkBtn" title="Add a link">Link</button>
           <button type="button" class="icon-btn hidden" id="journalListenBtn" title="Narrate this story" data-icon="play" data-icon-size="15"></button>
         </div>
         <button class="icon-btn" id="journalCloseBtn" data-icon="x"></button>
@@ -3545,12 +3983,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
       </div>
 
+      <!-- Links: only the link fields, any number of them -->
+      <div id="journalLinksPanel" class="hidden">
+        <div class="journal-links-list" id="journalLinksList"></div>
+      </div>
+
       <div id="journalReviewsPanel" class="hidden">
         <label class="field-label">Review for:</label>
         <input id="reviewNameInput" class="field-input" type="text" placeholder="e.g. Schwartz's Deli" autocomplete="off" />
 
-        <label class="field-label">Link:</label>
-        <input id="reviewLinkMirror" class="field-input" type="url" placeholder="Paste a link related to this waypoint…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
 
         <div class="review-phone-email-row">
           <div class="review-phone-block">
@@ -81424,7 +81865,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "595";
+  const APP_VERSION = "611";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -81928,6 +82369,7 @@ return maplibregl$1;
   let deletedIds = _persisted.deletedIds;
   initSpatialAddressing();
   let markers = {};
+  let peekMarker = null; // a hidden waypoint shown temporarily while selected (see peekHiddenWaypoint)
   let pendingMarker = null;
   let pendingPhotos = [];
   let pendingReview = null; // {name, rating, locationTag, priceLevel, hours, tags} or null -- edited live from the Notes/Review labels' modal, autosaved into this on every change, committed onto the waypoint at Save
@@ -82065,6 +82507,7 @@ return maplibregl$1;
     return pointEditSavedSnapshot !== null && JSON.stringify(editLivePoints) !== pointEditSavedSnapshot;
   }
   function setSelectedWaypointMarker(id) {
+    if (peekMarker && peekMarker._peekId !== id) clearWaypointPeek();
     if (selectedWaypointId && markers[selectedWaypointId]) {
       const prevEl = markers[selectedWaypointId].getElement && markers[selectedWaypointId].getElement();
       if (prevEl) prevEl.classList.remove("wp-selected");
@@ -82359,8 +82802,7 @@ return maplibregl$1;
   const waypointDateInput = el("waypointDateInput");
   const waypointTimeInput = el("waypointTimeInput");
   const notesInput = el("notesInput");
-  const markerStylePinBtn = el("markerStylePinBtn");
-  const markerStyleEmojiBtn = el("markerStyleEmojiBtn");
+
   const markerColorField = el("markerColorField");
   const markerColorInput = el("markerColorInput");
   const markerColorSwatches = el("markerColorSwatches");
@@ -82508,7 +82950,6 @@ return maplibregl$1;
   const journalNotesPanel = el("journalNotesPanel");
   const journalReviewsPanel = el("journalReviewsPanel");
   const reviewNameInput = el("reviewNameInput");
-  const reviewLinkMirror = el("reviewLinkMirror");
   const reviewPhoneInput = el("reviewPhoneInput");
   const reviewPhoneCallBtn = el("reviewPhoneCallBtn");
   const reviewEmailInput = el("reviewEmailInput");
@@ -82690,7 +83131,39 @@ return maplibregl$1;
   const waypointDateTimeSection = el("waypointDateTimeSection");
   const wordCodeSection = el("wordCodeSection");
   const urlFieldSection = el("urlFieldSection");
+
   const urlInput = el("urlInput");
+  /* A waypoint can have several links (wp.links). wp.url always holds the first, so
+     everything that reads a single link (exports, imports, printouts, search) keeps working. */
+  function getWaypointLinks(wp) {
+    const list = (Array.isArray(wp && wp.links) ? wp.links : []).filter((u) => typeof u === "string" && u.trim());
+    if (wp && wp.url && !list.includes(wp.url)) list.unshift(wp.url);
+    return list;
+  }
+  function setWaypointLinks(wp, list) {
+    const clean = [];
+    (list || []).forEach((u) => { u = String(u || "").trim(); if (!u) return; u = normalizeUrl(u); if (u && !clean.includes(u)) clean.push(u); });
+    wp.links = clean; wp.url = clean[0] || "";
+  }
+  let pendingLinks = []; // the edit dialog's links while it's open
+  const cardLinksOpen = new Set(); // cards currently showing their Link tab
+  // What to save: the dialog's links, or (with none) a link filled in from elsewhere, such as a search result's website.
+  function dialogLinksToSave() { const l = pendingLinks.filter((u) => u.trim()); return l.length ? l : (urlInput.value.trim() ? [urlInput.value.trim()] : []); }
+  const linkFieldLabelBtn = el("linkFieldLabelBtn");
+  /* The dialog's Link tab works like the card's: with no link, tapping it
+     shows the field to type or paste one (Enter or leaving the field keeps
+     it, Escape cancels); with a link, the tab is link-coloured and opens
+     it in a new window; long-press or right-click changes it. The link is
+     saved with the waypoint when the dialog is saved, as before. */
+  // The edit dialog's Link tab opens the journal editor at its Link panel, as Notes and Reviews open theirs.
+  function refreshModalLinkTab() {
+    const n = pendingLinks.filter((u) => u.trim()).length;
+    linkFieldLabelBtn.classList.toggle("has-link", n > 0);
+    linkFieldLabelBtn.textContent = n > 1 ? "Links (" + n + ")" : "Link";
+    linkFieldLabelBtn.title = n ? n + " link" + (n > 1 ? "s" : "") + ": tap to add, open or delete" : "Add a link";
+  }
+  function closeModalLinkField() { urlFieldSection.style.display = "none"; }
+  linkFieldLabelBtn.addEventListener("click", (e) => { e.preventDefault(); setDialogTab("link"); });
   const homeAddressInput = el("homeQueryInput");
   const homeAddressSearchBtn = el("homeAddressSearchBtn");
   const homeAddressResults = el("homeAddressResults");
@@ -82797,14 +83270,14 @@ return maplibregl$1;
   /* ================================================================ */
 
   let toastTimer = null;
-  function showToast(msg, isError, cyan) {
+  function showToast(msg, isError, cyan, durationMs) {
     toastMessage.textContent = msg;
     toastEl.classList.add("show");
     toastEl.classList.toggle("toast-cyan", !!cyan);
     clearTimeout(toastTimer);
     toastCloseBtn.classList.toggle("hidden", !isError);
     if (isError) return; // persists until manually dismissed -- see showErrorToast
-    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), durationMs || 3200); // longer messages can ask for longer
   }
   // The explicit way to show an error: persists until the person closes it
   // themselves (via the X button), rather than the standard toast's brief
@@ -84694,10 +85167,10 @@ return maplibregl$1;
     const iconName = weatherIconNameForOwmCode(weather.icon);
     return '<span class="card-meta-weather">' + icon(iconName, 12) + formatWeatherTemp(weather.tempC) + "</span>";
   }
-  function formatCardMeta(createdAtMs, weather) {
+  function formatCardMeta(createdAtMs, weather, elevationHtml) {
     if (!createdAtMs) return "";
     const dateStr = new Date(createdAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    return '<span class="card-meta">' + escapeHtml(dateStr) + formatWeatherBadge(weather) + "</span>";
+    return '<span class="card-meta">' + escapeHtml(dateStr) + (elevationHtml || "") + formatWeatherBadge(weather) + "</span>";
   }
 
   // The 5-day/3-hour endpoint returns ~40 individual 3-hour readings, not
@@ -85405,6 +85878,7 @@ return maplibregl$1;
     waypointDateTimeSection.style.display = "none";
     homeLocationSection.style.display = "block";
     urlFieldSection.style.display = "none";
+    linkFieldLabelBtn.classList.add("hidden");
 
     homeAddressInput.value = "";
     homeAddressResults.innerHTML = "";
@@ -86243,6 +86717,8 @@ return maplibregl$1;
         '<div class="ride-card-icon connect-item-avatar" style="color:inherit;">' + escapeHtml(initial) + "</div>" +
         '<div class="ride-card-info"><b class="ride-card-name-editable" data-action="fly-to-connection" data-id="' + c.id + '" title="Pan and zoom to their location">' + escapeHtml(c.name) + "</b>" +
           '<span class="connect-item-status' + (c.status !== "accepted" ? " pending" : "") + '">' + linkStatusLabel(c) + "</span></div>" +
+        // Same grip as every other card: at the right end of the header row, drags into a folder
+        '<button type="button" class="card-drag-handle card-header-grip" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 20) + "</button>" +
       "</div>" +
     "</div>";
   }
@@ -86314,6 +86790,17 @@ return maplibregl$1;
     });
     linkPanelList.querySelectorAll('[data-action="link-folder-delete"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); deleteConnectFolder(btn.dataset.id); });
+    });
+    // People can be dragged into a folder like waypoints, routes and measurements
+    setupDragToFolder(linkPanelList, {
+      itemSelector: ".card[data-link-card]",
+      getItemId: (el) => el.dataset.id,
+      assignToFolder: (id, folderId) => {
+        const c = connections.find((x) => x.id === id), folder = connectFolders.find((f) => f.id === folderId);
+        if (!c || !folder || c.folderId === folderId) return;
+        moveConnectionToFolder(id, folderId);
+        showToast('Moved to "' + folder.name + '"');
+      },
     });
     linkPanelList.querySelectorAll('[data-action="fly-to-connection"]').forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -89688,6 +90175,9 @@ return maplibregl$1;
     // actively in progress, gets reinterpreted as dismissing a menu.
     if (panel.classList.contains("open")) { closePanel(); return; } // the panel has no full-screen backdrop the way modals do (the map stays visible around it), so tapping the map is a natural "click outside to dismiss", matching its own explicit close button
     if (isDismissibleMenuOpenForMapClick()) return; // dismissing Layers/ride-dropdown/search/list-filter, not placing a waypoint
+    // A hidden waypoint shown faded: a plain tap dismisses it (closing the panel above doesn't, so
+    // it's still there once the map is uncovered), and doesn't also start a new waypoint.
+    if (peekMarker) { clearWaypointPeek(); return; }
     if (isMapClickNearInterestingPolyline(e.latlng)) {
       showToast("Tap directly on the line to see its details.");
       return;
@@ -91604,6 +92094,7 @@ return maplibregl$1;
   function itineraryDragSelector(state) { return state.kind === "day" ? ".itinerary-day-item" : ".itinerary-draggable-item"; }
   function clearItineraryDropMarks() {
     panelList.querySelectorAll(".drop-before, .drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+    panelList.querySelectorAll(".itinerary-day-item .drop-target-hover").forEach((x) => x.classList.remove("drop-target-hover"));
   }
   // Moves the dragged item with the pointer (allowing for any scrolling
   // since the drag began) and marks where it would drop.
@@ -91612,6 +92103,14 @@ return maplibregl$1;
     state.item.style.transform = "translateY(" + dy + "px)";
     clearItineraryDropMarks();
     const elUnder = document.elementFromPoint(state.lastX, state.lastY);
+    // A stop over another day's header: that day highlights; dropping moves the stop into it,
+    // where the itinerary fits it into the day's route with the least extra travel.
+    state.dayTarget = null;
+    if (state.kind === "wp") {
+      const dayHeader = elUnder && elUnder.closest(".itinerary-day-item .folder-accordion-header");
+      const w = dayHeader && waypoints.find((x) => x.id === state.item.dataset.waypointId);
+      if (dayHeader && w && dayHeader.dataset.id !== w.folderId) { dayHeader.classList.add("drop-target-hover"); state.dayTarget = dayHeader.dataset.id; return; }
+    }
     let targetItem = elUnder && elUnder.closest(itineraryDragSelector(state));
     // Over a travel row between two stops: that's the gap before the next stop.
     const legRowUnder = !targetItem && elUnder && elUnder.closest(".itin-leg-row");
@@ -91716,6 +92215,14 @@ return maplibregl$1;
     clearItineraryDropMarks();
 
     if (!state.dragging) return; // a plain tap on the handle, not a drag -- nothing to commit
+    if (state.dayTarget) {
+      // Into another day: the itinerary's own placement (renderList -> reconcileItineraries) puts it
+      // where it adds the least travel, renumbers the stops, and says where it went.
+      const w = waypoints.find((x) => x.id === state.item.dataset.waypointId);
+      if (w) { w.folderId = state.dayTarget; w.updatedAt = Date.now(); expandedFolderIds.add(state.dayTarget); saveWaypoints(); }
+      renderList();
+      return;
+    }
     const target = dropBefore || dropAfter;
     if (!target) { renderList(); return; } // dropped somewhere with no valid target -- re-render clears the inline transform via a fresh, correctly-ordered render
 
@@ -91770,7 +92277,8 @@ return maplibregl$1;
     // The "+" upload tile always renders first, outside the favorites/all
     // split below -- adding a new custom icon isn't itself a pick to
     // favorite or reorder, so it doesn't belong inside that grouping.
-    let html = '<div class="emoji-quick-item"><button type="button" class="emoji-quick-add-btn" id="addCustomIconBtn" title="Add your own icon image">' + icon("plus", 18) + "</button></div>";
+    let html = '<div class="emoji-quick-item"><button type="button" class="emoji-quick-pin-btn' + ((() => { try { return pendingMarkerStyle; } catch (e) { return "pin"; } })() === "pin" ? " selected" : "") /* (the list is first drawn before the dialog state exists) */ + '" id="pinIconBtn" title="Plain pin (no icon)" aria-label="Plain pin">' + icon("mapPin", 20) + "</button></div>";
+    html += '<div class="emoji-quick-item"><button type="button" class="emoji-quick-add-btn" id="addCustomIconBtn" title="Add your own icon image">' + icon("plus", 18) + "</button></div>";
 
     // Favorites (if any) render as their own labeled group up front, ahead
     // of the full set below -- keeps the ones used most within reach
@@ -91784,6 +92292,8 @@ return maplibregl$1;
     }
     html += restPicks.map(itemHtml).join("");
     emojiQuickPick.innerHTML = html;
+    const pinBtn = el("pinIconBtn");
+    if (pinBtn) pinBtn.addEventListener("click", (e) => { e.stopPropagation(); markerEmojiInput.value = ""; markerEmojiInput.dispatchEvent(new Event("input")); });
 
     emojiQuickPick.querySelectorAll(".emoji-quick-item").forEach((item) => {
       const btn = item.querySelector(".emoji-quick-btn");
@@ -96246,6 +96756,7 @@ return maplibregl$1;
   // browse one region's list while others stay visible on the map.
   function toggleRegionVisibility(region) {
     regionVisibility[region] = !regionShown(region);
+    setTimeout(handOverWaypointPeek, 0);
     const btn = waypointRegionTabRow.querySelector('[data-region-eye="' + CSS.escape(region) + '"]');
     if (btn) { btn.innerHTML = icon(regionShown(region) ? "eye" : "eyeOff", 15); btn.classList.toggle("active", regionShown(region)); }
     waypoints.forEach((wp) => {
@@ -97000,16 +97511,16 @@ return maplibregl$1;
       : "";
     const elevationChart = r.elevationStatus === "ready" ? buildRouteElevationChart(r) : "";
     return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + r.id + '">' +
-      '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
       '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
-      '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '">' + icon("trash", 14) + "</button>" +
+      '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '" title="Delete" aria-label="Delete">' + icon("trash", 15) + "</button>" +
       "</div>" +
       '<div class="ride-card-header">' +
         '<div class="ride-card-icon" style="color:' + info.color + '">' + icon(info.icon, 20) + "</div>" +
         '<div class="ride-card-title-row"><b>' + escapeHtml(r.name) + '</b><span>' + dateStr + " · " + formatDistance(r.distanceMeters) + " · " + formatDuration(r.durationMs) + elevationBadge + "</span>" + weatherBadge + notesPreview + "</div>" +
+        '<button type="button" class="card-drag-handle card-header-grip" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 20) + "</button>" +
       "</div>" +
       elevationChart +
     "</div>";
@@ -97127,18 +97638,18 @@ return maplibregl$1;
     const elevationChart = m.elevationStatus === "ready" ? buildMeasurementElevationChartHtml(m) : "";
     const isVisible = !!savedMeasurementLayers[m.id];
     return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + m.id + '">' +
-      '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
       '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
       (isClosedLoop(m.points) ? '<button class="card-favorite' + (m.isGeofenceZone ? " favorited" : "") + '" data-action="toggle-geofence-zone" data-id="' + m.id + '" title="' + (m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone") + '">' + icon("crosshair", 15) + "</button>" : "") +
       (isClosedLoop(m.points) ? '<button class="card-favorite" data-action="download-tiles-for-area" data-id="' + m.id + '" title="Download map tiles for this area (offline use)">' + icon("fileDown", 15) + "</button>" : "") +
       '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
-      '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '">' + icon("trash", 14) + "</button>" +
+      '<button class="ride-card-delete-btn" data-action="delete-measurement" data-id="' + m.id + '" title="Delete" aria-label="Delete">' + icon("trash", 15) + "</button>" +
       "</div>" +
       '<div class="ride-card-header">' +
         '<div class="ride-card-icon" style="color:#22d3ee">' + icon("ruler", 20) + "</div>" +
         '<div class="ride-card-title-row"><b class="ride-card-name-editable" data-action="edit-measurement-name" data-id="' + m.id + '" title="Click to rename">' + escapeHtml(m.name) + "</b><span>" + summary + elevationBadge + "</span></div>" +
+        '<button type="button" class="card-drag-handle card-header-grip" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 20) + "</button>" +
       "</div>" +
       elevationChart +
     "</div>";
@@ -97787,16 +98298,16 @@ return maplibregl$1;
       emoji: markerEmojiInput.value.trim() || "📍"
     });
   }
+  // No Icons/Pin switch any more: a waypoint is a plain pin until an icon is
+  // chosen from the list (and choosing the list's Pin, or clearing the field,
+  // goes back to the pin). The icon list is always shown.
   function setMarkerStyleUI(style) {
     pendingMarkerStyle = style;
-    markerStylePinBtn.classList.toggle("active", style === "pin");
-    markerStyleEmojiBtn.classList.toggle("active", style === "emoji");
-    markerEmojiField.style.display = style === "emoji" ? "block" : "none";
-    if (style === "emoji") updateEmojiQuickPickFade(); // the grid was hidden (0 height) at the last render, so the fade's "at bottom" check needs redoing now that it's actually laid out
+    const pinBtn = el("pinIconBtn"); if (pinBtn) pinBtn.classList.toggle("selected", style === "pin");
+    updateEmojiQuickPickFade(); // the grid was hidden (0 height) at the last render, so the fade's "at bottom" check needs redoing now that it's actually laid out
     refreshPendingMarkerPreview();
   }
-  markerStylePinBtn.addEventListener("click", () => setMarkerStyleUI("pin"));
-  markerStyleEmojiBtn.addEventListener("click", () => setMarkerStyleUI("emoji"));
+
   markerColorInput.addEventListener("input", () => { markSwatchSelected(markerColorSwatches, markerColorInput.value); refreshPendingMarkerPreview(); });
   markerEmojiInput.addEventListener("input", () => {
     // A custom icon's value is its internal "custom:<id>" reference, not
@@ -97804,11 +98315,11 @@ return maplibregl$1;
     // tapping the grid below, so the field is locked while one is active
     // to avoid the raw id string looking like editable text it isn't.
     refreshMarkerEmojiCustomDisplay();
-    refreshPendingMarkerPreview();
+    setMarkerStyleUI(markerEmojiInput.value.trim() ? "emoji" : "pin"); // an icon chosen or typed: icon; cleared: pin
   });
 
   function handleMapPick(lat, lng, isCurrentLocation) {
-    const color = isCurrentLocation ? "#22d3ee" : "#f59e0b";
+    const color = isCurrentLocation ? "#22d3ee" : "#ef4444";
     placePendingMarker(lat, lng, { style: "pin", color, emoji: "📍" });
     pendingPoint = { lat, lng, isCurrentLocation };
     openModal();
@@ -97929,8 +98440,11 @@ return maplibregl$1;
   function setJournalTab(tab) {
     journalTabNotesBtn.classList.toggle("active", tab === "notes");
     journalTabReviewsBtn.classList.toggle("active", tab === "reviews");
+    el("journalTabLinkBtn").classList.toggle("active", tab === "link");
     journalNotesPanel.classList.toggle("hidden", tab !== "notes");
     journalReviewsPanel.classList.toggle("hidden", tab !== "reviews");
+    el("journalLinksPanel").classList.toggle("hidden", tab !== "link");
+    if (tab === "link") renderJournalLinks(pendingLinks.filter((u) => u.trim()).length ? null : 0);
     if (tab === "notes") journalTextarea.scrollTop = 0; // always land at the top of the note, not wherever the cursor happened to be last
   }
   journalTabNotesBtn.addEventListener("click", () => setJournalTab("notes"));
@@ -98002,10 +98516,61 @@ return maplibregl$1;
     window.location.href = "mailto:" + email;
   });
 
-  // Link isn't its own review field -- it's the same wp.url the Edit
-  // Waypoint modal's own Link field edits, just mirrored here too so
-  // there's no need to leave Review mode to add a phone/website combo.
-  reviewLinkMirror.addEventListener("input", () => { urlInput.value = reviewLinkMirror.value; });
+  /* The journal editor's Link tab is a panel of link fields: add as many as needed,
+     open (↗) or delete (✕) each. It edits the dialog's links (pendingLinks), saved
+     with the waypoint; Cancel restores them as they were. */
+  const journalTabLinkBtn = el("journalTabLinkBtn"), journalLinksPanel = el("journalLinksPanel"), journalLinksList = el("journalLinksList");
+  function linkTabLabel(n) { return n > 1 ? "Links (" + n + ")" : "Link"; }
+  function refreshJournalLinkTab() {
+    const n = pendingLinks.filter((u) => u.trim()).length;
+    journalTabLinkBtn.classList.toggle("has-link", n > 0);
+    journalTabLinkBtn.textContent = linkTabLabel(n);
+    journalTabLinkBtn.title = n ? n + " link" + (n > 1 ? "s" : "") : "Add a link";
+  }
+  function refreshAllLinkTabs() { urlInput.value = pendingLinks.find((u) => u.trim()) || ""; refreshModalLinkTab(); refreshJournalLinkTab(); }
+  // The edit dialog's Link tab: switches the notes field for the link list, in place (no window on top)
+  const modalLinksPanel = el("modalLinksPanel");
+  function setDialogTab(tab) {
+    const link = tab === "link";
+    notesFieldLabelBtn.classList.toggle("active", !link);
+    linkFieldLabelBtn.classList.toggle("active", link);
+    notesInput.style.display = link ? "none" : "";
+    el("notesToolbar").style.display = link ? "none" : ""; // the formatting toolbar is for notes only
+    modalLinksPanel.classList.toggle("hidden", !link);
+    if (link) mountLinkEditor(modalLinksPanel, pendingLinks, (l) => { pendingLinks = l; refreshAllLinkTabs(); }, pendingLinks.length ? null : 0);
+  }
+  /* One link list editor, used by the card, the edit dialog and the journal editor: a field per
+     link with ↗ (open in a new window) and ✕ (delete), and "+ Add link". onChange gets the list
+     on every edit (persist=false while typing, true when a field is finished, deleted or added). */
+  function mountLinkEditor(container, initial, onChange, focusIndex) {
+    let list = initial.slice(); if (!list.length) list = [""];
+    const clean = () => list.map((u) => u.trim()).filter(Boolean).map(normalizeUrl);
+    const render = (focus) => {
+      container.innerHTML = list.map((u, i) =>
+        '<div class="journal-link-row" data-i="' + i + '">' +
+          '<input class="field-input journal-link-input" type="url" inputmode="url" value="' + escapeHtml(u) + '" placeholder="Type or paste a link\u2026" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Link ' + (i + 1) + '" />' +
+          '<button type="button" class="journal-link-btn" data-open-link="' + i + '" title="Open in a new window" aria-label="Open link ' + (i + 1) + '"' + (u.trim() ? "" : " disabled") + '>\u2197</button>' +
+          '<button type="button" class="journal-link-btn journal-link-delete" data-delete-link="' + i + '" title="Delete this link" aria-label="Delete link ' + (i + 1) + '">' + icon("x", 14) + "</button>" +
+        "</div>").join("") +
+        '<button type="button" class="home-action-btn journal-add-link-btn" data-add-link="1">+ Add link</button>';
+      container.querySelectorAll(".journal-link-input").forEach((inp) => {
+        const i = +inp.closest(".journal-link-row").dataset.i;
+        inp.addEventListener("click", (e) => e.stopPropagation());
+        inp.addEventListener("input", () => { list[i] = inp.value; inp.parentElement.querySelector("[data-open-link]").disabled = !inp.value.trim(); onChange(clean(), false); });
+        inp.addEventListener("change", () => { if (inp.value.trim()) { inp.value = normalizeUrl(inp.value.trim()); list[i] = inp.value; } onChange(clean(), true); });
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+      });
+      container.querySelectorAll("[data-open-link]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); const u = (list[+btn.dataset.openLink] || "").trim(); if (u) window.open(normalizeUrl(u), "_blank", "noopener,noreferrer"); }));
+      container.querySelectorAll("[data-delete-link]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); list.splice(+btn.dataset.deleteLink, 1); if (!list.length) list = [""]; onChange(clean(), true); render(); }));
+      container.querySelector("[data-add-link]").addEventListener("click", (e) => { e.stopPropagation(); if (!list[list.length - 1].trim()) { render(list.length - 1); return; } list.push(""); render(list.length - 1); });
+      if (focus != null) { const all = container.querySelectorAll(".journal-link-input"); const f = all[Math.min(focus, all.length - 1)]; if (f) setTimeout(() => f.focus(), 0); }
+    };
+    render(focusIndex);
+  }
+  function renderJournalLinks(focusIndex) {
+    mountLinkEditor(journalLinksList, pendingLinks, (l) => { pendingLinks = l; refreshAllLinkTabs(); }, focusIndex);
+  }
+  journalTabLinkBtn.addEventListener("click", (e) => { e.preventDefault(); setJournalTab("link"); });
 
   function updateReviewPriceUI() {
     const level = pendingReview.priceLevel || 1; // the $ slider always shows at least one $, never an empty/unset state
@@ -98094,6 +98659,7 @@ return maplibregl$1;
 
   let journalSessionNotesSnapshot = "";
   let journalSessionUrlSnapshot = "";
+  let journalSessionLinksSnapshot = [];
   let journalSessionReviewSnapshot = null;
   function openJournalModal(tab) {
     // Snapshot everything this modal can touch (notes, link, and every
@@ -98103,6 +98669,7 @@ return maplibregl$1;
     // in sync as you type (see the various "input" listeners below).
     journalSessionNotesSnapshot = notesInput.value;
     journalSessionUrlSnapshot = urlInput.value;
+    journalSessionLinksSnapshot = pendingLinks.slice();
     journalSessionReviewSnapshot = JSON.parse(JSON.stringify(pendingReview));
     // A generated story doesn't have Review data of its own -- the Reviews
     // tab is hidden entirely, and the Notes tab's label becomes the
@@ -98111,6 +98678,8 @@ return maplibregl$1;
     const editingWp = editingWaypointId ? waypoints.find((w) => w.id === editingWaypointId) : null;
     const isStoryWp = !!(editingWp && editingWp.isStoryEntry);
     journalTabReviewsBtn.classList.toggle("hidden", isStoryWp);
+    journalTabLinkBtn.classList.toggle("hidden", isStoryWp);
+    refreshJournalLinkTab();
     journalTabNotesBtn.textContent = isStoryWp ? storyEntryTitle(editingWp) : "Notes";
     journalListenBtn.classList.toggle("hidden", !isStoryWp);
     journalNarrationsSection.classList.toggle("hidden", !isStoryWp);
@@ -98119,7 +98688,6 @@ return maplibregl$1;
     if (isStoryWp) tab = "notes"; // there's no Reviews tab to land on for a generated story
     journalTextarea.value = notesInput.value;
     reviewMainNotesMirror.value = notesInput.value;
-    reviewLinkMirror.value = urlInput.value;
     // Restaurant name autopopulates from the waypoint's own name the first
     // time Review mode is opened for it (i.e. only while still blank) --
     // typing something else in this field, or clearing it on purpose, is
@@ -98157,7 +98725,8 @@ return maplibregl$1;
       }
     }, 30);
   }
-  notesFieldLabelBtn.addEventListener("click", () => openJournalModal("notes"));
+  // Notes: back from the Link tab to the notes field; from the notes field, the full journal editor (as before)
+  notesFieldLabelBtn.addEventListener("click", () => { if (!modalLinksPanel.classList.contains("hidden")) setDialogTab("notes"); else openJournalModal("notes"); });
   reviewFieldLabelBtn.addEventListener("click", () => openJournalModal("reviews"));
   function closeJournalModal() {
     journalModalOverlay.classList.add("hidden");
@@ -98167,10 +98736,12 @@ return maplibregl$1;
   function discardJournalSessionChanges() {
     notesInput.value = journalSessionNotesSnapshot;
     urlInput.value = journalSessionUrlSnapshot;
+    pendingLinks = journalSessionLinksSnapshot.slice();
+    setTimeout(refreshAllLinkTabs, 0);
     pendingReview = journalSessionReviewSnapshot ? JSON.parse(JSON.stringify(journalSessionReviewSnapshot)) : emptyReview();
   }
   journalCloseBtn.addEventListener("click", () => { discardJournalSessionChanges(); closeJournalModal(); }); // the header "x" discards too, matching Cancel -- only "Save" keeps this session's edits
-  journalDoneBtn.addEventListener("click", closeJournalModal); // "Save" -- everything already autosaved into pendingReview/notesInput/urlInput as it was typed, so this just confirms and closes
+  journalDoneBtn.addEventListener("click", () => { pendingLinks = pendingLinks.filter((u) => u.trim()).map((u) => normalizeUrl(u.trim())); closeJournalModal(); refreshAllLinkTabs(); if (!modalLinksPanel.classList.contains("hidden")) setDialogTab("link"); }); // "Save" -- everything already autosaved into pendingReview/notesInput/urlInput as it was typed, so this just confirms and closes
   journalCancelBtn.addEventListener("click", () => { discardJournalSessionChanges(); closeJournalModal(); });
 
   function openModal() {
@@ -98182,7 +98753,8 @@ return maplibregl$1;
     waypointDateTimeSection.style.display = "block";
     modalElevationSection.classList.remove("hidden"); // a brand-new waypoint is never a story entry, so this is never the hidden case openEditModal handles
     homeLocationSection.style.display = "none";
-    urlFieldSection.style.display = "block";
+    urlFieldSection.style.display = "none";
+    linkFieldLabelBtn.classList.remove("hidden", "active");
     reviewFieldLabelBtn.classList.remove("hidden");
     notesFieldLabelBtn.textContent = "Notes";
     saveBtn.textContent = "Save waypoint";
@@ -98200,11 +98772,14 @@ return maplibregl$1;
     }
     notesInput.value = "";
     urlInput.value = "";
-    const defaultColor = pendingPoint.isCurrentLocation ? "#22d3ee" : "#f59e0b";
+    pendingLinks = [];
+    refreshModalLinkTab(); setDialogTab("notes");
+    const defaultColor = pendingPoint.isCurrentLocation ? "#22d3ee" : "#ef4444"; // new waypoints: a red pin
     markerColorInput.value = defaultColor;
     markSwatchSelected(markerColorSwatches, defaultColor);
     markerEmojiInput.value = "";
-    setMarkerStyleUI("emoji");
+    refreshMarkerEmojiCustomDisplay();
+    setMarkerStyleUI("pin");
     pendingPhotos = [];
     pendingReview = emptyReview();
     photoStatus.style.display = "none";
@@ -98229,7 +98804,8 @@ return maplibregl$1;
     nameFieldSection.style.display = "block";
     waypointDateTimeSection.style.display = "block";
     homeLocationSection.style.display = "none";
-    urlFieldSection.style.display = isStoryWp ? "none" : "block";
+    urlFieldSection.style.display = "none";
+    linkFieldLabelBtn.classList.toggle("hidden", isStoryWp); linkFieldLabelBtn.classList.remove("active");
     reviewFieldLabelBtn.classList.toggle("hidden", isStoryWp);
     notesFieldLabelBtn.textContent = isStoryWp ? storyEntryTitle(wp) : "Notes";
     modalNarrationsSection.classList.toggle("hidden", !isStoryWp);
@@ -98253,7 +98829,9 @@ return maplibregl$1;
     waypointTimeInput.value = msToTimeValue(wp.createdAt || Date.now());
     nameInput.value = wp.name;
     notesInput.value = wp.notes || "";
-    urlInput.value = wp.url || "";
+    pendingLinks = getWaypointLinks(wp);
+    urlInput.value = pendingLinks[0] || "";
+    refreshModalLinkTab(); setDialogTab("notes");
     markerColorInput.value = color;
     markSwatchSelected(markerColorSwatches, color);
     markerEmojiInput.value = wp.markerStyle === "emoji" ? emoji : "";
@@ -98396,7 +98974,7 @@ return maplibregl$1;
       if (wp) {
         wp.name = name;
         wp.notes = notes;
-        wp.url = url;
+        setWaypointLinks(wp, dialogLinksToSave());
         wp.review = reviewHasContent(pendingReview) ? pendingReview : null;
         wp.createdAt = dateTimeValuesToMs(waypointDateInput.value, waypointTimeInput.value, wp.createdAt || Date.now());
         wp.markerStyle = markerStyle;
@@ -98427,6 +99005,7 @@ return maplibregl$1;
       createdAt: dateTimeValuesToMs(waypointDateInput.value, waypointTimeInput.value, Date.now()), updatedAt: Date.now(), weather: null
     };
     addSavedMarker(wp);
+    setWaypointLinks(wp, dialogLinksToSave());
     waypoints.push(wp);
     saveWaypoints();
     renderList();
@@ -100344,6 +100923,7 @@ return maplibregl$1;
           flyTo(wp.lat, wp.lng);
           setSelectedWaypointMarker(wp.id);
           searchInput.value = wp.name || "";
+          peekHiddenWaypoint(wp);
           openSearchPick({ name: wp.name || "Waypoint", lat: wp.lat, lng: wp.lng, savedId: wp.id });
           return;
         }
@@ -102349,6 +102929,46 @@ return maplibregl$1;
   // folder) is hidden. A hidden parent folder hides everything nested
   // under it, including subfolders, without needing to touch their own
   // hidden flags individually.
+  /* Jumping to a waypoint that's hidden on the map (its own eye, a hidden
+     folder or itinerary day, or its region's eye) used to land on an empty
+     spot with no explanation. Now its icon is shown faded, with a dashed
+     ring, while it's selected, and a message says why it's hidden and how
+     to show it. Nothing about its hidden setting changes. */
+  function waypointHiddenReason(wp) {
+    if (wp.hidden) return { why: "its own eye is off", how: "tap the eye on its card to show it" };
+    let f = wp.folderId ? waypointFolders.find((x) => x.id === wp.folderId) : null;
+    while (f) {
+      if (f.hidden) {
+        const day = f.parentFolderId && (waypointFolders.find((x) => x.id === f.parentFolderId) || {}).isItinerary;
+        return day ? { why: "its day \u201c" + f.name + "\u201d is hidden", how: "tap the day's eye to show it" }
+                   : { why: "its folder \u201c" + f.name + "\u201d is hidden", how: "tap the folder's eye to show it" };
+      }
+      f = f.parentFolderId ? waypointFolders.find((x) => x.id === f.parentFolderId) : null;
+    }
+    if (!regionShown(wp.region || "personal")) return { why: "the " + regionName(wp.region || "personal") + " region is hidden", how: "tap the region's eye to show it" };
+    return null;
+  }
+  function clearWaypointPeek() { if (peekMarker) { map.removeLayer(peekMarker); peekMarker = null; } }
+  // Once the waypoint is visible again, its normal icon takes over (with the selected highlight).
+  function handOverWaypointPeek() {
+    if (!peekMarker) return;
+    const id = peekMarker._peekId, m = markers[id];
+    if (!m || !map.hasLayer(m)) return;
+    clearWaypointPeek();
+    if (selectedWaypointId === id) { const el = m.getElement && m.getElement(); if (el) el.classList.add("wp-selected"); }
+  }
+  function peekHiddenWaypoint(wp) {
+    clearWaypointPeek();
+    if (!wp || wp.isStoryEntry) return;
+    const m = markers[wp.id];
+    if (m && map.hasLayer(m)) return; // already on the map
+    const reason = waypointHiddenReason(wp);
+    peekMarker = L.marker([wp.lat, wp.lng], { icon: makeIcon(iconOptsForWaypoint(wp, false)), keyboard: false, zIndexOffset: 1000 }).addTo(map);
+    peekMarker._peekId = wp.id;
+    peekMarker.on("click", (e) => { L.DomEvent.stopPropagation(e); openPanel(); setSelectedWaypointMarker(wp.id); });
+    const el = peekMarker.getElement && peekMarker.getElement(); if (el) el.classList.add("wp-peek");
+    showToast((wp.name || "This waypoint") + " is hidden on the map" + (reason ? ": " + reason.why + ". It's shown faded while selected; " + reason.how + "." : ". It's shown faded while selected."), false, false, 9000); // long enough to read
+  }
   function isWaypointHiddenByFolder(wp) {
     let current = wp.folderId ? waypointFolders.find((f) => f.id === wp.folderId) : null;
     while (current) {
@@ -102410,6 +103030,7 @@ return maplibregl$1;
       if (shouldHide && hasMarker) { map.removeLayer(markers[wp.id]); delete markers[wp.id]; }
       else if (!shouldHide && !hasMarker) { addSavedMarker(wp); }
     });
+    handOverWaypointPeek(); // now shown for real
   }
   function setWaypointVisibility(id, hidden) {
     const wp = waypoints.find((w) => w.id === id);
@@ -102466,7 +103087,7 @@ return maplibregl$1;
     }
     return ids;
   }
-  function folderAccordionHtml(folder) {
+  function folderAccordionHtml(folder, opts) {
     const childFolders = waypointFolders.filter((f) => f.parentFolderId === folder.id && f.id !== editingFolderId).sort((a, b) => compareSortNames(a.name, b.name));
     const items = waypoints.filter((w) => w.folderId === folder.id);
     const expanded = expandedFolderIds.has(folder.id);
@@ -102518,8 +103139,7 @@ return maplibregl$1;
           const bodyEntries = childFolders.map((f) => ({ name: f.name, isFolder: true, dayNum: folder.isItinerary ? itineraryDayNumber(f, childFolders) : 0, sortKey: f.createdAt || 0,
               html: dayDraggable
                 ? '<div class="itinerary-day-item" data-folder-id="' + f.id + '" data-parent-id="' + folder.id + '">' +
-                    '<button type="button" class="itinerary-drag-handle" aria-label="Reorder ' + escapeHtml(f.name) + '"><span class="icon"></span></button>' +
-                    '<div class="itinerary-draggable-card-wrap">' + folderAccordionHtml(f) + "</div>" +
+                    '<div class="itinerary-draggable-card-wrap">' + folderAccordionHtml(f, { dayGrip: true }) + "</div>" +
                   "</div>"
                 : folderAccordionHtml(f) }))
             .concat(regularItems.map((w) => ({
@@ -102527,7 +103147,6 @@ return maplibregl$1;
               sortKey: waypointSortKey(w),
               html: isItineraryFolder
                 ? '<div class="itinerary-draggable-item" data-waypoint-id="' + w.id + '">' +
-                    '<button type="button" class="itinerary-drag-handle" aria-label="Reorder ' + escapeHtml(w.name) + '"><span class="icon"></span></button>' +
                     '<div class="itinerary-draggable-card-wrap">' + timeLine(w) + cardHtml(w) + "</div>" +
                   "</div>"
                 : cardHtml(w),
@@ -102607,6 +103226,8 @@ return maplibregl$1;
         visibilityBtn +
         shareFolderBtn +
         '<button type="button" class="folder-accordion-action" data-action="folder-rename" data-id="' + folder.id + '" title="Edit folder">' + icon("edit", 14) + "</button>" +
+        // An itinerary's day: its reorder handle, at the right end of the header row
+        (opts && opts.dayGrip ? '<button type="button" class="itinerary-drag-handle folder-header-grip" aria-label="Reorder ' + escapeHtml(folder.name) + '" title="Drag to reorder">' + icon("gripDots", 20) + "</button>" : "") +
       "</div>" +
       '<div class="folder-accordion-body">' + bodyHtml +
       "</div>" +
@@ -102669,7 +103290,9 @@ return maplibregl$1;
         // The grip handle starts a drag straight away, on any device. Elsewhere
         // on the card, a long press still drags with a mouse; on touch screens
         // the card body is left to scroll the list, and the handle is the way to drag.
+        if (e.target.closest(".itinerary-draggable-item, .itinerary-day-item")) return; // reordered by the itinerary drag instead
         const fromHandle = !!e.target.closest(".card-drag-handle");
+        if (!fromHandle && itemEl.querySelector(".card-header-grip")) return; // waypoint cards: only the handle drags
         if (!fromHandle && e.target.closest("button, input, a, select, textarea") && !e.target.closest(".card-main-icon") && !e.target.closest(".card-title-row")) return;
         if (!fromHandle && e.pointerType !== "mouse") return;
         if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -102679,13 +103302,20 @@ return maplibregl$1;
         const pointerId = e.pointerId;
         const startX = e.clientX, startY = e.clientY;
         const startRect = itemEl.getBoundingClientRect(); // captured before any drag-state class could change the element's own layout
-        let armed = false, dragging = false, ghostEl = null, currentDropTarget = null;
+        // The card itself follows the finger, translucent (as in itineraries), rather than a copy:
+        // a copy placed outside the panel lost the panel's card styles and was nearly opaque.
+        let armed = false, dragging = false, ghostEl = null, currentDropTarget = null, startScroll = listEl.scrollTop;
         let autoScrollTimer = null, autoScrollDirection = 0, autoScrollSpeed = 0, lastPointerX = startX, lastPointerY = startY;
 
         // Re-run from both onMove (on actual pointer movement) and the
         // auto-scroll tick below (so the highlighted folder stays correct
         // even while the pointer sits still at the edge and the list
         // scrolls underneath it, rather than going stale).
+        function placeMovingCard() {
+          if (!ghostEl) return;
+          // Vertical only, like reordering an itinerary: the card stays in its column (the folder under the finger is still the target)
+          ghostEl.style.transform = "translateY(" + (lastPointerY - startY + (listEl.scrollTop - startScroll)) + "px)";
+        }
         function updateDropTarget(x, y) {
           // The ghost sits directly under the pointer, so it has to be
           // excluded from elementFromPoint's hit-test or it would always
@@ -102695,9 +103325,11 @@ return maplibregl$1;
           // should already cover this), but it was present, unmodified,
           // in the last version confirmed working correctly on iOS --
           // restored here rather than assumed safe to leave out.
-          ghostEl.style.display = "none";
+          // (Now that the moving item is the card itself, it's made invisible rather than display:none,
+          // so the list's layout doesn't jump during the check.)
+          ghostEl.style.visibility = "hidden";
           const under = document.elementFromPoint(x, y);
-          ghostEl.style.display = "";
+          ghostEl.style.visibility = "";
           const folderHeader = under ? under.closest(".folder-accordion-header") : null;
           if (currentDropTarget && currentDropTarget !== folderHeader) currentDropTarget.classList.remove("drop-target-hover");
           if (folderHeader) folderHeader.classList.add("drop-target-hover");
@@ -102721,7 +103353,7 @@ return maplibregl$1;
           if (!autoScrollTimer) {
             autoScrollTimer = setInterval(() => {
               listEl.scrollTop += autoScrollDirection * autoScrollSpeed;
-              if (ghostEl) updateDropTarget(lastPointerX, lastPointerY);
+              if (ghostEl) { placeMovingCard(); updateDropTarget(lastPointerX, lastPointerY); }
             }, 16);
           }
         }
@@ -102747,9 +103379,10 @@ return maplibregl$1;
           document.removeEventListener("pointermove", onMove);
           document.removeEventListener("pointerup", onUp);
           document.removeEventListener("pointercancel", onCancel);
-          itemEl.classList.remove("drag-armed", "drag-source-hidden");
+          itemEl.classList.remove("drag-armed", "drag-source-hidden", "drag-moving");
+          itemEl.style.transform = ""; itemEl.style.pointerEvents = ""; itemEl.style.visibility = "";
           document.body.classList.remove("dragging-active");
-          if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+          ghostEl = null;
           if (currentDropTarget) { currentDropTarget.classList.remove("drop-target-hover"); currentDropTarget = null; }
           try { map.dragging.enable(); } catch (err) { /* must not block the rest of cleanup, or onUp's subsequent assignToFolder call */ }
         }
@@ -102769,15 +103402,13 @@ return maplibregl$1;
           if (!dragging) {
             dragging = true;
             document.body.classList.add("dragging-active");
-            itemEl.classList.add("drag-source-hidden");
-            ghostEl = itemEl.cloneNode(true);
-            ghostEl.classList.add("drag-ghost"); // adds to (rather than replaces) the cloned card's own classes, so it keeps its normal background/padding/border instead of showing unstyled floating text
-            ghostEl.style.width = startRect.width + "px";
-            document.body.appendChild(ghostEl);
+            ghostEl = itemEl; // the card itself moves
+            startScroll = listEl.scrollTop;
+            itemEl.classList.add("drag-moving");
+            itemEl.style.pointerEvents = "none";
           }
           moveEvent.preventDefault();
-          ghostEl.style.left = (startRect.left + dx) + "px";
-          ghostEl.style.top = (startRect.top + dy) + "px";
+          placeMovingCard();
           updateDropTarget(moveEvent.clientX, moveEvent.clientY);
 
           // Auto-scrolls the list while the pointer sits near its top or
@@ -102874,8 +103505,12 @@ return maplibregl$1;
     panelList.querySelectorAll("[data-unschedule-wp]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); unscheduleItineraryStop(btn.dataset.unscheduleWp); }));
     panelList.querySelectorAll("[data-replace-wp]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openReplaceStop(btn.dataset.replaceWp); }));
     panelList.querySelectorAll("[data-itin-times]").forEach((btn) => btn.addEventListener("click", (e) => { e.stopPropagation(); openItineraryTimes(btn.dataset.itinTimes); }));
-    panelList.querySelectorAll(".itinerary-drag-handle").forEach((handle) => {
-      handle.querySelector(".icon").innerHTML = icon("gripDots", 15);
+    // Itinerary days and stops are reordered with the grip at the right end of their header row
+    // (a day's own grip; a stop card's own grip), which drives this drag and its look: the item
+    // follows the finger, dimmed, with a line where it will land.
+    panelList.querySelectorAll(".itinerary-drag-handle, .itinerary-draggable-item .card-header-grip").forEach((handle) => {
+      const ic = handle.querySelector(":scope > .icon"); if (ic) ic.innerHTML = icon("gripDots", 15);
+      handle.addEventListener("click", (e) => e.stopPropagation()); // a day's grip sits in its header: don't also open or close the day
       handle.addEventListener("pointerdown", (e) => {
         const item = handle.closest(".itinerary-draggable-item, .itinerary-day-item");
         if (!item) return;
@@ -104366,6 +105001,32 @@ return maplibregl$1;
     // Accept the AI's icon only if it's a short emoji, never words.
     return e && e.length <= 8 && !/[A-Za-z0-9]/.test(e) ? e : CC_CATEGORIES[ccCategory(stop.category)].emoji;
   }
+  /* Icons the itinerary wizard gives its stops are added to the "All icons"
+     list (if missing), placed beside icons of the same theme, chosen from
+     the stop's category: food beside the restaurant/cafe/bar icons, history
+     beside the museum/castle/church ones, and so on. */
+  const ICON_THEME_ANCHORS = {
+    food: ["\u{1F37D}\uFE0F", "\u2615", "\u{1F37A}", "\u{1F6D2}"], cafe: ["\u2615", "\u{1F37D}\uFE0F"], nightlife: ["\u{1F37A}", "\u{1F37D}\uFE0F"],
+    outdoor: ["\u{1F332}", "\u26F0\uFE0F", "\u{1F97E}", "\u{1F3DE}\uFE0F"], viewpoint: ["\u{1F3DE}\uFE0F", "\u26F0\uFE0F"],
+    historic: ["\u{1F3DB}\uFE0F", "\u{1F3F0}", "\u26EA"], culture: ["\u{1F3DB}\uFE0F", "\u{1F3F0}"],
+    family: ["\u{1F3A1}", "\u26BD"], shopping: ["\u{1F6CD}\uFE0F", "\u{1F6D2}", "\u{1F3EA}"], hidden: ["\u2B50\uFE0F", "\u{1F3AF}"], other: ["\u{1F4CD}"]
+  };
+  function addIconToQuickPicksByTheme(emoji, category) {
+    if (!emoji || isCustomIconRef(emoji)) return false;
+    const picks = getIconQuickPicks();
+    if (picks.includes(emoji)) return false;
+    const anchors = ICON_THEME_ANCHORS[category] || ICON_THEME_ANCHORS.other;
+    let at = -1;
+    for (const a of anchors) { at = picks.indexOf(a); if (at !== -1) break; }
+    if (at === -1) picks.push(emoji); else picks.splice(at + 1, 0, emoji);
+    return true;
+  }
+  function addItineraryIconsToQuickPicks(wps) {
+    let added = 0;
+    wps.forEach((w) => { if (w.markerStyle === "emoji" && w.category && addIconToQuickPicksByTheme(w.markerEmoji, ccCategory(w.category))) added++; });
+    if (added) { saveSettings(); if (typeof renderIconQuickPick === "function") try { renderIconQuickPick(); } catch (e) {} }
+    return added;
+  }
   function ccFormatMinutes(m) {
     m = Math.round(m);
     return m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + String(m % 60).padStart(2, "0") + " min" : "");
@@ -104942,6 +105603,7 @@ return maplibregl$1;
         addSavedMarker(wp);
         waypoints.push(wp); // appended -- nothing existing is replaced
         created.push(wp);
+        addItineraryIconsToQuickPicks([wp]); // its icon joins the "All icons" list, beside its theme
       });
     });
     saveWaypointFolders();
@@ -106814,6 +107476,8 @@ return maplibregl$1;
   if (!bootGuard.safe && reconcileItineraries()) { saveWaypoints(); saveWaypointFolders(); }
   // Waypoints saved into another region's folder before this was fixed get that region (and their icons).
   if (syncWaypointRegionsWithFolders()) saveWaypoints();
+  // Icons the itinerary wizard gave stops in earlier itineraries join the "All icons" list too, by theme.
+  addItineraryIconsToQuickPicks(waypoints.filter((w) => w.itineraryDayId || w.aiGenerated));
   bootGuard.stage("drawing itinerary routes");
   refreshItineraryDayLines();
   bootGuard.stage("finishing start-up");
@@ -107662,8 +108326,10 @@ return maplibregl$1;
   }
   function cardElevationFieldHtml(wp) {
     const p = cardElevationParts(wp);
-    return '<button type="button" class="card-elevation' + (p.has ? "" : " placeholder") + '" data-action="card-elevation" data-id="' + wp.id + '" title="' + p.title + '">' +
-      icon("mountain", 12) + '<span class="card-elevation-value">' + escapeHtml(p.text) + "</span></button>";
+    // Sits in the date line, inside the card's title button, so it's a
+    // tappable span (a button can't contain another button).
+    return '<span role="button" tabindex="0" class="card-elevation card-meta-elev' + (p.has ? "" : " placeholder") + '" data-action="card-elevation" data-id="' + wp.id + '" title="' + p.title + '">' +
+      icon("mountain", 12) + '<span class="card-elevation-value">' + escapeHtml(p.text) + "</span></span>";
   }
   // Updates the field in place rather than re-rendering the whole list --
   // a full renderList() would also collapse anything else the person has
@@ -107682,7 +108348,7 @@ return maplibregl$1;
     const isStory = !!wp.isStoryEntry;
     return (
       '<div class="card' + (selectedWaypointIdsForMove.has(wp.id) ? " bulk-selected" : "") + (isStory ? " story-card" : " has-drag-handle") + '" data-id="' + wp.id + '">' +
-        (isStory ? "" : '<button type="button" class="card-drag-handle" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 15) + "</button>" + "") +
+
         '<div class="card-top">' +
           '<div class="card-top-actions">' +
             (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
@@ -107692,7 +108358,7 @@ return maplibregl$1;
             (isStory ? "" : '<button class="card-icon-action-btn" data-action="forecast" data-id="' + wp.id + '" title="Forecast">' + icon("cloudSun", 15) + "</button>") +
             (isStory ? "" : '<button class="card-icon-action-btn" data-action="share" data-id="' + wp.id + '" title="Share">' + icon("share", 15) + "</button>") +
             '<button class="card-edit" data-action="edit" data-id="' + wp.id + '">' + icon("edit", 15) + "</button>" +
-            '<button class="card-delete-circle-btn" data-action="delete-waypoint" data-id="' + wp.id + '">' + icon("trash", 14) + "</button>" +
+            '<button class="card-delete-circle-btn" data-action="delete-waypoint" data-id="' + wp.id + '" title="Delete" aria-label="Delete">' + icon("trash", 15) + "</button>" +
           "</div>" +
         "</div>" +
         '<div class="card-header-row">' +
@@ -107702,31 +108368,31 @@ return maplibregl$1;
           "</button>" +
           '<button class="card-title-row" data-action="flyto" data-id="' + wp.id + '">' +
             '<p class="card-name" data-id="' + wp.id + '">' + escapeHtml(wp.name) + "</p>" +
-            formatCardMeta(wp.createdAt, wp.weather) +
+            formatCardMeta(wp.createdAt, wp.weather, isStory ? "" : cardElevationFieldHtml(wp)) +
           "</button>" +
+          // The drag handle: at the right end of the header row, the only place a drag begins.
+          (isStory ? "" : '<button type="button" class="card-drag-handle card-header-grip" aria-label="Drag to a folder" title="Drag to a folder">' + icon("gripDots", 20) + "</button>") +
         "</div>" +
         (isStory ? "" :
         '<div class="card-codes">' +
           '<button class="card-copy-code" data-action="copy-code" data-id="' + wp.id + '">' + icon("copy", 14) + "</button>" +
           '<span class="code-badge amber mono">' + escapeHtml(wp.code) + "</span>" +
-          cardElevationFieldHtml(wp) +
         "</div>") +
-        (isStory ? "" :
-        '<div class="card-url" data-id="' + wp.id + '">' +
-          (wp.url
-            ? '<a class="card-url-link" href="' + escapeHtml(wp.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(wp.url) + '">' + icon("link", 12) + '<span>' + escapeHtml(formatUrlDisplay(wp.url)) + "</span></a>"
-            : '<button class="card-url-btn placeholder" data-action="edit-url" data-id="' + wp.id + '">' + icon("link", 12) + "<span>Add a link</span></button>") +
-        "</div>") +
+
         '<div class="card-notes">' +
           (isStory
             ? '<div class="card-notes-tab-row"><button type="button" class="card-notes-tab-btn active story-title-label" data-action="edit-notes" data-id="' + wp.id + '">' + escapeHtml(storyEntryTitle(wp)) + "</button></div>"
             : '<div class="card-notes-tab-row">' +
-                '<button type="button" class="card-notes-tab-btn active" data-action="edit-notes" data-id="' + wp.id + '">Notes</button>' +
+                '<button type="button" class="card-notes-tab-btn' + (cardLinksOpen.has(wp.id) ? "" : " active") + '" data-action="edit-notes" data-id="' + wp.id + '">Notes</button>' +
                 '<button type="button" class="card-notes-tab-btn' + (wp.review && wp.review.rating ? " has-review" : "") + '" data-action="edit-reviews" data-id="' + wp.id + '">Reviews</button>' +
+                // Link: a tab. It switches this area to the waypoint's links, in place; Notes switches back.
+                '<button type="button" class="card-notes-tab-btn link-tab' + (getWaypointLinks(wp).length ? " has-link" : "") + (cardLinksOpen.has(wp.id) ? " active" : "") + '" data-action="card-links-tab" data-id="' + wp.id + '">' + (getWaypointLinks(wp).length > 1 ? "Links (" + getWaypointLinks(wp).length + ")" : "Link") + "</button>" +
               "</div>") +
-          '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
-            '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
-          "</button>" +
+          (!isStory && cardLinksOpen.has(wp.id)
+            ? '<div class="card-links-view journal-links-list" data-card-links="' + wp.id + '"></div>'
+            : '<button class="card-notes-btn' + (wp.notes ? "" : " placeholder") + '" data-action="edit-notes" data-id="' + wp.id + '">' +
+                '<span class="card-notes-content">' + (wp.notes ? renderMiniMarkdown(wp.notes) : "Add notes") + "</span>" +
+              "</button>") +
         "</div>" +
         (wp.photos && wp.photos.length ?
           '<div class="card-photos" data-photo-target="' + wp.id + '" tabindex="0" title="Click, then paste (Ctrl/Cmd+V) to add a photo">' +
@@ -107752,6 +108418,19 @@ return maplibregl$1;
   }
 
   function bindCardEvents() {
+    // Long-press (or right-click) a Link tab that has a link to change it. The press is
+    // recognised while holding; the field opens when the finger lifts (opening it during
+    // the press let the lift steal its focus, which closed it again).
+    // Cards showing their Link tab: mount the link list; changes save to the waypoint as they're finished
+    panelList.querySelectorAll("[data-card-links]").forEach((box) => {
+      const w = waypoints.find((x) => x.id === box.dataset.cardLinks); if (!w) return;
+      const tab = box.closest(".card").querySelector(".link-tab");
+      mountLinkEditor(box, getWaypointLinks(w), (l, persist) => {
+        if (tab) { tab.textContent = l.length > 1 ? "Links (" + l.length + ")" : "Link"; tab.classList.toggle("has-link", l.length > 0); }
+        if (persist) { setWaypointLinks(w, l); w.updatedAt = Date.now(); saveWaypoints(); }
+      }, getWaypointLinks(w).length ? null : 0);
+    });
+    panelList.querySelectorAll('.card-meta-elev[role="button"]').forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); } }));
     panelList.querySelectorAll("[data-action]").forEach((node) => {
       const action = node.dataset.action;
       const id = node.dataset.id;
@@ -107759,7 +108438,7 @@ return maplibregl$1;
       if (!wp) return;
       node.addEventListener("click", (e) => {
         switch (action) {
-          case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); break;
+          case "flyto": flyTo(wp.lat, wp.lng); setSelectedWaypointMarker(wp.id); peekHiddenWaypoint(wp); break;
           case "edit": e.stopPropagation(); openEditModal(wp); break;
           case "delete-waypoint":
             e.stopPropagation();
@@ -107788,8 +108467,15 @@ return maplibregl$1;
             cardPhotoTargetId = id;
             cameraCaptureInput.click();
             break;
-          case "edit-url": e.stopPropagation(); startEditUrl(id); break;
-          case "edit-notes": e.stopPropagation(); openEditModalToNotes(wp); break;
+          case "edit-link": e.stopPropagation(); startEditLinkTab(id); break;
+          case "card-links-tab": e.stopPropagation(); if (!cardLinksOpen.has(id)) { cardLinksOpen.add(id); renderList(); } break;
+          case "open-link":
+            e.stopPropagation();
+            if (node.dataset.longPressed) { delete node.dataset.longPressed; break; } // the long-press already opened editing
+            if (getWaypointLinks(wp).length > 1) showCardLinkMenu(node, wp); // several: choose one
+            else window.open(wp.url, "_blank", "noopener,noreferrer");
+            break;
+          case "edit-notes": e.stopPropagation(); if (cardLinksOpen.has(id)) { cardLinksOpen.delete(id); renderList(); } else openEditModalToNotes(wp); break;
           case "edit-reviews": e.stopPropagation(); openEditModalToReviews(wp); break;
           case "copy-code":
             copyText(wp.code).then(() => flashCheck(node, "copy")).catch(() => {});
@@ -108003,6 +108689,37 @@ return maplibregl$1;
     setTimeout(() => { node.innerHTML = original; node.style.color = ""; }, 1500);
   }
 
+  // The Link tab's field: type or paste a link; Enter or leaving the field
+  // saves it, Escape cancels. An emptied field removes the link.
+  function startEditLinkTab(id) {
+    const wp = waypoints.find((w) => w.id === id);
+    const card = panelList.querySelector('.card[data-id="' + id + '"]');
+    const notes = card && card.querySelector(".card-notes");
+    if (!wp || !notes || notes.querySelector(".card-link-input")) return;
+    notes.querySelectorAll(".card-notes-tab-btn").forEach((b) => b.classList.toggle("active", b.classList.contains("link-tab")));
+    const notesBtn = notes.querySelector(".card-notes-btn"); if (notesBtn) notesBtn.style.display = "none";
+    const input = document.createElement("input");
+    input.className = "card-url-input card-link-input field-input";
+    input.type = "url"; input.inputMode = "url"; input.autocapitalize = "off";
+    input.placeholder = "Type or paste a link\u2026";
+    input.setAttribute("aria-label", "Link for " + (wp.name || "this waypoint"));
+    input.value = wp.url || "";
+    notes.appendChild(input);
+    input.focus();
+    if (wp.url) input.select();
+    let done = false;
+    const finish = (save) => {
+      if (done) return; done = true;
+      if (save) {
+        const next = input.value.trim() ? normalizeUrl(input.value) : "";
+        if (next !== (wp.url || "")) { setWaypointLinks(wp, next ? [next].concat(getWaypointLinks(wp).slice(1)) : getWaypointLinks(wp).slice(1)); wp.updatedAt = Date.now(); saveWaypoints(); }
+      }
+      renderList();
+    };
+    input.addEventListener("blur", () => finish(true));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); finish(true); } else if (e.key === "Escape") { e.preventDefault(); finish(false); } });
+    input.addEventListener("click", (e) => e.stopPropagation());
+  }
   function startEditUrl(id) {
     const urlEl = panelList.querySelector('.card-url[data-id="' + id + '"]');
     if (!urlEl) return;
@@ -108057,6 +108774,28 @@ return maplibregl$1;
     openEditModal(wp);
     openJournalModal("reviews");
   }
+  // The link manager: the journal editor's Link panel, for a waypoint's links
+  function openEditModalToLinks(wp) {
+    openEditModal(wp);
+    setDialogTab("link");
+  }
+  // A card with several links: a small menu to choose which to open
+  function showCardLinkMenu(anchor, wp) {
+    closeCardLinkMenu();
+    const links = getWaypointLinks(wp);
+    const menu = document.createElement("div");
+    menu.className = "card-link-menu"; menu.id = "cardLinkMenu"; menu.setAttribute("role", "menu");
+    menu.innerHTML = links.map((u, i) => '<button type="button" role="menuitem" data-i="' + i + '">' + escapeHtml(formatUrlDisplay(u)) + ' <span aria-hidden="true">\u2197</span></button>').join("") +
+      '<button type="button" role="menuitem" class="card-link-menu-manage">Add, change or delete\u2026</button>';
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + "px";
+    menu.style.top = (r.bottom + 6 + menu.offsetHeight > innerHeight - 8 ? r.top - menu.offsetHeight - 6 : r.bottom + 6) + "px";
+    menu.querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); closeCardLinkMenu(); window.open(links[+b.dataset.i], "_blank", "noopener,noreferrer"); }));
+    menu.querySelector(".card-link-menu-manage").addEventListener("click", (e) => { e.stopPropagation(); closeCardLinkMenu(); openEditModalToLinks(wp); });
+    setTimeout(() => { document.addEventListener("click", closeCardLinkMenu, { once: true }); panelList.addEventListener("scroll", closeCardLinkMenu, { once: true }); }, 0);
+  }
+  function closeCardLinkMenu() { const m = document.getElementById("cardLinkMenu"); if (m) m.remove(); }
 
   /* ================================================================ */
   /*  Toast wiring for save-failure handled above via showToast()      */
