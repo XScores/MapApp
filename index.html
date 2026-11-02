@@ -2022,6 +2022,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .card-meta-weather{display:flex; align-items:center; gap:2px;}
   .card-meta-weather .icon{display:flex;}
   .card-top-actions{display:flex; align-items:center; justify-content:space-between; gap:2px; flex:1 1 auto; min-width:0;}
+  /* The card's directions button (where the favourite heart was): same size and place in the row */
+  .card-route-btn{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
+  .card-route-btn:hover{color:var(--link);}
   .card-favorite{flex-shrink:0; color:var(--text-mute); cursor:pointer; padding:4px; display:flex; background:none; border:none;}
   .card-favorite:hover{color:var(--red);}
   .card-favorite.favorited{color:var(--red);}
@@ -2356,6 +2359,26 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .ride-hud-title-input{flex:1; min-width:0; background:var(--surface-2); border:1px solid #7c3aed; border-radius:6px;
     color:var(--text); font-size:15px; font-weight:700; padding:3px 8px; font-family:inherit;}
   .ride-hud-stats-row{display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;}
+  /* Minimising the recording bar (like the measuring bar's collapse button) */
+  .ride-hud-min-btn{position:absolute; top:8px; right:8px; z-index:2; width:32px; height:32px; transition:transform .2s;}
+  .ride-hud:not(.collapsed) .ride-hud-min-btn{transform:rotate(180deg);}
+  .ride-hud-mini{display:none;}
+  /* The navigation bar: a compact Stop navigating button beside the microphone, on the instruction's row */
+  #navHud .ride-hud-title{flex:1 1 auto; min-width:0; white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden;} /* long instructions wrap rather than lose the street name */
+  .nav-hud-actions{flex:0 0 auto; display:flex; align-items:center; gap:8px;}
+  .nav-stop-btn{flex:0 0 auto; width:auto; min-width:0 !important; position:relative; min-height:32px; padding:6px 14px; font-size:13px; white-space:nowrap;}
+  .nav-stop-btn::after{content:""; position:absolute; left:0; right:0; top:50%; height:44px; margin-top:-22px;} /* 44 px touch target */
+  .ride-hud-min-btn.hidden{display:none;}
+  .ride-hud:not(.collapsed) .ride-hud-min-btn:not(.hidden) ~ .ride-hud-stats-row{padding-right:30px;} /* room for the button, so it never covers a label */
+  /* The navigation bar's button in the Apple style's dark floating bars: light text, as on the recording bar */
+  html.ui-apple .ride-hud .home-action-btn{color:#fff; background:#2c2c2e; border-color:#636366;}
+  .ride-hud.collapsed{padding:8px 52px 8px 14px !important;}
+  .ride-hud.collapsed > :not(.ride-hud-mini):not(.ride-hud-min-btn){display:none !important;}
+  .ride-hud.collapsed .ride-hud-min-btn{top:50%; margin-top:-16px;}
+  .ride-hud.collapsed .ride-hud-mini{display:flex; align-items:center; gap:10px; width:100%; min-height:36px; background:none; border:none; padding:0; color:var(--text);
+    font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; cursor:pointer; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ride-hud-mini-dot{flex:0 0 auto; width:10px; height:10px; border-radius:50%; background:#ef4444;}
+  .ride-hud-mini.paused .ride-hud-mini-dot{background:var(--text-mute);}
   .ride-hud-stats-row.hidden{display:none;}
   .ride-hud-stat{display:flex; flex-direction:column; align-items:center; flex:1; min-width:0;}
   .ride-hud-label{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mute); margin-bottom:2px; white-space:nowrap;}
@@ -5040,12 +5063,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="ride-hud hidden" id="navHud" style="border-color:var(--cyan);">
     <div class="ride-hud-header">
       <span class="ride-hud-title" id="navHudInstruction">Navigating…</span>
-      <button class="panel-close" id="navHudMuteBtn" title="Mute voice instructions" data-icon="mic" data-icon-size="16"></button>
+      <div class="ride-hud-header-actions nav-hud-actions">
+        <button type="button" class="home-action-btn nav-stop-btn" id="navHudStopBtn" aria-label="Stop navigating" title="Stop navigating">Stop</button>
+        <button class="panel-close" id="navHudMuteBtn" title="Mute voice instructions" data-icon="mic" data-icon-size="16"></button>
+      </div>
     </div>
     <p class="layers-hint" id="navHudDistance"></p>
-    <div class="home-actions">
-      <button type="button" class="home-action-btn" id="navHudStopBtn">Stop navigating</button>
-    </div>
   </div>
 
   <!-- Measurement info panel: the measurement equivalent of the route panel below. Filled in by refreshMeasurePanel(). -->
@@ -5073,6 +5096,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   </div>
 
   <div class="ride-hud hidden" id="rideHud">
+    <!-- Minimise: the bar shrinks to one line (time, distance, speed); tap the line or this button to expand -->
+    <button type="button" class="panel-close ride-hud-min-btn" id="rideHudMinBtn" data-icon="chevronDown" title="Minimize" aria-label="Minimize" aria-expanded="true"></button>
+    <button type="button" class="ride-hud-mini" id="rideHudMini" aria-label="Expand the recording panel"><span class="ride-hud-mini-dot" aria-hidden="true"></span><span id="rideHudMiniText"></span></button>
     <div class="ride-hud-header" id="rideHudHeader">
       <span class="ride-hud-title" id="rideHudTitle"></span>
       <div class="ride-hud-header-actions">
@@ -81865,7 +81891,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "611";
+  const APP_VERSION = "615";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -86709,7 +86735,7 @@ return maplibregl$1;
     // the heart well away from the remove button), the avatar and name beneath.
     return '<div class="card ride-card ride-card-stacked" data-id="' + c.id + '" data-link-card="1">' +
       '<div class="ride-card-icons-row">' +
-        '<button class="card-favorite' + (c.favorite ? " favorited" : "") + '" data-action="toggle-favorite-connection" data-id="' + c.id + '" title="' + (c.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+        '<button type="button" class="card-route-btn" data-action="route-to-connection" data-id="' + c.id + '" title="Directions to their last known location from where you are" aria-label="Directions to their last known location from where you are">' + icon("directions", 15) + "</button>" +
         '<button class="ride-card-delete-btn" data-action="remove-connection" data-id="' + c.id + '">' + icon("x", 14) + "</button>" +
       "</div>" +
       '<div class="ride-card-header ride-card-header-center">' +
@@ -86809,6 +86835,10 @@ return maplibregl$1;
         flyToConnection(btn.dataset.id);
       });
     });
+    linkPanelList.querySelectorAll('[data-action="route-to-connection"]').forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation(); const c = connections.find((x) => x.id === btn.dataset.id);
+      if (c && c.lastKnownLocation) routeToPoint({ name: c.name, lat: c.lastKnownLocation.lat, lng: c.lastKnownLocation.lng }); else showToast((c ? c.name : "They") + " hasn't shared a location yet");
+    }));
     linkPanelList.querySelectorAll('[data-action="toggle-favorite-connection"]').forEach((btn) => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); toggleFavoriteConnection(btn.dataset.id); });
     });
@@ -93762,7 +93792,11 @@ return maplibregl$1;
       map.panTo(map.containerPointToLatLng(newCenterPoint), { animate: false });
     } catch (e) { /* if the map API doesn't support this in some edge case, just skip the pan rather than break tracking */ }
   }
-  function followRidePosition(lat, lng) { followCurrentPosition(lat, lng, rideHud); }
+  function followRidePosition(lat, lng) {
+    // While navigating, the instruction bar sits below the recording bar: keep your position below it
+    const navBar = document.getElementById("navHud");
+    followCurrentPosition(lat, lng, navBar && !navBar.classList.contains("hidden") ? navBar : rideHud);
+  }
 
   let rideStartMarker = null, rideEndMarker = null;
   let viewedRideStartMarker = null, viewedRideEndMarker = null;
@@ -94066,6 +94100,9 @@ return maplibregl$1;
     // and Cancel now covers what the X used to do for them, so the row
     // (and the vertical space it took) goes away entirely for those states.
     rideHudHeader.classList.toggle("hidden", state !== "viewing");
+    // Minimise is for recording; a saved route's viewer has its own title and close button in that corner
+    const minBtn = el("rideHudMinBtn"); if (minBtn) minBtn.classList.toggle("hidden", state === "viewing");
+    if (state === "viewing") rideHud.classList.remove("collapsed");
   }
 
   // Mitigates iOS's "Shake to Undo" popping up mid-ride from bike-mount
@@ -95347,6 +95384,7 @@ return maplibregl$1;
   // could find a different place with the same name.
   let directionsPinnedTo = null;
   function routeToPoint(pl) {
+    closePanel(); // the list would cover the route
     openDirectionsModal();
     directionsUseCurrentLocation = true;
     directionsFromCurrentBtn.classList.add("active");
@@ -95514,6 +95552,56 @@ return maplibregl$1;
   // rideHud's own actual, current height rather than sitting on top of
   // it. Same "measure the panel" approach already used elsewhere in this
   // app for exactly this kind of stacking.
+  /* The recording bar's minimise: one line showing the bar's own live time, distance and speed
+     (with their units, taken from the labels), a dot that's red while recording and grey when
+     paused; the navigation bar below follows its height. The bar opens full again each time. */
+  const rideHudMinBtn = el("rideHudMinBtn"), rideHudMini = el("rideHudMini"), rideHudMiniText = el("rideHudMiniText");
+  function rideHudUnit(labelId) { const m = /\(([^)]+)\)/.exec((el(labelId) || {}).textContent || ""); return m ? " " + m[1].toLowerCase() : ""; }
+  function refreshRideHudMini() {
+    if (!rideHud.classList.contains("collapsed")) return;
+    const text = el("rideHudTime").textContent + " \u00b7 " + el("rideHudDistance").textContent + rideHudUnit("rideHudLabel2") + " \u00b7 " + el("rideHudSpeed").textContent + rideHudUnit("rideHudLabel3");
+    if (rideHudMiniText.textContent !== text) rideHudMiniText.textContent = text;
+    let paused = false; try { paused = !!ridePaused; } catch (e) {}
+    rideHudMini.classList.toggle("paused", paused);
+  }
+  function setRideHudCollapsed(on) {
+    rideHud.classList.toggle("collapsed", on);
+    rideHudMinBtn.title = on ? "Expand" : "Minimize"; rideHudMinBtn.setAttribute("aria-label", rideHudMinBtn.title); rideHudMinBtn.setAttribute("aria-expanded", String(!on));
+    refreshRideHudMini();
+    setTimeout(repositionNavHud, 0);
+  }
+  rideHudMinBtn.addEventListener("click", (e) => { e.stopPropagation(); setRideHudCollapsed(!rideHud.classList.contains("collapsed")); });
+  rideHudMini.addEventListener("click", (e) => { e.stopPropagation(); setRideHudCollapsed(false); });
+  // Watch only the figures and labels the line reads (not the whole bar, which contains the line itself)
+  const rideHudMiniWatch = new MutationObserver(refreshRideHudMini);
+  ["rideHudTime", "rideHudDistance", "rideHudSpeed", "rideHudLabel2", "rideHudLabel3"].forEach((id) => rideHudMiniWatch.observe(el(id), { subtree: true, childList: true, characterData: true }));
+  new MutationObserver(() => { if (rideHud.classList.contains("hidden") && rideHud.classList.contains("collapsed")) setRideHudCollapsed(false); }).observe(rideHud, { attributes: true, attributeFilter: ["class"] });
+  /* The bar's big figures fit their columns: full size (42 px) whenever they fit, and a row scales down
+     together only when one figure would overflow (long distances and speeds on a small phone, or in the
+     Apple and Google styles' wider fonts). Checked whenever a figure changes or the screen resizes. */
+  let rideHudFitQueued = false;
+  function fitRideHudValues() {
+    rideHudFitQueued = false;
+    if (rideHud.classList.contains("hidden") || rideHud.classList.contains("collapsed")) return;
+    // (the labels above them get the same treatment, never below 10 px)
+    const fitGroup = (els, minPx) => {
+      if (!els.length) return;
+      els.forEach((v) => { v.style.fontSize = ""; });
+      let scale = 1;
+      els.forEach((v) => { const room = v.parentElement.clientWidth - 4, need = v.scrollWidth; if (room > 0 && need > room) scale = Math.min(scale, room / need); });
+      if (scale < 1) { const base = parseFloat(getComputedStyle(els[0]).fontSize); els.forEach((v) => { v.style.fontSize = Math.max(minPx, Math.floor(base * scale)) + "px"; }); }
+    };
+    rideHud.querySelectorAll(".ride-hud-stats-row").forEach((row) => {
+      if (!row.offsetParent) return;
+      fitGroup([...row.querySelectorAll(".ride-hud-value")], 18);
+      fitGroup([...row.querySelectorAll(".ride-hud-label")], 10);
+    });
+  }
+  function queueFitRideHudValues() { if (!rideHudFitQueued) { rideHudFitQueued = true; requestAnimationFrame(fitRideHudValues); } }
+  const rideHudFitWatch = new MutationObserver(queueFitRideHudValues);
+  rideHud.querySelectorAll(".ride-hud-value").forEach((v) => rideHudFitWatch.observe(v, { subtree: true, childList: true, characterData: true }));
+  new MutationObserver(queueFitRideHudValues).observe(rideHud, { attributes: true, attributeFilter: ["class"] });
+  window.addEventListener("resize", queueFitRideHudValues);
   function repositionNavHud() {
     if (rideHud.classList.contains("hidden")) { navHud.style.top = ""; return; }
     navHud.style.top = (rideHud.getBoundingClientRect().bottom + 10) + "px";
@@ -95535,7 +95623,20 @@ return maplibregl$1;
     // actually being recorded -- the two are expected to diverge slightly
     // in normal use, so both stay visible rather than one replacing the
     // other.
-    navGuideRouteLayer = L.polyline(p.latlngs, { color: "#38bdf8", weight: 5, opacity: 0.45, dashArray: "8,6" }).addTo(map);
+    // The route to follow, drawn solid in the preview's blue with a light outline so it stands out on
+    // any map (the dashed, 45%-opacity line it replaces was hard to see); the track actually recorded
+    // is drawn on top of it, so where you've been shows along the route.
+    navGuideRouteLayer = L.layerGroup([
+      L.polyline(p.latlngs, { color: "#ffffff", weight: 10, opacity: 0.85, interactive: false }),
+      L.polyline(p.latlngs, { color: "#0ea5e9", weight: 6, opacity: 0.95, interactive: false }),
+    ]).addTo(map);
+    if (ridePolyline && ridePolyline.bringToFront) ridePolyline.bringToFront();
+    // 2. Zoom right in on where you are (the route starts at your current location), kept in the open map below the bars
+    try {
+      const here = p.latlngs[0];
+      map.setView(here, map.getMaxZoom(), { animate: false });
+      setTimeout(() => followRidePosition(here[0] != null ? here[0] : here.lat, here[1] != null ? here[1] : here.lng), 0);
+    } catch (e) {}
     navSteps = p.steps || [];
     navStepIndex = 0;
     navAnnouncedUpcoming = false;
@@ -97513,7 +97614,7 @@ return maplibregl$1;
     return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + r.id + '">' +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-route-visibility" data-id="' + r.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
-      '<button class="card-favorite' + (r.favorite ? " favorited" : "") + '" data-action="toggle-favorite-route" data-id="' + r.id + '" title="' + (r.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      '<button type="button" class="card-route-btn" data-action="route-to-route" data-id="' + r.id + '" title="Directions to its start from where you are" aria-label="Directions to its start from where you are">' + icon("directions", 15) + "</button>" +
       '<button class="card-edit-btn" data-action="edit-route-points" data-id="' + r.id + '" title="Edit route points">' + icon("edit", 15) + "</button>" +
       '<button class="ride-card-delete-btn" data-action="delete-route" data-id="' + r.id + '" title="Delete" aria-label="Delete">' + icon("trash", 15) + "</button>" +
       "</div>" +
@@ -97578,6 +97679,10 @@ return maplibregl$1;
         if (ride) fetchElevationForRide(ride);
       });
     });
+    routesPanelList.querySelectorAll("[data-action='route-to-route']").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation(); const r = rides.find((x) => x.id === btn.dataset.id); const p0 = r && r.points && r.points[0];
+      if (p0) routeToPoint({ name: (r.name || "Route") + " (start)", lat: p0.lat, lng: p0.lng }); else showToast("This route has no points to go to.");
+    }));
     routesPanelList.querySelectorAll("[data-action='toggle-favorite-route']").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -97640,7 +97745,7 @@ return maplibregl$1;
     return '<div class="card ride-card ride-card-stacked has-drag-handle" data-id="' + m.id + '">' +
       '<div class="ride-card-icons-row">' +
       '<button class="card-visibility-btn' + (isVisible ? " active" : "") + '" data-action="toggle-measurement-visibility" data-id="' + m.id + '" title="' + (isVisible ? "Hide from map" : "Show on map") + '">' + icon(isVisible ? "eye" : "eyeOff", 15) + "</button>" +
-      '<button class="card-favorite' + (m.favorite ? " favorited" : "") + '" data-action="toggle-favorite-measurement" data-id="' + m.id + '" title="' + (m.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+      '<button type="button" class="card-route-btn" data-action="route-to-measurement" data-id="' + m.id + '" title="Directions to its first point from where you are" aria-label="Directions to its first point from where you are">' + icon("directions", 15) + "</button>" +
       (isClosedLoop(m.points) ? '<button class="card-favorite' + (m.isGeofenceZone ? " favorited" : "") + '" data-action="toggle-geofence-zone" data-id="' + m.id + '" title="' + (m.isGeofenceZone ? "Stop tracking as a geofence zone" : "Track as a geofence zone") + '">' + icon("crosshair", 15) + "</button>" : "") +
       (isClosedLoop(m.points) ? '<button class="card-favorite" data-action="download-tiles-for-area" data-id="' + m.id + '" title="Download map tiles for this area (offline use)">' + icon("fileDown", 15) + "</button>" : "") +
       '<button class="card-edit-btn" data-action="edit-measurement-points" data-id="' + m.id + '" title="Edit measurement points">' + icon("edit", 15) + "</button>" +
@@ -97674,6 +97779,10 @@ return maplibregl$1;
       .sort((a, b) => compareSortNames(a.name, b.name));
     const entries = editingFolder ? [{ name: editingFolder.name, html: measurementFolderAccordionHtml(editingFolder) }].concat(restEntries) : restEntries;
     measurementsPanelList.innerHTML = entries.map((e) => e.html).join("");
+    measurementsPanelList.querySelectorAll("[data-action='route-to-measurement']").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation(); const m = measurements.find((x) => x.id === btn.dataset.id); const p0 = m && m.points && m.points[0];
+      if (p0) routeToPoint({ name: m.name || "Measurement", lat: p0.lat, lng: p0.lng }); else showToast("This measurement has no points to go to.");
+    }));
     measurementsPanelList.querySelectorAll(".ride-card").forEach((cardEl) => {
       cardEl.addEventListener("click", (e) => {
         if (e.target.closest("[data-action]")) return;
@@ -108352,7 +108461,7 @@ return maplibregl$1;
         '<div class="card-top">' +
           '<div class="card-top-actions">' +
             (isStory ? "" : '<button class="card-waypoint-visibility-btn' + (wp.hidden ? " hidden-state" : "") + '" data-action="toggle-waypoint-visibility" data-id="' + wp.id + '" title="' + (wp.hidden ? "Show on map" : "Hide from map") + '">' + icon(wp.hidden ? "eyeOff" : "eye", 15) + "</button>") +
-            '<button class="card-favorite' + (wp.favorite ? " favorited" : "") + '" data-action="toggle-favorite" data-id="' + wp.id + '" title="' + (wp.favorite ? "Remove from favorites" : "Add to favorites") + '">' + icon("heart", 15) + "</button>" +
+            '<button type="button" class="card-route-btn" data-action="route-to-waypoint" data-id="' + wp.id + '" title="Directions to here from where you are" aria-label="Directions to here from where you are">' + icon("directions", 15) + "</button>" +
             (wp.review && wp.review.rating ? '<span class="card-rating-badge" title="Review rating">' + wp.review.rating.toFixed(1) + " \u2605</span>" : "") +
             (isStory ? "" : '<button class="card-camera" data-action="take-photo" data-id="' + wp.id + '" title="Take a photo for this waypoint">' + icon("camera", 15) + "</button>") +
             (isStory ? "" : '<button class="card-icon-action-btn" data-action="forecast" data-id="' + wp.id + '" title="Forecast">' + icon("cloudSun", 15) + "</button>") +
@@ -108453,6 +108562,7 @@ return maplibregl$1;
             );
             break;
           case "toggle-waypoint-visibility": e.stopPropagation(); setWaypointVisibility(wp.id, !wp.hidden); break;
+          case "route-to-waypoint": e.stopPropagation(); routeToPoint({ name: wp.name || "Waypoint", lat: wp.lat, lng: wp.lng }); break;
           case "toggle-favorite":
             e.stopPropagation();
             wp.favorite = !wp.favorite;
