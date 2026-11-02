@@ -4141,7 +4141,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="directions-mode-row">
         <button type="button" class="directions-mode-btn active" data-mode="driving"><span class="icon"></span>Drive</button>
         <button type="button" class="directions-mode-btn" data-mode="cycling"><span class="icon"></span>Bike</button>
-        <button type="button" class="directions-mode-btn" data-mode="walking"><span class="icon"></span>Walk</button>
+        <button type="button" class="directions-mode-btn" data-mode="walking"><span class="icon"></span>Hike</button>
       </div>
       <label class="field-label">From</label>
       <div class="directions-input-row">
@@ -81891,7 +81891,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "615";
+  const APP_VERSION = "617";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -95393,7 +95393,9 @@ return maplibregl$1;
     directionsFromInput.placeholder = "Using current location";
     directionsToInput.value = pl.name;
     directionsPinnedTo = { query: pl.name, lat: pl.lat, lng: pl.lng, label: pl.name };
-    runDirections();
+    // Wait for the travel mode: calculating straight away closed this window (a finished route
+    // closes it) before Drive, Bike or Walk could be chosen.
+    directionsStatusText.textContent = "Choose Drive, Bike or Hike, then tap Get Directions.";
   }
   async function runDirections() {
     const toQuery = directionsToInput.value.trim();
