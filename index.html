@@ -81891,7 +81891,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "617";
+  const APP_VERSION = "618";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -93576,6 +93576,7 @@ return maplibregl$1;
     followRidePosition(latitude, longitude);
     updateRideHud();
     if (navActive) updateTurnByTurnProgress(latitude, longitude);
+    if (navActive) checkOffRoute(latitude, longitude, pos.coords && pos.coords.accuracy);
   }
   function onRideError(err) {
     console.error("[ride tracking] geolocation error:", err);
@@ -95349,7 +95350,53 @@ return maplibregl$1;
   // key, but rate-limited (1 request/second) and meant for light,
   // non-commercial use, same trade-off as before.
   const OSRM_MODE_PREFIXES = { driving: "routed-car", cycling: "routed-bike", walking: "routed-foot" };
+  /* Bike directions prefer bike paths: they come from BRouter (brouter.de, free, no key) with its
+     "trekking" profile, which favours cycleways, bike lanes and quiet roads over the fastest roads.
+     Its turn instructions are numbered codes on points of the route (no street names). If BRouter
+     can't be reached in 12 s, the standard bike routing (OSRM) is used instead, and the result says
+     so. Driving and hiking are unchanged. */
+  const BROUTER_URL = "https://brouter.de/brouter";
+  const BROUTER_HINTS = { 2: "Turn left", 3: "Turn slightly left", 4: "Turn sharply left", 5: "Turn right", 6: "Turn slightly right", 7: "Turn sharply right",
+    8: "Keep left", 9: "Keep right", 10: "Make a U-turn", 11: "Make a U-turn", 12: "Make a U-turn", 15: "Make a U-turn", 17: "Take the exit on the left", 18: "Take the exit on the right" };
+  function ordinalWord(n) { return ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"][n] || (n + "th"); }
+  function pathLengthMeters(latlngs) { let d = 0; for (let i = 1; i < latlngs.length; i++) d += haversineMeters(latlngs[i - 1][0], latlngs[i - 1][1], latlngs[i][0], latlngs[i][1]); return d; }
+  async function fetchBrouterBikeRoute(fromPoint, toPoint) {
+    const url = BROUTER_URL + "?lonlats=" + fromPoint.lng + "," + fromPoint.lat + "|" + toPoint.lng + "," + toPoint.lat + "&profile=trekking&alternativeidx=0&format=geojson&timode=1";
+    const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const f = data && data.features && data.features[0];
+      if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length < 2) throw new Error("no route");
+      const latlngs = f.geometry.coordinates.map((c) => [c[1], c[0]]);
+      const props = f.properties || {};
+      const at = (i) => latlngs[Math.min(Math.max(+i || 0, 0), latlngs.length - 1)];
+      const steps = [{ instruction: "Head out along the route", lat: latlngs[0][0], lng: latlngs[0][1] }];
+      (props.voicehints || []).forEach((h) => {
+        if (!Array.isArray(h)) return;
+        const cmd = +h[1], p = at(h[0]);
+        const text = (cmd === 13 || cmd === 14) ? "At the roundabout, take the " + ordinalWord(+h[2] || 1) + " exit" : BROUTER_HINTS[cmd];
+        if (text) steps.push({ instruction: text, lat: p[0], lng: p[1] });
+      });
+      const end = latlngs[latlngs.length - 1];
+      steps.push({ instruction: "Arrive at your destination", lat: end[0], lng: end[1] });
+      const dist = +props["track-length"] || pathLengthMeters(latlngs);
+      return { distanceMeters: dist, durationSeconds: +props["total-time"] || dist / 4.2, latlngs, steps, source: "brouter" };
+    } finally { clearTimeout(timer); }
+  }
   async function fetchDirectionsRoute(fromPoint, toPoint, profile) {
+    if (profile === "cycling") {
+      try { const r = await fetchBrouterBikeRoute(fromPoint, toPoint); if (r) return r; } catch (e) { /* fall back below */ }
+      const r = await fetchOsrmDirectionsRoute(fromPoint, toPoint, profile);
+      if (r) r.source = "osrm-fallback";
+      return r;
+    }
+    const r = await fetchOsrmDirectionsRoute(fromPoint, toPoint, profile);
+    if (r) r.source = "osrm";
+    return r;
+  }
+  async function fetchOsrmDirectionsRoute(fromPoint, toPoint, profile) {
     const coords = fromPoint.lng + "," + fromPoint.lat + ";" + toPoint.lng + "," + toPoint.lat;
     const prefix = OSRM_MODE_PREFIXES[profile] || "routed-car";
     const url = "https://routing.openstreetmap.de/" + prefix + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson&steps=true";
@@ -95432,12 +95479,13 @@ return maplibregl$1;
     const fromLabel = fromPoint.label || "Start";
     const toLabel = toPoint.label || "Destination";
     directionsResultTitle.textContent = shortenPlaceLabel(fromLabel) + " → " + shortenPlaceLabel(toLabel);
-    directionsResultSummary.textContent = formatDistance(route.distanceMeters) + " — about " + formatDuration(route.durationSeconds * 1000);
+    directionsResultSummary.textContent = formatDistance(route.distanceMeters) + " \u00b7 about " + formatDuration(route.durationSeconds * 1000) +
+      (directionsSelectedProfile === "cycling" ? (route.source === "brouter" ? " \u00b7 prefers bike paths" : " \u00b7 standard bike route (bike-path routing unavailable)") : "");
     directionsResultHud.classList.remove("hidden");
     directionsPendingSave = {
       fromLabel, toLabel, profile: directionsSelectedProfile,
       fromLat: fromPoint.lat, fromLng: fromPoint.lng, toLat: toPoint.lat, toLng: toPoint.lng,
-      distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds, latlngs: route.latlngs, steps: route.steps || []
+      distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds, latlngs: route.latlngs, steps: route.steps || [], source: route.source
     };
     // Same "measure the panel, then pad the map around it" approach used
     // elsewhere in this app for a HUD that stays open over the map.
@@ -95625,14 +95673,10 @@ return maplibregl$1;
     // actually being recorded -- the two are expected to diverge slightly
     // in normal use, so both stay visible rather than one replacing the
     // other.
-    // The route to follow, drawn solid in the preview's blue with a light outline so it stands out on
-    // any map (the dashed, 45%-opacity line it replaces was hard to see); the track actually recorded
-    // is drawn on top of it, so where you've been shows along the route.
-    navGuideRouteLayer = L.layerGroup([
-      L.polyline(p.latlngs, { color: "#ffffff", weight: 10, opacity: 0.85, interactive: false }),
-      L.polyline(p.latlngs, { color: "#0ea5e9", weight: 6, opacity: 0.95, interactive: false }),
-    ]).addTo(map);
-    if (ridePolyline && ridePolyline.bringToFront) ridePolyline.bringToFront();
+    drawNavGuide(p.latlngs);
+    navDestination = { lat: p.toLat, lng: p.toLng, label: p.toLabel };
+    navProfile = p.profile || "driving";
+    navOffCount = 0; navLastReroute = 0; navRerouting = false;
     // 2. Zoom right in on where you are (the route starts at your current location), kept in the open map below the bars
     try {
       const here = p.latlngs[0];
@@ -95654,11 +95698,70 @@ return maplibregl$1;
       showToast("Route tracking started, but no turn-by-turn steps were available for this route.");
     }
   });
+  /* The route to follow, drawn solid in the preview's blue with a light outline so it stands out on
+     any map; the track actually recorded is drawn on top, so where you've been shows along it. */
+  let navRouteLatLngs = [];
+  function drawNavGuide(latlngs) {
+    if (navGuideRouteLayer) map.removeLayer(navGuideRouteLayer);
+    navRouteLatLngs = latlngs.map((q) => Array.isArray(q) ? q : [q.lat, q.lng]);
+    navGuideRouteLayer = L.layerGroup([
+      L.polyline(navRouteLatLngs, { color: "#ffffff", weight: 10, opacity: 0.85, interactive: false }),
+      L.polyline(navRouteLatLngs, { color: "#0ea5e9", weight: 6, opacity: 0.95, interactive: false }),
+    ]).addTo(map);
+    if (ridePolyline && ridePolyline.bringToFront) ridePolyline.bringToFront();
+  }
+  /* Leaving the route recalculates it. On each GPS fix while navigating, the distance to the route line
+     is measured; more than 40 m off (more when GPS is imprecise) on two fixes in a row recalculates a
+     route from where you are to the same destination, with the same travel mode (bike paths still
+     preferred), and replaces the line and the turn instructions. At most every 15 s, so a GPS wobble or
+     a short detour doesn't set off a flurry; if it fails, the old route stays and it tries again later. */
+  let navDestination = null, navProfile = "driving", navOffCount = 0, navLastReroute = 0, navRerouting = false;
+  const NAV_OFF_ROUTE_METERS = 40, NAV_REROUTE_GAP_MS = 15000;
+  function distanceToRouteMeters(lat, lng, latlngs) {
+    const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+    let best = Infinity;
+    for (let i = 1; i < latlngs.length; i++) {
+      const ax = (latlngs[i - 1][1] - lng) * kx, ay = (latlngs[i - 1][0] - lat) * ky, bx = (latlngs[i][1] - lng) * kx, by = (latlngs[i][0] - lat) * ky;
+      const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+      const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+      const px = ax + t * dx, py = ay + t * dy, d = Math.sqrt(px * px + py * py);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+  function checkOffRoute(lat, lng, accuracy) {
+    if (!navActive || navRerouting || !navDestination || navRouteLatLngs.length < 2) return;
+    const limit = Math.max(NAV_OFF_ROUTE_METERS, (accuracy || 0) * 1.5);
+    if (distanceToRouteMeters(lat, lng, navRouteLatLngs) <= limit) { navOffCount = 0; return; }
+    navOffCount++;
+    if (navOffCount < 2 || Date.now() - navLastReroute < NAV_REROUTE_GAP_MS) return;
+    rerouteNavigation(lat, lng);
+  }
+  async function rerouteNavigation(lat, lng) {
+    navRerouting = true; navLastReroute = Date.now(); navOffCount = 0;
+    speakNav("Recalculating");
+    updateNavHudText("Recalculating\u2026", null);
+    try {
+      const r = await fetchDirectionsRoute({ lat, lng }, navDestination, navProfile);
+      if (!navActive) return;
+      if (!r || !r.latlngs || r.latlngs.length < 2) throw new Error("no route");
+      drawNavGuide(r.latlngs);
+      navSteps = r.steps || [];
+      navStepIndex = navSteps.length > 1 ? 1 : 0; // the first step is where you are now
+      navAnnouncedUpcoming = false;
+      const next = navSteps[navStepIndex];
+      if (next) { speakNav(next.instruction); updateNavHudText(next.instruction, null); }
+    } catch (e) {
+      const cur = navSteps[navStepIndex];
+      updateNavHudText(cur ? cur.instruction : "Off route", null); // keep the old route; try again later
+    } finally { navRerouting = false; }
+  }
   function stopNavigation() {
     if (navGuideRouteLayer) { map.removeLayer(navGuideRouteLayer); navGuideRouteLayer = null; }
     navActive = false;
     navSteps = [];
     navStepIndex = 0;
+    navDestination = null; navRouteLatLngs = [];
     navHud.classList.add("hidden");
   }
   navHudStopBtn.addEventListener("click", () => {
