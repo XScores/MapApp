@@ -777,7 +777,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .search-box{display:flex; align-items:center; gap:8px; background:var(--panel-bg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
     border:1px solid var(--border); border-radius:12px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.3);}
   .search-box input{flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-size:14px;}
-  .search-box input::placeholder{color:var(--text-mute);}
+  .search-box input::placeholder, .search-box textarea::placeholder{color:var(--text-mute);}
+  .search-box textarea.search-input:placeholder-shown{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  /* The search field wraps a long entry onto more lines (up to four), then scrolls within itself */
+  .search-box textarea.search-input{flex:1; min-width:0; display:block; background:transparent !important; border:none !important; outline:none; box-shadow:none !important;
+    color:var(--text); font:inherit; font-size:14px; line-height:1.35; padding:0 !important; margin:0; min-height:0 !important; height:auto; resize:none;
+    overflow-y:hidden; overflow-wrap:anywhere; white-space:pre-wrap; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; border-radius:0;}
   .search-box .icon{color:var(--text-mute); flex-shrink:0;}
   .search-clear{cursor:pointer; color:var(--text-mute); flex-shrink:0; display:flex;}
   .search-clear:hover{color:var(--text-dim);}
@@ -816,7 +821,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     .topbar{gap:3px; justify-content:center;}
     .search-wrap{flex:0 0 44px; max-width:44px; position:relative;}
     .search-box{width:44px; height:44px; padding:0; justify-content:center; overflow:hidden; cursor:pointer;}
-    .search-wrap:not(.expanded) .search-box input,
+    .search-wrap:not(.expanded) .search-box input, .search-wrap:not(.expanded) .search-box textarea,
     .search-wrap:not(.expanded) .search-box #searchSpinner,
     .search-wrap:not(.expanded) .search-box #searchClearBtn{display:none !important;}
     .search-wrap.expanded{position:fixed; top:calc(76px + env(safe-area-inset-top)); left:14px; right:14px; max-width:none; flex:0 0 auto; z-index:27;}
@@ -2620,7 +2625,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
      Subheadline 15, Body 17), mapped from the app's own sizes so the hierarchy is kept. The
      hand-written Apple rules after this take precedence. */
   html.ui-apple .map-drop-hint{font-size:17px;}
-  html.ui-apple .search-box input{font-size:17px;}
+  html.ui-apple .search-box input, html.ui-apple .search-box textarea.search-input{font-size:17px;}
+  html.ui-apple .search-box textarea.search-input{line-height:1.29;} /* one line the same height as before */
   html.ui-apple .search-result-row{font-size:17px;}
   html.ui-apple .search-result-tag{font-size:11px;}
   html.ui-apple .search-result-detail{font-size:13px;}
@@ -3127,7 +3133,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="search-wrap" id="searchWrap">
       <div class="search-box" id="searchBox">
         <span class="icon" id="searchIcon"></span>
-        <input id="searchInput" type="text" placeholder="Search a place, coordinates, or a 3-word address…" autocomplete="off" />
+        <textarea id="searchInput" class="search-input" rows="1" placeholder="Search a place, coordinates, or a 3-word address…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Search"></textarea>
         <span id="searchSpinner" class="spinner" style="display:none;"></span>
         <button id="searchClearBtn" class="search-clear" style="display:none;" title="Clear search"></button>
         <button id="searchCollapseBtn" class="search-collapse-btn" title="Close search"></button>
@@ -81891,7 +81897,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "618";
+  const APP_VERSION = "620";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -101009,16 +101015,35 @@ return maplibregl$1;
     return lead + " No matches in your saved waypoints or downloaded maps.";
   }
   // The online place lookup. status: "ok" | "offline" (no connection, or no answer in time) | "unavailable" (the service answered with an error).
+  /* Place and street searches start close to you: the search tells the place service the area around
+     you (about 50 km each way) as a preference (not a limit, so "Paris" still finds Paris), then lists
+     matches within 80 km first, nearest first, before the rest; each shows how far away it is.
+     "Where you are" is your position when the app is tracking it, otherwise the middle of the map. */
+  const SEARCH_NEAR_KM = 80;
+  function searchReferencePoint() {
+    if (lastLivePosition && isFinite(lastLivePosition.lat) && isFinite(lastLivePosition.lng)) return { lat: lastLivePosition.lat, lng: lastLivePosition.lng };
+    const c = map.getCenter(); return { lat: c.lat, lng: c.lng };
+  }
+  function orderPlacesNearFirst(results, ref) {
+    const withDist = results.map((r, i) => { const lat = +r.lat, lng = +r.lon; const km = isFinite(lat) && isFinite(lng) ? haversineMeters(ref.lat, ref.lng, lat, lng) / 1000 : Infinity; return { r, i, km }; });
+    const near = withDist.filter((x) => x.km <= SEARCH_NEAR_KM).sort((a, b) => a.km - b.km);
+    const far = withDist.filter((x) => !(x.km <= SEARCH_NEAR_KM));
+    const away = (km) => km < 0.05 ? "nearby" : km < 1 ? Math.round(km * 1000 / 10) * 10 + " m away" : km < 10 ? km.toFixed(1) + " km away" : Math.round(km).toLocaleString() + " km away";
+    return near.concat(far).map((x) => { if (isFinite(x.km) && !x.r.detail) x.r.detail = away(x.km); return x.r; });
+  }
   async function lookupOnlinePlaces(q) {
     if (navigator.onLine === false) return { status: "offline", results: [] };
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), SEARCH_TUNING.timeoutMs);
     try {
-      const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(q), { signal: ctrl.signal });
+      const ref = searchReferencePoint();
+      const dLat = 0.45, dLng = 0.45 / Math.max(0.2, Math.cos(ref.lat * Math.PI / 180)); // about 50 km each way
+      const viewbox = [ref.lng - dLng, ref.lat + dLat, ref.lng + dLng, ref.lat - dLat].map((v) => v.toFixed(4)).join(",");
+      const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=10&viewbox=" + viewbox + "&bounded=0&q=" + encodeURIComponent(q), { signal: ctrl.signal });
       if (!res.ok) return { status: "unavailable", results: [] };
       let data;
       try { data = await res.json(); } catch (e) { return { status: "unavailable", results: [] }; }
-      return { status: "ok", results: Array.isArray(data) ? data : [] };
+      return { status: "ok", results: orderPlacesNearFirst(Array.isArray(data) ? data : [], ref).slice(0, 6) };
     } catch (e) {
       return { status: "offline", results: [] };
     } finally {
@@ -101628,6 +101653,30 @@ return maplibregl$1;
     }
   }
   // Enter in the search box runs a nearby search when the text looks like one.
+  /* The search field (a one-row textarea): grows with a long entry up to four lines, then scrolls
+     within itself. Enter searches and never adds a line; pasted line breaks become spaces. It
+     also resizes when the app fills it in (a chosen result's name, say). */
+  const SEARCH_MAX_LINES = 4;
+  function sizeSearchInput() {
+    searchInput.style.height = "auto";
+    const lh = parseFloat(getComputedStyle(searchInput).lineHeight) || 19;
+    if (!searchInput.value) { searchInput.style.height = Math.round(lh) + "px"; searchInput.style.overflowY = "hidden"; return; } // empty: one line (the placeholder doesn't wrap)
+    const max = Math.round(lh * SEARCH_MAX_LINES);
+    const h = Math.min(searchInput.scrollHeight, max);
+    searchInput.style.height = Math.max(h, Math.round(lh)) + "px";
+    searchInput.style.overflowY = searchInput.scrollHeight > max + 1 ? "auto" : "hidden";
+  }
+  (function watchSearchValue() {
+    const d = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+    Object.defineProperty(searchInput, "value", { configurable: true, get() { return d.get.call(this); }, set(v) { d.set.call(this, v); requestAnimationFrame(sizeSearchInput); } });
+  })();
+  searchInput.addEventListener("input", () => {
+    if (/[\r\n]/.test(searchInput.value)) { const pos = searchInput.selectionStart; searchInput.value = searchInput.value.replace(/[\r\n]+/g, " "); try { searchInput.setSelectionRange(pos, pos); } catch (e) {} }
+    sizeSearchInput();
+  });
+  searchInput.addEventListener("focus", () => requestAnimationFrame(sizeSearchInput));
+  window.addEventListener("resize", () => requestAnimationFrame(sizeSearchInput));
+  searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); }); // never a new line
   searchInput.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const q = searchInput.value.trim();
