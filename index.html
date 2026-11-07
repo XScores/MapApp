@@ -81897,7 +81897,7 @@ return maplibregl$1;
   /*  embedded as base64 started running into its ~5-10MB cap.         */
   /* ================================================================ */
 
-  const APP_VERSION = "620";
+  const APP_VERSION = "621";
   const STORAGE_KEY = "waypoint-saver:waypoints";
   const SETTINGS_KEY = "waypoint-saver:settings";
   const RIDES_KEY = "waypoint-saver:rides";
@@ -101495,6 +101495,65 @@ return maplibregl$1;
   }
   function fmtNearbyKm(km) { return km < 1 ? Math.round(km * 1000) + " m" : km < 10 ? km.toFixed(1) + " km" : Math.round(km) + " km"; }
   let nearbySeq = 0;
+  /* Questions in the search field ("I'm looking for the best-rated pizza place in Ottawa, can you
+     provide three suggestions?") are answered by the AI with web search: the number of suggestions
+     asked for (5 if none), in its order (best first), each with its address, rating and a short
+     reason, placed on the map and shown as numbered results under the AI's short answer. Plain
+     searches ("pizza", a business name, an address) keep working as before. */
+  function looksLikeQuestion(q) {
+    const t = String(q || "").trim();
+    if (t.split(/\s+/).length < 5) return false;
+    return /\?/.test(t) || /\b(best|top|highest|recommend\w*|suggest\w*|rated|ratings?|reviews?|popular|favou?rites?|where (can|should|is|are|do)|can you|could you|would you|what are|which|looking for|any good|ideas?|worth)\b/i.test(t);
+  }
+  const QUESTION_NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, few: 3 };
+  function questionCount(q) {
+    const t = String(q).toLowerCase();
+    const m = /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|couple|few)\b(?=[^.?!]{0,40}\b(suggestions?|options?|places?|ideas?|recommendations?|spots?|restaurants?|choices?|picks?)\b)/.exec(t) || /\btop\s+(\d{1,2}|three|five|ten)\b/.exec(t);
+    const n = m ? (+m[1] || QUESTION_NUMBERS[m[1]]) : 5;
+    return Math.max(1, Math.min(10, n || 5));
+  }
+  async function runAiQuestion(q, seq, msg, o) {
+    msg("\u2728 Asking AI: \u201c" + q + "\u201d\u2026");
+    const origin = await nearbyOrigin();
+    if (seq !== nearbySeq) return;
+    const n = questionCount(q);
+    const prompt = [
+      "Someone typed this into the search box of a map app: \"" + String(q).slice(0, 300) + "\"",
+      "They are near latitude " + origin.lat.toFixed(4) + ", longitude " + origin.lng.toFixed(4) + " (use that only if the question doesn't name a place).",
+      "Using web search, answer with exactly " + n + " real, currently open places that fit, best match first. For ratings, use review sites you actually found and name the source.",
+      "Reply with only a JSON object, no other text: {\"answer\": \"one or two short sentences answering the question\", \"places\": [{\"name\": \"place name\", \"address\": \"full street address with city, province or state, and postal code\", \"rating\": \"e.g. 4.6 (1,200 Google reviews), or empty\", \"why\": \"a few words on why it fits\", \"website\": \"official website or empty\", \"source\": \"where you found it\"}]}",
+      "If you can't find suitable places, reply with {\"answer\": \"why not\", \"places\": []}."
+    ].join("\n");
+    const text = await callAI(prompt, { webSearch: true });
+    if (seq !== nearbySeq) return;
+    let reply = null;
+    try { const m = /\{[\s\S]*\}/.exec(String(text)); reply = m ? JSON.parse(m[0]) : null; } catch (e) { reply = null; }
+    const suggestions = reply && Array.isArray(reply.places) ? reply.places.filter((p) => p && p.name).slice(0, n) : [];
+    const answer = String((reply && reply.answer) || "").trim().slice(0, 400);
+    if (!suggestions.length) {
+      msg(answer || "The AI couldn\u2019t find suggestions for that. Try rewording it, or search for a kind of place.", false);
+      if (o.spoken && answer) speak(answer);
+      return;
+    }
+    msg("\u2728 Finding " + (suggestions.length === 1 ? "that place" : "those " + suggestions.length + " places") + " on the map\u2026");
+    const placed = await placeWebAddresses(JSON.stringify(suggestions), origin, "", n);
+    if (seq !== nearbySeq) return;
+    // Back into the AI's order (best first): placing returns them nearest first
+    const order = (name) => { const i = suggestions.findIndex((s) => String(s.name).slice(0, 80) === name); return i === -1 ? 99 : i; };
+    placed.sort((a, b) => order(a.name) - order(b.name));
+    placed.forEach((pl) => { const sug = suggestions[order(pl.name)] || {}; pl.ratingText = String(sug.rating || "").trim().slice(0, 60); pl.why = String(sug.why || "").trim().slice(0, 90); });
+    const rows = placed.map((pl, i) => ({
+      display_name: pl.name + (pl.address ? ", " + pl.address : ""), lat: pl.lat, lon: pl.lng, kind: "nearby", tag: String(i + 1), website: pl.web || "", title: pl.web || "",
+      detail: [pl.ratingText ? "\u2605 " + pl.ratingText : "", pl.why, fmtNearbyKm(pl.km) + " away" + (pl.approx ? " (approximate position)" : "")].filter(Boolean).join(" \u00b7 ")
+    }));
+    const missing = suggestions.filter((s) => !placed.some((pl) => pl.name === String(s.name).slice(0, 80)));
+    const out = [{ isMessage: true, text: "\u2728 " + (answer || "Here are some suggestions.") }].concat(rows);
+    if (missing.length) out.push({ isMessage: true, text: "Couldn\u2019t place on the map: " + missing.map((s) => s.name + (s.address ? " (" + s.address + ")" : "")).join("; ") + "." });
+    out.push({ isMessage: true, text: "Suggestions and ratings come from the web through AI, and may be out of date. Check before you go." });
+    renderSearchResults(out);
+    if (placed.length) showNearbyOnMap(placed, origin);
+    if (o.spoken) speak(answer || "Here are some suggestions.");
+  }
   async function runNearbySearch(q, opts) {
     const o = opts || {}, seq = ++nearbySeq;
     searchSeq++; // any text search still in flight is now out of date
@@ -101506,6 +101565,11 @@ return maplibregl$1;
     if (navigator.onLine === false) { msg("Nearby search needs a connection.", false); if (o.spoken) speak("Nearby search needs a connection."); return; }
     searchSpinner.style.display = "block";
     try {
+      if (aiAvailable() && looksLikeQuestion(q)) {
+        try { await runAiQuestion(q, seq, msg, o); }
+        catch (e) { if (seq === nearbySeq) msg("The AI couldn\u2019t answer that: " + ((e && e.message) || "no answer") + ". Try again, or search for a kind of place.", false); }
+        return;
+      }
       const quick = quickNearbyKind(q);
       let intent = null;
       let aiIntentProblem = "";
